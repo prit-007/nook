@@ -1,0 +1,47 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+pubspec.lock
+
+# Generated code
+*.g.dart
+*.freezed.dart
+*.drift.dart
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Android
+android/**/gradle-wrapper.jar
+android/.gradle
+android/captures/
+android/local.properties
+android/key.properties
+**/android/**/GeneratedPluginRegistrant.java
+
+# iOS
+ios/Flutter/.last_build_id
+ios/Pods/
+ios/.symlinks/
+**/ios/**/GeneratedPluginRegistrant.*
+
+# macOS/Linux/Windows desktop (not targeted for v1 but keep clean anyway)
+macos/Flutter/ephemeral/
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# Secrets — never commit signing keys or keystores
+*.jks
+*.keystore
+key.properties
+
+# OS junk
+.DS_Store
+Thumbs.db
