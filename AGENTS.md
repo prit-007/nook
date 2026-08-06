@@ -63,6 +63,10 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 - `nearby_service` v0.2.1 is in pubspec but no sync code exists yet.
 - Plan is in `docs/notes-app-detailed-plan.md` §9 and `docs/notes-app-masterplan.md` §6.
 
+## Implementation checklist
+- Full task-by-task checklist: `docs/IMPLEMENTATION-CHECKLIST.md`
+- Tracks completion status across all 8 phases (0–7) with file references
+
 ## Architecture plan (not yet implemented)
 - Planned directory structure is in `docs/notes-app-masterplan.md` §9 (`core/`, `data/`, `sync/`, `features/`).
 - Planned go_router routes (~22 routes) are documented in `docs/notes-app-part3-editor-routes-libraries.md` §3.

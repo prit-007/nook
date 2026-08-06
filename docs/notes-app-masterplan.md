@@ -190,7 +190,12 @@ Start an `docs/adr/` folder (Architecture Decision Records) — even 3-line note
 
 ---
 
-## 10. Immediate Next Steps
+## 10. Implementation Checklist
+
+For the full task-by-task checklist with file references and validation steps, see:
+**[`docs/IMPLEMENTATION-CHECKLIST.md`](IMPLEMENTATION-CHECKLIST.md)**
+
+## 11. Immediate Next Steps
 
 1. Set up the repo + CI + Drift schema (Phase 0) this week.
 2. Build the design tokens/theme system *before* any real screen — this is what makes "Material You dynamic per-note theming" feel coherent instead of chaotic.

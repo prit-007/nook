@@ -603,30 +603,10 @@ SyncScreen
 
 ## 12. Task-Level Roadmap (expands Phase 0–2 from the master plan into concrete tickets)
 
-**Phase 0 tickets:**
-- [ ] Repo scaffold, lint rules, CI (analyze + test on push)
-- [ ] Drift schema + migrations + FTS virtual table
-- [ ] Encrypted DB bootstrap (SQLCipher + secure storage key)
-- [ ] Riverpod provider skeleton + go_router routes
-- [ ] Design tokens file: color seed palette (12–16 curated), type scale, spacing scale, corner radii, elevation/tonal-surface rules
+For the full task-by-task checklist with file references and validation steps, see:
+**[`IMPLEMENTATION-CHECKLIST.md`](IMPLEMENTATION-CHECKLIST.md)**
 
-**Phase 1 tickets:**
-- [ ] Home grid (empty state first, then real data)
-- [ ] Create/edit/delete text note, AppFlowy Editor integration + custom
-      `todo_list` re-skin + slash-command menu theming (see §6)
-- [ ] Notebooks CRUD + assign note to notebook
-- [ ] Tags CRUD + chip picker
-- [ ] Search screen wired to FTS
-
-**Phase 2 tickets:**
-- [ ] Checklist note type + reorder + swipe-to-check animation
-- [ ] Doodle canvas MVP (single layer, pen + eraser, perfect_freehand smoothing)
-- [ ] `doodle` custom node type registered in AppFlowy Editor's block map (§6.4)
-- [ ] Image attachment picker + thumbnailing
-- [ ] Note → image export (RepaintBoundary path)
-- [ ] Save exported image to gallery
-
-(Phases 3–7 task breakdowns follow the same pattern — expand each once you're actually starting that phase, since specifics will shift based on what you learn in Phases 0–2.)
+The checklist covers all 8 phases (0–7) with detailed checkboxes, file paths, and validation criteria. Use it as the single source of truth for implementation progress.
 
 ---
 
