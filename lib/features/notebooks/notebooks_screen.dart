@@ -1,18 +1,230 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-/// Notebooks list screen.
-/// Full implementation in Phase 1.
-class NotebooksScreen extends StatelessWidget {
+import '../../core/providers/database_provider.dart';
+import '../../data/database.dart';
+import '../../data/repositories/notebook_repository.dart';
+import 'widgets/notebook_card.dart';
+
+/// Notebooks list screen — grid of notebook cards with CRUD.
+class NotebooksScreen extends ConsumerStatefulWidget {
   const NotebooksScreen({super.key});
+
+  @override
+  ConsumerState<NotebooksScreen> createState() => _NotebooksScreenState();
+}
+
+class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
+  List<Notebook> _notebooks = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final repo = NotebookRepository(ref.read(databaseProvider));
+    final results = await repo.getAllNotebooks();
+    setState(() {
+      _notebooks = results;
+      _loading = false;
+    });
+  }
+
+  void _showCreateSheet() {
+    final nameController = TextEditingController();
+    String selectedColor = '#FF5722';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Create Notebook',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                hintText: 'e.g. Work, Personal',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              children: [
+                '#FF5722',
+                '#2196F3',
+                '#4CAF50',
+                '#9C27B0',
+                '#FF9800',
+                '#E91E63',
+              ].map((c) {
+                final color = Color(
+                  int.parse('FF${c.replaceFirst('#', '')}', radix: 16),
+                );
+                return GestureDetector(
+                  onTap: () => setState(() => selectedColor = c),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selectedColor == c
+                            ? Theme.of(ctx).colorScheme.onSurface
+                            : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () async {
+                    if (nameController.text.trim().isEmpty) return;
+                    final repo = NotebookRepository(
+                      ref.read(databaseProvider),
+                    );
+                    await repo.createNotebook(
+                      name: nameController.text.trim(),
+                      colorSeed: selectedColor,
+                    );
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    await _load();
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(Notebook notebook) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Notebook'),
+        content: Text(
+          'Delete "${notebook.name}"? Notes inside will not be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final repo = NotebookRepository(ref.read(databaseProvider));
+              await repo.deleteNotebook(notebook.id);
+              if (ctx.mounted) Navigator.pop(ctx);
+              await _load();
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notebooks'),
-      ),
-      body: const Center(
-        child: Text('Notebooks (Phase 1)'),
+      appBar: AppBar(title: const Text('Notebooks')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _notebooks.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.book_outlined,
+                        size: 64,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.15),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No notebooks',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap + to create one',
+                        style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(12),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.0,
+                    ),
+                    itemCount: _notebooks.length,
+                    itemBuilder: (context, index) {
+                      final nb = _notebooks[index];
+                      return GestureDetector(
+                        onTap: () => context.push('/notebooks/${nb.id}'),
+                        onLongPress: () => _showDeleteDialog(nb),
+                        child: NotebookCard(notebook: nb),
+                      );
+                    },
+                  ),
+                ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showCreateSheet,
+        child: const Icon(Icons.add),
       ),
     );
   }
