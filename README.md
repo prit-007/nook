@@ -12,7 +12,7 @@ either version 3 of the License, or (at your option) any later version.
 
 ## Status
 
-🚧 Pre-alpha — Phase 0 (foundation) in progress.
+🚧 Pre-alpha — Phase 0 complete, Phase 1 (core notes) in progress.
 
 ## Core principles
 
