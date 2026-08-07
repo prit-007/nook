@@ -34,6 +34,7 @@ ios/.symlinks/
 
 # macOS/Linux/Windows desktop (not targeted for v1 but keep clean anyway)
 macos/Flutter/ephemeral/
+macos/Flutter/GeneratedPluginRegistrant.*
 linux/flutter/ephemeral/
 windows/flutter/ephemeral/
 
