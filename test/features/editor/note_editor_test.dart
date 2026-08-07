@@ -53,7 +53,6 @@ void main() {
   testWidgets('shows AppFlowyEditor widget', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    // AppFlowyEditor renders a Scrollable widget internally
     expect(find.byType(AppFlowyEditor), findsOneWidget);
   });
 
@@ -73,5 +72,74 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+  });
+
+  testWidgets('has overflow menu button', (tester) async {
+    await tester.pumpWidget(buildEditor());
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.more_vert), findsOneWidget);
+  });
+
+  testWidgets('overflow menu shows Note options sheet', (tester) async {
+    await tester.pumpWidget(buildEditor());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Note options'), findsOneWidget);
+  });
+
+  testWidgets('note options sheet has Notebook section', (tester) async {
+    await tester.pumpWidget(buildEditor());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Notebook'), findsOneWidget);
+  });
+
+  testWidgets('note options sheet has Tags section', (tester) async {
+    await tester.pumpWidget(buildEditor());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tags'), findsOneWidget);
+  });
+
+  testWidgets('note options sheet has Color section', (tester) async {
+    await tester.pumpWidget(buildEditor());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Color'), findsOneWidget);
+  });
+
+  testWidgets('pin toggle changes icon', (tester) async {
+    await tester.pumpWidget(buildEditor());
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.push_pin_outlined));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.push_pin), findsOneWidget);
+  });
+
+  testWidgets('delete shows confirmation dialog', (tester) async {
+    await tester.pumpWidget(buildEditor());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Note'), findsOneWidget);
+    expect(find.text('Move this note to trash?'), findsOneWidget);
   });
 }

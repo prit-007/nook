@@ -11,6 +11,7 @@ import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/tables/notes.dart';
+import 'widgets/note_options_sheet.dart';
 
 /// Note editor screen — AppFlowy Editor integration with autosave.
 class NoteEditorScreen extends ConsumerStatefulWidget {
@@ -36,6 +37,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   bool _pinned = false;
   bool _loading = true;
   bool _saving = false;
+  String? _colorSeed;
+  String? _notebookId;
   Timer? _autosaveTimer;
   AppDatabase? _db;
 
@@ -59,6 +62,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       _note = note;
       _title = note.title;
       _pinned = note.pinned;
+      _colorSeed = note.colorSeed;
+      _notebookId = note.notebookId;
 
       // Build editor from stored JSON or blank
       if (note.deltaContent != null && note.deltaContent!.isNotEmpty) {
@@ -189,6 +194,26 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
   }
 
+  Future<void> _showNoteOptions() async {
+    if (_note == null) return;
+    final repo = NoteRepository(_db!);
+
+    await NoteOptionsSheet.show(
+      context,
+      noteId: _note!.id,
+      currentNotebookId: _notebookId,
+      currentColorSeed: _colorSeed,
+      onNotebookChanged: (id) async {
+        _notebookId = id;
+        await repo.updateNote(_note!.id, notebookId: id);
+      },
+      onColorChanged: (color) async {
+        _colorSeed = color;
+        await repo.updateNote(_note!.id, colorSeed: color);
+      },
+    );
+  }
+
   @override
   void dispose() {
     _autosaveTimer?.cancel();
@@ -237,6 +262,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             icon: const Icon(Icons.delete_outline),
             onPressed: _deleteNote,
             tooltip: 'Delete',
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: _showNoteOptions,
+            tooltip: 'Note options',
           ),
           if (_saving)
             const Padding(

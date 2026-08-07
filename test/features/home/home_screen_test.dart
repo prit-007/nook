@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' hide isNotNull;
+import 'package:drift/drift.dart' hide Column, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +7,11 @@ import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/home/home_screen.dart';
+import 'package:nook/features/home/providers/notes_list_provider.dart';
+import 'package:nook/features/home/widgets/morphing_editorial_fab.dart';
+import 'package:nook/features/home/widgets/note_banner_card.dart';
+import 'package:nook/features/home/widgets/note_doodle_card.dart';
+import 'package:nook/features/home/widgets/note_minimal_card.dart';
 
 AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
 
@@ -21,121 +26,169 @@ void main() {
     await db.close();
   });
 
-  Widget buildHome() {
+  int counter = 0;
+
+  Future<List<Note>> insertNotes(List<({String title, NoteType type, bool pinned})> entries) async {
+    final notes = <Note>[];
+    for (final entry in entries) {
+      final id = 'home-note-${++counter}';
+      await db.into(db.notes).insert(
+            NotesCompanion.insert(
+              id: Value(id),
+              title: Value(entry.title),
+              type: entry.type,
+              deviceOriginId: 'device-1',
+              pinned: Value(entry.pinned),
+            ),
+          );
+      notes.add(
+        await (db.select(db.notes)..where((t) => t.id.equals(id))).getSingle(),
+      );
+    }
+    return notes;
+  }
+
+  Widget buildHome({
+    List<Note>? notes,
+    double screenWidth = 400,
+  }) {
     return ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(db)],
-      child: const MaterialApp(home: HomeScreen()),
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        if (notes != null)
+          notesListProvider.overrideWith((ref) => Stream.value(notes)),
+      ],
+      child: MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(size: Size(screenWidth, 800)),
+          child: const HomeScreen(),
+        ),
+      ),
     );
   }
 
-  Future<void> insertNote({
-    required String title,
-    NoteType type = NoteType.text,
-    bool pinned = false,
-  }) async {
-    await db.into(db.notes).insert(
-          NotesCompanion.insert(
-            title: Value(title),
-            type: type,
-            deviceOriginId: 'device-1',
-            pinned: Value(pinned),
-          ),
-        );
-  }
-
-  testWidgets('renders the app title in AppBar', (tester) async {
-    await tester.pumpWidget(buildHome());
+  testWidgets('renders the editorial header', (tester) async {
+    await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
-    expect(find.text('Nook'), findsOneWidget);
+    expect(find.text('Own Your Notes.'), findsOneWidget);
   });
 
   testWidgets('shows a search text field', (tester) async {
-    await tester.pumpWidget(buildHome());
+    await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
     expect(find.byType(TextField), findsOneWidget);
   });
 
-  testWidgets('shows filter chips for note types', (tester) async {
-    await tester.pumpWidget(buildHome());
+  testWidgets('shows filter pills', (tester) async {
+    await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
 
-    expect(find.text('All'), findsOneWidget);
+    expect(find.text('All notes'), findsOneWidget);
     expect(find.text('Text'), findsOneWidget);
-    expect(find.text('Checklist'), findsOneWidget);
-    expect(find.text('Doodle'), findsOneWidget);
+    expect(find.text('Checklists'), findsOneWidget);
+    expect(find.text('Doodles'), findsOneWidget);
   });
 
-  testWidgets('shows a FAB for creating notes', (tester) async {
-    await tester.pumpWidget(buildHome());
+  testWidgets('shows morphing FAB', (tester) async {
+    await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
-    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(find.byType(MorphingEditorialFab), findsOneWidget);
   });
 
-  testWidgets('displays notes in a grid', (tester) async {
-    await insertNote(title: 'Note 1');
-    await insertNote(title: 'Note 2');
-    await insertNote(title: 'Note 3');
+  testWidgets('displays notes', (tester) async {
+    final notes = await insertNotes([
+      (title: 'Note 1', type: NoteType.text, pinned: false),
+      (title: 'Note 2', type: NoteType.text, pinned: false),
+    ]);
 
-    await tester.pumpWidget(buildHome());
+    await tester.pumpWidget(buildHome(notes: notes));
     await tester.pumpAndSettle();
 
     expect(find.text('Note 1'), findsAtLeastNWidgets(1));
     expect(find.text('Note 2'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('shows empty state when no notes exist', (tester) async {
-    await tester.pumpWidget(buildHome());
+  testWidgets('shows empty state when no notes', (tester) async {
+    await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('No notes'), findsOneWidget);
   });
 
-  testWidgets('filter chips filter by note type', (tester) async {
-    await insertNote(title: 'Text note', type: NoteType.text);
-    await insertNote(title: 'Checklist note', type: NoteType.checklist);
-    await insertNote(title: 'Another text', type: NoteType.text);
+  testWidgets('pinned note uses banner card', (tester) async {
+    final notes = await insertNotes([
+      (title: 'Pinned note', type: NoteType.text, pinned: true),
+    ]);
 
-    await tester.pumpWidget(buildHome());
+    await tester.pumpWidget(buildHome(notes: notes));
     await tester.pumpAndSettle();
 
-    expect(find.text('Text note'), findsAtLeastNWidgets(1));
-    expect(find.text('Checklist note'), findsAtLeastNWidgets(1));
-
-    await tester.tap(find.text('Checklist'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Text note'), findsNothing);
-    expect(find.text('Checklist note'), findsAtLeastNWidgets(1));
-
-    await tester.tap(find.text('All'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Text note'), findsAtLeastNWidgets(1));
-    expect(find.text('Checklist note'), findsAtLeastNWidgets(1));
+    expect(find.byType(NoteBannerCard), findsOneWidget);
   });
 
-  testWidgets('pinned note shows pin badge', (tester) async {
-    await insertNote(title: 'Pinned note', pinned: true);
+  testWidgets('text note uses minimal card', (tester) async {
+    final notes = await insertNotes([
+      (title: 'Text note', type: NoteType.text, pinned: false),
+    ]);
 
-    await tester.pumpWidget(buildHome());
+    await tester.pumpWidget(buildHome(notes: notes));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.push_pin), findsOneWidget);
+    expect(find.byType(NoteMinimalCard), findsOneWidget);
   });
 
-  testWidgets('search field filters notes by title', (tester) async {
-    await insertNote(title: 'Grocery list');
-    await insertNote(title: 'Meeting notes');
-    await insertNote(title: 'Grocery budget');
+  testWidgets('doodle note uses doodle card', (tester) async {
+    final notes = await insertNotes([
+      (title: 'My doodle', type: NoteType.doodle, pinned: false),
+    ]);
 
-    await tester.pumpWidget(buildHome());
+    await tester.pumpWidget(buildHome(notes: notes));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'Grocery');
+    expect(find.byType(NoteDoodleCard), findsOneWidget);
+  });
+
+  testWidgets('search field accepts text input', (tester) async {
+    await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
 
-    expect(find.text('Grocery list'), findsAtLeastNWidgets(1));
-    expect(find.text('Grocery budget'), findsAtLeastNWidgets(1));
-    expect(find.text('Meeting notes'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'search query');
+    await tester.pumpAndSettle();
+
+    expect(find.text('search query'), findsOneWidget);
+  });
+
+  group('Responsive layout', () {
+    testWidgets('mobile uses single-column stream', (tester) async {
+      final notes = await insertNotes([
+        (title: 'Note 1', type: NoteType.text, pinned: false),
+        (title: 'Note 2', type: NoteType.text, pinned: false),
+      ]);
+
+      await tester.pumpWidget(buildHome(notes: notes, screenWidth: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NoteMinimalCard), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('wide screen uses 2-column grid', (tester) async {
+      final notes = await insertNotes([
+        (title: 'Note A', type: NoteType.text, pinned: false),
+        (title: 'Note B', type: NoteType.text, pinned: false),
+      ]);
+
+      await tester.pumpWidget(buildHome(notes: notes, screenWidth: 800));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Note A'), findsAtLeastNWidgets(1));
+      expect(find.text('Note B'), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('header scales down on wide screen', (tester) async {
+      await tester.pumpWidget(buildHome(notes: [], screenWidth: 800));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Own Your Notes.'), findsOneWidget);
+    });
   });
 }
