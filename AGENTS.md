@@ -46,6 +46,7 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 - `AppFlowyEditorLocalizations.delegate` must be added to `MaterialApp.localizationsDelegates` or the editor throws at runtime.
 - Mobile support is newer than desktop/web — test touch gestures (selection handles, long-press menu, slash menu) early on real Android devices.
 - No built-in Drift persistence; that is intentional and already handled by the app.
+- **keyboard_height_plugin patch**: `appflowy_editor ^6.2.0` depends on `keyboard_height_plugin ^0.1.5`, which ships `compileSdkVersion 31`. On AGP 9+ (Flutter 3.44+), this fails AAR metadata checks because transitive AndroidX deps require SDK 34. The fix lives in `android/settings.gradle.kts` — it patches the plugin's `build.gradle` in the pub cache during settings evaluation. **Remove the patch block once `appflowy_editor` bumps `keyboard_height_plugin` to `>=0.3.0`.** Monitor: https://github.com/AppFlowy-IO/appflowy-editor/issues/1036
 
 ## Testing
 - Data layer: unit tests against in-memory Drift `NativeDatabase.memory()`.
