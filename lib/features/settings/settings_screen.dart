@@ -1,101 +1,229 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Settings root screen — grouped list.
-/// Full implementation in Phase 3/6.
+/// Settings root screen per prompt #11.
+/// Grouped list with rounded section cards, leading icons, switches.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          _section(
-            'Appearance',
-            [
-              _tile(
+          // ── Appearance ──
+          _Section(
+            title: 'Appearance',
+            children: [
+              _SettingsTile(
                 icon: Icons.palette_outlined,
-                title: 'Appearance',
+                title: 'Dynamic color',
+                trailing: Switch(
+                  value: true,
+                  onChanged: (_) {},
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.dark_mode_outlined,
+                title: 'Theme',
+                value: 'System',
                 onTap: () => context.push('/settings/appearance'),
               ),
             ],
           ),
-          _section(
-            'Security',
-            [
-              _tile(
-                icon: Icons.lock_outline,
-                title: 'Security',
+
+          const SizedBox(height: 16),
+
+          // ── Security ──
+          _Section(
+            title: 'Security',
+            children: [
+              _SettingsTile(
+                icon: Icons.fingerprint,
+                title: 'Biometric lock',
+                trailing: Switch(
+                  value: true,
+                  onChanged: (_) {},
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.timer_outlined,
+                title: 'Auto-lock timer',
+                value: '1 minute',
                 onTap: () => context.push('/settings/security'),
+              ),
+              _SettingsTile(
+                icon: Icons.screenshot_outlined,
+                title: 'Screenshot blocking',
+                trailing: Switch(
+                  value: false,
+                  onChanged: (_) {},
+                ),
               ),
             ],
           ),
-          _section(
-            'Storage & Sync',
-            [
-              _tile(
+
+          const SizedBox(height: 16),
+
+          // ── Storage & Sync ──
+          _Section(
+            title: 'Storage & Sync',
+            children: [
+              _SettingsTile(
                 icon: Icons.storage_outlined,
-                title: 'Storage & Backup',
+                title: 'Storage used',
+                value: '48 MB \u00b7 214 notes',
                 onTap: () => context.push('/settings/storage'),
               ),
-              _tile(
+              _SettingsTile(
+                icon: Icons.file_download_outlined,
+                title: 'Export all notes',
+                onTap: () {},
+              ),
+              _SettingsTile(
                 icon: Icons.devices_outlined,
-                title: 'Sync Devices',
+                title: 'Paired devices',
+                value: '2 devices',
                 onTap: () => context.push('/settings/sync-devices'),
               ),
             ],
           ),
-          _section(
-            'About',
-            [
-              _tile(
+
+          const SizedBox(height: 16),
+
+          // ── About ──
+          _Section(
+            title: 'About',
+            children: [
+              _SettingsTile(
+                icon: Icons.policy_outlined,
+                title: 'Privacy policy',
+                onTap: () {},
+              ),
+              _SettingsTile(
+                icon: Icons.code_outlined,
+                title: 'Open source licenses',
+                onTap: () => showLicensePage(context: context),
+              ),
+              _SettingsTile(
                 icon: Icons.info_outline,
-                title: 'About',
+                title: 'Version',
+                value: '1.0.0',
                 onTap: () => context.push('/settings/about'),
               ),
             ],
           ),
+
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
+}
 
-  Widget _section(String title, List<Widget> children) {
+class _Section extends StatelessWidget {
+  const _Section({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             title,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: 13,
               fontWeight: FontWeight.w600,
+              color: scheme.primary,
+              letterSpacing: 0.3,
             ),
           ),
         ),
-        Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Column(children: children),
         ),
       ],
     );
   }
+}
 
-  Widget _tile({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      trailing: const Icon(Icons.chevron_right),
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    this.value,
+    this.trailing,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? value;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 20, color: scheme.primary),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 15),
+              ),
+            ),
+            if (value != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  value!,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: scheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            if (trailing != null)
+              trailing!
+            else if (onTap != null)
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: scheme.onSurface.withValues(alpha: 0.3),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

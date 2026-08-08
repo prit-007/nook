@@ -11,6 +11,7 @@ import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/tables/notes.dart';
+import 'doodle/doodle_block.dart';
 import 'widgets/note_options_sheet.dart';
 
 /// Note editor screen — AppFlowy Editor integration with autosave.
@@ -282,6 +283,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       body: AppFlowyEditor(
         editorState: _editorState!,
         autoFocus: true,
+        blockComponentBuilders: {
+          ...standardBlockComponentBuilderMap,
+          DoodleBlockKeys.type: DoodleBlockComponentBuilder(
+            configuration: BlockComponentConfiguration(
+              padding: (_) => const EdgeInsets.symmetric(vertical: 8),
+            ),
+            onTap: () {
+              // TODO: open doodle canvas for this block's attachment
+            },
+          ),
+        },
       ),
     );
   }
