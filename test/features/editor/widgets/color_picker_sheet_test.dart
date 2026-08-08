@@ -122,7 +122,8 @@ void main() {
             builder: (context) => ElevatedButton(
               onPressed: () => ColorPickerSheet.show(
                 context,
-                 currentSeed: NookColors.seeds[0].toARGB32()
+                currentSeed: NookColors.seeds[0]
+                    .toARGB32()
                     .toRadixString(16)
                     .substring(2),
               ),

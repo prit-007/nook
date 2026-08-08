@@ -97,9 +97,7 @@ class _FilterPill extends StatelessWidget {
                 Icon(
                   icon,
                   size: 14,
-                  color: isActive
-                      ? scheme.onPrimary
-                      : scheme.onSurfaceVariant,
+                  color: isActive ? scheme.onPrimary : scheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 4),
               ],
@@ -108,9 +106,7 @@ class _FilterPill extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: isActive
-                      ? scheme.onPrimary
-                      : scheme.onSurfaceVariant,
+                  color: isActive ? scheme.onPrimary : scheme.onSurfaceVariant,
                 ),
               ),
             ],

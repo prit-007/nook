@@ -22,8 +22,8 @@ void main() {
             ),
             GoRoute(
               path: '/notebooks',
-              builder: (_, __) =>
-                  const Scaffold(body: Center(child: Text('Notebooks Content'))),
+              builder: (_, __) => const Scaffold(
+                  body: Center(child: Text('Notebooks Content'))),
             ),
             GoRoute(
               path: '/tags',

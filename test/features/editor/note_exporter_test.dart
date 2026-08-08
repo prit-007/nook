@@ -75,7 +75,8 @@ void main() {
       final image = await picture.toImage(100, 100);
 
       final filePath = '${tempDir.path}/test_note.png';
-      final savedPath = await NoteExporter.saveImageToFile(image, filePath: filePath);
+      final savedPath =
+          await NoteExporter.saveImageToFile(image, filePath: filePath);
       image.dispose();
 
       expect(savedPath, filePath);

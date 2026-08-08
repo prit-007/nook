@@ -134,7 +134,10 @@ void main() {
 
     expect(find.text('Permanently delete?'), findsOneWidget);
     // Dialog content contains the title + warning
-    expect(find.text('"Doomed" will be permanently deleted. This cannot be undone.'), findsOneWidget);
+    expect(
+        find.text(
+            '"Doomed" will be permanently deleted. This cannot be undone.'),
+        findsOneWidget);
   });
 
   testWidgets('confirming permanent delete removes note', (tester) async {

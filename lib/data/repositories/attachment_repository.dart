@@ -54,8 +54,7 @@ class AttachmentRepository {
 
   /// Deletes all attachments (images + doodle layers) for a note.
   Future<void> deleteAllForNote(String noteId) async {
-    await (_db.delete(_db.attachments)
-          ..where((a) => a.noteId.equals(noteId)))
+    await (_db.delete(_db.attachments)..where((a) => a.noteId.equals(noteId)))
         .go();
   }
 

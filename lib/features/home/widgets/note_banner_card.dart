@@ -52,7 +52,8 @@ class NoteBannerCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: scheme.onPrimaryContainer.withValues(alpha: 0.15),
+                            color: scheme.onPrimaryContainer
+                                .withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -70,7 +71,8 @@ class NoteBannerCard extends StatelessWidget {
                           Icon(
                             Icons.lock_rounded,
                             size: 14,
-                            color: scheme.onPrimaryContainer.withValues(alpha: 0.6),
+                            color: scheme.onPrimaryContainer
+                                .withValues(alpha: 0.6),
                           ),
                         ],
                       ],
@@ -86,13 +88,15 @@ class NoteBannerCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (note.plainText != null && note.plainText!.isNotEmpty) ...[
+                    if (note.plainText != null &&
+                        note.plainText!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         note.plainText!,
                         style: TextStyle(
                           fontSize: 14,
-                          color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+                          color:
+                              scheme.onPrimaryContainer.withValues(alpha: 0.7),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

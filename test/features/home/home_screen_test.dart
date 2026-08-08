@@ -28,7 +28,8 @@ void main() {
 
   int counter = 0;
 
-  Future<List<Note>> insertNotes(List<({String title, NoteType type, bool pinned})> entries) async {
+  Future<List<Note>> insertNotes(
+      List<({String title, NoteType type, bool pinned})> entries) async {
     final notes = <Note>[];
     for (final entry in entries) {
       final id = 'home-note-${++counter}';

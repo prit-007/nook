@@ -32,9 +32,9 @@ class NoteAssignmentSheet extends ConsumerStatefulWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => NoteAssignmentSheet(
-            noteId: noteId,
-            currentNotebookId: currentNotebookId,
-          ),
+        noteId: noteId,
+        currentNotebookId: currentNotebookId,
+      ),
     );
   }
 
@@ -256,9 +256,7 @@ class _NotebookTile extends StatelessWidget {
           fontWeight: isSelected ? FontWeight.w600 : null,
         ),
       ),
-      trailing: isSelected
-          ? Icon(Icons.check, color: scheme.primary)
-          : null,
+      trailing: isSelected ? Icon(Icons.check, color: scheme.primary) : null,
       onTap: onTap,
     );
   }

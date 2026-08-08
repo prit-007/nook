@@ -57,7 +57,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPressed: _finish,
                 child: Text(
                   'Skip',
-                  style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.6)),
+                  style:
+                      TextStyle(color: scheme.onSurface.withValues(alpha: 0.6)),
                 ),
               ),
             ),
@@ -73,7 +74,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     scheme: scheme,
                     selectedIndex: _selectedSeedIndex,
                     useDynamic: _useDynamicColor,
-                    onSeedChanged: (i) => setState(() => _selectedSeedIndex = i),
+                    onSeedChanged: (i) =>
+                        setState(() => _selectedSeedIndex = i),
                     onDynamicChanged: (v) =>
                         setState(() => _useDynamicColor = v),
                   ),

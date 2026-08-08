@@ -108,7 +108,8 @@ void main() {
     expect(find.byIcon(Icons.chevron_right), findsAtLeastNWidgets(5));
   });
 
-  testWidgets('renders section containers with rounded corners', (tester) async {
+  testWidgets('renders section containers with rounded corners',
+      (tester) async {
     await tester.pumpWidget(buildScreen());
     // 4 section containers
     final containers = tester.widgetList<Container>(

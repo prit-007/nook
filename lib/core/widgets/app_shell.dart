@@ -93,7 +93,8 @@ class _MobileShell extends StatelessWidget {
                   height: 70,
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
+                    color:
+                        scheme.surfaceContainerHighest.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
                       color: scheme.outlineVariant.withValues(alpha: 0.2),

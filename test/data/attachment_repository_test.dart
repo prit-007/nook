@@ -8,7 +8,8 @@ import 'package:nook/data/tables/notes.dart';
 
 AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
 
-Future<void> insertDoodleLayer(AppDatabase db, {required String noteId, required String filePath}) async {
+Future<void> insertDoodleLayer(AppDatabase db,
+    {required String noteId, required String filePath}) async {
   await db.into(db.attachments).insert(
         AttachmentsCompanion.insert(
           noteId: noteId,

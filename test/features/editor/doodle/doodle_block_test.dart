@@ -37,7 +37,8 @@ void main() {
 
     test('omits thumbnailData when null', () {
       final node = doodleNode(attachmentId: 'a1');
-      expect(node.attributes.containsKey(DoodleBlockKeys.thumbnailData), isFalse);
+      expect(
+          node.attributes.containsKey(DoodleBlockKeys.thumbnailData), isFalse);
     });
 
     test('has no children', () {
@@ -66,7 +67,11 @@ void main() {
     test('validate returns false for node with delta', () {
       final node = Node(
         type: DoodleBlockKeys.type,
-        attributes: {'delta': [{'insert': 'text'}]},
+        attributes: {
+          'delta': [
+            {'insert': 'text'}
+          ]
+        },
       );
       expect(builder.validate(node), isFalse);
     });

@@ -66,7 +66,8 @@ void main() {
     });
 
     testWidgets('shows type label', (tester) async {
-      final note = await createTestNote(title: 'Tasks', type: NoteType.checklist);
+      final note =
+          await createTestNote(title: 'Tasks', type: NoteType.checklist);
       await tester.pumpWidget(buildCard(note));
       await tester.pump();
 

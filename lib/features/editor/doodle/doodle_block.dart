@@ -78,8 +78,7 @@ class DoodleBlockComponentWidget extends BlockComponentStatefulWidget {
       _DoodleBlockComponentWidgetState();
 }
 
-class _DoodleBlockComponentWidgetState
-    extends State<DoodleBlockComponentWidget>
+class _DoodleBlockComponentWidgetState extends State<DoodleBlockComponentWidget>
     with SelectableMixin, BlockComponentConfigurable {
   @override
   BlockComponentConfiguration get configuration => widget.configuration;

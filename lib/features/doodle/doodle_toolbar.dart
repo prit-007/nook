@@ -49,15 +49,13 @@ class DoodleToolbar extends StatelessWidget {
                       icon: Icons.brush,
                       label: 'Pen',
                       isSelected: controller.currentTool == DoodleTool.pen,
-                      onTap: () =>
-                          controller.setCurrentTool(DoodleTool.pen),
+                      onTap: () => controller.setCurrentTool(DoodleTool.pen),
                     ),
                     _ToolButton(
                       icon: Icons.auto_fix_high,
                       label: 'Eraser',
                       isSelected: controller.currentTool == DoodleTool.eraser,
-                      onTap: () =>
-                          controller.setCurrentTool(DoodleTool.eraser),
+                      onTap: () => controller.setCurrentTool(DoodleTool.eraser),
                     ),
                     _ToolButton(
                       icon: Icons.highlight,
@@ -100,15 +98,12 @@ class DoodleToolbar extends StatelessWidget {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: _colors.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 6),
+                          separatorBuilder: (_, __) => const SizedBox(width: 6),
                           itemBuilder: (context, index) {
                             final color = _colors[index];
-                            final isSelected =
-                                controller.currentColor == color;
+                            final isSelected = controller.currentColor == color;
                             return GestureDetector(
-                              onTap: () =>
-                                  controller.setCurrentColor(color),
+                              onTap: () => controller.setCurrentColor(color),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
                                 width: 28,
@@ -125,8 +120,7 @@ class DoodleToolbar extends StatelessWidget {
                                   boxShadow: isSelected
                                       ? [
                                           BoxShadow(
-                                            color: color
-                                                .withValues(alpha: 0.4),
+                                            color: color.withValues(alpha: 0.4),
                                             blurRadius: 6,
                                             spreadRadius: 1,
                                           ),

@@ -96,7 +96,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                       child: Container(
-                        constraints: BoxConstraints(maxWidth: isWide ? 600 : double.infinity),
+                        constraints: BoxConstraints(
+                            maxWidth: isWide ? 600 : double.infinity),
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerHighest
                               .withValues(alpha: 0.5),

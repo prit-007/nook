@@ -89,7 +89,10 @@ class ColorPickerSheet extends StatelessWidget {
                 GestureDetector(
                   onTap: () => Navigator.pop(
                     context,
-                    NookColors.seeds[i].toARGB32().toRadixString(16).substring(2),
+                    NookColors.seeds[i]
+                        .toARGB32()
+                        .toRadixString(16)
+                        .substring(2),
                   ),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -104,7 +107,8 @@ class ColorPickerSheet extends StatelessWidget {
                       boxShadow: currentColor == NookColors.seeds[i]
                           ? [
                               BoxShadow(
-                                color: NookColors.seeds[i].withValues(alpha: 0.4),
+                                color:
+                                    NookColors.seeds[i].withValues(alpha: 0.4),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),

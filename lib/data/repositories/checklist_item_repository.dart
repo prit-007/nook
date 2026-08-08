@@ -48,16 +48,14 @@ class ChecklistItemRepository {
   /// Toggles the checked state of an item.
   Future<void> toggleChecked(String id) async {
     final item = await getItemById(id);
-    await (_db.update(_db.checklistItems)..where((t) => t.id.equals(id)))
-        .write(
+    await (_db.update(_db.checklistItems)..where((t) => t.id.equals(id))).write(
       ChecklistItemsCompanion(checked: Value(!item.checked)),
     );
   }
 
   /// Updates the text of an item.
   Future<void> updateText(String id, String text) async {
-    await (_db.update(_db.checklistItems)..where((t) => t.id.equals(id)))
-        .write(
+    await (_db.update(_db.checklistItems)..where((t) => t.id.equals(id))).write(
       ChecklistItemsCompanion(itemText: Value(text)),
     );
   }

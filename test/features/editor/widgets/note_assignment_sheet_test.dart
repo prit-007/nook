@@ -73,8 +73,10 @@ void main() {
     );
   }
 
-  Future<void> openSheet(WidgetTester tester, {String noteId = 'note-1', String? currentNotebookId}) async {
-    await tester.pumpWidget(buildSheet(noteId: noteId, currentNotebookId: currentNotebookId));
+  Future<void> openSheet(WidgetTester tester,
+      {String noteId = 'note-1', String? currentNotebookId}) async {
+    await tester.pumpWidget(
+        buildSheet(noteId: noteId, currentNotebookId: currentNotebookId));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();

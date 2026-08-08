@@ -23,7 +23,9 @@ class NoteMinimalCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: note.colorSeed != null ? _cardColor(context) : scheme.surfaceContainerLow,
+          color: note.colorSeed != null
+              ? _cardColor(context)
+              : scheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(24),
           border: note.colorSeed == null
               ? Border.all(

@@ -29,7 +29,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     if (mounted) {
       setState(() {
         _notes = deleted
-            .map((n) => _DeletedNote(id: n.id, title: n.title, deletedAt: n.deletedAt))
+            .map((n) =>
+                _DeletedNote(id: n.id, title: n.title, deletedAt: n.deletedAt))
             .toList();
         _loading = false;
       });
@@ -48,7 +49,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Permanently delete?'),
-        content: Text('"$title" will be permanently deleted. This cannot be undone.'),
+        content: Text(
+            '"$title" will be permanently deleted. This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -78,7 +80,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Empty trash?'),
-        content: Text('Permanently delete all ${_notes.length} notes in trash? This cannot be undone.'),
+        content: Text(
+            'Permanently delete all ${_notes.length} notes in trash? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
