@@ -10,9 +10,9 @@
 
 | Phase | Description | Status | Started | Completed |
 |-------|-------------|--------|---------|-----------|
-| 0 | Foundation (scaffold, DB, routing, theme) | **COMPLETE** | 2026-08-05 | 2026-08-05 |
-| 1 | Core Notes (home grid, editor, notebooks, tags, search) | **COMPLETE** | 2026-08-05 | 2026-08-07 |
-| 2 | Checklists + Doodles + Images | NOT STARTED | — | — |
+| 0 | Foundation (scaffold, DB, routing, theme) | **~85% COMPLETE** | 2026-08-05 | — |
+| 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** | 2026-08-05 | 2026-08-07 |
+| 2 | Checklists + Doodles + Images | **~60% COMPLETE** | 2026-08-07 | — |
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | NOT STARTED | — | — |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | NOT STARTED | — | — |
 | 5 | Nearby Sync (transport, pairing, merge resolver) | NOT STARTED | — | — |
@@ -295,66 +295,68 @@
 
 ### 2.1 Checklist Note Type
 
-- [ ] Build checklist-only editor path (`ChecklistEditor` — ReorderableListView + swipe actions)
+- [x] Build checklist-only editor path (`ChecklistEditor` — ReorderableListView + swipe actions)
   - File: `lib/features/editor/checklist_editor.dart`
-- [ ] Drag-to-reorder checklist items
+- [x] Drag-to-reorder checklist items
 - [ ] Swipe-to-check with strikethrough animation
 - [ ] Re-skin built-in `todo_list` node in AppFlowy Editor (for mixed notes)
   - File: `lib/features/editor/widgets/custom_todo_list_block.dart`
 - [ ] Register custom `todo_list` builder in `_buildComponentMap()`
-- [ ] Write checklist unit test (create, check, reorder, persist)
-  - File: `test/features/editor/checklist_test.dart`
+- [x] Write checklist unit test (create, check, reorder, persist)
+  - File: `test/features/editor/checklist/checklist_editor_test.dart`
 
 ### 2.2 Doodle Canvas
 
-- [ ] Build `DoodleController` (ChangeNotifier) — strokes, undo/redo, tool, color/width
+- [x] Build `DoodleController` (ChangeNotifier) — strokes, undo/redo, tool, color/width
   - File: `lib/features/doodle/doodle_controller.dart`
-- [ ] Build `DoodleCanvas` widget — `CustomPainter` rendering, `perfect_freehand` smoothing
+- [x] Build `DoodleCanvas` widget — `CustomPainter` rendering, smooth bezier strokes
   - File: `lib/features/doodle/doodle_canvas.dart`
-- [ ] Build `DoodleToolbar` — pen/eraser/highlighter, color swatches, width slider
+- [x] Build `DoodleToolbar` — pen/eraser/highlighter, color swatches, width slider
   - File: `lib/features/doodle/doodle_toolbar.dart`
-- [ ] Build `DoodleCanvasScreen` — full-screen canvas, undo/redo, Done/close
-  - File: `lib/features/editor/doodle_canvas_screen.dart` (replace stub)
+- [x] Build `DoodleCanvasScreen` — full-screen canvas, undo/redo, Done/close
+  - File: `lib/features/doodle/doodle_canvas_screen.dart`
 - [ ] Support pressure input via `Listener.onPointerDown/Move` (stylus fallback to constant)
 - [ ] Background templates: blank / dotted grid / ruled lines / graph
   - File: `lib/features/doodle/background_templates.dart`
 - [ ] Export: `RepaintBoundary` → `toImage()` → PNG bytes
 - [ ] Optional: layer support (2–3 layers: sketch/ink/highlight)
-- [ ] Write doodle unit test (create strokes, undo, export)
-  - File: `test/features/doodle/doodle_test.dart`
+- [x] Write doodle unit test (create strokes, undo, export)
+  - File: `test/features/doodle/doodle_controller_test.dart`
 
 ### 2.3 Doodle Custom Node (AppFlowy Editor)
 
-- [ ] Build `DoodleBlockWidget` — inline thumbnail, tap to expand
-  - File: `lib/features/editor/widgets/doodle_block_widget.dart`
-- [ ] Build `DoodleBlockComponentBuilder` — register custom `doodle` node type
-  - File: `lib/features/editor/widgets/doodle_block_component.dart`
+- [x] Build `DoodleBlockWidget` — inline thumbnail, tap to expand
+  - File: `lib/features/editor/doodle/doodle_block.dart`
+- [x] Build `DoodleBlockComponentBuilder` — register custom `doodle` node type
+  - File: `lib/features/editor/doodle/doodle_block.dart`
 - [ ] Store stroke data in Attachments table (sidecar file), node only holds attachmentId reference
 - [ ] Wire thumbnail regeneration on save
-- [ ] Register `doodle` builder in `_buildComponentMap()`
-- [ ] Write doodle node integration test
-  - File: `test/features/editor/doodle_node_test.dart`
+- [x] Register `doodle` builder in `_buildComponentMap()`
+- [x] Write doodle node integration test
+  - File: `test/features/editor/doodle/doodle_block_test.dart`
 
 ### 2.4 Image Attachments
 
 - [ ] Build image picker integration (`image_picker` package)
   - File: `lib/features/editor/widgets/image_picker_handler.dart`
-- [ ] Store image in Attachments table + filesystem
+- [x] Store image in Attachments table + filesystem
+  - File: `lib/data/repositories/attachment_repository.dart`
 - [ ] Generate thumbnail for grid preview
 - [ ] Image node in AppFlowy Editor (built-in `image` block type)
 - [ ] Pinch-zoom on images in editor
-- [ ] Write image attachment unit test
-  - File: `test/features/editor/image_test.dart`
+- [x] Write image attachment unit test
+  - File: `test/data/attachment_repository_test.dart`
 
 ### 2.5 Note → Image Export
 
 - [ ] Build `NoteRenderWidget` — dedicated export layout (not the editor widget)
   - File: `lib/features/editor/widgets/note_render_widget.dart`
-- [ ] `RepaintBoundary` → `toImage(pixelRatio: 3.0)` → PNG bytes
+- [x] `RepaintBoundary` → `toImage(pixelRatio: 3.0)` → PNG bytes
+  - File: `lib/features/editor/note_exporter.dart`
 - [ ] Save to gallery via `gal` package
 - [ ] Share via `share_plus`
-- [ ] Write export test
-  - File: `test/features/editor/export_test.dart`
+- [x] Write export test
+  - File: `test/features/editor/note_exporter_test.dart`
 
 ### Phase 2 Validation
 
