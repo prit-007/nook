@@ -14,12 +14,22 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.8'
           channel: 'stable'
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Patch appflowy_editor for Flutter 3.44+ compat
+        run: |
+          FILE=$(find / -path "*/appflowy_editor-6.2.0/lib/src/editor/editor_component/service/ime/delta_input_service.dart" 2>/dev/null | head -1)
+          echo "Patching: $FILE"
+          if [ -n "$FILE" ]; then
+            # Remove the existing onFocusReceived line (already has @override on previous line)
+            sed -i '/@override/,/bool onFocusReceived/d' "$FILE"
+            # Add a fresh implementation after the class declaration
+            sed -i '/class DeltaTextInputService extends TextInputService with DeltaTextInputClient {/a\  @override\n  bool onFocusReceived() => false;' "$FILE"
+          fi
 
       - name: Generate code (Drift/Riverpod/Freezed)
         run: dart run build_runner build --delete-conflicting-outputs
