@@ -124,6 +124,14 @@ class NoteRepository {
     );
   }
 
+  /// Returns soft-deleted notes, ordered by deletedAt desc.
+  Future<List<Note>> getDeletedNotes() async {
+    return (_db.select(_db.notes)
+          ..where((t) => t.deleted.equals(true))
+          ..orderBy([(t) => OrderingTerm.desc(t.deletedAt)]))
+        .get();
+  }
+
   /// Permanently deletes a note from the database.
   Future<void> permanentlyDelete(String id) async {
     await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();

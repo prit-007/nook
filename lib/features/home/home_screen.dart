@@ -1,4 +1,6 @@
-import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
+import 'dart:ui';
+
+import 'package:drift/drift.dart' hide Column, isNotNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,9 +8,17 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
 import '../../data/tables/notes.dart';
-import 'widgets/note_card.dart';
+import 'providers/notes_list_provider.dart';
+import 'widgets/empty_home.dart';
+import 'widgets/filter_pill_bar.dart';
+import 'widgets/morphing_editorial_fab.dart';
+import 'widgets/note_banner_card.dart';
+import 'widgets/note_doodle_card.dart';
+import 'widgets/note_minimal_card.dart';
 
-/// Home screen — notes grid with search bar, filter chips, FAB.
+/// Home screen — editorial vault layout with CustomScrollView, slivers,
+/// asymmetric card stream, and morphing FAB.
+/// Responsive: single-column stream on mobile, 2-column grid on tablet+.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -17,196 +27,225 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  String _searchQuery = '';
   NoteType? _selectedType;
-  List<Note> _notes = [];
-  bool _loading = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadNotes();
+  List<Note> _applyFilters(List<Note> notes) {
+    if (_selectedType == null) return notes;
+    return notes.where((n) => n.type == _selectedType).toList();
   }
 
-  Future<void> _loadNotes() async {
-    final db = ref.read(databaseProvider);
-    final results = await (db.select(db.notes)
-          ..where((t) => t.deleted.equals(false))
-          ..orderBy([
-            (t) => OrderingTerm.desc(t.pinned),
-            (t) => OrderingTerm.desc(t.updatedAt),
-          ]))
-        .get();
-    setState(() {
-      _notes = results;
-      _loading = false;
-    });
-  }
-
-  List<Note> get _filteredNotes {
-    var result = _notes;
-    if (_selectedType != null) {
-      result = result.where((n) => n.type == _selectedType).toList();
-    }
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      result = result
-          .where(
-            (n) =>
-                n.title.toLowerCase().contains(q) ||
-                (n.plainText?.toLowerCase().contains(q) ?? false),
-          )
-          .toList();
-    }
-    return result;
+  void _openNote(String noteId) {
+    context.push('/note/$noteId');
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredNotes;
+    final notesAsync = ref.watch(notesListProvider);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final width = MediaQuery.sizeOf(context).width;
+    final isWide = width >= 600;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nook')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search notes...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
+      body: notesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (notes) {
+          final filtered = _applyFilters(notes);
+
+          return CustomScrollView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              // 1. Massive Editorial Header
+              SliverAppBar.large(
+                expandedHeight: isWide ? 120.0 : 160.0,
+                floating: false,
+                pinned: true,
+                backgroundColor: scheme.surface,
+                surfaceTintColor: Colors.transparent,
+                flexibleSpace: FlexibleSpaceBar(
+                  titlePadding: EdgeInsets.symmetric(
+                    horizontal: isWide ? 32 : 24,
+                    vertical: 16,
+                  ),
+                  title: Text(
+                    'Own Your Notes.',
+                    style: TextStyle(
+                      fontSize: isWide ? 24 : 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.0,
+                      color: scheme.onSurface,
+                    ),
+                  ),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
-              onChanged: (v) => setState(() => _searchQuery = v),
-            ),
-          ),
-          // Filter chips
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                _FilterChip(
-                  label: 'All',
-                  selected: _selectedType == null,
-                  onTap: () => setState(() => _selectedType = null),
-                ),
-                _FilterChip(
-                  label: 'Text',
-                  selected: _selectedType == NoteType.text,
-                  onTap: () => setState(() => _selectedType = NoteType.text),
-                ),
-                _FilterChip(
-                  label: 'Checklist',
-                  selected: _selectedType == NoteType.checklist,
-                  onTap: () =>
-                      setState(() => _selectedType = NoteType.checklist),
-                ),
-                _FilterChip(
-                  label: 'Doodle',
-                  selected: _selectedType == NoteType.doodle,
-                  onTap: () => setState(() => _selectedType = NoteType.doodle),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Notes grid
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : filtered.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.note_add_outlined,
-                              size: 64,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.15),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No notes',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadNotes,
-                        child: GridView.builder(
-                          padding: const EdgeInsets.all(12),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 10,
-                            crossAxisSpacing: 10,
-                            childAspectRatio: 0.75,
+
+              // 2. Search bar (glassmorphism)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    isWide ? 32 : 16,
+                    8,
+                    isWide ? 32 : 16,
+                    4,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      child: Container(
+                        constraints: BoxConstraints(
+                            maxWidth: isWide ? 600 : double.infinity),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest
+                              .withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: scheme.outlineVariant.withValues(alpha: 0.2),
                           ),
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) =>
-                              NoteCard(note: filtered[index]),
+                        ),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search your vault...',
+                            hintStyle: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                          ),
                         ),
                       ),
-          ),
-        ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // 3. Horizontal Quick-Filter Pill Bar
+              SliverToBoxAdapter(
+                child: FilterPillBar(
+                  selectedType: _selectedType,
+                  onTypeSelected: (type) {
+                    setState(() => _selectedType = type);
+                  },
+                ),
+              ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+              // 4. Notes stream or empty state
+              if (filtered.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: EmptyHome(),
+                )
+              else if (isWide)
+                _buildWideGrid(filtered)
+              else
+                _buildNarrowStream(filtered),
+
+              // 5. Bottom padding for FAB
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          );
+        },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
+      floatingActionButton: MorphingEditorialFab(
+        onCreateNote: (type) async {
           final db = ref.read(databaseProvider);
           final id = await db.into(db.notes).insert(
                 NotesCompanion.insert(
                   title: const Value(''),
-                  type: NoteType.text,
+                  type: type,
                   deviceOriginId: 'local',
                 ),
               );
           if (context.mounted) {
             await context.push('/note/$id');
-            await _loadNotes();
           }
         },
-        child: const Icon(Icons.add),
       ),
     );
   }
-}
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: FilterChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) => onTap(),
+  /// Narrow (< 600px): single-column asymmetric stream.
+  Widget _buildNarrowStream(List<Note> filtered) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: SliverList.builder(
+        itemCount: filtered.length,
+        itemBuilder: (context, index) {
+          return _buildCardForNote(filtered[index]);
+        },
       ),
+    );
+  }
+
+  /// Wide (>= 600px): 2-column masonry-like grid.
+  Widget _buildWideGrid(List<Note> filtered) {
+    final left = <Note>[];
+    final right = <Note>[];
+    for (var i = 0; i < filtered.length; i++) {
+      if (i.isEven) {
+        left.add(filtered[i]);
+      } else {
+        right.add(filtered[i]);
+      }
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      sliver: SliverToBoxAdapter(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  for (final note in left) _buildCardForNote(note),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                children: [
+                  for (final note in right) _buildCardForNote(note),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardForNote(Note note) {
+    if (note.pinned) {
+      return NoteBannerCard(
+        note: note,
+        onTap: () => _openNote(note.id),
+      );
+    }
+
+    if (note.type == NoteType.doodle) {
+      return NoteDoodleCard(
+        note: note,
+        onTap: () => _openNote(note.id),
+      );
+    }
+
+    return NoteMinimalCard(
+      note: note,
+      onTap: () => _openNote(note.id),
     );
   }
 }
