@@ -3,11 +3,13 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/home/home_screen.dart';
 import 'package:nook/features/home/providers/notes_list_provider.dart';
+import 'package:nook/features/home/search_screen.dart';
 import 'package:nook/features/home/widgets/morphing_editorial_fab.dart';
 import 'package:nook/features/home/widgets/note_banner_card.dart';
 import 'package:nook/features/home/widgets/note_doodle_card.dart';
@@ -62,22 +64,42 @@ void main() {
       child: MaterialApp(
         home: MediaQuery(
           data: MediaQueryData(size: Size(screenWidth, 800)),
-          child: const HomeScreen(),
+          child: const HomeScreen(animate: false),
         ),
       ),
     );
   }
 
-  testWidgets('renders the editorial header', (tester) async {
+  testWidgets('renders the editorial header with time-aware greeting',
+      (tester) async {
     await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
-    expect(find.text('Own Your Notes.'), findsOneWidget);
+
+    final hour = DateTime.now().hour;
+    String expectedGreeting;
+    if (hour < 12) {
+      expectedGreeting = 'Morning thoughts.';
+    } else if (hour < 17) {
+      expectedGreeting = 'Afternoon flow.';
+    } else if (hour < 22) {
+      expectedGreeting = 'Evening reflections.';
+    } else {
+      expectedGreeting = 'Late night ideas.';
+    }
+
+    expect(find.text(expectedGreeting), findsOneWidget);
+    expect(find.text('YOUR VAULT'), findsOneWidget);
   });
 
-  testWidgets('shows a search text field', (tester) async {
+  testWidgets('shows a tappable search bar', (tester) async {
     await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsOneWidget);
+
+    expect(
+      find.text('Search thoughts, doodles, checklists...'),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
   });
 
   testWidgets('shows filter pills', (tester) async {
@@ -88,6 +110,21 @@ void main() {
     expect(find.text('Text'), findsOneWidget);
     expect(find.text('Checklists'), findsOneWidget);
     expect(find.text('Doodles'), findsOneWidget);
+  });
+
+  testWidgets('shows filter pill counts when notes exist', (tester) async {
+    final notes = await insertNotes([
+      (title: 'Note 1', type: NoteType.text, pinned: false),
+      (title: 'Note 2', type: NoteType.text, pinned: false),
+      (title: 'Note 3', type: NoteType.checklist, pinned: false),
+    ]);
+
+    await tester.pumpWidget(buildHome(notes: notes));
+    await tester.pumpAndSettle();
+
+    expect(find.text('3'), findsAtLeastNWidgets(1));
+    expect(find.text('2'), findsAtLeastNWidgets(1));
+    expect(find.text('1'), findsAtLeastNWidgets(1));
   });
 
   testWidgets('shows morphing FAB', (tester) async {
@@ -113,7 +150,7 @@ void main() {
     await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('No notes'), findsOneWidget);
+    expect(find.text('Your canvas is clear'), findsOneWidget);
   });
 
   testWidgets('pinned note uses banner card', (tester) async {
@@ -149,14 +186,60 @@ void main() {
     expect(find.byType(NoteDoodleCard), findsOneWidget);
   });
 
-  testWidgets('search field accepts text input', (tester) async {
-    await tester.pumpWidget(buildHome(notes: []));
-    await tester.pumpAndSettle();
+  group('Hero transitions', () {
+    testWidgets('minimal card exposes hero tag matching note id',
+        (tester) async {
+      final notes = await insertNotes([
+        (title: 'Text note', type: NoteType.text, pinned: false),
+      ]);
 
-    await tester.enterText(find.byType(TextField), 'search query');
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(buildHome(notes: notes));
+      await tester.pumpAndSettle();
 
-    expect(find.text('search query'), findsOneWidget);
+      final hero = tester.widget<Hero>(
+        find.descendant(
+          of: find.byType(NoteMinimalCard),
+          matching: find.byType(Hero),
+        ),
+      );
+      expect(hero.tag, 'note-${notes.first.id}');
+    });
+
+    testWidgets('banner card exposes hero tag matching note id',
+        (tester) async {
+      final notes = await insertNotes([
+        (title: 'Pinned note', type: NoteType.text, pinned: true),
+      ]);
+
+      await tester.pumpWidget(buildHome(notes: notes));
+      await tester.pumpAndSettle();
+
+      final hero = tester.widget<Hero>(
+        find.descendant(
+          of: find.byType(NoteBannerCard),
+          matching: find.byType(Hero),
+        ),
+      );
+      expect(hero.tag, 'note-${notes.first.id}');
+    });
+
+    testWidgets('doodle card exposes hero tag matching note id',
+        (tester) async {
+      final notes = await insertNotes([
+        (title: 'My doodle', type: NoteType.doodle, pinned: false),
+      ]);
+
+      await tester.pumpWidget(buildHome(notes: notes));
+      await tester.pumpAndSettle();
+
+      final hero = tester.widget<Hero>(
+        find.descendant(
+          of: find.byType(NoteDoodleCard),
+          matching: find.byType(Hero),
+        ),
+      );
+      expect(hero.tag, 'note-${notes.first.id}');
+    });
   });
 
   group('Responsive layout', () {
@@ -189,7 +272,84 @@ void main() {
       await tester.pumpWidget(buildHome(notes: [], screenWidth: 800));
       await tester.pumpAndSettle();
 
-      expect(find.text('Own Your Notes.'), findsOneWidget);
+      expect(find.text('YOUR VAULT'), findsOneWidget);
+    });
+  });
+
+  group('Pull-to-search', () {
+    testWidgets('swiping down at the top opens the search screen',
+        (tester) async {
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          GoRoute(
+            path: '/home',
+            builder: (_, __) => const HomeScreen(animate: false),
+          ),
+          GoRoute(
+            path: '/search',
+            builder: (_, __) => const SearchScreen(),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            notesListProvider.overrideWith((ref) => Stream.value(<Note>[])),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Pull down from the top of the grid past the 80px threshold.
+      await tester.timedDrag(
+        find.byType(CustomScrollView),
+        const Offset(0, 200),
+        const Duration(milliseconds: 600),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Type to search notes'), findsOneWidget);
+    });
+
+    testWidgets('a small pull does not open search', (tester) async {
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          GoRoute(
+            path: '/home',
+            builder: (_, __) => const HomeScreen(animate: false),
+          ),
+          GoRoute(
+            path: '/search',
+            builder: (_, __) => const SearchScreen(),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            notesListProvider.overrideWith((ref) => Stream.value(<Note>[])),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.timedDrag(
+        find.byType(CustomScrollView),
+        const Offset(0, 20),
+        const Duration(milliseconds: 300),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Type to search notes'), findsNothing);
+      expect(find.byType(HomeScreen), findsOneWidget);
     });
   });
 }

@@ -8,7 +8,7 @@ class Stroke {
   Stroke({
     required this.points,
     this.color = Colors.black,
-    this.width = 3.0,
+    this.width = 4.0,
     this.tool = DoodleTool.pen,
     this.opacity = 1.0,
   });
@@ -29,7 +29,7 @@ class DoodleController extends ChangeNotifier {
 
   DoodleTool _currentTool = DoodleTool.pen;
   Color _currentColor = Colors.black;
-  double _currentWidth = 3.0;
+  double _currentWidth = 4.0;
   bool _isDrawing = false;
 
   List<Stroke> get strokes => List.unmodifiable(_strokes);
@@ -56,14 +56,23 @@ class DoodleController extends ChangeNotifier {
   }
 
   void startStroke(Offset point) {
-    final opacity = _currentTool == DoodleTool.highlighter ? 0.4 : 1.0;
+    double opacity = 1.0;
+    double actualWidth = _currentWidth;
+
+    // Adjust physical characteristics based on the active tool
+    if (_currentTool == DoodleTool.highlighter) {
+      opacity = 0.35;
+      actualWidth = _currentWidth * 3.5; // Highlighters are inherently thicker
+    } else if (_currentTool == DoodleTool.eraser) {
+      actualWidth = _currentWidth * 4.0; // Erasers need wide area coverage
+    }
+
     _activeStroke = Stroke(
       points: [point],
       color: _currentTool == DoodleTool.eraser
           ? Colors.transparent
           : _currentColor,
-      width:
-          _currentTool == DoodleTool.eraser ? _currentWidth * 3 : _currentWidth,
+      width: actualWidth,
       tool: _currentTool,
       opacity: opacity,
     );

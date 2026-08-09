@@ -12,24 +12,24 @@ void main() {
   group('EmptyHome', () {
     testWidgets('renders the empty state icon', (tester) async {
       await tester.pumpWidget(buildEmptyHome());
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
 
-      expect(find.byIcon(Icons.note_add_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.auto_awesome_rounded), findsOneWidget);
     });
 
     testWidgets('renders the empty state message', (tester) async {
       await tester.pumpWidget(buildEmptyHome());
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
 
-      expect(find.text('No notes yet'), findsOneWidget);
+      expect(find.text('Your canvas is clear'), findsOneWidget);
     });
 
     testWidgets('renders the hint text', (tester) async {
       await tester.pumpWidget(buildEmptyHome());
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
 
       expect(
-        find.text('Tap + to create your first note'),
+        find.text('Tap "New Note" below to capture a thought or sketch.'),
         findsOneWidget,
       );
     });

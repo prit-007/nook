@@ -10,7 +10,7 @@ void main() {
       );
       expect(stroke.points.length, equals(2));
       expect(stroke.color, equals(Colors.black));
-      expect(stroke.width, equals(3.0));
+      expect(stroke.width, equals(4.0));
       expect(stroke.tool, equals(DoodleTool.pen));
       expect(stroke.opacity, equals(1.0));
     });
@@ -45,7 +45,7 @@ void main() {
       expect(controller.strokes, isEmpty);
       expect(controller.currentTool, equals(DoodleTool.pen));
       expect(controller.currentColor, equals(Colors.black));
-      expect(controller.currentWidth, equals(3.0));
+      expect(controller.currentWidth, equals(4.0));
       expect(controller.canUndo, isFalse);
       expect(controller.canRedo, isFalse);
     });
@@ -184,7 +184,7 @@ void main() {
 
       final stroke = controller.strokes.first;
       expect(stroke.tool, equals(DoodleTool.highlighter));
-      expect(stroke.opacity, equals(0.4));
+      expect(stroke.opacity, equals(0.35));
     });
 
     test('notifyListeners is called on state changes', () {

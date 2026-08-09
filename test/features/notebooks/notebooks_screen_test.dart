@@ -94,6 +94,12 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Delete Me'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.longPress(find.text('Delete Me'));
     await tester.pumpAndSettle();
 
@@ -106,6 +112,12 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Gone'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.longPress(find.text('Gone'));
     await tester.pumpAndSettle();
 

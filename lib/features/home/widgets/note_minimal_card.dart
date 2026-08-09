@@ -5,109 +5,124 @@ import 'package:flutter/material.dart';
 import '../../../data/database.dart';
 import '../../../data/tables/notes.dart';
 
-/// Clean typographic card for text/checklist notes.
-/// Whitespace-heavy, typography-forward design.
-class NoteMinimalCard extends StatelessWidget {
+class NoteMinimalCard extends StatefulWidget {
   const NoteMinimalCard({super.key, required this.note, this.onTap});
 
   final Note note;
   final VoidCallback? onTap;
 
   @override
+  State<NoteMinimalCard> createState() => _NoteMinimalCardState();
+}
+
+class _NoteMinimalCardState extends State<NoteMinimalCard> {
+  bool _isPressed = false;
+
+  Color _seedColor(BuildContext context) {
+    if (widget.note.colorSeed != null) {
+      final seed = Color(
+        int.parse(
+          'FF${widget.note.colorSeed!.replaceFirst('#', '')}',
+          radix: 16,
+        ),
+      );
+      return ColorScheme.fromSeed(seedColor: seed).primaryContainer;
+    }
+    return Theme.of(context).colorScheme.surfaceContainerLow;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final cardBg = _seedColor(context);
 
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: note.colorSeed != null
-              ? _cardColor(context)
-              : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(24),
-          border: note.colorSeed == null
-              ? Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
-                )
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: Hero(
+          tag: 'note-${widget.note.id}',
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(26),
+              boxShadow: [
+                BoxShadow(
+                  color: cardBg.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(
-                      _typeIcon,
-                      size: 14,
-                      color: scheme.primary,
+                    Row(
+                      children: [
+                        Icon(_typeIcon, size: 15, color: scheme.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          _typeLabel,
+                          style: TextStyle(
+                            color: scheme.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _typeLabel,
-                      style: TextStyle(
+                    if (widget.note.pinned)
+                      Icon(
+                        Icons.push_pin_rounded,
+                        size: 16,
                         color: scheme.primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
                       ),
-                    ),
                   ],
                 ),
-                if (note.pinned)
-                  Icon(
-                    Icons.push_pin_rounded,
-                    size: 16,
-                    color: scheme.outline,
+                const SizedBox(height: 12),
+                if (widget.note.locked)
+                  _lockedPreview(scheme)
+                else
+                  Text(
+                    widget.note.title.isEmpty
+                        ? (widget.note.plainText ?? 'Untitled')
+                        : (widget.note.plainText ?? widget.note.title),
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
+                      color: scheme.onSurface,
+                    ),
+                    maxLines: 6,
+                    overflow: TextOverflow.ellipsis,
                   ),
               ],
             ),
-            const SizedBox(height: 10),
-            if (note.locked)
-              _lockedPreview(scheme)
-            else
-              Text(
-                note.title.isEmpty
-                    ? (note.plainText ?? 'Untitled')
-                    : (note.plainText ?? note.title),
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.4,
-                  color: scheme.onSurface,
-                ),
-              ),
-            if (note.locked) ...[
-              const SizedBox(height: 8),
-              Icon(
-                Icons.lock_rounded,
-                size: 14,
-                color: scheme.outline,
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Color _cardColor(BuildContext context) {
-    final seed = Color(
-      int.parse('FF${note.colorSeed!.replaceFirst('#', '')}', radix: 16),
-    );
-    return ColorScheme.fromSeed(seedColor: seed).surfaceContainerLow;
-  }
-
-  IconData get _typeIcon => switch (note.type) {
+  IconData get _typeIcon => switch (widget.note.type) {
         NoteType.checklist => Icons.checklist_rounded,
         NoteType.doodle => Icons.draw_rounded,
         NoteType.mixed => Icons.layers_rounded,
         NoteType.text => Icons.notes_rounded,
       };
 
-  String get _typeLabel => switch (note.type) {
+  String get _typeLabel => switch (widget.note.type) {
         NoteType.checklist => 'Checklist',
         NoteType.doodle => 'Doodle',
         NoteType.mixed => 'Mixed',
@@ -115,14 +130,27 @@ class NoteMinimalCard extends StatelessWidget {
       };
 
   Widget _lockedPreview(ColorScheme scheme) {
-    return ClipRect(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: scheme.surface.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
+          height: 44,
+          color: scheme.surface.withValues(alpha: 0.3),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_rounded, size: 16, color: scheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Biometrics required',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.primary,
+                ),
+              ),
+            ],
           ),
         ),
       ),

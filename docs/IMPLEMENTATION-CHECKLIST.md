@@ -125,7 +125,8 @@
 
 - [x] Create `lib/core/router.dart` — GoRouter config with ~22 routes
   - File: `lib/core/router.dart`
-- [ ] Implement `redirect` based on `biometricGateProvider` (lock screen intercept)
+- [x] Lock-screen intercept via `FrostedShield` overlay in `MaterialApp.router.builder` (replaces redirect-based lock; gates all routes until biometric unlock)
+  - File: `lib/features/security/frosted_shield.dart`, `lib/app.dart`
 - [x] Use `ShellRoute` for bottom-nav shell (Home, Notebooks, Tags, Trash, Settings)
 - [x] Stub every screen as an empty `Scaffold` — no business logic yet:
   - [x] `lib/features/home/home_screen.dart`
@@ -154,8 +155,8 @@
   - [x] `lib/features/onboarding/onboarding_screen.dart`
 - [x] Add `AppFlowyEditorLocalizations.delegate` to `MaterialApp.localizationsDelegates`
   - File: `lib/app.dart`
-- [ ] Write route redirect test (lock screen blocks access)
-  - File: `test/core/router_test.dart`
+- [x] Write lock-intercept test (shield blocks app content until biometric unlock)
+  - File: `test/features/security/frosted_shield_test.dart`, `test/core/providers/biometric_provider_test.dart`
 
 ### 0.7 Design Tokens / Theme System
 
@@ -238,6 +239,12 @@
   - File: `lib/features/notebooks/notebooks_screen.dart` (replace stub)
 - [x] Build `NotebookCard` — color, icon, name, note count
   - File: `lib/features/notebooks/widgets/notebook_card.dart`
+- [x] Editorial magazine-cover notebook cards (portrait, dominant-color cover image via `palette_generator` with `File.existsSync` guard, macro typography, 'NOTEBOOK' kicker)
+  - File: `lib/features/notebooks/widgets/notebook_card.dart`, `lib/features/notebooks/notebooks_screen.dart` (portrait grid, async note counts)
+- [x] Notebook cover thumbnail query (latest attachment image per notebook, newest `updatedAt` first)
+  - File: `lib/data/repositories/notebook_repository.dart`
+- [x] Write NotebookCard widget test (cover, count, empty-image fallback)
+  - File: `test/features/notebooks/notebook_card_test.dart`
 - [x] Build notebook CRUD (create, rename, delete, assign color/icon)
   - File: `lib/features/notebooks/widgets/notebook_form_sheet.dart`
 - [x] Build `NotebookDetailScreen` — filtered notes grid (reuse Home grid widget)
@@ -266,6 +273,9 @@
 - [ ] Show results grouped by note vs. checklist-item matches
 - [x] Write search integration test (FTS returns correct results)
   - File: `test/features/home/search_test.dart`
+- [x] Pull-to-search from home (drag down past 80px opens search; BouncingScrollPhysics drives pixels negative — listens to drag-driven `ScrollUpdateNotification`, ignores flings)
+  - File: `lib/features/home/widgets/pull_to_search.dart`, `lib/features/home/home_screen.dart`
+  - Test: `test/features/home/home_screen_test.dart` (timedDrag, not fling)
 
 ### 1.6 Bottom Navigation Shell
 
@@ -386,8 +396,8 @@
 ### 3.2 Per-Note Theming
 
 - [ ] Seed color sources priority: user pick → palette from cover image → notebook color → global seed
-- [ ] Derive seed from image via `palette_generator`
-  - File: `lib/core/theme/note_theme_scope.dart`
+- [x] Derive cover color from image via `palette_generator`
+  - File: `lib/features/notebooks/widgets/notebook_card.dart` (dominant color for editorial cover; per-note editor seed still pending)
 - [ ] Editor chrome (toolbar, background tint) uses note's own seed
 - [ ] App chrome (nav bars, FAB, settings) always uses global seed
 - [ ] NoteCard in grid reflects per-note seed
@@ -396,7 +406,10 @@
 
 ### 3.3 Animations & Transitions
 
-- [ ] Note card entrance animations (`flutter_animate` — `.fadeIn().scale()`)
+- [x] Note card entrance animations (`flutter_animate` — staggered `.fade().slideY()`)
+  - File: `lib/features/home/home_screen.dart` (`_buildAnimatedCard`)
+- [x] Hero shared-element transitions home grid ↔ editor for all three card types
+  - File: `lib/features/home/widgets/note_minimal_card.dart`, `note_banner_card.dart`, `note_doodle_card.dart`, `lib/features/editor/note_editor_screen.dart`
 - [ ] Checklist strikethrough animation
 - [ ] FAB speed-dial open/close animation
 - [ ] Page transitions (shared axis or fade-through between nav screens)
@@ -462,13 +475,16 @@
 ### 4.4 Lock Screen Polish
 
 - [ ] Nice illustration on lock screen
-- [ ] Soft blur-behind effect
+- [x] Soft blur-behind effect (`BackdropFilter`, `ImageFilter.blur` with focus-in on unlock)
+  - File: `lib/features/security/frosted_shield.dart`
 - [ ] "Use PIN instead" fallback option
-- [ ] Fingerprint icon with pulse animation
+- [x] Fingerprint icon with pulse animation (1200ms repeating scale `ScaleTransition`)
+  - File: `lib/features/security/frosted_shield.dart`
 
 ### Phase 4 Validation
 
-- [ ] App-level biometric lock blocks all routes until authenticated
+- [x] App-level biometric lock blocks all routes until authenticated (overlay in router builder; lifecycle relock on resume)
+  - Tests: `test/features/security/frosted_shield_test.dart`
 - [ ] Per-note lock requires biometric to view/edit
 - [ ] Auto-lock triggers after configured timer
 - [ ] Screenshot blocking works on Android

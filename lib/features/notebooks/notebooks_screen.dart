@@ -17,6 +17,7 @@ class NotebooksScreen extends ConsumerStatefulWidget {
 
 class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   List<Notebook> _notebooks = [];
+  Map<String, int> _counts = {};
   bool _loading = true;
 
   @override
@@ -28,8 +29,14 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   Future<void> _load() async {
     final repo = NotebookRepository(ref.read(databaseProvider));
     final results = await repo.getAllNotebooks();
+    final counts = <String, int>{};
+    for (final nb in results) {
+      counts[nb.id] = await repo.countNotesInNotebook(nb.id);
+    }
+    if (!mounted) return;
     setState(() {
       _notebooks = results;
+      _counts = counts;
       _loading = false;
     });
   }
@@ -203,13 +210,13 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
               : RefreshIndicator(
                   onRefresh: _load,
                   child: GridView.builder(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 1.0,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 0.62,
                     ),
                     itemCount: _notebooks.length,
                     itemBuilder: (context, index) {
@@ -217,7 +224,10 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                       return GestureDetector(
                         onTap: () => context.push('/notebooks/${nb.id}'),
                         onLongPress: () => _showDeleteDialog(nb),
-                        child: NotebookCard(notebook: nb),
+                        child: NotebookCard(
+                          notebook: nb,
+                          noteCount: _counts[nb.id] ?? 0,
+                        ),
                       );
                     },
                   ),

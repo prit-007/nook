@@ -14,19 +14,19 @@ void main() {
   testWidgets('renders close button', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
-    expect(find.byIcon(Icons.close), findsOneWidget);
+    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
   });
 
   testWidgets('renders undo button', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
-    expect(find.byIcon(Icons.undo), findsWidgets);
+    expect(find.byIcon(Icons.undo_rounded), findsWidgets);
   });
 
   testWidgets('renders redo button', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
-    expect(find.byIcon(Icons.redo), findsWidgets);
+    expect(find.byIcon(Icons.redo_rounded), findsWidgets);
   });
 
   testWidgets('renders Done button', (tester) async {
@@ -52,8 +52,8 @@ void main() {
     await tester.pump();
 
     // Just verify the button is there and can be tapped without error
-    await tester.tap(find.byIcon(Icons.close));
+    await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pump();
-    expect(find.byIcon(Icons.close), findsOneWidget);
+    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
   });
 }

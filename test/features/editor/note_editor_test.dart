@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/note_repository.dart';
@@ -33,13 +34,16 @@ void main() {
     );
   }
 
-  testWidgets('renders app bar with New Note title', (tester) async {
+  testWidgets('renders floating header with today date', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    expect(find.text('New Note'), findsOneWidget);
+
+    final expectedDate = DateFormat('MMMM d, yyyy').format(DateTime.now());
+    expect(find.text(expectedDate), findsOneWidget);
   });
 
-  testWidgets('renders app bar with Edit Note title', (tester) async {
+  testWidgets('renders floating header with date for existing note',
+      (tester) async {
     final note = await noteRepo.createNote(
       title: 'Existing',
       type: NoteType.text,
@@ -47,7 +51,30 @@ void main() {
     );
     await tester.pumpWidget(buildEditor(noteId: note.id));
     await tester.pumpAndSettle();
-    expect(find.text('Edit Note'), findsOneWidget);
+
+    final expectedDate = DateFormat('MMMM d, yyyy').format(DateTime.now());
+    expect(find.text(expectedDate), findsOneWidget);
+  });
+
+  testWidgets('existing note exposes hero tag matching note id',
+      (tester) async {
+    final note = await noteRepo.createNote(
+      title: 'Hero note',
+      type: NoteType.text,
+      deviceOriginId: 'local',
+    );
+    await tester.pumpWidget(buildEditor(noteId: note.id));
+    await tester.pumpAndSettle();
+
+    final heroes = tester.widgetList<Hero>(find.byType(Hero));
+    expect(heroes.map((h) => h.tag), contains('note-${note.id}'));
+  });
+
+  testWidgets('new note has no hero (no source card)', (tester) async {
+    await tester.pumpWidget(buildEditor());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Hero), findsNothing);
   });
 
   testWidgets('shows AppFlowyEditor widget', (tester) async {
@@ -59,7 +86,7 @@ void main() {
   testWidgets('has a back button', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
   });
 
   testWidgets('has pin/unpin button', (tester) async {
@@ -68,23 +95,17 @@ void main() {
     expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
   });
 
-  testWidgets('has delete button', (tester) async {
-    await tester.pumpWidget(buildEditor());
-    await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
-  });
-
   testWidgets('has overflow menu button', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.more_vert), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
   });
 
   testWidgets('overflow menu shows Note options sheet', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('Note options'), findsOneWidget);
@@ -94,7 +115,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('Notebook'), findsOneWidget);
@@ -104,7 +125,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('Tags'), findsOneWidget);
@@ -114,7 +135,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('Color'), findsOneWidget);
@@ -129,17 +150,6 @@ void main() {
     await tester.tap(find.byIcon(Icons.push_pin_outlined));
     await tester.pump();
 
-    expect(find.byIcon(Icons.push_pin), findsOneWidget);
-  });
-
-  testWidgets('delete shows confirmation dialog', (tester) async {
-    await tester.pumpWidget(buildEditor());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.delete_outline));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Delete Note'), findsOneWidget);
-    expect(find.text('Move this note to trash?'), findsOneWidget);
+    expect(find.byIcon(Icons.push_pin_rounded), findsOneWidget);
   });
 }

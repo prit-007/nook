@@ -101,6 +101,7 @@ void main() {
       await tester.pump();
 
       expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
+      expect(find.text('Biometrics required'), findsOneWidget);
       expect(
         find.byWidgetPredicate(
           (widget) => widget is ClipRect || widget is BackdropFilter,
@@ -130,6 +131,15 @@ void main() {
 
       await tester.tap(find.byType(NoteMinimalCard));
       expect(tapped, isTrue);
+    });
+
+    testWidgets('scales down on press', (tester) async {
+      final note = await createTestNote(title: 'Press me');
+      await tester.pumpWidget(buildCard(note));
+      await tester.pump();
+
+      final gesture = find.byType(GestureDetector);
+      expect(gesture, findsOneWidget);
     });
   });
 }

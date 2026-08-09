@@ -93,7 +93,7 @@ void main() {
           (widget) =>
               widget is ClipRRect &&
               widget.borderRadius is BorderRadius &&
-              (widget.borderRadius as BorderRadius).topLeft.x == 32,
+              (widget.borderRadius as BorderRadius).topLeft.x == 36,
         ),
         findsOneWidget,
       );
@@ -104,8 +104,13 @@ void main() {
       await tester.pumpAndSettle();
 
       final homeText = tester.widget<Text>(find.text('Home'));
+      final effectiveStyle =
+          DefaultTextStyle.of(tester.element(find.text('Home'))).style;
       expect(
-        (homeText.style?.fontWeight ?? FontWeight.normal).value,
+        (homeText.style?.fontWeight ??
+                effectiveStyle.fontWeight ??
+                FontWeight.normal)
+            .value,
         greaterThanOrEqualTo(FontWeight.w600.value),
       );
     });

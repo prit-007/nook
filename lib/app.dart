@@ -5,14 +5,40 @@ import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/providers/biometric_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router.dart';
+import 'features/security/frosted_shield.dart';
 
-class NookApp extends ConsumerWidget {
+class NookApp extends ConsumerStatefulWidget {
   const NookApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NookApp> createState() => _NookAppState();
+}
+
+class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(biometricGateProvider).onAppResumed();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final themePref = ref.watch(themePreferenceProvider);
     final router = ref.watch(routerProvider);
 
@@ -47,6 +73,12 @@ class NookApp extends ConsumerWidget {
             AppFlowyEditorLocalizations.delegate,
           ],
           supportedLocales: const [Locale('en')],
+          builder: (context, child) => Stack(
+            children: [
+              child ?? const SizedBox.shrink(),
+              const FrostedShield(),
+            ],
+          ),
         );
       },
     );

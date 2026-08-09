@@ -1,8 +1,9 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'doodle_controller.dart';
 
-/// Toolbar for the doodle canvas with tool selection, colors, undo/redo.
 class DoodleToolbar extends StatelessWidget {
   const DoodleToolbar({super.key, required this.controller});
 
@@ -10,13 +11,12 @@ class DoodleToolbar extends StatelessWidget {
 
   static const _colors = [
     Colors.black,
-    Colors.red,
-    Colors.blue,
-    Colors.green,
-    Colors.orange,
-    Colors.purple,
-    Colors.teal,
-    Colors.pink,
+    Colors.white,
+    Colors.redAccent,
+    Colors.blueAccent,
+    Colors.greenAccent,
+    Colors.amber,
+    Colors.deepPurpleAccent,
   ];
 
   @override
@@ -26,127 +26,111 @@ class DoodleToolbar extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow,
-            border: Border(
-              top: BorderSide(
-                color: scheme.outlineVariant.withValues(alpha: 0.3),
-              ),
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Tools row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _ToolButton(
-                      icon: Icons.brush,
-                      label: 'Pen',
-                      isSelected: controller.currentTool == DoodleTool.pen,
-                      onTap: () => controller.setCurrentTool(DoodleTool.pen),
-                    ),
-                    _ToolButton(
-                      icon: Icons.auto_fix_high,
-                      label: 'Eraser',
-                      isSelected: controller.currentTool == DoodleTool.eraser,
-                      onTap: () => controller.setCurrentTool(DoodleTool.eraser),
-                    ),
-                    _ToolButton(
-                      icon: Icons.highlight,
-                      label: 'Highlight',
-                      isSelected:
-                          controller.currentTool == DoodleTool.highlighter,
-                      onTap: () =>
-                          controller.setCurrentTool(DoodleTool.highlighter),
-                    ),
-                    const SizedBox(width: 16),
-                    // Undo / Redo
-                    IconButton(
-                      icon: const Icon(Icons.undo, size: 22),
-                      onPressed: controller.canUndo ? controller.undo : null,
-                      tooltip: 'Undo',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.redo, size: 22),
-                      onPressed: controller.canRedo ? controller.redo : null,
-                      tooltip: 'Redo',
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.delete_outline,
-                          size: 22, color: scheme.error),
-                      onPressed: controller.strokes.isNotEmpty
-                          ? controller.clear
-                          : null,
-                      tooltip: 'Clear all',
-                    ),
-                  ],
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
+                  width: 1,
                 ),
-                const SizedBox(height: 8),
-                // Colors + width row
-                Row(
-                  children: [
-                    // Color swatches
-                    Expanded(
-                      child: SizedBox(
-                        height: 32,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _colors.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 6),
-                          itemBuilder: (context, index) {
-                            final color = _colors[index];
-                            final isSelected = controller.currentColor == color;
-                            return GestureDetector(
-                              onTap: () => controller.setCurrentColor(color),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: color,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? scheme.onSurface
-                                        : Colors.transparent,
-                                    width: 2.5,
-                                  ),
-                                  boxShadow: isSelected
-                                      ? [
-                                          BoxShadow(
-                                            color: color.withValues(alpha: 0.4),
-                                            blurRadius: 6,
-                                            spreadRadius: 1,
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                              ),
-                            );
-                          },
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Tools Row (Tactile)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _TactileTool(
+                        icon: Icons.edit_rounded,
+                        isSelected: controller.currentTool == DoodleTool.pen,
+                        onTap: () => controller.setCurrentTool(DoodleTool.pen),
+                      ),
+                      const SizedBox(width: 12),
+                      _TactileTool(
+                        icon: Icons.brush_rounded,
+                        isSelected:
+                            controller.currentTool == DoodleTool.highlighter,
+                        onTap: () =>
+                            controller.setCurrentTool(DoodleTool.highlighter),
+                      ),
+                      const SizedBox(width: 12),
+                      _TactileTool(
+                        icon: Icons.cleaning_services_rounded,
+                        isSelected: controller.currentTool == DoodleTool.eraser,
+                        onTap: () =>
+                            controller.setCurrentTool(DoodleTool.eraser),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Container(
+                          width: 1,
+                          height: 24,
+                          color: scheme.outlineVariant,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Width slider
-                    SizedBox(
-                      width: 100,
-                      child: Slider(
-                        value: controller.currentWidth,
-                        min: 1,
-                        max: 20,
-                        onChanged: controller.setCurrentWidth,
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete_sweep_rounded,
+                          color: scheme.error,
+                        ),
+                        onPressed: controller.strokes.isNotEmpty
+                            ? controller.clear
+                            : null,
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Colors Row
+                  SizedBox(
+                    height: 24,
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _colors.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final color = _colors[index];
+                        final isSelected = controller.currentColor == color;
+                        return GestureDetector(
+                          onTap: () => controller.setCurrentColor(color),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOutBack,
+                            width: isSelected ? 24 : 18,
+                            height: isSelected ? 24 : 18,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: color,
+                              border: Border.all(
+                                color: isSelected
+                                    ? scheme.primary
+                                    : scheme.outlineVariant
+                                        .withValues(alpha: 0.5),
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -155,16 +139,14 @@ class DoodleToolbar extends StatelessWidget {
   }
 }
 
-class _ToolButton extends StatelessWidget {
-  const _ToolButton({
+class _TactileTool extends StatelessWidget {
+  const _TactileTool({
     required this.icon,
-    required this.label,
     required this.isSelected,
     required this.onTap,
   });
 
   final IconData icon;
-  final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -175,31 +157,25 @@ class _ToolButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutBack,
+        transform: Matrix4.translationValues(0, isSelected ? -8 : 0, 0),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected
-              ? scheme.primary.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 22,
-              color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
-              ),
+          color: isSelected ? scheme.primary : Colors.transparent,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: scheme.primary.withValues(alpha: isSelected ? 0.4 : 0),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
           ],
+        ),
+        child: Icon(
+          icon,
+          size: 24,
+          color: isSelected ? scheme.onPrimary : scheme.onSurfaceVariant,
         ),
       ),
     );
