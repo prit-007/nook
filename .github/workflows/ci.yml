@@ -21,6 +21,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
+        run: dart run tool/patch_appflowy_editor.dart
+
       - name: Generate code (Drift/Riverpod/Freezed)
         run: dart run build_runner build --delete-conflicting-outputs
 
@@ -47,6 +50,9 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
+        run: dart run tool/patch_appflowy_editor.dart
 
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
