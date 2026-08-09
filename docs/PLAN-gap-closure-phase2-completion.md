@@ -29,6 +29,11 @@ These are foundational issues that block Phase 4 and make the app insecure.
 - **Depends on:** Nothing
 
 ### 1B. GoRouter Biometric Redirect
+> **SUPERSEDED (2026-08-09):** not implemented as a redirect. The lock is now an
+> always-mounted `FrostedShield` overlay stacked in `MaterialApp.router.builder`,
+> driven by `biometricGateProvider` (see ADR 0006, `lib/features/security/frosted_shield.dart`).
+> `test/core/router_test.dart` is unnecessary; coverage lives in
+> `test/features/security/frosted_shield_test.dart` + `test/core/providers/biometric_provider_test.dart`.
 - **Gap:** Router has no `redirect` callback. All routes accessible without biometric auth. The `biometricGateProvider` exists but is never checked.
 - **Fix:** Add `redirect` to GoRouter config that checks `biometricGateProvider` and routes to `/lock` if not authenticated.
 - **Files:** `lib/core/router.dart`
@@ -190,8 +195,8 @@ Update `IMPLEMENTATION-CHECKLIST.md` to reflect reality.
 - Mark `failure mode handling` as NOT DONE (currently unchecked — correct)
 - Mark `repository_providers.dart` as NOT DONE (currently unchecked — correct)
 - Mark `notesListProvider` path note (exists at non-standard path)
-- Mark `redirect` in router as NOT DONE (currently unchecked — correct)
-- Mark `route redirect test` as NOT DONE (currently unchecked — correct)
+- Mark `redirect` in router as **SUPERSEDED** by the `FrostedShield` overlay (see 1B note; `IMPLEMENTATION-CHECKLIST.md` §0.6 now tracks the overlay)
+- Mark `route redirect test` as **SUPERSEDED** — replaced by `frosted_shield_test.dart` / `biometric_provider_test.dart`
 - Mark CI workflow as NOT DONE (currently unchecked — correct)
 - Mark `build_runner` verification as NOT DONE (currently unchecked — correct)
 

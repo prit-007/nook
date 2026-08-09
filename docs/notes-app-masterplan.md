@@ -81,6 +81,13 @@ Keep `deviceOriginId` + `updatedAt` (Lamport-ish versioning) from day one — re
 - Bottom or side nav: Notebooks, Tags, Locked notes, Trash (soft-delete, 30-day purge).
 - Pull-to-refresh not needed (no cloud) — replace with a subtle "synced X devices nearby" pill when sync is active.
 
+> **Implemented (2026-08):** staggered card-entrance animations, and **hero
+> shared-element transitions** between the three card types and the editor
+> (`Hero(tag: 'note-<id>')`). Also a **pull-to-search** gesture — drag down from
+> the top of the grid past 80px opens the FTS search screen
+> (`lib/features/home/widgets/pull_to_search.dart`; listens to drag-driven
+> `ScrollUpdateNotification` with negative pixels under `BouncingScrollPhysics`).
+
 ### 5.3 Note Editor
 - Edge-to-edge, chrome fades away as you type (immersive writing mode).
 - Floating contextual toolbar (Quill-based) that only appears on text selection or focus — not a permanent bar eating screen space.
@@ -92,6 +99,13 @@ Keep `deviceOriginId` + `updatedAt` (Lamport-ish versioning) from day one — re
 
 ### 5.4 Notebooks / Tags view
 - Simple folder-card grid; tags shown as chips with their own tonal color.
+
+> **Implemented (2026-08):** notebook cards are now **editorial magazine
+> covers** — portrait, dominant color extracted from the cover image via
+> `palette_generator` (fallback to notebook color seed), macro typography with a
+> 'NOTEBOOK' kicker, and an async note-count. Cover thumbnail comes from the
+> newest note attachment (`NotebookRepository.getLatestImageForNotebook`).
+> (`lib/features/notebooks/widgets/notebook_card.dart`)
 
 ### 5.5 Search
 - Local FTS, instant-as-you-type, results grouped by note vs. checklist-item matches.
@@ -111,6 +125,11 @@ Keep `deviceOriginId` + `updatedAt` (Lamport-ish versioning) from day one — re
 
 ### 5.8 Empty states, lock screen, trash
 Don't skip these — a biometric lock screen with a nice illustration and a soft blur-behind, and a trash view with "auto-deletes in N days" messaging, are cheap wins that read as "polished."
+
+> **Implemented (2026-08):** the lock is a `FrostedShield` overlay — blur-behind
+> (`BackdropFilter`) with a focus-in animation and a pulsing fingerprint icon
+> (`lib/features/security/frosted_shield.dart`). See ADR 0006. Still TODO from
+> this section: lock-screen illustration and the trash "auto-deletes" messaging.
 
 ---
 
