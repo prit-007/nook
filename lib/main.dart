@@ -18,12 +18,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/providers/theme_provider.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final themePref = await ThemePreference.load();
+
   runApp(
-    const ProviderScope(
-      child: NookApp(),
+    ProviderScope(
+      overrides: [
+        themePreferenceProvider.overrideWith((ref) => themePref),
+      ],
+      child: const NookApp(),
     ),
   );
 }

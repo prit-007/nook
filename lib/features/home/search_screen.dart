@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/widgets/empty_state.dart';
 import '../../data/database.dart';
 import '../../data/repositories/search_repository.dart';
 import 'widgets/note_card.dart';
@@ -71,28 +72,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       ),
       body: _query.trim().isEmpty
-          ? Center(
-              child: Text(
-                'Type to search notes',
-                style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.5),
-                ),
-              ),
+          ? const EmptyState(
+              icon: Icons.search_rounded,
+              title: 'Search notes',
+              subtitle: 'Type to find your notes',
+              animate: false,
             )
           : _results.isEmpty && _searched
-              ? Center(
-                  child: Text(
-                    'No results for "$_query"',
-                    style: TextStyle(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.5),
-                    ),
-                  ),
+              ? EmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: 'No results',
+                  subtitle: 'No notes found for "$_query"',
+                  animate: false,
                 )
               : GridView.builder(
                   padding: const EdgeInsets.all(12),

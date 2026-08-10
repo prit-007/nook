@@ -1,0 +1,83 @@
+import 'dart:convert';
+
+import 'package:flutter/painting.dart';
+
+import 'doodle_controller.dart';
+
+/// A saved doodle: its strokes plus the background template it was drawn on.
+class DoodleData {
+  const DoodleData({
+    this.strokes = const [],
+    this.background = DoodleBackground.dotted,
+  });
+
+  final List<Stroke> strokes;
+  final DoodleBackground background;
+}
+
+/// Serializes doodle strokes to/from JSON for persistence.
+class DoodleStrokesCodec {
+  DoodleStrokesCodec._();
+
+  static const int _version = 1;
+
+  static String encode(
+    List<Stroke> strokes, {
+    DoodleBackground background = DoodleBackground.dotted,
+  }) {
+    final data = <String, dynamic>{
+      'version': _version,
+      'background': background.name,
+      'strokes': [
+        for (final stroke in strokes)
+          {
+            'tool': stroke.tool.name,
+            'color': stroke.color.toARGB32(),
+            'width': stroke.width,
+            'opacity': stroke.opacity,
+            'points': [
+              for (final point in stroke.points)
+                [point.position.dx, point.position.dy, point.pressure],
+            ],
+          },
+      ],
+    };
+    return jsonEncode(data);
+  }
+
+  static DoodleData decode(String source) {
+    try {
+      final data = jsonDecode(source) as Map<String, dynamic>;
+      final strokes = <Stroke>[];
+
+      for (final raw in (data['strokes'] as List? ?? [])) {
+        final map = raw as Map<String, dynamic>;
+        final points = <StrokePoint>[];
+        for (final rawPoint in (map['points'] as List? ?? [])) {
+          final list = (rawPoint as List).cast<num>();
+          final dx = list[0].toDouble();
+          final dy = list[1].toDouble();
+          final pressure = list.length > 2 ? list[2].toDouble() : 1.0;
+          points.add(StrokePoint(Offset(dx, dy), pressure: pressure));
+        }
+        strokes.add(
+          Stroke(
+            points: points,
+            color: Color(map['color'] as int),
+            width: (map['width'] as num).toDouble(),
+            tool: DoodleTool.values.byName(map['tool'] as String),
+            opacity: (map['opacity'] as num).toDouble(),
+          ),
+        );
+      }
+
+      final background =
+          DoodleBackground.values.asNameMap()[data['background']] ??
+              DoodleBackground.dotted;
+
+      return DoodleData(strokes: strokes, background: background);
+    } catch (_) {
+      return const DoodleData();
+    }
+  }
+}

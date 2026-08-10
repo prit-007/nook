@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/features/settings/settings_screen.dart';
 
 void main() {
   Widget buildScreen() {
-    return const MaterialApp(home: SettingsScreen());
+    return const ProviderScope(
+      child: MaterialApp(home: SettingsScreen()),
+    );
   }
 
   testWidgets('renders AppBar with title', (tester) async {

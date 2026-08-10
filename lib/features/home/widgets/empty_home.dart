@@ -1,41 +1,19 @@
 import 'package:flutter/material.dart';
 
-/// Empty state widget shown when no notes exist on the home screen.
+import '../../../core/widgets/empty_state.dart';
+
 class EmptyHome extends StatelessWidget {
-  const EmptyHome({super.key});
+  const EmptyHome({super.key, this.animate = true});
+
+  final bool animate;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.note_add_outlined,
-            size: 64,
-            color: scheme.onSurface.withValues(alpha: 0.15),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No notes yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: scheme.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap + to create your first note',
-            style: TextStyle(
-              fontSize: 14,
-              color: scheme.onSurface.withValues(alpha: 0.35),
-            ),
-          ),
-        ],
-      ),
+    return EmptyState(
+      icon: Icons.auto_awesome_rounded,
+      title: 'Your canvas is clear',
+      subtitle: 'Tap "New Note" below to capture a thought or sketch.',
+      animate: animate,
     );
   }
 }

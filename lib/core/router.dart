@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,7 +9,7 @@ import '../../features/notebooks/notebook_detail_screen.dart';
 import '../../features/tags/tags_screen.dart';
 import '../../features/tags/tag_detail_screen.dart';
 import '../../features/editor/note_editor_screen.dart';
-import '../../features/editor/doodle_canvas_screen.dart';
+import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/trash/trash_screen.dart';
 import '../../features/security/lock_screen.dart';
 import '../../features/security/locked_notes_screen.dart';
@@ -25,6 +26,52 @@ import '../../features/settings/settings_sync_devices_screen.dart';
 import '../../features/settings/settings_about_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import 'widgets/app_shell.dart';
+
+/// Custom page transition: fade + slight slide up for forward pushes.
+CustomTransitionPage<void> _slideUpTransition(
+  BuildContext context,
+  GoRouterState state,
+  Widget child,
+) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
+/// Custom page transition: fade-through for shell tab switches.
+CustomTransitionPage<void> _fadeTransition(
+  BuildContext context,
+  GoRouterState state,
+  Widget child,
+) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurvedAnimation(
+          parent: animation,
+          curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
+        ),
+        child: child,
+      );
+    },
+  );
+}
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -47,107 +94,195 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/home',
-            builder: (_, __) => const HomeScreen(),
+            pageBuilder: (context, state) => _fadeTransition(
+              context,
+              state,
+              const HomeScreen(),
+            ),
           ),
           GoRoute(
             path: '/home/search',
-            builder: (_, __) => const SearchScreen(),
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SearchScreen(),
+            ),
           ),
           GoRoute(
             path: '/notebooks',
-            builder: (_, __) => const NotebooksScreen(),
+            pageBuilder: (context, state) => _fadeTransition(
+              context,
+              state,
+              const NotebooksScreen(),
+            ),
           ),
           GoRoute(
             path: '/notebooks/:notebookId',
-            builder: (_, state) => NotebookDetailScreen(
-              notebookId: state.pathParameters['notebookId']!,
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              NotebookDetailScreen(
+                notebookId: state.pathParameters['notebookId']!,
+              ),
             ),
           ),
           GoRoute(
             path: '/tags',
-            builder: (_, __) => const TagsScreen(),
+            pageBuilder: (context, state) => _fadeTransition(
+              context,
+              state,
+              const TagsScreen(),
+            ),
           ),
           GoRoute(
             path: '/tags/:tagId',
-            builder: (_, state) => TagDetailScreen(
-              tagId: state.pathParameters['tagId']!,
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              TagDetailScreen(
+                tagId: state.pathParameters['tagId']!,
+              ),
             ),
           ),
           GoRoute(
             path: '/trash',
-            builder: (_, __) => const TrashScreen(),
+            pageBuilder: (context, state) => _fadeTransition(
+              context,
+              state,
+              const TrashScreen(),
+            ),
           ),
           GoRoute(
             path: '/settings',
-            builder: (_, __) => const SettingsScreen(),
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SettingsScreen(),
+            ),
           ),
           GoRoute(
             path: '/settings/appearance',
-            builder: (_, __) => const SettingsAppearanceScreen(),
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SettingsAppearanceScreen(),
+            ),
           ),
           GoRoute(
             path: '/settings/security',
-            builder: (_, __) => const SettingsSecurityScreen(),
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SettingsSecurityScreen(),
+            ),
           ),
           GoRoute(
             path: '/settings/storage',
-            builder: (_, __) => const SettingsStorageScreen(),
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SettingsStorageScreen(),
+            ),
           ),
           GoRoute(
             path: '/settings/sync-devices',
-            builder: (_, __) => const SettingsSyncDevicesScreen(),
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SettingsSyncDevicesScreen(),
+            ),
           ),
           GoRoute(
             path: '/settings/about',
-            builder: (_, __) => const SettingsAboutScreen(),
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SettingsAboutScreen(),
+            ),
           ),
           GoRoute(
             path: '/locked',
-            builder: (_, __) => const LockedNotesScreen(),
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const LockedNotesScreen(),
+            ),
           ),
         ],
       ),
       GoRoute(
         path: '/note/new',
-        builder: (_, state) => NoteEditorScreen(
-          notebookId: state.uri.queryParameters['notebookId'],
-          type: state.uri.queryParameters['type'],
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          NoteEditorScreen(
+            notebookId: state.uri.queryParameters['notebookId'],
+            type: state.uri.queryParameters['type'],
+          ),
         ),
       ),
       GoRoute(
         path: '/note/:noteId',
-        builder: (_, state) => NoteEditorScreen(
-          noteId: state.pathParameters['noteId']!,
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          NoteEditorScreen(
+            noteId: state.pathParameters['noteId']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/note/:noteId/doodle/:attachmentId',
-        builder: (_, state) => DoodleCanvasScreen(
-          noteId: state.pathParameters['noteId']!,
-          attachmentId: state.pathParameters['attachmentId']!,
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          DoodleCanvasScreen(
+            noteId: state.pathParameters['noteId']!,
+            attachmentId: state.pathParameters['attachmentId']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/sync/send',
-        builder: (_, __) => const SyncSendScreen(),
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const SyncSendScreen(),
+        ),
       ),
       GoRoute(
         path: '/sync/receive',
-        builder: (_, __) => const SyncReceiveScreen(),
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const SyncReceiveScreen(),
+        ),
       ),
       GoRoute(
         path: '/sync/pairing',
-        builder: (_, __) => const SyncPairingScreen(),
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const SyncPairingScreen(),
+        ),
       ),
       GoRoute(
         path: '/sync/transfer/:sessionId',
-        builder: (_, state) => SyncTransferScreen(
-          sessionId: state.pathParameters['sessionId']!,
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          SyncTransferScreen(
+            sessionId: state.pathParameters['sessionId']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/sync/history',
-        builder: (_, __) => const SyncHistoryScreen(),
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const SyncHistoryScreen(),
+        ),
       ),
     ],
   );

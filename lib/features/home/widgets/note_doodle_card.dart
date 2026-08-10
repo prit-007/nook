@@ -26,83 +26,86 @@ class NoteDoodleCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        height: 140,
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.draw_rounded,
-                          size: 14,
-                          color: scheme.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Canvas Doodle',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: scheme.onSurface,
+      child: Hero(
+        tag: 'note-${note.id}',
+        child: Container(
+          height: 140,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.draw_rounded,
+                            size: 14,
+                            color: scheme.primary,
                           ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Canvas Doodle',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        note.title.isEmpty ? 'Untitled doodle' : note.title,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (note.pinned) ...[
+                        const SizedBox(height: 4),
+                        Icon(
+                          Icons.push_pin_rounded,
+                          size: 12,
+                          color: scheme.outline,
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      note.title.isEmpty ? 'Untitled doodle' : note.title,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (note.pinned) ...[
-                      const SizedBox(height: 4),
-                      Icon(
-                        Icons.push_pin_rounded,
-                        size: 12,
-                        color: scheme.outline,
-                      ),
                     ],
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _visualColor(context),
-                  borderRadius: const BorderRadius.horizontal(
-                    right: Radius.circular(24),
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.gesture_rounded,
-                    size: 36,
-                    color: scheme.onPrimaryContainer.withValues(alpha: 0.6),
                   ),
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                flex: 2,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _visualColor(context),
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(24),
+                    ),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.gesture_rounded,
+                      size: 36,
+                      color: scheme.onPrimaryContainer.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

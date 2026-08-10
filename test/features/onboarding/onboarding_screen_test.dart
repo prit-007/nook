@@ -52,11 +52,11 @@ void main() {
     expect(find.text('Skip'), findsOneWidget);
   });
 
-  testWidgets('shows wallpaper toggle on vibe page', (tester) async {
+  testWidgets('shows seed color picker on vibe page', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('Match my wallpaper'), findsOneWidget);
+    expect(find.text('Pick your vibe'), findsOneWidget);
   });
 
   testWidgets('third page shows Get Started', (tester) async {

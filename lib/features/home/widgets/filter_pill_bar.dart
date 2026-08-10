@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../data/tables/notes.dart';
 
-/// Horizontal scrollable filter pill bar with glassmorphism styling.
 class FilterPillBar extends StatelessWidget {
   const FilterPillBar({
     super.key,
     required this.selectedType,
     required this.onTypeSelected,
+    this.counts,
   });
 
   final NoteType? selectedType;
   final ValueChanged<NoteType?> onTypeSelected;
+  final Map<NoteType?, int>? counts;
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +24,7 @@ class FilterPillBar extends StatelessWidget {
         children: [
           _FilterPill(
             label: 'All notes',
+            count: counts?[null],
             isActive: selectedType == null,
             onTap: () => onTypeSelected(null),
           ),
@@ -34,16 +36,19 @@ class FilterPillBar extends StatelessWidget {
           ),
           _FilterPill(
             label: 'Text',
+            count: counts?[NoteType.text],
             isActive: selectedType == NoteType.text,
             onTap: () => onTypeSelected(NoteType.text),
           ),
           _FilterPill(
             label: 'Checklists',
+            count: counts?[NoteType.checklist],
             isActive: selectedType == NoteType.checklist,
             onTap: () => onTypeSelected(NoteType.checklist),
           ),
           _FilterPill(
             label: 'Doodles',
+            count: counts?[NoteType.doodle],
             isActive: selectedType == NoteType.doodle,
             onTap: () => onTypeSelected(NoteType.doodle),
           ),
@@ -65,12 +70,14 @@ class _FilterPill extends StatelessWidget {
     required this.isActive,
     required this.onTap,
     this.icon,
+    this.count,
   });
 
   final String label;
   final bool isActive;
   final VoidCallback onTap;
   final IconData? icon;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +116,30 @@ class _FilterPill extends StatelessWidget {
                   color: isActive ? scheme.onPrimary : scheme.onSurfaceVariant,
                 ),
               ),
+              if (count != null && count! > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? scheme.onPrimary.withValues(alpha: 0.2)
+                        : scheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color:
+                          isActive ? scheme.onPrimary : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

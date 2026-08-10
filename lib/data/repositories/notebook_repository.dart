@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database.dart';
+import '../tables/attachments.dart';
 
 /// Repository for Notebooks table operations.
 class NotebookRepository {
@@ -78,5 +79,22 @@ class NotebookRepository {
       ..addColumns([count]);
     final result = await query.getSingle();
     return result.read(count) ?? 0;
+  }
+
+  /// Returns the most recently updated image attachment belonging to any
+  /// non-deleted note in the notebook, or null when none exists.
+  Future<Attachment?> getLatestImageForNotebook(String notebookId) async {
+    final query = _db.select(_db.attachments).join([
+      innerJoin(
+        _db.notes,
+        _db.notes.id.equalsExp(_db.attachments.noteId),
+      ),
+    ])
+      ..where(_db.notes.notebookId.equals(notebookId) &
+          _db.notes.deleted.equals(false) &
+          _db.attachments.type.equalsValue(AttachmentType.image))
+      ..orderBy([OrderingTerm.desc(_db.notes.updatedAt)]);
+    final rows = await query.get();
+    return rows.isEmpty ? null : rows.first.readTable(_db.attachments);
   }
 }

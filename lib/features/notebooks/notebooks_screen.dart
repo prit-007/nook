@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/widgets/empty_state.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
 import 'widgets/notebook_card.dart';
@@ -17,6 +18,7 @@ class NotebooksScreen extends ConsumerStatefulWidget {
 
 class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   List<Notebook> _notebooks = [];
+  Map<String, int> _counts = {};
   bool _loading = true;
 
   @override
@@ -28,8 +30,14 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   Future<void> _load() async {
     final repo = NotebookRepository(ref.read(databaseProvider));
     final results = await repo.getAllNotebooks();
+    final counts = <String, int>{};
+    for (final nb in results) {
+      counts[nb.id] = await repo.countNotesInNotebook(nb.id);
+    }
+    if (!mounted) return;
     setState(() {
       _notebooks = results;
+      _counts = counts;
       _loading = false;
     });
   }
@@ -164,52 +172,22 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _notebooks.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.book_outlined,
-                        size: 64,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.15),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No notebooks',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.5),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap + to create one',
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.35),
-                        ),
-                      ),
-                    ],
-                  ),
+              ? const EmptyState(
+                  icon: Icons.book_outlined,
+                  title: 'No notebooks',
+                  subtitle: 'Tap + to create one',
+                  animate: false,
                 )
               : RefreshIndicator(
                   onRefresh: _load,
                   child: GridView.builder(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 1.0,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 0.62,
                     ),
                     itemCount: _notebooks.length,
                     itemBuilder: (context, index) {
@@ -217,7 +195,10 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                       return GestureDetector(
                         onTap: () => context.push('/notebooks/${nb.id}'),
                         onLongPress: () => _showDeleteDialog(nb),
-                        child: NotebookCard(notebook: nb),
+                        child: NotebookCard(
+                          notebook: nb,
+                          noteCount: _counts[nb.id] ?? 0,
+                        ),
                       );
                     },
                   ),

@@ -18,7 +18,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
   int _selectedSeedIndex = 0;
-  bool _useDynamicColor = true;
 
   @override
   void dispose() {
@@ -73,11 +72,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   _VibePage(
                     scheme: scheme,
                     selectedIndex: _selectedSeedIndex,
-                    useDynamic: _useDynamicColor,
                     onSeedChanged: (i) =>
                         setState(() => _selectedSeedIndex = i),
-                    onDynamicChanged: (v) =>
-                        setState(() => _useDynamicColor = v),
                   ),
                   _ReadyPage(scheme: scheme),
                 ],
@@ -218,16 +214,12 @@ class _VibePage extends StatelessWidget {
   const _VibePage({
     required this.scheme,
     required this.selectedIndex,
-    required this.useDynamic,
     required this.onSeedChanged,
-    required this.onDynamicChanged,
   });
 
   final ColorScheme scheme;
   final int selectedIndex;
-  final bool useDynamic;
   final ValueChanged<int> onSeedChanged;
-  final ValueChanged<bool> onDynamicChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -290,48 +282,6 @@ class _VibePage extends StatelessWidget {
                   ),
                 );
               },
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Dynamic color toggle
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.palette_outlined,
-                  color: scheme.onSurface.withValues(alpha: 0.7),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Match my wallpaper',
-                        style: TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      Text(
-                        'Dynamic color from your device (Android 12+)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: scheme.onSurface.withValues(alpha: 0.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: useDynamic,
-                  onChanged: onDynamicChanged,
-                ),
-              ],
             ),
           ),
 

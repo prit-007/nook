@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/widgets/empty_state.dart';
 import '../../data/repositories/note_repository.dart';
 
 /// Trash screen — lists soft-deleted notes with restore / permanent delete.
@@ -126,25 +127,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _notes.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.delete_outline,
-                        size: 64,
-                        color: scheme.onSurface.withValues(alpha: 0.2),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Trash is empty',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: scheme.onSurface.withValues(alpha: 0.5),
-                        ),
-                      ),
-                    ],
-                  ),
+              ? const EmptyState(
+                  icon: Icons.delete_outline,
+                  title: 'Trash is empty',
+                  subtitle: 'Deleted notes will appear here',
+                  animate: false,
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),

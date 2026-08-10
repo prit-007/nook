@@ -7,12 +7,14 @@ void main() {
   Widget buildBar({
     NoteType? selectedType,
     ValueChanged<NoteType?>? onTypeSelected,
+    Map<NoteType?, int>? counts,
   }) {
     return MaterialApp(
       home: Scaffold(
         body: FilterPillBar(
           selectedType: selectedType,
           onTypeSelected: onTypeSelected ?? (_) {},
+          counts: counts,
         ),
       ),
     );
@@ -72,6 +74,39 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
+    });
+
+    testWidgets('displays counts when provided', (tester) async {
+      await tester.pumpWidget(
+        buildBar(
+          counts: {
+            null: 10,
+            NoteType.text: 5,
+            NoteType.checklist: 3,
+            NoteType.doodle: 2,
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('10'), findsOneWidget);
+      expect(find.text('5'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+    });
+
+    testWidgets('hides counts when zero', (tester) async {
+      await tester.pumpWidget(
+        buildBar(
+          counts: {
+            null: 0,
+            NoteType.text: 0,
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('0'), findsNothing);
     });
   });
 }

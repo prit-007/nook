@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
 import 'doodle_controller.dart';
+import 'doodle_painter.dart';
 
-/// Full-screen drawing canvas that renders strokes via CustomPainter.
+/// Full-screen drawing canvas that renders organic, pressure-sensitive
+/// strokes via perfect_freehand and a selectable background template.
 class DoodleCanvas extends StatefulWidget {
-  const DoodleCanvas({super.key, required this.controller});
+  const DoodleCanvas({
+    super.key,
+    required this.controller,
+    this.boundaryKey,
+  });
 
   final DoodleController controller;
+
+  /// Key for the internal [RepaintBoundary] (used for thumbnail capture).
+  final GlobalKey? boundaryKey;
 
   @override
   State<DoodleCanvas> createState() => _DoodleCanvasState();
@@ -40,29 +49,67 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final background = widget.controller.background;
+
     return RepaintBoundary(
-      child: GestureDetector(
-        onPanStart: (details) {
-          widget.controller.startStroke(details.localPosition);
-        },
-        onPanUpdate: (details) {
-          widget.controller.continueStroke(details.localPosition);
-        },
-        onPanEnd: (_) {
-          widget.controller.endStroke();
-        },
-        child: CustomPaint(
-          painter: _StrokePainter(
-            strokes: widget.controller.strokes,
+      key: widget.boundaryKey,
+      child: CustomPaint(
+        key: ValueKey('doodle-bg-${background.name}'),
+        // The background template (blank / dotted / ruled / graph)
+        painter: _BackgroundPainter(
+          background: background,
+          color: scheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (event) => widget.controller.startStroke(
+            event.localPosition,
+            pressure: event.pressure,
           ),
-          size: Size.infinite,
+          onPointerMove: (event) => widget.controller.continueStroke(
+            event.localPosition,
+            pressure: event.pressure,
+          ),
+          onPointerUp: (_) => widget.controller.endStroke(),
+          onPointerCancel: (_) => widget.controller.endStroke(),
+          child: CustomPaint(
+            // The organic strokes
+            painter: _StrokePainter(
+              strokes: widget.controller.strokes,
+            ),
+            size: Size.infinite,
+          ),
         ),
       ),
     );
   }
 }
 
-/// Painter that renders all strokes.
+/// Renders the selected background template for the canvas.
+class _BackgroundPainter extends CustomPainter {
+  _BackgroundPainter({required this.background, required this.color});
+
+  final DoodleBackground background;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    paintDoodleBackground(
+      canvas,
+      size,
+      background: background,
+      color: color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _BackgroundPainter oldDelegate) {
+    return oldDelegate.background != background || oldDelegate.color != color;
+  }
+}
+
+/// Uses perfect_freehand to render pressure-simulated strokes.
 class _StrokePainter extends CustomPainter {
   _StrokePainter({required this.strokes});
 
@@ -70,40 +117,9 @@ class _StrokePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final stroke in strokes) {
-      if (stroke.points.length < 2) continue;
-
-      final paint = Paint()
-        ..color = stroke.color.withValues(alpha: stroke.opacity)
-        ..strokeWidth = stroke.width
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = stroke.tool == DoodleTool.eraser
-            ? PaintingStyle.stroke
-            : PaintingStyle.stroke;
-
-      if (stroke.tool == DoodleTool.eraser) {
-        paint.blendMode = BlendMode.clear;
-      }
-
-      final path = Path();
-      path.moveTo(stroke.points.first.dx, stroke.points.first.dy);
-
-      for (int i = 1; i < stroke.points.length; i++) {
-        final p0 = stroke.points[i - 1];
-        final p1 = stroke.points[i];
-        final mid = Offset((p0.dx + p1.dx) / 2, (p0.dy + p1.dy) / 2);
-        path.quadraticBezierTo(p0.dx, p0.dy, mid.dx, mid.dy);
-      }
-
-      // Draw the last point
-      final last = stroke.points.last;
-      path.lineTo(last.dx, last.dy);
-
-      canvas.drawPath(path, paint);
-    }
+    paintDoodleStrokes(canvas, size, strokes);
   }
 
   @override
-  bool shouldRepaint(_StrokePainter oldDelegate) => true;
+  bool shouldRepaint(covariant _StrokePainter oldDelegate) => true;
 }

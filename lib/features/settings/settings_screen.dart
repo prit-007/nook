@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../core/providers/biometric_provider.dart';
 
 /// Settings root screen per prompt #11.
 /// Grouped list with rounded section cards, leading icons, switches.
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gate = ref.watch(biometricGateProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
@@ -44,8 +48,9 @@ class SettingsScreen extends StatelessWidget {
                 icon: Icons.fingerprint,
                 title: 'Biometric lock',
                 trailing: Switch(
-                  value: true,
-                  onChanged: (_) {},
+                  value: gate.enabled,
+                  onChanged: (value) =>
+                      ref.read(biometricGateProvider).setEnabled(value),
                 ),
               ),
               _SettingsTile(

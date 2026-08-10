@@ -14,9 +14,9 @@ void main() {
         ),
       ));
 
-      expect(find.byIcon(Icons.brush), findsOneWidget);
-      expect(find.byIcon(Icons.auto_fix_high), findsOneWidget);
-      expect(find.byIcon(Icons.highlight), findsOneWidget);
+      expect(find.byIcon(Icons.edit_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.brush_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.cleaning_services_rounded), findsOneWidget);
     });
 
     testWidgets('pen is selected by default', (tester) async {
@@ -27,7 +27,7 @@ void main() {
         ),
       ));
 
-      // Pen button should have primary color (selected state)
+      // Pen button should be selected by default
       expect(controller.currentTool, equals(DoodleTool.pen));
     });
 
@@ -39,7 +39,7 @@ void main() {
         ),
       ));
 
-      await tester.tap(find.byIcon(Icons.auto_fix_high));
+      await tester.tap(find.byIcon(Icons.cleaning_services_rounded));
       await tester.pumpAndSettle();
 
       expect(controller.currentTool, equals(DoodleTool.eraser));
@@ -53,7 +53,7 @@ void main() {
         ),
       ));
 
-      await tester.tap(find.byIcon(Icons.highlight));
+      await tester.tap(find.byIcon(Icons.brush_rounded));
       await tester.pumpAndSettle();
 
       expect(controller.currentTool, equals(DoodleTool.highlighter));
@@ -72,41 +72,6 @@ void main() {
       expect(containers, findsAtLeastNWidgets(5));
     });
 
-    testWidgets('shows undo button', (tester) async {
-      final controller = DoodleController();
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: DoodleToolbar(controller: controller),
-        ),
-      ));
-
-      expect(find.byIcon(Icons.undo), findsOneWidget);
-    });
-
-    testWidgets('shows redo button', (tester) async {
-      final controller = DoodleController();
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: DoodleToolbar(controller: controller),
-        ),
-      ));
-
-      expect(find.byIcon(Icons.redo), findsOneWidget);
-    });
-
-    testWidgets('undo button is disabled when no strokes', (tester) async {
-      final controller = DoodleController();
-      expect(controller.canUndo, isFalse);
-
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: DoodleToolbar(controller: controller),
-        ),
-      ));
-
-      expect(find.byIcon(Icons.undo), findsOneWidget);
-    });
-
     testWidgets('shows clear button', (tester) async {
       final controller = DoodleController();
       await tester.pumpWidget(MaterialApp(
@@ -115,7 +80,7 @@ void main() {
         ),
       ));
 
-      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+      expect(find.byIcon(Icons.delete_sweep_rounded), findsOneWidget);
     });
   });
 

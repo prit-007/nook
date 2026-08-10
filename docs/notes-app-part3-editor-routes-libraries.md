@@ -264,8 +264,8 @@ AppFlowyEditor(
 
 | Route | Path | Notes |
 |---|---|---|
-| Splash/Bootstrap | `/` | Opens encrypted DB, checks biometric lock state, redirects |
-| Lock Screen | `/lock` | Shown if biometric/PIN lock is active; blocks all routes below until passed |
+| Splash/Bootstrap | `/` | Opens encrypted DB, checks biometric lock state |
+| Lock Screen | — | **No `/lock` route.** Replaced by an always-mounted `FrostedShield` overlay stacked in `MaterialApp.router.builder` (see ADR 0006). Blocks every route below until biometric unlock; keeps app state alive. |
 | Onboarding | `/onboarding` | First-launch only, 3 sub-steps as a `PageView`, not separate routes |
 | Home | `/home` | Notes grid — the app's default landing route post-lock |
 | Search | `/home/search` | Presented as a full route (not just a dialog) so back-button/deep-link behaves correctly |
@@ -294,19 +294,18 @@ That's **~22 routes** across 8 feature areas (Home, Search, Notebooks, Tags, Edi
 
 ### 3.2 go_router Skeleton
 
+> **Update (2026-08):** the biometric lock is no longer a redirect to a `/lock`
+> route. `NookApp` is a `ConsumerStatefulWidget` with a `WidgetsBindingObserver`;
+> `MaterialApp.router.builder` stacks `FrostedShield` above every route, so no
+> router changes are needed to gate content (see ADR 0006). The skeleton below
+> reflects the current implementation — there is no `/lock` route and no
+> `redirect` callback.
+
 ```dart
 final router = GoRouter(
   initialLocation: '/',
-  redirect: (context, state) {
-    final lockState = ref.read(biometricGateProvider);
-    final goingToLock = state.matchedLocation == '/lock';
-    if (lockState.isLocked && !goingToLock) return '/lock';
-    if (!lockState.isLocked && goingToLock) return '/home';
-    return null;
-  },
   routes: [
     GoRoute(path: '/', builder: (_, __) => const BootstrapScreen()),
-    GoRoute(path: '/lock', builder: (_, __) => const LockScreen()),
     GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
     ShellRoute(
       builder: (context, state, child) => AppShell(child: child), // bottom nav / rail

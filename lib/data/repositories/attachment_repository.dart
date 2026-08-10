@@ -31,6 +31,32 @@ class AttachmentRepository {
     return id;
   }
 
+  /// Adds a doodle layer attachment for a note.
+  Future<String> addDoodle({
+    required String noteId,
+    required String filePath,
+    String? id,
+    int sortOrder = 0,
+  }) async {
+    final attachmentId = id ?? _uuid.v4();
+    await _db.into(_db.attachments).insert(
+          AttachmentsCompanion.insert(
+            id: Value(attachmentId),
+            noteId: noteId,
+            type: AttachmentType.doodleLayer,
+            filePath: filePath,
+            sortOrder: Value(sortOrder),
+          ),
+        );
+    return attachmentId;
+  }
+
+  /// Updates the sidecar file path of an attachment.
+  Future<void> updateFilePath(String id, String filePath) async {
+    await (_db.update(_db.attachments)..where((a) => a.id.equals(id)))
+        .write(AttachmentsCompanion(filePath: Value(filePath)));
+  }
+
   /// Returns all image attachments for a note, ordered by sortOrder.
   Future<List<Attachment>> getImagesForNote(String noteId) {
     return (_db.select(_db.attachments)
