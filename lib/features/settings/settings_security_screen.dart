@@ -131,9 +131,7 @@ class SettingsSecurityScreen extends ConsumerWidget {
                     : 'Set a PIN as biometric fallback',
               ),
               secondary: Icon(
-                pinProv.enabled
-                    ? Icons.pin_rounded
-                    : Icons.pin_outlined,
+                pinProv.enabled ? Icons.pin_rounded : Icons.pin_outlined,
                 color: scheme.primary,
               ),
               value: pinProv.enabled,

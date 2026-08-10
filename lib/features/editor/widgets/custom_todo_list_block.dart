@@ -41,28 +41,33 @@ class _NookTodoCheckbox extends StatelessWidget {
     final scheme = NoteThemeScope.of(context);
     final checked = node.attributes[TodoListBlockKeys.checked] ?? false;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onCheck,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: AnimatedContainer(
-          key: NookTodoListBlock.checkboxKey,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          width: 22,
-          height: 22,
-          decoration: BoxDecoration(
-            color: checked ? scheme.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: checked ? scheme.primary : scheme.outline,
-              width: 1.8,
+    return Semantics(
+      label: 'Todo item, ${checked ? 'checked' : 'unchecked'}',
+      checked: checked,
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onCheck,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: AnimatedContainer(
+            key: NookTodoListBlock.checkboxKey,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: checked ? scheme.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: checked ? scheme.primary : scheme.outline,
+                width: 1.8,
+              ),
             ),
+            child: checked
+                ? Icon(Icons.check, size: 15, color: scheme.onPrimary)
+                : null,
           ),
-          child: checked
-              ? Icon(Icons.check, size: 15, color: scheme.onPrimary)
-              : null,
         ),
       ),
     );

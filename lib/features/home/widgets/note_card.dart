@@ -8,9 +8,10 @@ import 'package:nook/data/tables/notes.dart';
 /// From stitch prompt #3: "Each card has rounded 20px corners, soft tonal
 /// background color unique per card, subtle drop shadow."
 class NoteCard extends StatelessWidget {
-  const NoteCard({super.key, required this.note});
+  const NoteCard({super.key, required this.note, this.onTap});
 
   final Note note;
+  final VoidCallback? onTap;
 
   Color _cardColor(BuildContext context) {
     if (note.colorSeed != null) {
@@ -26,95 +27,98 @@ class NoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: _cardColor(context),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: scheme.shadow.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          // Content area
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Note type icon + title
-                Row(
-                  children: [
-                    _typeIcon(scheme),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        note.title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: note.locked
-                              ? scheme.onSurface.withValues(alpha: 0.3)
-                              : scheme.onSurface,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: _cardColor(context),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: scheme.shadow.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            // Content area
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Note type icon + title
+                  Row(
+                    children: [
+                      _typeIcon(scheme),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          note.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: note.locked
+                                ? scheme.onSurface.withValues(alpha: 0.3)
+                                : scheme.onSurface,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Preview area
-                Expanded(
-                  child: note.locked
-                      ? _lockedPreview(scheme)
-                      : _contentPreview(scheme),
-                ),
-              ],
-            ),
-          ),
-          // Pin badge (top-right)
-          if (note.pinned)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.push_pin,
-                  size: 14,
-                  color: scheme.onPrimaryContainer,
-                ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Preview area
+                  Expanded(
+                    child: note.locked
+                        ? _lockedPreview(scheme)
+                        : _contentPreview(scheme),
+                  ),
+                ],
               ),
             ),
-          // Lock badge (bottom-right)
-          if (note.locked)
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.lock,
-                  size: 14,
-                  color: scheme.onSurface.withValues(alpha: 0.5),
+            // Pin badge (top-right)
+            if (note.pinned)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.push_pin,
+                    size: 14,
+                    color: scheme.onPrimaryContainer,
+                  ),
                 ),
               ),
-            ),
-        ],
+            // Lock badge (bottom-right)
+            if (note.locked)
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.lock,
+                    size: 14,
+                    color: scheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

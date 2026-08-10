@@ -9,6 +9,12 @@ class ScreenshotBlocker extends ChangeNotifier {
 
   bool blocked;
 
+  /// Re-applies the platform FLAG_SECURE without checking the guard clause.
+  /// Used at startup to restore the persisted state.
+  Future<void> applyPersisted() async {
+    await _apply();
+  }
+
   Future<void> setBlocked(bool value) async {
     if (blocked == value) return;
     blocked = value;

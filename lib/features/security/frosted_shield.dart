@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
-import '../../core/theme/design_tokens.dart';
+import '../../core/providers/theme_provider.dart';
 import 'pin_entry_screen.dart';
 
 /// "Frosted Shield" — maximum-strength blur veil over the live vault.
@@ -72,6 +72,7 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final gate = ref.watch(biometricGateProvider);
+    final seedColor = ref.watch(themePreferenceProvider).seedColor;
 
     if (!gate.isLocked || _hasUnlocked) {
       return const SizedBox.shrink();
@@ -90,7 +91,7 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
                 child: _FrostedShieldButton(
                   enabled: !gate.isAuthenticating,
                   onTap: _unlock,
-                  seed: NookColors.violet,
+                  seed: seedColor,
                   pulse: _pulse,
                 ),
               ),

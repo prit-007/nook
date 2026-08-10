@@ -16,9 +16,9 @@ void main() {
       expect(gate.isLocked, isFalse);
     });
 
-    test('isLocked is false while disabled even after lock()', () async {
+    test('isLocked is false while disabled even after lock()', () {
       final gate = BiometricGate();
-      await gate.lock();
+      gate.lock();
       expect(gate.isLocked, isFalse);
     });
 
@@ -79,13 +79,13 @@ void main() {
       await gate.unlock();
       expect(gate.isLocked, isFalse);
 
-      await gate.onAppResumed();
+      gate.onAppResumed();
       expect(gate.isLocked, isTrue);
     });
 
-    test('onAppResumed is a no-op when disabled', () async {
+    test('onAppResumed is a no-op when disabled', () {
       final gate = BiometricGate(authenticator: () async => true);
-      await gate.onAppResumed();
+      gate.onAppResumed();
       expect(gate.isLocked, isFalse);
     });
 

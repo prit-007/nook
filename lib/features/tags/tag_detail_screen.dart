@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/widgets/empty_state.dart';
 import '../../data/database.dart';
 import '../../data/repositories/tag_repository.dart';
 import '../home/widgets/note_card.dart';
@@ -18,7 +20,6 @@ class TagDetailScreen extends ConsumerStatefulWidget {
 
 class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
   String _tagName = '';
-  String _tagColor = '#2196F3';
   List<Note> _notes = [];
   bool _loading = true;
 
@@ -35,11 +36,11 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
     final tag = await tagRepo.getTagById(widget.tagId);
     if (tag != null) {
       _tagName = tag.name;
-      _tagColor = tag.colorSeed;
     }
 
     final results = await tagRepo.getNotesForTag(widget.tagId);
 
+    if (!mounted) return;
     setState(() {
       _notes = results;
       _loading = false;
@@ -48,28 +49,18 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tagColor = Color(
-      int.parse('FF${_tagColor.replaceFirst('#', '')}', radix: 16),
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: Text(_tagName.isEmpty ? 'Tag' : _tagName),
-        backgroundColor: tagColor,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _notes.isEmpty
-              ? Center(
-                  child: Text(
-                    'No notes with this tag',
-                    style: TextStyle(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.5),
-                    ),
-                  ),
+              ? const EmptyState(
+                  icon: Icons.notes_outlined,
+                  title: 'No notes with this tag',
+                  subtitle: 'Tag notes from the editor options menu',
+                  animate: false,
                 )
               : GridView.builder(
                   padding: const EdgeInsets.all(12),
@@ -80,8 +71,10 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                     childAspectRatio: 0.75,
                   ),
                   itemCount: _notes.length,
-                  itemBuilder: (context, index) =>
-                      NoteCard(note: _notes[index]),
+                  itemBuilder: (context, index) => NoteCard(
+                    note: _notes[index],
+                    onTap: () => context.push('/note/${_notes[index].id}'),
+                  ),
                 ),
     );
   }

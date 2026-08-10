@@ -70,21 +70,25 @@ class BiometricGate extends ChangeNotifier {
     _save();
   }
 
-  Future<void> _lock() async {
+  void _lock() {
     _state = AppLockState.locked;
     _hasAuthenticated = false;
     notifyListeners();
   }
 
   /// Locks the app now (e.g. lifecycle pause/resume while enabled).
-  Future<void> lock() async {
+  void lock() {
     if (!_enabled) return;
-    await _lock();
+    _lock();
   }
 
   /// Attempts to unlock via the biometric prompt. Returns success.
   Future<bool> unlock() async {
-    if (!_enabled) return true;
+    if (!_enabled) {
+      _state = AppLockState.unlocked;
+      notifyListeners();
+      return true;
+    }
     if (!_hasAuthenticated) {
       if (_authenticating) return false;
       _authenticating = true;
@@ -124,13 +128,13 @@ class BiometricGate extends ChangeNotifier {
   /// Called on app lifecycle resume: relocks if enabled and the auto-lock
   /// timer has elapsed. If [onAppPaused] was never called, relocks
   /// immediately (conservative default).
-  Future<void> onAppResumed() async {
+  void onAppResumed() {
     if (!_enabled || !_hasAuthenticated || _authenticating) return;
 
-    if (_autoLockDuration == AutoLockDuration.immediately ||
-        _autoLockDuration == AutoLockDuration.never) {
-      if (_autoLockDuration == AutoLockDuration.never) return;
-      await _lock();
+    if (_autoLockDuration == AutoLockDuration.never) return;
+
+    if (_autoLockDuration == AutoLockDuration.immediately) {
+      _lock();
       return;
     }
 
@@ -138,11 +142,10 @@ class BiometricGate extends ChangeNotifier {
       final elapsed = DateTime.now().difference(_lastBackgroundedAt!);
       final threshold = _autoLockDuration.duration;
       if (elapsed >= threshold) {
-        await _lock();
+        _lock();
       }
     } else {
-      // No pause recorded — lock immediately (conservative).
-      await _lock();
+      _lock();
     }
   }
 
@@ -157,8 +160,8 @@ class BiometricGate extends ChangeNotifier {
     final durationIndex = prefs.getInt('auto_lock_duration') ?? 2;
     return BiometricGate(
       enabled: prefs.getBool('biometric_enabled') ?? false,
-      autoLockDuration: AutoLockDuration.values[
-          durationIndex.clamp(0, AutoLockDuration.values.length - 1)],
+      autoLockDuration: AutoLockDuration
+          .values[durationIndex.clamp(0, AutoLockDuration.values.length - 1)],
     );
   }
 }

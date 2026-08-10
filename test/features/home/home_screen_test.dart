@@ -287,7 +287,7 @@ void main() {
             builder: (_, __) => const HomeScreen(animate: false),
           ),
           GoRoute(
-            path: '/search',
+            path: '/home/search',
             builder: (_, __) => const SearchScreen(),
           ),
         ],
@@ -324,7 +324,7 @@ void main() {
             builder: (_, __) => const HomeScreen(animate: false),
           ),
           GoRoute(
-            path: '/search',
+            path: '/home/search',
             builder: (_, __) => const SearchScreen(),
           ),
         ],

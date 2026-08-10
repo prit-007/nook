@@ -28,6 +28,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   Future<void> _load() async {
     final repo = TagRepository(ref.read(databaseProvider));
     final results = await repo.getAllTags();
+    if (!mounted) return;
     setState(() {
       _tags = results;
       _loading = false;
@@ -79,19 +80,23 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                 final color = Color(
                   int.parse('FF${c.replaceFirst('#', '')}', radix: 16),
                 );
-                return GestureDetector(
-                  onTap: () => setState(() => selectedColor = c),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selectedColor == c
-                            ? Theme.of(ctx).colorScheme.onSurface
-                            : Colors.transparent,
-                        width: 3,
+                return Semantics(
+                  label: 'Color option',
+                  button: true,
+                  child: GestureDetector(
+                    onTap: () => setState(() => selectedColor = c),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: selectedColor == c
+                              ? Theme.of(ctx).colorScheme.onSurface
+                              : Colors.transparent,
+                          width: 3,
+                        ),
                       ),
                     ),
                   ),

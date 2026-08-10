@@ -39,7 +39,7 @@ void main() async {
   final pinProv = results[3] as PinProvider;
 
   // Apply screenshot blocker flag on startup if persisted.
-  await screenshotBlocker.setBlocked(screenshotBlocker.blocked);
+  await screenshotBlocker.applyPersisted();
 
   runApp(
     ProviderScope(

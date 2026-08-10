@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/providers/theme_provider.dart';
 import '../../core/theme/design_tokens.dart';
 
 /// Multi-page onboarding flow.
 /// Page 1: Welcome (prompt #1)
 /// Page 2: Pick Your Vibe (prompt #2)
 /// Page 3: Ready
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
   int _selectedSeedIndex = 0;
@@ -37,6 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _finish() {
+    ref.read(themePreferenceProvider).setSeedIndex(_selectedSeedIndex);
     context.go('/home');
   }
 

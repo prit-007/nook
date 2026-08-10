@@ -302,29 +302,34 @@ class _ColorDot extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color ?? scheme.surfaceContainerHighest,
-          border: Border.all(
-            color: isSelected
-                ? scheme.onSurface
-                : scheme.outlineVariant.withValues(alpha: 0.3),
-            width: isSelected ? 3 : 1,
+      child: Semantics(
+        label: color != null ? 'Select color' : 'No color',
+        button: true,
+        selected: isSelected,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color ?? scheme.surfaceContainerHighest,
+            border: Border.all(
+              color: isSelected
+                  ? scheme.onSurface
+                  : scheme.outlineVariant.withValues(alpha: 0.3),
+              width: isSelected ? 3 : 1,
+            ),
           ),
+          child: isSelected
+              ? Icon(
+                  color != null ? Icons.check : Icons.close,
+                  size: 18,
+                  color: color != null
+                      ? Colors.white
+                      : scheme.onSurface.withValues(alpha: 0.5),
+                )
+              : null,
         ),
-        child: isSelected
-            ? Icon(
-                color != null ? Icons.check : Icons.close,
-                size: 16,
-                color: color != null
-                    ? Colors.white
-                    : scheme.onSurface.withValues(alpha: 0.5),
-              )
-            : null,
       ),
     );
   }
@@ -391,34 +396,39 @@ class _TagChip extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? tagColor.withValues(alpha: 0.2)
-              : scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? tagColor : scheme.outlineVariant,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isSelected) ...[
-              Icon(Icons.check, size: 14, color: tagColor),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: isSelected ? tagColor : scheme.onSurface,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
+      child: Semantics(
+        label: label,
+        button: true,
+        selected: isSelected,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? tagColor.withValues(alpha: 0.2)
+                : scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? tagColor : scheme.outlineVariant,
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isSelected) ...[
+                Icon(Icons.check, size: 14, color: tagColor),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isSelected ? tagColor : scheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

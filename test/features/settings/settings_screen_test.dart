@@ -36,11 +36,6 @@ void main() {
     expect(find.text('About'), findsOneWidget);
   });
 
-  testWidgets('renders dynamic color tile', (tester) async {
-    await tester.pumpWidget(buildScreen());
-    expect(find.text('Dynamic color'), findsOneWidget);
-  });
-
   testWidgets('renders theme tile with System value', (tester) async {
     await tester.pumpWidget(buildScreen());
     expect(find.text('Theme'), findsOneWidget);
@@ -55,7 +50,7 @@ void main() {
   testWidgets('renders auto-lock timer tile', (tester) async {
     await tester.pumpWidget(buildScreen());
     expect(find.text('Auto-lock timer'), findsOneWidget);
-    expect(find.text('1 minute'), findsOneWidget);
+    expect(find.text('5 minutes'), findsOneWidget);
   });
 
   testWidgets('renders screenshot blocking tile', (tester) async {
@@ -96,13 +91,13 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.scrollUntilVisible(find.text('Version'), 100);
     expect(find.text('Version'), findsOneWidget);
-    expect(find.text('1.0.0'), findsOneWidget);
+    expect(find.text('0.1.0'), findsOneWidget);
   });
 
-  testWidgets('renders three switches', (tester) async {
+  testWidgets('renders two switches', (tester) async {
     await tester.pumpWidget(buildScreen());
-    // dynamic color on, biometric lock on, screenshot blocking off
-    expect(find.byType(Switch), findsNWidgets(3));
+    // biometric lock on, screenshot blocking off
+    expect(find.byType(Switch), findsNWidgets(2));
   });
 
   testWidgets('renders chevron icons for tappable tiles', (tester) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/widgets/empty_state.dart';
@@ -68,15 +69,11 @@ class _LockedNotesScreenState extends ConsumerState<LockedNotesScreen> {
                         'Locked',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       onTap: () {
-                        Navigator.of(context).pushNamed(
-                          '/note/${note.id}',
-                        );
+                        context.push('/note/${note.id}');
                       },
                     );
                   },

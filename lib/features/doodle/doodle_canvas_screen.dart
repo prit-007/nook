@@ -192,6 +192,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
               children: [
                 _GlassButton(
                   icon: Icons.close_rounded,
+                  tooltip: 'Close',
                   onTap: () => Navigator.maybePop(context),
                 ),
                 ListenableBuilder(
@@ -202,17 +203,20 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                       children: [
                         _GlassButton(
                           icon: Icons.grid_view_rounded,
+                          tooltip: 'Background',
                           onTap: () => _showBackgroundSheet(context),
                         ),
                         const SizedBox(width: 8),
                         _GlassButton(
                           icon: Icons.undo_rounded,
+                          tooltip: 'Undo',
                           isEnabled: _controller.canUndo,
                           onTap: _controller.undo,
                         ),
                         const SizedBox(width: 8),
                         _GlassButton(
                           icon: Icons.redo_rounded,
+                          tooltip: 'Redo',
                           isEnabled: _controller.canRedo,
                           onTap: _controller.redo,
                         ),
@@ -261,30 +265,40 @@ class _GlassButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.isEnabled = true,
+    this.tooltip,
   });
 
   final IconData icon;
   final VoidCallback onTap;
   final bool isEnabled;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
-      shape: const CircleBorder(),
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: isEnabled ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(
-            icon,
-            size: 22,
-            color: isEnabled
-                ? scheme.onSurface
-                : scheme.onSurface.withValues(alpha: 0.3),
+    return Semantics(
+      label: tooltip,
+      button: true,
+      enabled: isEnabled,
+      child: Tooltip(
+        message: tooltip ?? '',
+        child: Material(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
+          shape: const CircleBorder(),
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: isEnabled ? onTap : null,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Icon(
+                icon,
+                size: 22,
+                color: isEnabled
+                    ? scheme.onSurface
+                    : scheme.onSurface.withValues(alpha: 0.3),
+              ),
+            ),
           ),
         ),
       ),

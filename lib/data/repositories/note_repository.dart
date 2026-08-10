@@ -147,6 +147,22 @@ class NoteRepository {
     await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
   }
 
+  /// Permanently deletes all soft-deleted notes in a single query.
+  Future<void> permanentlyDeleteAllDeleted() async {
+    await (_db.delete(_db.notes)..where((t) => t.deleted.equals(true))).go();
+  }
+
+  /// Replaces all tag assignments for a note with [tagIds].
+  Future<void> updateNoteTags(String noteId, List<String> tagIds) async {
+    await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(noteId)))
+        .go();
+    for (final tagId in tagIds) {
+      await _db.into(_db.noteTags).insertOnConflictUpdate(
+            NoteTagsCompanion.insert(noteId: noteId, tagId: tagId),
+          );
+    }
+  }
+
   /// Returns only pinned, non-deleted notes.
   Future<List<Note>> getPinnedNotes() async {
     return (_db.select(_db.notes)

@@ -17,7 +17,7 @@ void main() {
 
   testWidgets('renders biometric hint', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('Face ID or fingerprint required'), findsOneWidget);
+    expect(find.text('Biometric authentication required'), findsOneWidget);
   });
 
   testWidgets('renders fingerprint icon', (tester) async {

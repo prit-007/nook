@@ -34,12 +34,15 @@ class Stroke {
 /// Controller for doodle drawing state.
 /// Manages strokes, undo/redo, tool/color/width selection.
 class DoodleController extends ChangeNotifier {
+  DoodleController({Color defaultColor = Colors.black})
+      : _currentColor = defaultColor;
+
   final List<Stroke> _strokes = [];
   final List<Stroke> _redoStack = [];
   Stroke? _activeStroke;
 
   DoodleTool _currentTool = DoodleTool.pen;
-  Color _currentColor = Colors.black;
+  late Color _currentColor;
   double _currentWidth = 4.0;
   DoodleBackground _background = DoodleBackground.dotted;
   bool _isDrawing = false;

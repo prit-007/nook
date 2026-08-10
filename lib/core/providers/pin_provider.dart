@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -53,6 +54,7 @@ class PinProvider extends ChangeNotifier {
   /// Called when the app locks — reset authentication state.
   void resetAuth() {
     _authenticated = false;
+    notifyListeners();
   }
 
   Future<void> _save() async {
@@ -86,9 +88,8 @@ class PinProvider extends ChangeNotifier {
   static String _hashPin(String pin) {
     final salt = _randomSalt();
     final bytes = utf8.encode('$salt:$pin');
-    // Use a simple hash for now — crypto package not imported here.
-    final hash = bytes.fold<int>(0, (prev, b) => prev + b);
-    return '$salt:${hash.toRadixString(16)}';
+    final digest = sha256.convert(bytes);
+    return '$salt:${digest.toString()}';
   }
 
   /// Verifies [pin] against stored [hash].
@@ -97,8 +98,8 @@ class PinProvider extends ChangeNotifier {
     if (parts.length != 2) return false;
     final salt = parts[0];
     final bytes = utf8.encode('$salt:$pin');
-    final computed = bytes.fold<int>(0, (prev, b) => prev + b);
-    return computed.toRadixString(16) == parts[1];
+    final digest = sha256.convert(bytes);
+    return digest.toString() == parts[1];
   }
 
   static String _randomSalt() {

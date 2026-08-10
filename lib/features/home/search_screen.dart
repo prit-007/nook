@@ -22,6 +22,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String _query = '';
   List<Note> _results = [];
   bool _searched = false;
+  bool _searching = false;
 
   @override
   void initState() {
@@ -40,16 +41,29 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     setState(() {
       _query = query;
       _searched = true;
+      _searching = true;
     });
     if (query.trim().isEmpty) {
-      setState(() => _results = []);
+      setState(() {
+        _results = [];
+        _searching = false;
+      });
       return;
     }
-    final db = ref.read(databaseProvider);
-    final repo = SearchRepository(db);
-    final results = await repo.searchNotes(query);
-    if (mounted) {
-      setState(() => _results = results);
+    try {
+      final db = ref.read(databaseProvider);
+      final repo = SearchRepository(db);
+      final results = await repo.searchNotes(query);
+      if (mounted) {
+        setState(() {
+          _results = results;
+          _searching = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _searching = false);
+      }
     }
   }
 
@@ -68,6 +82,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          tooltip: 'Go back',
           onPressed: () => context.pop(),
         ),
       ),
@@ -78,25 +93,31 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               subtitle: 'Type to find your notes',
               animate: false,
             )
-          : _results.isEmpty && _searched
-              ? EmptyState(
-                  icon: Icons.search_off_rounded,
-                  title: 'No results',
-                  subtitle: 'No notes found for "$_query"',
-                  animate: false,
-                )
-              : GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 0.75,
-                  ),
-                  itemCount: _results.length,
-                  itemBuilder: (context, index) =>
-                      NoteCard(note: _results[index]),
-                ),
+          : _searching
+              ? const Center(child: CircularProgressIndicator())
+              : _results.isEmpty && _searched
+                  ? EmptyState(
+                      icon: Icons.search_off_rounded,
+                      title: 'No results',
+                      subtitle: 'No notes found for "$_query"',
+                      animate: false,
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        childAspectRatio: 0.75,
+                      ),
+                      itemCount: _results.length,
+                      itemBuilder: (context, index) => NoteCard(
+                        note: _results[index],
+                        onTap: () =>
+                            context.push('/note/${_results[index].id}'),
+                      ),
+                    ),
     );
   }
 }
