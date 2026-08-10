@@ -14,8 +14,10 @@ void main() {
       expect(DoodleBlockKeys.attachmentId, 'attachment_id');
     });
 
-    test('has thumbnailData key', () {
-      expect(DoodleBlockKeys.thumbnailData, 'thumbnail_data');
+    test('uses file-path thumbnail reference, not inline base64', () {
+      expect(DoodleBlockKeys.thumbnailPath, 'thumbnail_path');
+      expect(DoodleBlockKeys.aspectRatio, 'aspect_ratio');
+      expect(DoodleBlockKeys.backgroundTemplate, 'background_template');
     });
   });
 
@@ -30,15 +32,28 @@ void main() {
       expect(node.attributes[DoodleBlockKeys.attachmentId], 'att-42');
     });
 
-    test('stores thumbnailData when provided', () {
-      final node = doodleNode(attachmentId: 'a1', thumbnailData: 'base64data');
-      expect(node.attributes[DoodleBlockKeys.thumbnailData], 'base64data');
+    test('defaults to a dotted background template', () {
+      final node = doodleNode(attachmentId: 'a1');
+      expect(node.attributes[DoodleBlockKeys.backgroundTemplate], 'dotted');
     });
 
-    test('omits thumbnailData when null', () {
-      final node = doodleNode(attachmentId: 'a1');
+    test('stores aspectRatio', () {
+      final node = doodleNode(
+        attachmentId: 'a1',
+        aspectRatio: 2.0,
+      );
+      expect(node.attributes[DoodleBlockKeys.aspectRatio], 2.0);
+    });
+
+    test('accepts an explicit thumbnail path', () {
+      final node = doodleNode(
+        attachmentId: 'a1',
+        thumbnailPath: '/tmp/a1_thumb.png',
+      );
       expect(
-          node.attributes.containsKey(DoodleBlockKeys.thumbnailData), isFalse);
+        node.attributes[DoodleBlockKeys.thumbnailPath],
+        '/tmp/a1_thumb.png',
+      );
     });
 
     test('has no children', () {
@@ -84,27 +99,23 @@ void main() {
       expect(builder.validate(node), isFalse);
     });
 
-    test('build returns DoodleBlockComponentWidget', () {
-      final node = doodleNode(attachmentId: 'a1');
-      // Builder validate + construction (full rendering needs widget test)
-      expect(builder.validate(node), isTrue);
-      expect(builder.onTap, isNull);
-    });
-
-    test('builder accepts onTap callback', () {
+    test('builder accepts onNodeTap callback', () {
       final b = DoodleBlockComponentBuilder(
-        onTap: () {},
+        onTap: (_, __) {},
       );
       expect(b.onTap, isNotNull);
     });
   });
 
   group('DoodleBlockComponentWidget', () {
-    Widget buildWidget({VoidCallback? onTap, String? thumbnailData}) {
+    Widget buildWidget({
+      DoodleBlockTapCallback? onTap,
+      String thumbnailBackgroundTemplate = 'dotted',
+    }) {
       final editorState = EditorState.blank();
       final node = doodleNode(
         attachmentId: 'a1',
-        thumbnailData: thumbnailData,
+        backgroundTemplate: thumbnailBackgroundTemplate,
       );
 
       return MaterialApp(
@@ -120,20 +131,43 @@ void main() {
       );
     }
 
-    testWidgets('renders placeholder icon when no thumbnail', (tester) async {
+    testWidgets('renders placeholder icon when no thumbnail path',
+        (tester) async {
       await tester.pumpWidget(buildWidget());
       await tester.pumpAndSettle();
 
+      // default dotted template -> brush icon.
       expect(find.byIcon(Icons.brush), findsOneWidget);
     });
 
-    testWidgets('tapping widget invokes onTap', (tester) async {
-      var tapped = false;
-      await tester.pumpWidget(buildWidget(onTap: () => tapped = true));
+    testWidgets('renders the template-correct placeholder icon',
+        (tester) async {
+      await tester.pumpWidget(
+        buildWidget(thumbnailBackgroundTemplate: 'graph'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.grid_3x3_rounded), findsOneWidget);
+    });
+
+    testWidgets('tapping widget invokes onNodeTap with node + editorState',
+        (tester) async {
+      Node? capturedNode;
+      EditorState? capturedState;
+      await tester.pumpWidget(
+        buildWidget(
+          onTap: (node, editorState) {
+            capturedNode = node;
+            capturedState = editorState;
+          },
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(Icons.brush));
-      expect(tapped, isTrue);
+      expect(capturedNode, isNotNull);
+      expect(capturedNode!.type, DoodleBlockKeys.type);
+      expect(capturedState, isNotNull);
     });
 
     testWidgets('shows edit label below placeholder', (tester) async {

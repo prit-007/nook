@@ -220,15 +220,15 @@ void main() {
     testWidgets('loads an existing doodle for editing', (tester) async {
       // saveDoodle does dart:io; must use runAsync.
       final existingId = (await tester.runAsync(() => storage.saveDoodle(
-        noteId: 'note-1',
-        strokes: [
-          Stroke(
-            points: [const StrokePoint(Offset(200, 200), pressure: 0.8)],
-            width: 7,
-          ),
-        ],
-        background: DoodleBackground.ruled,
-      )))!;
+            noteId: 'note-1',
+            strokes: [
+              Stroke(
+                points: [const StrokePoint(Offset(200, 200), pressure: 0.8)],
+                width: 7,
+              ),
+            ],
+            background: DoodleBackground.ruled,
+          )))!;
 
       pushedResult = null;
       await tester.pumpWidget(host(attachmentId: existingId));

@@ -8,7 +8,7 @@ import '../../features/notebooks/notebook_detail_screen.dart';
 import '../../features/tags/tags_screen.dart';
 import '../../features/tags/tag_detail_screen.dart';
 import '../../features/editor/note_editor_screen.dart';
-import '../../features/editor/doodle_canvas_screen.dart';
+import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/trash/trash_screen.dart';
 import '../../features/security/lock_screen.dart';
 import '../../features/security/locked_notes_screen.dart';

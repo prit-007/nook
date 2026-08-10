@@ -71,8 +71,9 @@ class DoodleStrokesCodec {
         );
       }
 
-      final background = DoodleBackground.values.asNameMap()[data['background']] ??
-          DoodleBackground.dotted;
+      final background =
+          DoodleBackground.values.asNameMap()[data['background']] ??
+              DoodleBackground.dotted;
 
       return DoodleData(strokes: strokes, background: background);
     } catch (_) {

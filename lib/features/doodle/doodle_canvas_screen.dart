@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nook/core/providers/database_provider.dart';
@@ -8,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'doodle_controller.dart';
 import 'doodle_canvas.dart';
 import 'doodle_strokes_codec.dart';
+import 'doodle_thumbnail_renderer.dart';
 import 'doodle_toolbar.dart';
 
 /// Full-screen doodle canvas for creating and editing doodles.
@@ -85,8 +89,8 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
     // Drift insert — safe in FakeAsync zone.
     final attachmentId = widget.attachmentId ??
-        await storage.attachments.addDoodle(
-            noteId: widget.noteId, filePath: '');
+        await storage.attachments
+            .addDoodle(noteId: widget.noteId, filePath: '');
 
     if (!mounted) return;
 
@@ -98,13 +102,37 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
     // Pop immediately.  Do NOT block on dart:io file writes below.
     Navigator.of(context).pop(attachmentId);
 
-    // Fire-and-forget: persist the doodle file in the background.
-    storage.saveDoodle(
-      noteId: widget.noteId,
-      strokes: strokes,
-      background: background,
-      attachmentId: attachmentId,
-    );
+    // Fire-and-forget: persist the doodle sidecar + thumbnail in the background.
+    unawaited(_persistInBackground(storage, attachmentId, strokes, background));
+  }
+
+  /// Writes the strokes sidecar file and a thumbnail PNG, then updates the
+  /// attachment row with the thumbnail path.
+  Future<void> _persistInBackground(
+    DoodleStorage storage,
+    String attachmentId,
+    List<Stroke> strokes,
+    DoodleBackground background,
+  ) async {
+    try {
+      await storage.saveDoodle(
+        noteId: widget.noteId,
+        strokes: strokes,
+        background: background,
+        attachmentId: attachmentId,
+      );
+
+      final thumbBytes = await DoodleThumbnailRenderer.render(
+        strokes,
+        background: background,
+      );
+      final baseDir = storage.baseDir;
+      final thumbFile = await File('${baseDir.path}/${attachmentId}_thumb.png')
+          .writeAsBytes(thumbBytes);
+      await storage.attachments.updateThumbnail(attachmentId, thumbFile.path);
+    } catch (_) {
+      // Thumbnail generation is best-effort; don't crash on save.
+    }
   }
 
   void _showBackgroundSheet(BuildContext context) {

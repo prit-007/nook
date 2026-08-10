@@ -37,8 +37,8 @@ void main() {
     });
 
     test('respects the requested size', () async {
-      final small = await DoodleThumbnailRenderer.render(const [],
-          width: 64, height: 64);
+      final small =
+          await DoodleThumbnailRenderer.render(const [], width: 64, height: 64);
       final large = await DoodleThumbnailRenderer.render(const [],
           width: 320, height: 240);
       expect(large.lengthInBytes, greaterThan(small.lengthInBytes));

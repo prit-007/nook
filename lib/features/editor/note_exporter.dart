@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
+import 'package:gal/gal.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Exports a note's rendered content as a PNG image.
 class NoteExporter {
@@ -33,6 +35,28 @@ class NoteExporter {
     final bytes = await imageToPng(image);
     await File(filePath).writeAsBytes(bytes);
     return filePath;
+  }
+
+  /// Saves PNG [bytes] to the device gallery under the Nook album.
+  ///
+  /// Returns `true` if saved successfully.  Throws on permission denial.
+  static Future<bool> saveToGallery(
+    Uint8List bytes, {
+    String name = 'nook-export',
+  }) async {
+    final hasAccess = await Gal.hasAccess();
+    if (!hasAccess) {
+      final granted = await Gal.requestAccess();
+      if (!granted) return false;
+    }
+    await Gal.putImageBytes(bytes, name: name, album: 'Nook');
+    return true;
+  }
+
+  /// Shares the PNG file at [filePath] via the platform share sheet.
+  static Future<void> sharePng(String filePath) async {
+    final params = ShareParams(files: [XFile(filePath)]);
+    await SharePlus.instance.share(params);
   }
 
   /// Generates a sanitized file name from a note [title].

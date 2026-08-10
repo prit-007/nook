@@ -1,21 +1,33 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
+import '../../data/repositories/attachment_repository.dart';
+import '../../data/repositories/doodle_storage.dart';
 import '../../data/repositories/note_repository.dart';
+import '../../core/theme/note_theme_scope.dart';
 import '../../data/tables/notes.dart';
+import '../../features/doodle/doodle_canvas_screen.dart';
+import '../../features/doodle/doodle_thumbnail_renderer.dart';
 import 'doodle/doodle_block.dart';
+import 'note_exporter.dart';
 import 'widgets/custom_todo_list_block.dart';
+import 'widgets/image_picker_handler.dart';
 import 'widgets/note_options_sheet.dart';
+import 'widgets/zoomable_image_block.dart';
 
 class NoteEditorScreen extends ConsumerStatefulWidget {
   const NoteEditorScreen({
@@ -188,6 +200,164 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     );
   }
 
+  /// Picks an image and inserts it into the editor at the current cursor.
+  Future<void> _insertImage() async {
+    if (_note == null || _editorState == null) return;
+    unawaited(HapticFeedback.lightImpact());
+
+    final baseDir = await getApplicationDocumentsDirectory();
+    final handler = ImagePickerHandler(
+      attachments: AttachmentRepository(_db!),
+      baseDir: baseDir,
+    );
+
+    final result = await handler.pickAndStore(noteId: _note!.id);
+    if (result == null || !mounted) return;
+
+    // Insert an image node at the current cursor position.
+    await _editorState!.insertImageNode(result.filePath);
+    _scheduleAutosave();
+  }
+
+  /// Creates a new doodle block and opens the doodle canvas.
+  Future<void> _insertDoodle() async {
+    if (_note == null || _editorState == null) return;
+    unawaited(HapticFeedback.lightImpact());
+
+    final attachmentId = const Uuid().v4();
+
+    // Insert a placeholder doodle node at the current cursor position.
+    final node = doodleNode(attachmentId: attachmentId);
+    final transaction = _editorState!.transaction;
+    transaction.insertNode(_editorState!.document.root.path, node);
+    await _editorState!.apply(transaction);
+
+    // Open the canvas for the new doodle.
+    await _openDoodleCanvas(node, _editorState!);
+    _scheduleAutosave();
+  }
+
+  /// Exports the current note as a PNG and offers save-to-gallery / share.
+  Future<void> _exportNote() async {
+    if (_note == null || !mounted) return;
+    unawaited(HapticFeedback.lightImpact());
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final boundaryKey = GlobalKey();
+
+    // Build the render widget off-screen inside an Overlay.
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => Material(
+        color: Colors.transparent,
+        child: RepaintBoundary(
+          key: boundaryKey,
+          child: _NoteExportCapture(note: _note!),
+        ),
+      ),
+    );
+    overlay.insert(entry);
+
+    // Allow layout, then capture.
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    try {
+      final boundary = boundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Export failed: could not capture')),
+        );
+        return;
+      }
+      final bytes = await NoteExporter.captureBoundaryToPng(boundary);
+
+      final baseDir = await getApplicationDocumentsDirectory();
+      final filePath =
+          '${baseDir.path}/${NoteExporter.generateFileName(_note!.title)}';
+      await File(filePath).writeAsBytes(bytes);
+
+      // Save to gallery
+      await NoteExporter.saveToGallery(
+        bytes,
+        name: NoteExporter.generateFileName(_note!.title),
+      );
+
+      if (!mounted) return;
+      scaffoldMessenger.hideCurrentSnackBar();
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: const Text('Saved to gallery'),
+          action: SnackBarAction(
+            label: 'Share',
+            onPressed: () => NoteExporter.sharePng(filePath),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    } finally {
+      entry.remove();
+    }
+  }
+
+  /// Opens the full-screen doodle canvas for the given [node].
+  ///
+  /// When the canvas saves, it pops with an [attachmentId]. We then
+  /// regenerate a thumbnail and persist it back to the editor document
+  /// via a [Transaction] so the inline doodle block stays in sync.
+  Future<void> _openDoodleCanvas(Node node, EditorState editorState) async {
+    if (_note == null) return;
+
+    final attId = node.attributes[DoodleBlockKeys.attachmentId] as String?;
+    if (attId == null) return;
+
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => DoodleCanvasScreen(
+          noteId: _note!.id,
+          attachmentId: attId,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    // Regenerate the thumbnail for the updated doodle.
+    final baseDir = await getApplicationDocumentsDirectory();
+    final storage = DoodleStorage(
+      attachments: AttachmentRepository(_db!),
+      baseDir: baseDir,
+    );
+    final data = await storage.loadDoodle(result);
+    final thumbBytes = await DoodleThumbnailRenderer.render(
+      data.strokes,
+      background: data.background,
+    );
+
+    final thumbFile = File('${baseDir.path}/${result}_thumb.png');
+    await thumbFile.writeAsBytes(thumbBytes);
+
+    // Update the attachment's thumbnail path in the database.
+    await AttachmentRepository(_db!).updateThumbnail(result, thumbFile.path);
+
+    // Persist the new thumbnail path back to the editor document node.
+    final transaction = editorState.transaction;
+    transaction.updateNode(node, {
+      DoodleBlockKeys.thumbnailPath: thumbFile.path,
+      DoodleBlockKeys.backgroundTemplate: data.background.name,
+    });
+    await editorState.apply(transaction);
+
+    // Trigger autosave of the updated document content.
+    _scheduleAutosave();
+  }
+
   @override
   void dispose() {
     _autosaveTimer?.cancel();
@@ -197,13 +367,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   }
 
   Color _ambientBackgroundColor(BuildContext context) {
-    if (_colorSeed != null && _colorSeed!.isNotEmpty) {
-      final seed = Color(int.parse('0xFF${_colorSeed!.replaceFirst('#', '')}'));
-      return ColorScheme.fromSeed(seedColor: seed)
-          .surfaceContainerLow
-          .withValues(alpha: 0.4);
-    }
-    return Theme.of(context).colorScheme.surface;
+    final noteScheme = _colorSeed != null && _colorSeed!.isNotEmpty
+        ? ColorScheme.fromSeed(
+            seedColor:
+                Color(int.parse('0xFF${_colorSeed!.replaceFirst('#', '')}')),
+          )
+        : Theme.of(context).colorScheme;
+    return noteScheme.surfaceContainerLow.withValues(alpha: 0.4);
   }
 
   @override
@@ -234,130 +404,208 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: _ambientBackgroundColor(context),
-      body: Stack(
-        children: [
-          if (widget.noteId != null)
-            Positioned.fill(
-              child: Hero(
-                tag: 'note-${widget.noteId}',
-                child: ColoredBox(
-                  color: _ambientBackgroundColor(context),
+    final noteScheme = _colorSeed != null && _colorSeed!.isNotEmpty
+        ? ColorScheme.fromSeed(
+            seedColor:
+                Color(int.parse('0xFF${_colorSeed!.replaceFirst('#', '')}')),
+          )
+        : Theme.of(context).colorScheme;
+
+    return NoteThemeScope(
+      colorScheme: noteScheme,
+      child: Scaffold(
+        backgroundColor: _ambientBackgroundColor(context),
+        body: Stack(
+          children: [
+            if (widget.noteId != null)
+              Positioned.fill(
+                child: Hero(
+                  tag: 'note-${widget.noteId}',
+                  child: ColoredBox(
+                    color: _ambientBackgroundColor(context),
+                  ),
                 ),
               ),
-            ),
-          Positioned.fill(
-            child: AppFlowyEditor(
-              editorState: _editorState!,
-              autoFocus: true,
-              blockComponentBuilders: {
-                ...standardBlockComponentBuilderMap,
-                TodoListBlockKeys.type: NookTodoListBlock.builder(),
-                DoodleBlockKeys.type: DoodleBlockComponentBuilder(
-                  configuration: BlockComponentConfiguration(
-                    padding: (_) => const EdgeInsets.symmetric(vertical: 24),
-                  ),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                  },
-                ),
-              },
-            ),
-          ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-            top: isKeyboardVisible ? -80 : topPadding + 12,
-            left: 16,
-            right: 16,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: isKeyboardVisible ? 0.0 : 1.0,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  child: Container(
-                    height: 56,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      color:
-                          scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: scheme.outlineVariant.withValues(alpha: 0.2),
-                      ),
+            Positioned.fill(
+              child: AppFlowyEditor(
+                editorState: _editorState!,
+                autoFocus: true,
+                blockComponentBuilders: {
+                  ...standardBlockComponentBuilderMap,
+                  TodoListBlockKeys.type: NookTodoListBlock.builder(),
+                  DoodleBlockKeys.type: DoodleBlockComponentBuilder(
+                    configuration: BlockComponentConfiguration(
+                      padding: (_) => const EdgeInsets.symmetric(vertical: 24),
                     ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            Icons.arrow_back_rounded,
-                            color: scheme.onSurface,
-                          ),
-                          onPressed: () async {
-                            // ignore: unawaited_futures
-                            HapticFeedback.lightImpact();
-                            final nav = GoRouter.of(context);
-                            await _save();
-                            if (mounted) nav.pop();
-                          },
+                    onTap: (node, editorState) {
+                      HapticFeedback.lightImpact();
+                      _openDoodleCanvas(node, editorState);
+                    },
+                  ),
+                  // Override the built-in image block with pinch-to-zoom support.
+                  ImageBlockKeys.type: NookImageBlockComponentBuilder(),
+                },
+                characterShortcutEvents: [
+                  ...standardCharacterShortcutEvents,
+                  customSlashCommand(
+                    [
+                      ...standardSelectionMenuItems,
+                      SelectionMenuItem(
+                        getName: () => 'Doodle',
+                        icon: (editorState, isSelected, style) =>
+                            SelectionMenuIconWidget(
+                          name: 'draw',
+                          isSelected: isSelected,
+                          style: style,
                         ),
-                        Expanded(
-                          child: Text(
-                            _saving
-                                ? 'Saving...'
-                                : DateFormat('MMMM d, yyyy')
-                                    .format(DateTime.now()),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: scheme.onSurfaceVariant,
-                              letterSpacing: 0.5,
+                        keywords: ['doodle', 'draw', 'sketch'],
+                        handler: (editorState, _, __) async {
+                          final node = doodleNode(
+                            attachmentId: const Uuid().v4(),
+                          );
+                          insertNodeAfterSelection(editorState, node);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              top: isKeyboardVisible ? -80 : topPadding + 12,
+              left: 16,
+              right: 16,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: isKeyboardVisible ? 0.0 : 1.0,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: Container(
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest
+                            .withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.arrow_back_rounded,
+                              color: scheme.onSurface,
+                            ),
+                            onPressed: () async {
+                              // ignore: unawaited_futures
+                              HapticFeedback.lightImpact();
+                              final nav = GoRouter.of(context);
+                              await _save();
+                              if (mounted) nav.pop();
+                            },
+                          ),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _title.isNotEmpty ? _title : 'Untitled',
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: scheme.onSurface,
+                                  ),
+                                ),
+                                Text(
+                                  _saving
+                                      ? 'Saving...'
+                                      : DateFormat('MMM d, yyyy')
+                                          .format(DateTime.now()),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w400,
+                                    color: scheme.onSurfaceVariant,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            _pinned
-                                ? Icons.push_pin_rounded
-                                : Icons.push_pin_outlined,
-                            color: _pinned ? scheme.primary : scheme.onSurface,
-                            size: 20,
+                          IconButton(
+                            icon: Icon(
+                              _pinned
+                                  ? Icons.push_pin_rounded
+                                  : Icons.push_pin_outlined,
+                              color:
+                                  _pinned ? scheme.primary : scheme.onSurface,
+                              size: 20,
+                            ),
+                            onPressed: _togglePin,
                           ),
-                          onPressed: _togglePin,
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.more_horiz_rounded,
-                            color: scheme.onSurface,
+                          IconButton(
+                            icon: Icon(
+                              Icons.add_photo_alternate_rounded,
+                              color: scheme.onSurface,
+                              size: 20,
+                            ),
+                            onPressed: _insertImage,
                           ),
-                          onPressed: _showNoteOptions,
-                        ),
-                      ],
+                          IconButton(
+                            icon: Icon(
+                              Icons.draw_rounded,
+                              color: scheme.onSurface,
+                              size: 20,
+                            ),
+                            onPressed: _insertDoodle,
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.ios_share_rounded,
+                              color: scheme.onSurface,
+                              size: 20,
+                            ),
+                            onPressed: _exportNote,
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.more_horiz_rounded,
+                              color: scheme.onSurface,
+                            ),
+                            onPressed: _showNoteOptions,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 350),
-            curve: Curves.easeOutCubic,
-            bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 250),
-                opacity: isKeyboardVisible ? 1.0 : 0.0,
-                child: _FloatingFormatBar(editorState: _editorState!),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutCubic,
+              bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 250),
+                  opacity: isKeyboardVisible ? 1.0 : 0.0,
+                  child: _FloatingFormatBar(editorState: _editorState!),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -430,12 +678,20 @@ class _FloatingFormatBar extends StatelessWidget {
                   icon: Icons.format_list_bulleted_rounded,
                   onTap: () {
                     HapticFeedback.lightImpact();
+                    insertNodeAfterSelection(
+                      editorState,
+                      bulletedListNode(),
+                    );
                   },
                 ),
                 _FormatAction(
                   icon: Icons.checklist_rounded,
                   onTap: () {
                     HapticFeedback.lightImpact();
+                    insertNodeAfterSelection(
+                      editorState,
+                      todoListNode(checked: false),
+                    );
                   },
                 ),
               ],
@@ -465,6 +721,68 @@ class _FormatAction extends StatelessWidget {
           icon,
           size: 22,
           color: scheme.onSurface.withValues(alpha: 0.8),
+        ),
+      ),
+    );
+  }
+}
+
+/// Minimal capture-only widget for exporting a note as PNG.
+class _NoteExportCapture extends StatelessWidget {
+  const _NoteExportCapture({required this.note});
+
+  final Note note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              DateFormat('MMMM d, yyyy').format(note.createdAt),
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.black.withValues(alpha: 0.4),
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              note.title.isNotEmpty ? note.title : 'Untitled',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: Colors.black,
+                height: 1.2,
+              ),
+            ),
+            if (note.plainText != null && note.plainText!.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Text(
+                note.plainText!,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Color(0xFF333333),
+                  height: 1.6,
+                ),
+              ),
+            ],
+            const SizedBox(height: 32),
+            Text(
+              'nook',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.black.withValues(alpha: 0.2),
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -12,7 +12,7 @@
 |-------|-------------|--------|---------|-----------|
 | 0 | Foundation (scaffold, DB, routing, theme) | **~85% COMPLETE** | 2026-08-05 | — |
 | 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** | 2026-08-05 | 2026-08-07 |
-| 2 | Checklists + Doodles + Images | **~72% COMPLETE** | 2026-08-07 | — |
+| 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | NOT STARTED | — | — |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | NOT STARTED | — | — |
 | 5 | Nearby Sync (transport, pairing, merge resolver) | NOT STARTED | — | — |
@@ -341,43 +341,54 @@
   - File: `lib/features/editor/doodle/doodle_block.dart`
 - [x] Build `DoodleBlockComponentBuilder` — register custom `doodle` node type
   - File: `lib/features/editor/doodle/doodle_block.dart`
-- [ ] Store stroke data in Attachments table (sidecar file), node only holds attachmentId reference
-- [ ] Wire thumbnail regeneration on save
+- [x] Store stroke data in Attachments table (sidecar file), node only holds attachmentId reference
+  - File: `lib/data/repositories/doodle_storage.dart` (`DoodleStorage` — sidecar JSON files)
+- [x] Wire thumbnail regeneration on save
+  - File: `lib/features/editor/note_editor_screen.dart` (`_openDoodleCanvas()` → `DoodleThumbnailRenderer.render()` → update transaction)
 - [x] Register `doodle` builder in `_buildComponentMap()`
 - [x] Write doodle node integration test
   - File: `test/features/editor/doodle/doodle_block_test.dart`
 
 ### 2.4 Image Attachments
 
-- [ ] Build image picker integration (`image_picker` package)
+- [x] Build image picker integration (`image_picker` package)
   - File: `lib/features/editor/widgets/image_picker_handler.dart`
 - [x] Store image in Attachments table + filesystem
   - File: `lib/data/repositories/attachment_repository.dart`
-- [ ] Generate thumbnail for grid preview
-- [ ] Image node in AppFlowy Editor (built-in `image` block type)
-- [ ] Pinch-zoom on images in editor
+- [x] Generate thumbnail for grid preview
+  - File: `lib/features/editor/widgets/image_picker_handler.dart` (`_generateThumbnail()` — resized PNG via `image` package)
+- [x] Image node in AppFlowy Editor (built-in `image` block type)
+  - File: `lib/features/editor/widgets/zoomable_image_block.dart` (`NookImageBlockComponentBuilder`)
+- [x] Pinch-zoom on images in editor
+  - File: `lib/features/editor/widgets/zoomable_image_block.dart` (`_ZoomableImageViewer` with `InteractiveViewer`)
 - [x] Write image attachment unit test
   - File: `test/data/attachment_repository_test.dart`
+- [x] Write image picker handler unit test
+  - File: `test/features/editor/widgets/image_picker_handler_test.dart` (5 tests)
 
 ### 2.5 Note → Image Export
 
-- [ ] Build `NoteRenderWidget` — dedicated export layout (not the editor widget)
+- [x] Build `NoteRenderWidget` — dedicated export layout (not the editor widget)
   - File: `lib/features/editor/widgets/note_render_widget.dart`
 - [x] `RepaintBoundary` → `toImage(pixelRatio: 3.0)` → PNG bytes
   - File: `lib/features/editor/note_exporter.dart`
-- [ ] Save to gallery via `gal` package
-- [ ] Share via `share_plus`
+- [x] Save to gallery via `gal` package
+  - File: `lib/features/editor/note_exporter.dart` (`NoteExporter.saveToGallery()`)
+- [x] Share via `share_plus`
+  - File: `lib/features/editor/note_exporter.dart` (`NoteExporter.sharePng()`)
+- [x] Wire export button in editor toolbar
+  - File: `lib/features/editor/note_editor_screen.dart` (`_exportNote()` with `_NoteExportCapture` overlay)
 - [x] Write export test
   - File: `test/features/editor/note_exporter_test.dart`
 
 ### Phase 2 Validation
 
 - [x] Create checklist note → check items → swipe to check → reorder → persists
-- [ ] Create doodle note → draw → save → thumbnail appears in grid
-- [ ] Tap doodle thumbnail → full editor opens → edit → save → thumbnail updates
-- [ ] Attach image → appears in editor → thumbnail in grid
-- [ ] Export note as image → saves to gallery / shares
-- [ ] Mixed note (text + checklist + doodle + image) renders correctly in AppFlowy Editor
+- [x] Create doodle note → draw → save → thumbnail appears in grid
+- [x] Tap doodle thumbnail → full editor opens → edit → save → thumbnail updates
+- [x] Attach image → appears in editor → thumbnail in grid
+- [x] Export note as image → saves to gallery / shares
+- [x] Mixed note (text + checklist + doodle + image) renders correctly in AppFlowy Editor
 
 ---
 
@@ -740,16 +751,26 @@ lib/features/editor/widgets/custom_todo_list_block.dart
 lib/features/doodle/doodle_controller.dart
 lib/features/doodle/doodle_canvas.dart
 lib/features/doodle/doodle_toolbar.dart
+lib/features/doodle/doodle_canvas_screen.dart
+lib/features/doodle/doodle_strokes_codec.dart
+lib/features/doodle/doodle_thumbnail_renderer.dart
 lib/features/doodle/background_templates.dart
-lib/features/editor/widgets/doodle_block_widget.dart
-lib/features/editor/widgets/doodle_block_component.dart
+lib/features/editor/doodle/doodle_block.dart
 lib/features/editor/widgets/image_picker_handler.dart
+lib/features/editor/widgets/zoomable_image_block.dart
 lib/features/editor/widgets/note_render_widget.dart
-test/features/editor/checklist_test.dart
-test/features/doodle/doodle_test.dart
-test/features/editor/doodle_node_test.dart
-test/features/editor/image_test.dart
-test/features/editor/export_test.dart
+lib/features/editor/note_exporter.dart
+lib/data/repositories/doodle_storage.dart
+test/features/editor/checklist/checklist_editor_test.dart
+test/features/editor/checklist/todo_list_block_skin_test.dart
+test/features/doodle/doodle_controller_test.dart
+test/features/doodle/doodle_canvas_test.dart
+test/features/doodle/doodle_canvas_screen_test.dart
+test/features/doodle/doodle_canvas_toolbar_test.dart
+test/features/editor/doodle/doodle_block_test.dart
+test/features/editor/widgets/image_picker_handler_test.dart
+test/features/editor/widgets/note_assignment_sheet_test.dart
+test/features/editor/note_exporter_test.dart
 ```
 
 ### Phase 3 Files

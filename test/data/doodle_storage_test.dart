@@ -87,8 +87,7 @@ void main() {
       expect(stroke.points.single.pressure, equals(0.5));
     });
 
-    test('updates an existing attachment when attachmentId is given',
-        () async {
+    test('updates an existing attachment when attachmentId is given', () async {
       final id = await storage.saveDoodle(
         noteId: 'note-1',
         strokes: [sampleStroke()],
@@ -117,7 +116,8 @@ void main() {
     });
 
     test('returns empty data when the sidecar file is missing', () async {
-      final id = await repo.addDoodle(noteId: 'note-1', filePath: '/missing.doodle.json');
+      final id = await repo.addDoodle(
+          noteId: 'note-1', filePath: '/missing.doodle.json');
       final data = await storage.loadDoodle(id);
       expect(data.strokes, isEmpty);
     });

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:drift/drift.dart' hide isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,7 @@ import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/attachments.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/data/tables/sync_log.dart';
+import 'package:path/path.dart' as p;
 
 void main() {
   late AppDatabase db;
@@ -421,6 +423,56 @@ void main() {
       ).get();
 
       expect(results.length, 1);
+    });
+  });
+
+  group('Encryption', () {
+    test('database can be opened with a setup callback', () async {
+      final tempDir = Directory.systemTemp.createTempSync();
+      final dbFile = File(p.join(tempDir.path, 'encrypted_test.db'));
+
+      var setupCalled = false;
+      final encryptedDb = AppDatabase(
+        NativeDatabase(
+          dbFile,
+          setup: (database) {
+            setupCalled = true;
+            database.execute('PRAGMA journal_mode = WAL;');
+          },
+        ),
+      );
+
+      await encryptedDb.select(encryptedDb.notes).get();
+
+      expect(setupCalled, isTrue);
+
+      await encryptedDb.close();
+      tempDir.deleteSync(recursive: true);
+    });
+
+    test('setup callback runs before drift migrations', () async {
+      final tempDir = Directory.systemTemp.createTempSync();
+      final dbFile = File(p.join(tempDir.path, 'setup_order_test.db'));
+
+      final executionOrder = <String>[];
+
+      final testDb = AppDatabase(
+        NativeDatabase(
+          dbFile,
+          setup: (database) {
+            executionOrder.add('setup');
+            database.execute('PRAGMA journal_mode = WAL;');
+          },
+        ),
+      );
+
+      await testDb.select(testDb.notes).get();
+
+      expect(executionOrder.isNotEmpty, isTrue);
+      expect(executionOrder.first, 'setup');
+
+      await testDb.close();
+      tempDir.deleteSync(recursive: true);
     });
   });
 }
