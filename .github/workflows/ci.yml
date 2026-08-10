@@ -57,5 +57,18 @@ jobs:
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
 
+      - name: Extract App Version
+        id: version
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Build debug APK
         run: flutter build apk --debug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nook-app-v${{ env.APP_VERSION }}-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
