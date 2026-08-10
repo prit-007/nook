@@ -31,8 +31,14 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      ref.read(biometricGateProvider).onAppResumed();
+    final gate = ref.read(biometricGateProvider);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        gate.onAppResumed();
+      case AppLifecycleState.paused:
+        gate.onAppPaused();
+      default:
+        break;
     }
   }
 

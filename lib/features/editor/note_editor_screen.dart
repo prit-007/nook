@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -50,6 +51,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   Note? _note;
   String _title = '';
   bool _pinned = false;
+  bool _locked = false;
   bool _loading = true;
   bool _saving = false;
   String? _colorSeed;
@@ -76,8 +78,28 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       _note = note;
       _title = note.title;
       _pinned = note.pinned;
+      _locked = note.locked;
       _colorSeed = note.colorSeed;
       _notebookId = note.notebookId;
+
+      // Biometric re-prompt for locked notes.
+      if (note.locked) {
+        final auth = LocalAuthentication();
+        try {
+          final ok = await auth.authenticate(
+            localizedReason: 'This note is locked',
+            biometricOnly: true,
+            persistAcrossBackgrounding: true,
+          );
+          if (!ok) {
+            if (mounted) context.pop();
+            return;
+          }
+        } catch (_) {
+          if (mounted) context.pop();
+          return;
+        }
+      }
 
       if (note.deltaContent != null && note.deltaContent!.isNotEmpty) {
         try {
@@ -189,6 +211,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       noteId: _note!.id,
       currentNotebookId: _notebookId,
       currentColorSeed: _colorSeed,
+      currentlyLocked: _locked,
       onNotebookChanged: (id) async {
         _notebookId = id;
         await repo.updateNote(_note!.id, notebookId: id);
@@ -196,6 +219,24 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       onColorChanged: (color) async {
         setState(() => _colorSeed = color);
         await repo.updateNote(_note!.id, colorSeed: color);
+      },
+      onLockedChanged: (locked) async {
+        if (locked) {
+          // Require biometric before locking.
+          final auth = LocalAuthentication();
+          try {
+            final ok = await auth.authenticate(
+              localizedReason: 'Authenticate to lock this note',
+              biometricOnly: true,
+              persistAcrossBackgrounding: true,
+            );
+            if (!ok) return;
+          } catch (_) {
+            return;
+          }
+        }
+        setState(() => _locked = locked);
+        await repo.updateNote(_note!.id, locked: locked);
       },
     );
   }

@@ -14,26 +14,32 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
     required this.noteId,
     this.currentNotebookId,
     this.currentColorSeed,
+    this.currentlyLocked = false,
     this.onNotebookChanged,
     this.onTagsChanged,
     this.onColorChanged,
+    this.onLockedChanged,
   });
 
   final String noteId;
   final String? currentNotebookId;
   final String? currentColorSeed;
+  final bool currentlyLocked;
   final ValueChanged<String?>? onNotebookChanged;
   final ValueChanged<List<String>>? onTagsChanged;
   final ValueChanged<String?>? onColorChanged;
+  final ValueChanged<bool>? onLockedChanged;
 
   static Future<void> show(
     BuildContext context, {
     required String noteId,
     String? currentNotebookId,
     String? currentColorSeed,
+    bool currentlyLocked = false,
     ValueChanged<String?>? onNotebookChanged,
     ValueChanged<List<String>>? onTagsChanged,
     ValueChanged<String?>? onColorChanged,
+    ValueChanged<bool>? onLockedChanged,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -45,9 +51,11 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
         noteId: noteId,
         currentNotebookId: currentNotebookId,
         currentColorSeed: currentColorSeed,
+        currentlyLocked: currentlyLocked,
         onNotebookChanged: onNotebookChanged,
         onTagsChanged: onTagsChanged,
         onColorChanged: onColorChanged,
+        onLockedChanged: onLockedChanged,
       ),
     );
   }
@@ -238,6 +246,31 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                             ),
                         ],
                       ),
+
+                    const SizedBox(height: 24),
+
+                    // ── Lock section ──
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Lock note'),
+                      subtitle: Text(
+                        'Requires biometric to view content',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      secondary: Icon(
+                        widget.currentlyLocked
+                            ? Icons.lock_rounded
+                            : Icons.lock_open_rounded,
+                        color: widget.currentlyLocked
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
+                      value: widget.currentlyLocked,
+                      onChanged: (v) => widget.onLockedChanged?.call(v),
+                    ),
 
                     const SizedBox(height: 24),
 

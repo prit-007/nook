@@ -51,6 +51,16 @@ class NoteRepository {
         .get();
   }
 
+  /// Returns only locked notes.
+  Future<List<Note>> getLockedNotes() async {
+    return (_db.select(_db.notes)
+          ..where((t) => t.deleted.equals(false) & t.locked.equals(true))
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.updatedAt),
+          ]))
+        .get();
+  }
+
   /// Returns a note by ID, or null if not found.
   Future<Note?> getNoteById(String id) async {
     final results =
