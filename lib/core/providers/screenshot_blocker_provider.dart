@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:nook/core/platform/window_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Controls system-level screenshot/screen-recording blocking.
@@ -27,12 +27,12 @@ class ScreenshotBlocker extends ChangeNotifier {
     if (kIsWeb) return;
     try {
       if (blocked) {
-        await FlutterWindowManager.addFlags(
-          FlutterWindowManager.FLAG_SECURE,
+        await WindowManager.addFlags(
+          WindowManager.flagSecure,
         );
       } else {
-        await FlutterWindowManager.clearFlags(
-          FlutterWindowManager.FLAG_SECURE,
+        await WindowManager.clearFlags(
+          WindowManager.flagSecure,
         );
       }
     } catch (_) {
