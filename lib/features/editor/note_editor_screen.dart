@@ -488,11 +488,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                       height: 56,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHighest
+                        color: noteScheme.surfaceContainerHighest
                             .withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: 0.2),
+                          color:
+                              noteScheme.outlineVariant.withValues(alpha: 0.2),
                         ),
                       ),
                       child: Row(
@@ -500,7 +501,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                           IconButton(
                             icon: Icon(
                               Icons.arrow_back_rounded,
-                              color: scheme.onSurface,
+                              color: noteScheme.onSurface,
                             ),
                             onPressed: () async {
                               // ignore: unawaited_futures
@@ -522,7 +523,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: scheme.onSurface,
+                                    color: noteScheme.onSurface,
                                   ),
                                 ),
                                 Text(
@@ -534,7 +535,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w400,
-                                    color: scheme.onSurfaceVariant,
+                                    color: noteScheme.onSurfaceVariant,
                                     letterSpacing: 0.3,
                                   ),
                                 ),
@@ -546,8 +547,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                               _pinned
                                   ? Icons.push_pin_rounded
                                   : Icons.push_pin_outlined,
-                              color:
-                                  _pinned ? scheme.primary : scheme.onSurface,
+                              color: _pinned
+                                  ? noteScheme.primary
+                                  : noteScheme.onSurface,
                               size: 20,
                             ),
                             onPressed: _togglePin,
@@ -555,7 +557,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                           IconButton(
                             icon: Icon(
                               Icons.add_photo_alternate_rounded,
-                              color: scheme.onSurface,
+                              color: noteScheme.onSurface,
                               size: 20,
                             ),
                             onPressed: _insertImage,
@@ -563,7 +565,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                           IconButton(
                             icon: Icon(
                               Icons.draw_rounded,
-                              color: scheme.onSurface,
+                              color: noteScheme.onSurface,
                               size: 20,
                             ),
                             onPressed: _insertDoodle,
@@ -571,7 +573,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                           IconButton(
                             icon: Icon(
                               Icons.ios_share_rounded,
-                              color: scheme.onSurface,
+                              color: noteScheme.onSurface,
                               size: 20,
                             ),
                             onPressed: _exportNote,
@@ -579,7 +581,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                           IconButton(
                             icon: Icon(
                               Icons.more_horiz_rounded,
-                              color: scheme.onSurface,
+                              color: noteScheme.onSurface,
                             ),
                             onPressed: _showNoteOptions,
                           ),
@@ -618,7 +620,7 @@ class _FloatingFormatBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = NoteThemeScope.of(context);
 
     return ExcludeFocus(
       child: ClipRRect(
@@ -711,7 +713,7 @@ class _FormatAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = NoteThemeScope.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),

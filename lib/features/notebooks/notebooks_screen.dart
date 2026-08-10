@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/widgets/empty_state.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
 import 'widgets/notebook_card.dart';
@@ -171,41 +172,11 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _notebooks.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.book_outlined,
-                        size: 64,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.15),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No notebooks',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.5),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap + to create one',
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.35),
-                        ),
-                      ),
-                    ],
-                  ),
+              ? const EmptyState(
+                  icon: Icons.book_outlined,
+                  title: 'No notebooks',
+                  subtitle: 'Tap + to create one',
+                  animate: false,
                 )
               : RefreshIndicator(
                   onRefresh: _load,

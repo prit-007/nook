@@ -1,6 +1,8 @@
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/note_theme_scope.dart';
+
 /// Re-skins the built-in `todo_list` block with a Material 3 checkbox and a
 /// themed strikethrough for checked items.
 class NookTodoListBlock {
@@ -36,7 +38,7 @@ class _NookTodoCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = NoteThemeScope.of(context);
     final checked = node.attributes[TodoListBlockKeys.checked] ?? false;
 
     return GestureDetector(

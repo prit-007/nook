@@ -7,7 +7,10 @@ import 'package:nook/core/providers/theme_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/features/editor/note_editor_screen.dart';
 import 'package:nook/features/home/home_screen.dart';
+import 'package:nook/features/home/search_screen.dart';
+import 'package:nook/features/notebooks/notebooks_screen.dart';
 import 'package:nook/features/settings/settings_appearance_screen.dart';
+import 'package:nook/features/tags/tags_screen.dart';
 import 'package:nook/features/trash/trash_screen.dart';
 
 AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
@@ -57,5 +60,23 @@ void main() {
     await tester.pumpWidget(darkApp(const TrashScreen()));
     await tester.pumpAndSettle();
     expect(find.text('Trash'), findsOneWidget);
+  });
+
+  testWidgets('notebooks screen renders in dark mode', (tester) async {
+    await tester.pumpWidget(darkApp(const NotebooksScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('Notebooks'), findsOneWidget);
+  });
+
+  testWidgets('tags screen renders in dark mode', (tester) async {
+    await tester.pumpWidget(darkApp(const TagsScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('Tags'), findsOneWidget);
+  });
+
+  testWidgets('search screen renders in dark mode', (tester) async {
+    await tester.pumpWidget(darkApp(const SearchScreen()));
+    await tester.pumpAndSettle();
+    expect(find.byType(Scaffold), findsOneWidget);
   });
 }

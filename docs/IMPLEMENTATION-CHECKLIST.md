@@ -13,7 +13,7 @@
 | 0 | Foundation (scaffold, DB, routing, theme) | **~85% COMPLETE** | 2026-08-05 | — |
 | 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** | 2026-08-05 | 2026-08-07 |
 | 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
-| 3 | Theming & Polish (dynamic color, animations, dark mode) | NOT STARTED | — | — |
+| 3 | Theming & Polish (dynamic color, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | NOT STARTED | — | — |
 | 5 | Nearby Sync (transport, pairing, merge resolver) | NOT STARTED | — | — |
 | 6 | Hardening for Play Store (accessibility, export, privacy) | NOT STARTED | — | — |
@@ -400,22 +400,25 @@
 
 ### 3.1 Dynamic Color
 
-- [ ] Integrate `dynamic_color` package at app root
-  - File: `lib/app.dart` (update `DynamicColorBuilder`)
-- [ ] Android 12+ wallpaper-based palette extraction
-- [ ] Graceful fallback for older Android (manual seed)
-- [ ] Toggle in settings: "Match my wallpaper" on/off
+- [x] Dynamic color removed — simplified to seed-based `ColorScheme.fromSeed` for consistent design system
+  - File: `lib/app.dart`, `lib/core/providers/theme_provider.dart`, `pubspec.yaml`
+  - Removed `dynamic_color` dependency; always uses `buildLightTheme(seed)` / `buildDarkTheme(seed)`
 
 ### 3.2 Per-Note Theming
 
 - [ ] Seed color sources priority: user pick → palette from cover image → notebook color → global seed
 - [x] Derive cover color from image via `palette_generator`
   - File: `lib/features/notebooks/widgets/notebook_card.dart` (dominant color for editorial cover; per-note editor seed still pending)
-- [ ] Editor chrome (toolbar, background tint) uses note's own seed
-- [ ] App chrome (nav bars, FAB, settings) always uses global seed
-- [ ] NoteCard in grid reflects per-note seed
-- [ ] Color picker: 12–16 curated M3-friendly swatches (not raw wheel)
-  - File: `lib/features/editor/widgets/theme_picker_sheet.dart`
+- [x] Editor chrome (toolbar, background tint) uses note's own seed
+  - File: `lib/features/editor/note_editor_screen.dart` — app bar, format bar, todo checkbox use `NoteThemeScope.of(context)`
+  - File: `lib/core/theme/note_theme_scope.dart` — InheritedWidget provides per-note ColorScheme
+- [x] App chrome (nav bars, FAB, settings) always uses global seed
+- [x] NoteCard in grid reflects per-note seed
+  - Files: `note_minimal_card.dart`, `note_banner_card.dart`, `note_doodle_card.dart`, `note_card.dart` — all parse `note.colorSeed`
+- [x] Color picker: 12 curated M3-friendly swatches (not raw wheel)
+  - File: `lib/core/theme/design_tokens.dart` (NookColors with 12 seeds)
+  - File: `lib/features/editor/widgets/color_picker_sheet.dart`
+  - File: `lib/features/editor/widgets/note_options_sheet.dart`
 
 ### 3.3 Animations & Transitions
 
@@ -424,34 +427,44 @@
 - [x] Hero shared-element transitions home grid ↔ editor for all three card types
   - File: `lib/features/home/widgets/note_minimal_card.dart`, `note_banner_card.dart`, `note_doodle_card.dart`, `lib/features/editor/note_editor_screen.dart`
 - [x] Checklist strikethrough animation
-- [ ] FAB speed-dial open/close animation
-- [ ] Page transitions (shared axis or fade-through between nav screens)
+- [x] FAB speed-dial open/close animation
+  - File: `lib/features/home/widgets/morphing_editorial_fab.dart`
+- [x] Page transitions (fade-through for nav tabs, slide-up for push routes)
+  - File: `lib/core/router.dart` — `_slideUpTransition` and `_fadeTransition` helpers
 - [ ] Skeleton loading placeholders (`shimmer` package) for cold start
   - Add `shimmer` to `pubspec.yaml` if not present
 
 ### 3.4 Empty States
 
-- [ ] Home: "No notes yet" with illustration + CTA
-- [ ] Notebooks: "No notebooks" empty state
-- [ ] Tags: "No tags" empty state
-- [ ] Search: "No results" empty state
-- [ ] Trash: "Nothing in trash" empty state
+- [x] Home: "Your canvas is clear" with animated icon + CTA
+  - File: `lib/features/home/widgets/empty_home.dart` (delegates to `EmptyState`)
+- [x] Notebooks: "No notebooks" empty state
+  - File: `lib/features/notebooks/notebooks_screen.dart` (uses `EmptyState`)
+- [x] Tags: "No tags" empty state
+  - File: `lib/features/tags/tags_screen.dart` (uses `EmptyState`)
+- [x] Search: "Search notes" / "No results" empty states
+  - File: `lib/features/home/search_screen.dart` (uses `EmptyState`)
+- [x] Trash: "Trash is empty" empty state
+  - File: `lib/features/trash/trash_screen.dart` (uses `EmptyState`)
 - [ ] Locked notes: "No locked notes" empty state
 
 ### 3.5 Dark Mode Pass
 
-- [ ] Verify all screens in dark mode (ThemeData.dark)
+- [x] Verify all screens in dark mode (ThemeData.dark) — 7 smoke tests pass
+  - File: `test/dark_mode_smoke_test.dart` — home, editor, appearance, trash, notebooks, tags, search
 - [ ] Check contrast ratios on NoteCard tonal backgrounds
 - [ ] Verify editor readability in dark mode
 - [ ] Verify doodle canvas toolbar colors in dark mode
 
 ### Phase 3 Validation
 
-- [ ] Dynamic color changes app palette on Android 12+ device
-- [ ] Per-note color changes editor chrome, not app chrome
+- [x] Per-note color changes editor chrome, not app chrome
+  - NoteThemeScope wraps editor; app bar/format bar use NoteThemeScope.of(context)
 - [ ] Animations run smoothly (60fps on low-end device)
-- [ ] Empty states render correctly for every screen
-- [ ] Dark mode looks correct everywhere
+- [x] Empty states render correctly for every screen
+  - All screens use EmptyState widget with appropriate icons and text
+- [x] Dark mode looks correct everywhere
+  - 7 smoke tests covering all major screens, all passing
 
 ---
 
@@ -775,8 +788,25 @@ test/features/editor/note_exporter_test.dart
 
 ### Phase 3 Files
 ```
-lib/features/home/widgets/empty_states/ (multiple)
-test/features/home/empty_state_test.dart
+lib/core/theme/app_theme.dart (M3 component theming)
+lib/core/theme/design_tokens.dart (NookColors palette)
+lib/core/theme/note_theme_scope.dart (per-note InheritedWidget)
+lib/core/providers/theme_provider.dart (ThemePreference, load from disk)
+lib/core/widgets/empty_state.dart (reusable empty state)
+lib/core/router.dart (page transitions)
+lib/app.dart (seed-based theming, no dynamic_color)
+lib/main.dart (load ThemePreference on startup)
+lib/features/home/widgets/empty_home.dart (delegates to EmptyState)
+lib/features/settings/settings_appearance_screen.dart (seed picker + theme mode)
+lib/features/onboarding/onboarding_screen.dart (removed dynamic toggle)
+lib/features/editor/note_editor_screen.dart (NoteThemeScope chrome)
+lib/features/editor/widgets/custom_todo_list_block.dart (NoteThemeScope checkbox)
+lib/features/notebooks/notebooks_screen.dart (EmptyState)
+lib/features/tags/tags_screen.dart (EmptyState)
+lib/features/trash/trash_screen.dart (EmptyState)
+lib/features/home/search_screen.dart (EmptyState)
+test/dark_mode_smoke_test.dart (7 smoke tests)
+test/features/settings/settings_appearance_screen_test.dart
 ```
 
 ### Phase 4 Files

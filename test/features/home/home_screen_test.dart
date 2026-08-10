@@ -312,7 +312,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Type to search notes'), findsOneWidget);
+      expect(find.text('Search notes'), findsOneWidget);
     });
 
     testWidgets('a small pull does not open search', (tester) async {
