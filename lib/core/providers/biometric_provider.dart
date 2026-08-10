@@ -106,6 +106,14 @@ class BiometricGate extends ChangeNotifier {
     return true;
   }
 
+  /// Unlocks via PIN fallback — no biometric prompt needed.
+  void unlockWithPin() {
+    _hasAuthenticated = true;
+    _state = AppLockState.unlocked;
+    _lastBackgroundedAt = null;
+    notifyListeners();
+  }
+
   /// Called on app lifecycle pause — records when we went to background.
   void onAppPaused() {
     if (_enabled && _hasAuthenticated) {

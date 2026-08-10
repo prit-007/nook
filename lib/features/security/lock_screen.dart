@@ -1,17 +1,20 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/providers/pin_provider.dart';
 import '../../core/theme/design_tokens.dart';
+import 'pin_entry_screen.dart';
 
 /// Biometric lock screen per prompt #10.
 /// Soft gradient background, frosted illustration, fingerprint icon with pulse,
 /// "Unlock to see your notes", "Use PIN instead".
-class LockScreen extends StatelessWidget {
+class LockScreen extends ConsumerWidget {
   const LockScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final seedColor = NookColors.violet;
 
@@ -133,16 +136,29 @@ class LockScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // PIN fallback
-              TextButton(
-                onPressed: () {
-                  // TODO: implement PIN entry
+              Consumer(
+                builder: (context, ref, _) {
+                  final pinProv = ref.watch(pinProvider);
+                  if (!pinProv.enabled) return const SizedBox.shrink();
+                  return TextButton(
+                    onPressed: () async {
+                      final result = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => const PinEntryScreen(),
+                        ),
+                      );
+                      if (result == true && context.mounted) {
+                        Navigator.of(context).pop(true);
+                      }
+                    },
+                    child: Text(
+                      'Use PIN instead',
+                      style: TextStyle(
+                        color: scheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  );
                 },
-                child: Text(
-                  'Use PIN instead',
-                  style: TextStyle(
-                    color: scheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
               ),
 
               const Spacer(flex: 2),

@@ -14,7 +14,7 @@
 | 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** | 2026-08-05 | 2026-08-07 |
 | 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
-| 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **~80% COMPLETE** | 2026-08-10 | — |
+| 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
 | 5 | Nearby Sync (transport, pairing, merge resolver) | NOT STARTED | — | — |
 | 6 | Hardening for Play Store (accessibility, export, privacy) | NOT STARTED | — | — |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
@@ -515,7 +515,11 @@
   - File: `lib/features/security/lock_screen.dart`
 - [x] Soft blur-behind effect (`BackdropFilter`, `ImageFilter.blur` with focus-in on unlock)
   - File: `lib/features/security/frosted_shield.dart`
-- [ ] "Use PIN instead" fallback option (button exists, implementation pending)
+- [x] "Use PIN instead" fallback option
+  - File: `lib/features/security/pin_entry_screen.dart` — 6-digit PIN entry with setup/verify modes
+  - File: `lib/core/providers/pin_provider.dart` — PIN hashing with random salt, secure storage
+  - File: `lib/features/security/lock_screen.dart` — shows "Use PIN instead" when PIN enabled
+  - File: `lib/features/security/frosted_shield.dart` — PIN fallback in frosted shield overlay
 - [x] Fingerprint icon with pulse animation (1200ms repeating scale `ScaleTransition`)
   - File: `lib/features/security/frosted_shield.dart`
 - [x] Locked notes screen shows actual locked notes
@@ -531,7 +535,9 @@
   - Timer persisted, lifecycle observer checks elapsed time on resume
 - [x] Screenshot blocking works on Android
   - FlutterWindowManager FLAG_SECURE applied on startup and via toggle
-- [ ] Lock screen looks polished (illustration, blur, animation) — pending PIN fallback
+- [x] Lock screen looks polished (illustration, blur, animation, PIN fallback)
+  - PIN fallback available in both LockScreen and FrostedShield
+  - PIN setup/verification in Settings > Security
 
 ---
 

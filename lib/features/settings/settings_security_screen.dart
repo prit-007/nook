@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/biometric_provider.dart';
+import '../../core/providers/pin_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
+import '../../features/security/pin_entry_screen.dart';
 
 class SettingsSecurityScreen extends ConsumerWidget {
   const SettingsSecurityScreen({super.key});
@@ -12,6 +14,7 @@ class SettingsSecurityScreen extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final gate = ref.watch(biometricGateProvider);
     final blocker = ref.watch(screenshotBlockerProvider);
+    final pinProv = ref.watch(pinProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Security')),
@@ -101,6 +104,54 @@ class SettingsSecurityScreen extends ConsumerWidget {
               ),
             ),
           ],
+
+          const SizedBox(height: 24),
+
+          // ── PIN lock ──
+          Text(
+            'PIN LOCK',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: SwitchListTile(
+              title: const Text('PIN fallback'),
+              subtitle: Text(
+                pinProv.enabled
+                    ? 'PIN is set — shown on lock screen'
+                    : 'Set a PIN as biometric fallback',
+              ),
+              secondary: Icon(
+                pinProv.enabled
+                    ? Icons.pin_rounded
+                    : Icons.pin_outlined,
+                color: scheme.primary,
+              ),
+              value: pinProv.enabled,
+              onChanged: (value) async {
+                if (value) {
+                  // Show PIN setup screen.
+                  final result = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => const PinEntryScreen(isSetup: true),
+                    ),
+                  );
+                  if (result != true) return;
+                } else {
+                  await ref.read(pinProvider).clearPin();
+                }
+              },
+            ),
+          ),
         ],
       ),
     );

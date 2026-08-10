@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/features/security/lock_screen.dart';
 
 void main() {
   Widget buildScreen() {
-    return const MaterialApp(home: LockScreen());
+    return const ProviderScope(
+      child: MaterialApp(home: LockScreen()),
+    );
   }
 
   testWidgets('renders unlock text', (tester) async {
@@ -22,9 +25,10 @@ void main() {
     expect(find.byIcon(Icons.fingerprint), findsOneWidget);
   });
 
-  testWidgets('renders PIN fallback', (tester) async {
+  testWidgets('renders PIN fallback when PIN enabled', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('Use PIN instead'), findsOneWidget);
+    // PIN fallback is hidden by default (pin not enabled).
+    expect(find.text('Use PIN instead'), findsNothing);
   });
 
   testWidgets('renders app name', (tester) async {

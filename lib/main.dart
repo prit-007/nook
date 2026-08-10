@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'core/providers/biometric_provider.dart';
+import 'core/providers/pin_provider.dart';
 import 'core/providers/screenshot_blocker_provider.dart';
 import 'core/providers/theme_provider.dart';
 
@@ -29,11 +30,13 @@ void main() async {
     ThemePreference.load(),
     BiometricGate.load(),
     ScreenshotBlocker.load(),
+    PinProvider.load(),
   ]);
 
   final themePref = results[0] as ThemePreference;
   final biometricGate = results[1] as BiometricGate;
   final screenshotBlocker = results[2] as ScreenshotBlocker;
+  final pinProv = results[3] as PinProvider;
 
   // Apply screenshot blocker flag on startup if persisted.
   await screenshotBlocker.setBlocked(screenshotBlocker.blocked);
@@ -44,6 +47,7 @@ void main() async {
         themePreferenceProvider.overrideWith((ref) => themePref),
         biometricGateProvider.overrideWith((ref) => biometricGate),
         screenshotBlockerProvider.overrideWith((ref) => screenshotBlocker),
+        pinProvider.overrideWith((ref) => pinProv),
       ],
       child: const NookApp(),
     ),
