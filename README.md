@@ -12,7 +12,7 @@ either version 3 of the License, or (at your option) any later version.
 
 ## Status
 
-🚧 Pre-alpha — Phase 1 (core notes) complete, Phase 2 (checklists + doodles) next.
+🚧 Pre-alpha — **v0.5** — Phases 0–4 complete (foundation, core notes, checklists + doodles, theming, security). Phase 5 (nearby sync) in progress.
 
 ## Core principles
 
@@ -26,6 +26,19 @@ either version 3 of the License, or (at your option) any later version.
 
 See `docs/` for the full architecture and product plan.
 
+## What's built
+
+- **Core notes** — create, edit, delete, pin, lock, color, cover images
+- **Notebooks & tags** — organize notes with notebooks and multi-tag filtering
+- **Search** — full-text search via FTS5
+- **Checklists** — toggle items, drag-to-reorder
+- **Doodles** — freehand drawing with perfect_freehand, saved as attachments
+- **Theming** — Material You 3 dynamic color + per-note color overrides, light/dark
+- **Security** — SQLCipher encryption, biometric gate, screenshot blocking
+- **Trash** — soft-delete with 30-day auto-expiry
+- **Sync UI** — pairing, send/receive screens (transport not yet wired)
+- **CI** — GitHub Actions: format, analyze, test, build APK artifact
+
 ## Getting started
 
 ```bash
@@ -34,13 +47,17 @@ dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
-## Tech stack (short version — see docs/adr for the reasoning)
+## Tech stack
 
-- Flutter + Riverpod + go_router
+- Flutter 3.44.8 + Dart >=3.6.0
+- Riverpod + go_router for state/navigation
 - Drift (SQLite) + SQLCipher for encrypted local storage
-- AppFlowy Editor for the block-based note editor
+- AppFlowy Editor for block-based note editing
 - Material You 3 dynamic + per-note theming
 - `nearby_service` for device-to-device sync (no server, ever)
+- `perfect_freehand` for doodle input
+- `archive` for `.nook` export bundles
+- Custom MethodChannel for Android permissions (no `permission_handler`)
 
 ## License
 
