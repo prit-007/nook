@@ -2,11 +2,69 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/features/editor/note_exporter.dart';
 
 void main() {
+  group('NoteExporter.captureBoundaryToPng', () {
+    testWidgets('captures a RepaintBoundary as PNG bytes', (tester) async {
+      final boundaryKey = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RepaintBoundary(
+            key: boundaryKey,
+            child: const ColoredBox(
+              color: Color(0xFF00FF00),
+              child: SizedBox(width: 40, height: 30),
+            ),
+          ),
+        ),
+      );
+
+      await tester.runAsync(() async {
+        final boundary = boundaryKey.currentContext!.findRenderObject()!
+            as RenderRepaintBoundary;
+        final bytes = await NoteExporter.captureBoundaryToPng(boundary);
+
+        expect(bytes, isA<Uint8List>());
+        expect(bytes.isNotEmpty, isTrue);
+        expect(bytes[0], 0x89);
+        expect(bytes[1], 0x50);
+        expect(bytes[2], 0x4E);
+        expect(bytes[3], 0x47);
+      });
+    });
+
+    testWidgets('renders at the requested pixel ratio', (tester) async {
+      final boundaryKey = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RepaintBoundary(
+            key: boundaryKey,
+            child: const ColoredBox(
+              color: Color(0xFFFFFFFF),
+              child: SizedBox(width: 40, height: 30),
+            ),
+          ),
+        ),
+      );
+
+      await tester.runAsync(() async {
+        final boundary = boundaryKey.currentContext!.findRenderObject()!
+            as RenderRepaintBoundary;
+        final bytes = await NoteExporter.captureBoundaryToPng(
+          boundary,
+          pixelRatio: 2.0,
+        );
+
+        expect(bytes, isA<Uint8List>());
+        expect(bytes.isNotEmpty, isTrue);
+      });
+    });
+  });
+
   group('NoteExporter.captureToPng', () {
     test('returns Uint8List of PNG bytes', () async {
       final recorder = ui.PictureRecorder();

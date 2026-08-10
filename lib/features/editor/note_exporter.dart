@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/rendering.dart';
+
 /// Exports a note's rendered content as a PNG image.
 class NoteExporter {
   NoteExporter._();
@@ -10,6 +12,17 @@ class NoteExporter {
   static Future<Uint8List> imageToPng(ui.Image image) async {
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     return byteData?.buffer.asUint8List() ?? Uint8List(0);
+  }
+
+  /// Captures a [RenderRepaintBoundary] as PNG bytes at [pixelRatio].
+  static Future<Uint8List> captureBoundaryToPng(
+    RenderRepaintBoundary boundary, {
+    double pixelRatio = 3.0,
+  }) async {
+    final image = await boundary.toImage(pixelRatio: pixelRatio);
+    final bytes = await imageToPng(image);
+    image.dispose();
+    return bytes;
   }
 
   /// Saves a [ui.Image] as a PNG file at [filePath].

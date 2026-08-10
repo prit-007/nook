@@ -12,7 +12,7 @@
 |-------|-------------|--------|---------|-----------|
 | 0 | Foundation (scaffold, DB, routing, theme) | **~85% COMPLETE** | 2026-08-05 | — |
 | 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** | 2026-08-05 | 2026-08-07 |
-| 2 | Checklists + Doodles + Images | **~60% COMPLETE** | 2026-08-07 | — |
+| 2 | Checklists + Doodles + Images | **~72% COMPLETE** | 2026-08-07 | — |
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | NOT STARTED | — | — |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | NOT STARTED | — | — |
 | 5 | Nearby Sync (transport, pairing, merge resolver) | NOT STARTED | — | — |
@@ -308,10 +308,10 @@
 - [x] Build checklist-only editor path (`ChecklistEditor` — ReorderableListView + swipe actions)
   - File: `lib/features/editor/checklist_editor.dart`
 - [x] Drag-to-reorder checklist items
-- [ ] Swipe-to-check with strikethrough animation
-- [ ] Re-skin built-in `todo_list` node in AppFlowy Editor (for mixed notes)
+- [x] Swipe-to-check with strikethrough animation
+- [x] Re-skin built-in `todo_list` node in AppFlowy Editor (for mixed notes)
   - File: `lib/features/editor/widgets/custom_todo_list_block.dart`
-- [ ] Register custom `todo_list` builder in `_buildComponentMap()`
+- [x] Register custom `todo_list` builder in `_buildComponentMap()`
 - [x] Write checklist unit test (create, check, reorder, persist)
   - File: `test/features/editor/checklist/checklist_editor_test.dart`
 
@@ -325,10 +325,12 @@
   - File: `lib/features/doodle/doodle_toolbar.dart`
 - [x] Build `DoodleCanvasScreen` — full-screen canvas, undo/redo, Done/close
   - File: `lib/features/doodle/doodle_canvas_screen.dart`
-- [ ] Support pressure input via `Listener.onPointerDown/Move` (stylus fallback to constant)
-- [ ] Background templates: blank / dotted grid / ruled lines / graph
-  - File: `lib/features/doodle/background_templates.dart`
-- [ ] Export: `RepaintBoundary` → `toImage()` → PNG bytes
+- [x] Support pressure input via `Listener.onPointerDown/Move` (stylus fallback to constant)
+  - `StrokePoint(position, pressure)` model; `Listener` in `doodle_canvas.dart`; `simulatePressure` disabled when real pressure is present
+- [x] Background templates: blank / dotted grid / ruled lines / graph
+  - File: `lib/features/doodle/background_templates.dart` (enum in `doodle_controller.dart`, painter in `doodle_canvas.dart`, selector in `doodle_canvas_screen.dart`)
+- [x] Export: `RepaintBoundary` → `toImage()` → PNG bytes
+  - `NoteExporter.captureBoundaryToPng` in `lib/features/editor/note_exporter.dart` (must run under `tester.runAsync` in widget tests)
 - [ ] Optional: layer support (2–3 layers: sketch/ink/highlight)
 - [x] Write doodle unit test (create strokes, undo, export)
   - File: `test/features/doodle/doodle_controller_test.dart`
@@ -370,7 +372,7 @@
 
 ### Phase 2 Validation
 
-- [ ] Create checklist note → check items → swipe to check → reorder → persists
+- [x] Create checklist note → check items → swipe to check → reorder → persists
 - [ ] Create doodle note → draw → save → thumbnail appears in grid
 - [ ] Tap doodle thumbnail → full editor opens → edit → save → thumbnail updates
 - [ ] Attach image → appears in editor → thumbnail in grid
@@ -410,7 +412,7 @@
   - File: `lib/features/home/home_screen.dart` (`_buildAnimatedCard`)
 - [x] Hero shared-element transitions home grid ↔ editor for all three card types
   - File: `lib/features/home/widgets/note_minimal_card.dart`, `note_banner_card.dart`, `note_doodle_card.dart`, `lib/features/editor/note_editor_screen.dart`
-- [ ] Checklist strikethrough animation
+- [x] Checklist strikethrough animation
 - [ ] FAB speed-dial open/close animation
 - [ ] Page transitions (shared axis or fade-through between nav screens)
 - [ ] Skeleton loading placeholders (`shimmer` package) for cold start

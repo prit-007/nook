@@ -174,9 +174,89 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    final textWidget = tester.widget<Text>(find.text('Done task'));
-    final decoration = textWidget.style?.decoration;
-    expect(decoration, isNotNull);
-    expect(decoration!.contains(TextDecoration.lineThrough), isTrue);
+    expect(strikeWidth(tester, 'Done task'), 1.0);
   });
+
+  group('swipe-to-check & strikethrough animation', () {
+    testWidgets('swiping item right checks it', (tester) async {
+      await repo.addItem(noteId: 'note-1', text: 'Swipe me');
+
+      await tester.pumpWidget(buildEditor());
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.text('Swipe me'), const Offset(400, 0));
+      await tester.pumpAndSettle();
+
+      final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+      expect(checkbox.value, isTrue);
+    });
+
+    testWidgets('swiping item left checks it', (tester) async {
+      await repo.addItem(noteId: 'note-1', text: 'Swipe left');
+
+      await tester.pumpWidget(buildEditor());
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.text('Swipe left'), const Offset(-400, 0));
+      await tester.pumpAndSettle();
+
+      final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+      expect(checkbox.value, isTrue);
+    });
+
+    testWidgets('swiping a checked item unchecks it', (tester) async {
+      await repo.addItem(noteId: 'note-1', text: 'Uncheck me');
+      final items = await repo.getItems('note-1');
+      await repo.toggleChecked(items[0].id);
+
+      await tester.pumpWidget(buildEditor());
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.text('Uncheck me'), const Offset(400, 0));
+      await tester.pumpAndSettle();
+
+      final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+      expect(checkbox.value, isFalse);
+    });
+
+    testWidgets('strikethrough animates in over time, not instantly',
+        (tester) async {
+      await repo.addItem(noteId: 'note-1', text: 'Animate');
+
+      await tester.pumpWidget(buildEditor());
+      await tester.pumpAndSettle();
+      expect(strikeWidth(tester, 'Animate'), 0.0);
+
+      await tester.tap(find.byType(Checkbox));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final width = strikeWidth(tester, 'Animate');
+      expect(width, greaterThan(0.0));
+      expect(width, lessThan(1.0));
+    });
+
+    testWidgets('strikethrough is fully drawn when checked', (tester) async {
+      await repo.addItem(noteId: 'note-1', text: 'Done');
+
+      await tester.pumpWidget(buildEditor());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+
+      expect(strikeWidth(tester, 'Done'), 1.0);
+    });
+  });
+}
+
+/// Width factor of the animated strike-through overlay for a checklist item.
+double strikeWidth(WidgetTester tester, String text) {
+  final tile =
+      find.ancestor(of: find.text(text), matching: find.byType(Row)).first;
+  final strike = find.descendant(
+    of: tile,
+    matching: find.byType(FractionallySizedBox),
+  );
+  return tester.widget<FractionallySizedBox>(strike.first).widthFactor ?? 1.0;
 }

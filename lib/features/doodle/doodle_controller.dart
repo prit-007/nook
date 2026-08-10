@@ -3,6 +3,17 @@ import 'package:flutter/material.dart';
 /// Drawing tools for the doodle canvas.
 enum DoodleTool { pen, eraser, highlighter }
 
+/// Background templates for the doodle canvas.
+enum DoodleBackground { blank, dotted, ruled, graph }
+
+/// A single sampled point on a stroke, with optional stylus pressure.
+class StrokePoint {
+  const StrokePoint(this.position, {this.pressure = 1.0});
+
+  final Offset position;
+  final double pressure;
+}
+
 /// A single stroke composed of points with style properties.
 class Stroke {
   Stroke({
@@ -13,7 +24,7 @@ class Stroke {
     this.opacity = 1.0,
   });
 
-  final List<Offset> points;
+  final List<StrokePoint> points;
   final Color color;
   final double width;
   final DoodleTool tool;
@@ -30,12 +41,14 @@ class DoodleController extends ChangeNotifier {
   DoodleTool _currentTool = DoodleTool.pen;
   Color _currentColor = Colors.black;
   double _currentWidth = 4.0;
+  DoodleBackground _background = DoodleBackground.dotted;
   bool _isDrawing = false;
 
   List<Stroke> get strokes => List.unmodifiable(_strokes);
   DoodleTool get currentTool => _currentTool;
   Color get currentColor => _currentColor;
   double get currentWidth => _currentWidth;
+  DoodleBackground get background => _background;
   bool get isDrawing => _isDrawing;
   bool get canUndo => _strokes.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
@@ -55,7 +68,12 @@ class DoodleController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startStroke(Offset point) {
+  void setBackground(DoodleBackground background) {
+    _background = background;
+    notifyListeners();
+  }
+
+  void startStroke(Offset point, {double pressure = 1.0}) {
     double opacity = 1.0;
     double actualWidth = _currentWidth;
 
@@ -68,7 +86,7 @@ class DoodleController extends ChangeNotifier {
     }
 
     _activeStroke = Stroke(
-      points: [point],
+      points: [StrokePoint(point, pressure: pressure)],
       color: _currentTool == DoodleTool.eraser
           ? Colors.transparent
           : _currentColor,
@@ -82,9 +100,9 @@ class DoodleController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void continueStroke(Offset point) {
+  void continueStroke(Offset point, {double pressure = 1.0}) {
     if (_activeStroke == null) return;
-    _activeStroke!.points.add(point);
+    _activeStroke!.points.add(StrokePoint(point, pressure: pressure));
     notifyListeners();
   }
 
@@ -109,6 +127,17 @@ class DoodleController extends ChangeNotifier {
 
   void clear() {
     _strokes.clear();
+    _redoStack.clear();
+    _activeStroke = null;
+    _isDrawing = false;
+    notifyListeners();
+  }
+
+  /// Replaces all strokes (used when loading a persisted doodle).
+  void replaceStrokes(List<Stroke> strokes) {
+    _strokes
+      ..clear()
+      ..addAll(strokes);
     _redoStack.clear();
     _activeStroke = null;
     _isDrawing = false;

@@ -1,36 +1,144 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nook/core/providers/database_provider.dart';
+import 'package:nook/data/repositories/attachment_repository.dart';
+import 'package:nook/data/repositories/doodle_storage.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'doodle_controller.dart';
 import 'doodle_canvas.dart';
+import 'doodle_strokes_codec.dart';
 import 'doodle_toolbar.dart';
 
-class DoodleCanvasScreen extends StatefulWidget {
+/// Full-screen doodle canvas for creating and editing doodles.
+///
+/// On completion, pops with the attachment id of the saved doodle.
+class DoodleCanvasScreen extends ConsumerStatefulWidget {
   const DoodleCanvasScreen({
     super.key,
     required this.noteId,
     this.attachmentId,
+    this.storage,
   });
 
   final String noteId;
+
+  /// When set, the existing doodle is loaded for editing.
   final String? attachmentId;
 
+  /// Injectable for tests; otherwise resolved from the documents directory.
+  final DoodleStorage? storage;
+
   @override
-  State<DoodleCanvasScreen> createState() => _DoodleCanvasScreenState();
+  ConsumerState<DoodleCanvasScreen> createState() => _DoodleCanvasScreenState();
 }
 
-class _DoodleCanvasScreenState extends State<DoodleCanvasScreen> {
+class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   late final DoodleController _controller;
+
+  DoodleStorage? _storage;
 
   @override
   void initState() {
     super.initState();
     _controller = DoodleController();
+    _init();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<DoodleStorage> _resolveStorage() async {
+    final existing = _storage;
+    if (existing != null) return existing;
+    final storage = widget.storage ??
+        DoodleStorage(
+          attachments: AttachmentRepository(ref.read(databaseProvider)),
+          baseDir: await getApplicationDocumentsDirectory(),
+        );
+    _storage = storage;
+    return storage;
+  }
+
+  void _init() {
+    _resolveStorage().then((storage) {
+      final attachmentId = widget.attachmentId;
+      if (attachmentId == null) return Future.value(const DoodleData());
+      return storage.loadDoodle(attachmentId);
+    }).then((data) {
+      if (!mounted) return;
+      _controller.replaceStrokes(data.strokes);
+      _controller.setBackground(data.background);
+    });
+  }
+
+  void _onDone() {
+    _handleDone();
+  }
+
+  Future<void> _handleDone() async {
+    final storage = _storage;
+    if (storage == null) return;
+
+    // Drift insert — safe in FakeAsync zone.
+    final attachmentId = widget.attachmentId ??
+        await storage.attachments.addDoodle(
+            noteId: widget.noteId, filePath: '');
+
+    if (!mounted) return;
+
+    // Snapshot strokes before popping — pop triggers route disposal which
+    // may dispose the controller, and _controller.strokes is a view, not a copy.
+    final strokes = List<Stroke>.from(_controller.strokes);
+    final background = _controller.background;
+
+    // Pop immediately.  Do NOT block on dart:io file writes below.
+    Navigator.of(context).pop(attachmentId);
+
+    // Fire-and-forget: persist the doodle file in the background.
+    storage.saveDoodle(
+      noteId: widget.noteId,
+      strokes: strokes,
+      background: background,
+      attachmentId: attachmentId,
+    );
+  }
+
+  void _showBackgroundSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Background',
+                  style: Theme.of(sheetContext).textTheme.titleMedium,
+                ),
+              ),
+              for (final option in DoodleBackground.values)
+                ListTile(
+                  title: Text(option.name.capitalize()),
+                  trailing: option == _controller.background
+                      ? const Icon(Icons.check_rounded)
+                      : null,
+                  onTap: () {
+                    _controller.setBackground(option);
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -65,6 +173,11 @@ class _DoodleCanvasScreenState extends State<DoodleCanvasScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _GlassButton(
+                          icon: Icons.grid_view_rounded,
+                          onTap: () => _showBackgroundSheet(context),
+                        ),
+                        const SizedBox(width: 8),
+                        _GlassButton(
                           icon: Icons.undo_rounded,
                           isEnabled: _controller.canUndo,
                           onTap: _controller.undo,
@@ -80,10 +193,7 @@ class _DoodleCanvasScreenState extends State<DoodleCanvasScreen> {
                   },
                 ),
                 FilledButton(
-                  onPressed: () {
-                    // TODO: save strokes to attachment
-                    Navigator.maybePop(context);
-                  },
+                  onPressed: _onDone,
                   style: FilledButton.styleFrom(
                     backgroundColor: scheme.primary,
                     foregroundColor: scheme.onPrimary,
@@ -151,5 +261,12 @@ class _GlassButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+extension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1)}';
   }
 }

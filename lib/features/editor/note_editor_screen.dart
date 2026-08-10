@@ -14,6 +14,7 @@ import '../../data/database.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/tables/notes.dart';
 import 'doodle/doodle_block.dart';
+import 'widgets/custom_todo_list_block.dart';
 import 'widgets/note_options_sheet.dart';
 
 class NoteEditorScreen extends ConsumerStatefulWidget {
@@ -252,6 +253,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               autoFocus: true,
               blockComponentBuilders: {
                 ...standardBlockComponentBuilderMap,
+                TodoListBlockKeys.type: NookTodoListBlock.builder(),
                 DoodleBlockKeys.type: DoodleBlockComponentBuilder(
                   configuration: BlockComponentConfiguration(
                     padding: (_) => const EdgeInsets.symmetric(vertical: 24),

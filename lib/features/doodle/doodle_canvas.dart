@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:perfect_freehand/perfect_freehand.dart';
 
 import 'doodle_controller.dart';
+import 'doodle_painter.dart';
 
 /// Full-screen drawing canvas that renders organic, pressure-sensitive
-/// strokes via perfect_freehand and a custom dot-grid background.
+/// strokes via perfect_freehand and a selectable background template.
 class DoodleCanvas extends StatefulWidget {
-  const DoodleCanvas({super.key, required this.controller});
+  const DoodleCanvas({
+    super.key,
+    required this.controller,
+    this.boundaryKey,
+  });
 
   final DoodleController controller;
+
+  /// Key for the internal [RepaintBoundary] (used for thumbnail capture).
+  final GlobalKey? boundaryKey;
 
   @override
   State<DoodleCanvas> createState() => _DoodleCanvasState();
@@ -43,23 +50,29 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final background = widget.controller.background;
 
     return RepaintBoundary(
+      key: widget.boundaryKey,
       child: CustomPaint(
-        // The background dot-grid
-        painter: _DotGridPainter(
+        key: ValueKey('doodle-bg-${background.name}'),
+        // The background template (blank / dotted / ruled / graph)
+        painter: _BackgroundPainter(
+          background: background,
           color: scheme.outlineVariant.withValues(alpha: 0.3),
         ),
-        child: GestureDetector(
-          onPanStart: (details) {
-            widget.controller.startStroke(details.localPosition);
-          },
-          onPanUpdate: (details) {
-            widget.controller.continueStroke(details.localPosition);
-          },
-          onPanEnd: (_) {
-            widget.controller.endStroke();
-          },
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (event) => widget.controller.startStroke(
+            event.localPosition,
+            pressure: event.pressure,
+          ),
+          onPointerMove: (event) => widget.controller.continueStroke(
+            event.localPosition,
+            pressure: event.pressure,
+          ),
+          onPointerUp: (_) => widget.controller.endStroke(),
+          onPointerCancel: (_) => widget.controller.endStroke(),
           child: CustomPaint(
             // The organic strokes
             painter: _StrokePainter(
@@ -73,31 +86,26 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
   }
 }
 
-/// Renders a premium, subtle dot-grid background (similar to physical notebooks).
-class _DotGridPainter extends CustomPainter {
-  _DotGridPainter({required this.color});
+/// Renders the selected background template for the canvas.
+class _BackgroundPainter extends CustomPainter {
+  _BackgroundPainter({required this.background, required this.color});
 
+  final DoodleBackground background;
   final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    const spacing = 28.0;
-    const radius = 1.2;
-
-    for (double x = spacing; x < size.width; x += spacing) {
-      for (double y = spacing; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), radius, paint);
-      }
-    }
+    paintDoodleBackground(
+      canvas,
+      size,
+      background: background,
+      color: color,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _DotGridPainter oldDelegate) {
-    return oldDelegate.color != color;
+  bool shouldRepaint(covariant _BackgroundPainter oldDelegate) {
+    return oldDelegate.background != background || oldDelegate.color != color;
   }
 }
 
@@ -109,48 +117,7 @@ class _StrokePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final stroke in strokes) {
-      if (stroke.points.isEmpty) continue;
-
-      final paint = Paint()
-        ..color = stroke.color.withValues(alpha: stroke.opacity)
-        ..style = PaintingStyle.fill;
-
-      if (stroke.tool == DoodleTool.eraser) {
-        paint.blendMode = BlendMode.clear;
-      }
-
-      // 1. Map standard Flutter Offsets to perfect_freehand PointVectors
-      final points = stroke.points.map((p) => PointVector(p.dx, p.dy)).toList();
-
-      // 2. Generate the dynamic organic outline
-      final isPen = stroke.tool == DoodleTool.pen;
-
-      final outlinePoints = getStroke(
-        points,
-        options: StrokeOptions(
-          size: stroke.width * 1.5,
-          thinning: isPen ? 0.6 : 0.0,
-          smoothing: 0.5,
-          streamline: 0.5,
-          simulatePressure: isPen,
-          start: StrokeEndOptions.start(taperEnabled: isPen),
-          end: StrokeEndOptions.end(taperEnabled: isPen),
-        ),
-      );
-
-      if (outlinePoints.isEmpty) continue;
-
-      // 3. Convert the resulting outline back into a Flutter Path
-      final path = Path();
-      path.moveTo(outlinePoints.first.dx, outlinePoints.first.dy);
-      for (int i = 1; i < outlinePoints.length; i++) {
-        path.lineTo(outlinePoints[i].dx, outlinePoints[i].dy);
-      }
-      path.close();
-
-      canvas.drawPath(path, paint);
-    }
+    paintDoodleStrokes(canvas, size, strokes);
   }
 
   @override

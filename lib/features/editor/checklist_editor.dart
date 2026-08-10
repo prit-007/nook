@@ -145,14 +145,25 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                       onReorderItem: _reorder,
                       itemBuilder: (context, index) {
                         final item = _items[index];
-                        return _ChecklistTile(
-                          key: ValueKey(item.id),
-                          index: index,
-                          id: item.id,
-                          text: item.text,
-                          checked: item.checked,
-                          onToggle: () => _toggleItem(item.id),
-                          onDelete: () => _deleteItem(item.id),
+                        return Dismissible(
+                          key: ValueKey('${item.id}-${item.checked}'),
+                          direction: DismissDirection.horizontal,
+                          onDismissed: (_) => _toggleItem(item.id),
+                          background: const _SwipeToCheckBackground(
+                            alignment: Alignment.centerRight,
+                          ),
+                          secondaryBackground: const _SwipeToCheckBackground(
+                            alignment: Alignment.centerLeft,
+                          ),
+                          child: _ChecklistTile(
+                            key: ValueKey(item.id),
+                            index: index,
+                            id: item.id,
+                            text: item.text,
+                            checked: item.checked,
+                            onToggle: () => _toggleItem(item.id),
+                            onDelete: () => _deleteItem(item.id),
+                          ),
                         );
                       },
                     ),
@@ -242,16 +253,37 @@ class _ChecklistTile extends StatelessWidget {
             visualDensity: VisualDensity.compact,
           ),
           Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 15,
-                decoration:
-                    checked ? TextDecoration.lineThrough : TextDecoration.none,
-                color: checked
-                    ? scheme.onSurface.withValues(alpha: 0.4)
-                    : scheme.onSurface,
-              ),
+            child: Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: checked
+                        ? scheme.onSurface.withValues(alpha: 0.4)
+                        : scheme.onSurface,
+                  ),
+                ),
+                // Animated strike-through overlay.
+                Positioned.fill(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: checked ? 1.0 : 0.0),
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, _) => FractionallySizedBox(
+                        widthFactor: value,
+                        child: Container(
+                          height: 1.4,
+                          color: scheme.onSurface.withValues(alpha: 0.55),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           IconButton(
@@ -273,6 +305,51 @@ class _ChecklistTile extends StatelessWidget {
               color: scheme.onSurface.withValues(alpha: 0.3),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Revealed behind a checklist item while swiping to check/uncheck it.
+class _SwipeToCheckBackground extends StatelessWidget {
+  const _SwipeToCheckBackground({required this.alignment});
+
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      color: scheme.primary.withValues(alpha: 0.12),
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (alignment == Alignment.centerLeft) ...[
+            const Icon(Icons.check_circle, size: 20),
+            const SizedBox(width: 6),
+            Text(
+              'Check',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: scheme.primary,
+              ),
+            ),
+          ] else ...[
+            Text(
+              'Check',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: scheme.primary,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.check_circle, size: 20),
+          ],
         ],
       ),
     );
