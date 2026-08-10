@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/biometric_provider.dart';
-import '../../core/theme/design_tokens.dart';
+import '../../core/providers/pin_provider.dart';
+import '../../core/providers/theme_provider.dart';
+import 'pin_entry_screen.dart';
 
 /// "Frosted Shield" — maximum-strength blur veil over the live vault.
 ///
@@ -70,6 +72,7 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final gate = ref.watch(biometricGateProvider);
+    final seedColor = ref.watch(themePreferenceProvider).seedColor;
 
     if (!gate.isLocked || _hasUnlocked) {
       return const SizedBox.shrink();
@@ -88,7 +91,7 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
                 child: _FrostedShieldButton(
                   enabled: !gate.isAuthenticating,
                   onTap: _unlock,
-                  seed: NookColors.violet,
+                  seed: seedColor,
                   pulse: _pulse,
                 ),
               ),
@@ -179,6 +182,32 @@ class _FrostedShieldButton extends StatelessWidget {
                 fontSize: 13,
                 color: scheme.onSurface.withValues(alpha: 0.6),
               ),
+            ),
+            const SizedBox(height: 24),
+            // PIN fallback
+            Consumer(
+              builder: (context, ref, _) {
+                final pinProv = ref.watch(pinProvider);
+                if (!pinProv.enabled) return const SizedBox.shrink();
+                return TextButton(
+                  onPressed: () async {
+                    final result = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => const PinEntryScreen(),
+                      ),
+                    );
+                    if (result == true && context.mounted) {
+                      ref.read(biometricGateProvider).unlockWithPin();
+                    }
+                  },
+                  child: Text(
+                    'Use PIN instead',
+                    style: TextStyle(
+                      color: scheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),

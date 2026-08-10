@@ -101,10 +101,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     if (confirmed == true) {
       final db = ref.read(databaseProvider);
       final repo = NoteRepository(db);
-      for (final note in _notes) {
-        await repo.permanentlyDelete(note.id);
-      }
-      await _load();
+      await repo.permanentlyDeleteAllDeleted();
+      if (mounted) await _load();
     }
   }
 

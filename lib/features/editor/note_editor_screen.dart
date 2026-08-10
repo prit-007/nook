@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -50,11 +51,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   Note? _note;
   String _title = '';
   bool _pinned = false;
+  bool _locked = false;
   bool _loading = true;
   bool _saving = false;
   String? _colorSeed;
   String? _notebookId;
   Timer? _autosaveTimer;
+  StreamSubscription<void>? _transactionSubscription;
   AppDatabase? _db;
 
   @override
@@ -76,8 +79,28 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       _note = note;
       _title = note.title;
       _pinned = note.pinned;
+      _locked = note.locked;
       _colorSeed = note.colorSeed;
       _notebookId = note.notebookId;
+
+      // Biometric re-prompt for locked notes.
+      if (note.locked) {
+        final auth = LocalAuthentication();
+        try {
+          final ok = await auth.authenticate(
+            localizedReason: 'This note is locked',
+            biometricOnly: true,
+            persistAcrossBackgrounding: true,
+          );
+          if (!ok) {
+            if (mounted) context.pop();
+            return;
+          }
+        } catch (_) {
+          if (mounted) context.pop();
+          return;
+        }
+      }
 
       if (note.deltaContent != null && note.deltaContent!.isNotEmpty) {
         try {
@@ -117,7 +140,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       _editorState = EditorState.blank(withInitialText: true);
     }
 
-    _editorState!.transactionStream.listen((_) {
+    _transactionSubscription = _editorState!.transactionStream.listen((_) {
       _scheduleAutosave();
     });
 
@@ -189,6 +212,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       noteId: _note!.id,
       currentNotebookId: _notebookId,
       currentColorSeed: _colorSeed,
+      currentlyLocked: _locked,
       onNotebookChanged: (id) async {
         _notebookId = id;
         await repo.updateNote(_note!.id, notebookId: id);
@@ -196,6 +220,27 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       onColorChanged: (color) async {
         setState(() => _colorSeed = color);
         await repo.updateNote(_note!.id, colorSeed: color);
+      },
+      onTagsChanged: (tagIds) async {
+        await repo.updateNoteTags(_note!.id, tagIds);
+      },
+      onLockedChanged: (locked) async {
+        if (locked) {
+          // Require biometric before locking.
+          final auth = LocalAuthentication();
+          try {
+            final ok = await auth.authenticate(
+              localizedReason: 'Authenticate to lock this note',
+              biometricOnly: true,
+              persistAcrossBackgrounding: true,
+            );
+            if (!ok) return;
+          } catch (_) {
+            return;
+          }
+        }
+        setState(() => _locked = locked);
+        await repo.updateNote(_note!.id, locked: locked);
       },
     );
   }
@@ -361,6 +406,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   @override
   void dispose() {
     _autosaveTimer?.cancel();
+    _transactionSubscription?.cancel();
     _save();
     _editorState?.dispose();
     super.dispose();
@@ -499,6 +545,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                       child: Row(
                         children: [
                           IconButton(
+                            tooltip: 'Back',
                             icon: Icon(
                               Icons.arrow_back_rounded,
                               color: noteScheme.onSurface,
@@ -543,6 +590,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                             ),
                           ),
                           IconButton(
+                            tooltip: _pinned ? 'Unpin note' : 'Pin note',
                             icon: Icon(
                               _pinned
                                   ? Icons.push_pin_rounded
@@ -555,6 +603,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                             onPressed: _togglePin,
                           ),
                           IconButton(
+                            tooltip: 'Insert image',
                             icon: Icon(
                               Icons.add_photo_alternate_rounded,
                               color: noteScheme.onSurface,
@@ -563,6 +612,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                             onPressed: _insertImage,
                           ),
                           IconButton(
+                            tooltip: 'Insert doodle',
                             icon: Icon(
                               Icons.draw_rounded,
                               color: noteScheme.onSurface,
@@ -571,6 +621,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                             onPressed: _insertDoodle,
                           ),
                           IconButton(
+                            tooltip: 'Export note',
                             icon: Icon(
                               Icons.ios_share_rounded,
                               color: noteScheme.onSurface,
@@ -579,6 +630,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                             onPressed: _exportNote,
                           ),
                           IconButton(
+                            tooltip: 'More options',
                             icon: Icon(
                               Icons.more_horiz_rounded,
                               color: noteScheme.onSurface,
@@ -649,6 +701,7 @@ class _FloatingFormatBar extends StatelessWidget {
               children: [
                 _FormatAction(
                   icon: Icons.format_bold_rounded,
+                  tooltip: 'Bold',
                   onTap: () {
                     HapticFeedback.selectionClick();
                     editorState.toggleAttribute('bold');
@@ -656,6 +709,7 @@ class _FloatingFormatBar extends StatelessWidget {
                 ),
                 _FormatAction(
                   icon: Icons.format_italic_rounded,
+                  tooltip: 'Italic',
                   onTap: () {
                     HapticFeedback.selectionClick();
                     editorState.toggleAttribute('italic');
@@ -663,6 +717,7 @@ class _FloatingFormatBar extends StatelessWidget {
                 ),
                 _FormatAction(
                   icon: Icons.format_strikethrough_rounded,
+                  tooltip: 'Strikethrough',
                   onTap: () {
                     HapticFeedback.selectionClick();
                     editorState.toggleAttribute('strikethrough');
@@ -678,6 +733,7 @@ class _FloatingFormatBar extends StatelessWidget {
                 ),
                 _FormatAction(
                   icon: Icons.format_list_bulleted_rounded,
+                  tooltip: 'Bullet list',
                   onTap: () {
                     HapticFeedback.lightImpact();
                     insertNodeAfterSelection(
@@ -688,6 +744,7 @@ class _FloatingFormatBar extends StatelessWidget {
                 ),
                 _FormatAction(
                   icon: Icons.checklist_rounded,
+                  tooltip: 'Checklist',
                   onTap: () {
                     HapticFeedback.lightImpact();
                     insertNodeAfterSelection(
@@ -706,23 +763,32 @@ class _FloatingFormatBar extends StatelessWidget {
 }
 
 class _FormatAction extends StatelessWidget {
-  const _FormatAction({required this.icon, required this.onTap});
+  const _FormatAction({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final scheme = NoteThemeScope.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Icon(
-          icon,
-          size: 22,
-          color: scheme.onSurface.withValues(alpha: 0.8),
+    return Semantics(
+      label: tooltip,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(
+            icon,
+            size: 22,
+            color: scheme.onSurface.withValues(alpha: 0.8),
+          ),
         ),
       ),
     );

@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/widgets/empty_state.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
 import '../home/widgets/note_card.dart';
@@ -46,6 +48,7 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
           ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
         .get();
 
+    if (!mounted) return;
     setState(() {
       _notes = results;
       _loading = false;
@@ -66,16 +69,11 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _notes.isEmpty
-              ? Center(
-                  child: Text(
-                    'No notes in this notebook',
-                    style: TextStyle(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.5),
-                    ),
-                  ),
+              ? const EmptyState(
+                  icon: Icons.notes_outlined,
+                  title: 'No notes in this notebook',
+                  subtitle: 'Create a note and assign it to this notebook',
+                  animate: false,
                 )
               : GridView.builder(
                   padding: const EdgeInsets.all(12),
@@ -86,8 +84,10 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
                     childAspectRatio: 0.75,
                   ),
                   itemCount: _notes.length,
-                  itemBuilder: (context, index) =>
-                      NoteCard(note: _notes[index]),
+                  itemBuilder: (context, index) => NoteCard(
+                    note: _notes[index],
+                    onTap: () => context.push('/note/${_notes[index].id}'),
+                  ),
                 ),
     );
   }

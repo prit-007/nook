@@ -9,19 +9,19 @@ class DoodleToolbar extends StatelessWidget {
 
   final DoodleController controller;
 
-  static const _colors = [
-    Colors.black,
-    Colors.white,
-    Colors.redAccent,
-    Colors.blueAccent,
-    Colors.greenAccent,
-    Colors.amber,
-    Colors.deepPurpleAccent,
-  ];
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
+    final colors = [
+      scheme.onSurface,
+      scheme.surface,
+      Colors.redAccent,
+      Colors.blueAccent,
+      Colors.greenAccent,
+      Colors.amber,
+      Colors.deepPurpleAccent,
+    ];
 
     return ListenableBuilder(
       listenable: controller,
@@ -41,7 +41,7 @@ class DoodleToolbar extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: scheme.shadow.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -54,25 +54,43 @@ class DoodleToolbar extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _TactileTool(
-                        icon: Icons.edit_rounded,
-                        isSelected: controller.currentTool == DoodleTool.pen,
-                        onTap: () => controller.setCurrentTool(DoodleTool.pen),
+                      Semantics(
+                        label: 'Pen tool',
+                        button: true,
+                        selected: controller.currentTool == DoodleTool.pen,
+                        child: _TactileTool(
+                          icon: Icons.edit_rounded,
+                          isSelected: controller.currentTool == DoodleTool.pen,
+                          onTap: () =>
+                              controller.setCurrentTool(DoodleTool.pen),
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      _TactileTool(
-                        icon: Icons.brush_rounded,
-                        isSelected:
+                      Semantics(
+                        label: 'Highlighter tool',
+                        button: true,
+                        selected:
                             controller.currentTool == DoodleTool.highlighter,
-                        onTap: () =>
-                            controller.setCurrentTool(DoodleTool.highlighter),
+                        child: _TactileTool(
+                          icon: Icons.brush_rounded,
+                          isSelected:
+                              controller.currentTool == DoodleTool.highlighter,
+                          onTap: () =>
+                              controller.setCurrentTool(DoodleTool.highlighter),
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      _TactileTool(
-                        icon: Icons.cleaning_services_rounded,
-                        isSelected: controller.currentTool == DoodleTool.eraser,
-                        onTap: () =>
-                            controller.setCurrentTool(DoodleTool.eraser),
+                      Semantics(
+                        label: 'Eraser tool',
+                        button: true,
+                        selected: controller.currentTool == DoodleTool.eraser,
+                        child: _TactileTool(
+                          icon: Icons.cleaning_services_rounded,
+                          isSelected:
+                              controller.currentTool == DoodleTool.eraser,
+                          onTap: () =>
+                              controller.setCurrentTool(DoodleTool.eraser),
+                        ),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -82,14 +100,18 @@ class DoodleToolbar extends StatelessWidget {
                           color: scheme.outlineVariant,
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.delete_sweep_rounded,
-                          color: scheme.error,
+                      Semantics(
+                        label: 'Clear all strokes',
+                        button: true,
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.delete_sweep_rounded,
+                            color: scheme.error,
+                          ),
+                          onPressed: controller.strokes.isNotEmpty
+                              ? controller.clear
+                              : null,
                         ),
-                        onPressed: controller.strokes.isNotEmpty
-                            ? controller.clear
-                            : null,
                       ),
                     ],
                   ),
@@ -97,31 +119,36 @@ class DoodleToolbar extends StatelessWidget {
 
                   // Colors Row
                   SizedBox(
-                    height: 24,
+                    height: 48,
                     child: ListView.separated(
                       shrinkWrap: true,
                       scrollDirection: Axis.horizontal,
-                      itemCount: _colors.length,
+                      itemCount: colors.length,
                       separatorBuilder: (_, __) => const SizedBox(width: 12),
                       itemBuilder: (context, index) {
-                        final color = _colors[index];
+                        final color = colors[index];
                         final isSelected = controller.currentColor == color;
-                        return GestureDetector(
-                          onTap: () => controller.setCurrentColor(color),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOutBack,
-                            width: isSelected ? 24 : 18,
-                            height: isSelected ? 24 : 18,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: color,
-                              border: Border.all(
-                                color: isSelected
-                                    ? scheme.primary
-                                    : scheme.outlineVariant
-                                        .withValues(alpha: 0.5),
-                                width: isSelected ? 2 : 1,
+                        return Semantics(
+                          label: 'Color ${index + 1}',
+                          button: true,
+                          selected: isSelected,
+                          child: GestureDetector(
+                            onTap: () => controller.setCurrentColor(color),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutBack,
+                              width: isSelected ? 32 : 24,
+                              height: isSelected ? 32 : 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: color,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? scheme.primary
+                                      : scheme.outlineVariant
+                                          .withValues(alpha: 0.5),
+                                  width: isSelected ? 2 : 1,
+                                ),
                               ),
                             ),
                           ),

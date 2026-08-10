@@ -81,6 +81,25 @@ class NotebookRepository {
     return result.read(count) ?? 0;
   }
 
+  /// Counts non-deleted notes for all notebooks in a single query.
+  Future<Map<String, int>> countNotesForAllNotebooks() async {
+    final count = _db.notes.id.count();
+    final query = _db.selectOnly(_db.notes)
+      ..where(
+          _db.notes.deleted.equals(false) & _db.notes.notebookId.isNotNull())
+      ..addColumns([_db.notes.notebookId, count])
+      ..groupBy([_db.notes.notebookId]);
+    final results = await query.get();
+    final map = <String, int>{};
+    for (final row in results) {
+      final nbId = row.read(_db.notes.notebookId);
+      if (nbId != null) {
+        map[nbId] = row.read(count) ?? 0;
+      }
+    }
+    return map;
+  }
+
   /// Returns the most recently updated image attachment belonging to any
   /// non-deleted note in the notebook, or null when none exists.
   Future<Attachment?> getLatestImageForNotebook(String notebookId) async {

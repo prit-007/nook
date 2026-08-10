@@ -36,9 +36,11 @@ class ThemePreference extends ChangeNotifier {
 
   static Future<ThemePreference> load() async {
     final prefs = await SharedPreferences.getInstance();
+    final modeIndex = prefs.getInt('theme_mode') ?? 0;
     return ThemePreference(
       seedIndex: prefs.getInt('seed_index') ?? 0,
-      themeMode: ThemeMode.values[prefs.getInt('theme_mode') ?? 0],
+      themeMode:
+          ThemeMode.values[modeIndex.clamp(0, ThemeMode.values.length - 1)],
     );
   }
 }

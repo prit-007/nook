@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/biometric_provider.dart';
+import '../../core/providers/screenshot_blocker_provider.dart';
 
 /// Settings root screen per prompt #11.
 /// Grouped list with rounded section cards, leading icons, switches.
@@ -12,6 +13,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final gate = ref.watch(biometricGateProvider);
+    final screenshotBlocker = ref.watch(screenshotBlockerProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
@@ -21,14 +23,6 @@ class SettingsScreen extends ConsumerWidget {
           _Section(
             title: 'Appearance',
             children: [
-              _SettingsTile(
-                icon: Icons.palette_outlined,
-                title: 'Dynamic color',
-                trailing: Switch(
-                  value: true,
-                  onChanged: (_) {},
-                ),
-              ),
               _SettingsTile(
                 icon: Icons.dark_mode_outlined,
                 title: 'Theme',
@@ -56,15 +50,16 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.timer_outlined,
                 title: 'Auto-lock timer',
-                value: '1 minute',
+                value: _autoLockLabel(gate.autoLockDuration),
                 onTap: () => context.push('/settings/security'),
               ),
               _SettingsTile(
                 icon: Icons.screenshot_outlined,
                 title: 'Screenshot blocking',
                 trailing: Switch(
-                  value: false,
-                  onChanged: (_) {},
+                  value: screenshotBlocker.blocked,
+                  onChanged: (value) =>
+                      ref.read(screenshotBlockerProvider).setBlocked(value),
                 ),
               ),
             ],
@@ -115,7 +110,7 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.info_outline,
                 title: 'Version',
-                value: '1.0.0',
+                value: '0.1.0',
                 onTap: () => context.push('/settings/about'),
               ),
             ],
@@ -127,6 +122,14 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 }
+
+String _autoLockLabel(AutoLockDuration duration) => switch (duration) {
+      AutoLockDuration.immediately => 'Immediately',
+      AutoLockDuration.oneMinute => '1 minute',
+      AutoLockDuration.fiveMinutes => '5 minutes',
+      AutoLockDuration.fifteenMinutes => '15 minutes',
+      AutoLockDuration.never => 'Never',
+    };
 
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});

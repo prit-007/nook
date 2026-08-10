@@ -78,7 +78,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           return PullToSearch(
             onTrigger: () {
               HapticFeedback.lightImpact();
-              context.push('/search');
+              context.push('/home/search');
             },
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(
@@ -134,7 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: GestureDetector(
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        context.push('/search');
+                        context.push('/home/search');
                       },
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),

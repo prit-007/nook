@@ -30,10 +30,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   Future<void> _load() async {
     final repo = NotebookRepository(ref.read(databaseProvider));
     final results = await repo.getAllNotebooks();
-    final counts = <String, int>{};
-    for (final nb in results) {
-      counts[nb.id] = await repo.countNotesInNotebook(nb.id);
-    }
+    final counts = await repo.countNotesForAllNotebooks();
     if (!mounted) return;
     setState(() {
       _notebooks = results;
@@ -87,19 +84,23 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                 final color = Color(
                   int.parse('FF${c.replaceFirst('#', '')}', radix: 16),
                 );
-                return GestureDetector(
-                  onTap: () => setState(() => selectedColor = c),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selectedColor == c
-                            ? Theme.of(ctx).colorScheme.onSurface
-                            : Colors.transparent,
-                        width: 3,
+                return Semantics(
+                  label: 'Color option',
+                  button: true,
+                  child: GestureDetector(
+                    onTap: () => setState(() => selectedColor = c),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: selectedColor == c
+                              ? Theme.of(ctx).colorScheme.onSurface
+                              : Colors.transparent,
+                          width: 3,
+                        ),
                       ),
                     ),
                   ),

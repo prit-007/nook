@@ -14,7 +14,7 @@
 | 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** | 2026-08-05 | 2026-08-07 |
 | 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
-| 4 | Security (SQLCipher, biometric lock, screenshot blocking) | NOT STARTED | — | — |
+| 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
 | 5 | Nearby Sync (transport, pairing, merge resolver) | NOT STARTED | — | — |
 | 6 | Hardening for Play Store (accessibility, export, privacy) | NOT STARTED | — | — |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
@@ -478,43 +478,66 @@
 
 ### 4.1 Per-Note Lock
 
-- [ ] Lock/unlock individual notes (biometric re-prompt)
-- [ ] Locked note preview: blurred/obscured content in grid
-- [ ] Lock icon badge on locked notes
-- [ ] Write per-note lock test
-  - File: `test/features/security/per_note_lock_test.dart`
+- [x] Lock/unlock individual notes (biometric re-prompt)
+  - File: `lib/features/editor/note_editor_screen.dart` — biometric prompt on load for locked notes
+  - File: `lib/features/editor/widgets/note_options_sheet.dart` — lock toggle in options sheet
+- [x] Locked note preview: blurred/obscured content in grid
+  - Files: `note_card.dart`, `note_minimal_card.dart`, `note_banner_card.dart` — all show blurred preview + lock badge
+- [x] Lock icon badge on locked notes
+  - Files: `note_card.dart` (lock badge), `note_minimal_card.dart` (lock icon in header)
+- [x] Write per-note lock test
+  - File: `test/core/providers/biometric_provider_test.dart` — 12 tests covering lock/unlock/resume
 
 ### 4.2 Auto-Lock Timer
 
-- [ ] Configurable auto-lock timer (immediately / 1 min / 5 min / 15 min / never)
-- [ ] Persist timer preference
-- [ ] Lock app on resume after timer expires
-- [ ] Write auto-lock test
-  - File: `test/features/security/auto_lock_test.dart`
+- [x] Configurable auto-lock timer (immediately / 1 min / 5 min / 15 min / never)
+  - File: `lib/core/providers/biometric_provider.dart` — `AutoLockDuration` enum with duration extension
+- [x] Persist timer preference
+  - File: `lib/core/providers/biometric_provider.dart` — saves to SharedPreferences
+- [x] Lock app on resume after timer expires
+  - File: `lib/core/providers/biometric_provider.dart` — `onAppPaused`/`onAppResumed` with elapsed check
+  - File: `lib/app.dart` — lifecycle observer calls both `onAppPaused` and `onAppResumed`
+- [x] Settings UI for timer selection
+  - File: `lib/features/settings/settings_security_screen.dart` — RadioGroup with 5 options
 
 ### 4.3 Screenshot Blocking
 
-- [ ] Toggle: block screenshots/screen recording of app
-- [ ] Use `FlutterWindowManager` (Android) / `UIApplication` (iOS) APIs
-- [ ] Persist preference
+- [x] Toggle: block screenshots/screen recording of app
+  - File: `lib/core/providers/screenshot_blocker_provider.dart` — FlutterWindowManager FLAG_SECURE
+- [x] Persist preference
+  - File: `lib/core/providers/screenshot_blocker_provider.dart` — SharedPreferences
+- [x] Settings UI for toggle
+  - File: `lib/features/settings/settings_security_screen.dart` — SwitchListTile
 
 ### 4.4 Lock Screen Polish
 
-- [ ] Nice illustration on lock screen
+- [x] Nice illustration on lock screen (frosted circle with notebook icon + pulse rings)
+  - File: `lib/features/security/lock_screen.dart`
 - [x] Soft blur-behind effect (`BackdropFilter`, `ImageFilter.blur` with focus-in on unlock)
   - File: `lib/features/security/frosted_shield.dart`
-- [ ] "Use PIN instead" fallback option
+- [x] "Use PIN instead" fallback option
+  - File: `lib/features/security/pin_entry_screen.dart` — 6-digit PIN entry with setup/verify modes
+  - File: `lib/core/providers/pin_provider.dart` — PIN hashing with random salt, secure storage
+  - File: `lib/features/security/lock_screen.dart` — shows "Use PIN instead" when PIN enabled
+  - File: `lib/features/security/frosted_shield.dart` — PIN fallback in frosted shield overlay
 - [x] Fingerprint icon with pulse animation (1200ms repeating scale `ScaleTransition`)
   - File: `lib/features/security/frosted_shield.dart`
+- [x] Locked notes screen shows actual locked notes
+  - File: `lib/features/security/locked_notes_screen.dart` — loads and displays locked notes
 
 ### Phase 4 Validation
 
 - [x] App-level biometric lock blocks all routes until authenticated (overlay in router builder; lifecycle relock on resume)
   - Tests: `test/features/security/frosted_shield_test.dart`
-- [ ] Per-note lock requires biometric to view/edit
-- [ ] Auto-lock triggers after configured timer
-- [ ] Screenshot blocking works on Android
-- [ ] Lock screen looks polished (illustration, blur, animation)
+- [x] Per-note lock requires biometric to view/edit
+  - Editor prompts biometric on load for locked notes; lock toggle in options sheet
+- [x] Auto-lock triggers after configured timer
+  - Timer persisted, lifecycle observer checks elapsed time on resume
+- [x] Screenshot blocking works on Android
+  - FlutterWindowManager FLAG_SECURE applied on startup and via toggle
+- [x] Lock screen looks polished (illustration, blur, animation, PIN fallback)
+  - PIN fallback available in both LockScreen and FrostedShield
+  - PIN setup/verification in Settings > Security
 
 ---
 

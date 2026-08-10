@@ -14,26 +14,32 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
     required this.noteId,
     this.currentNotebookId,
     this.currentColorSeed,
+    this.currentlyLocked = false,
     this.onNotebookChanged,
     this.onTagsChanged,
     this.onColorChanged,
+    this.onLockedChanged,
   });
 
   final String noteId;
   final String? currentNotebookId;
   final String? currentColorSeed;
+  final bool currentlyLocked;
   final ValueChanged<String?>? onNotebookChanged;
   final ValueChanged<List<String>>? onTagsChanged;
   final ValueChanged<String?>? onColorChanged;
+  final ValueChanged<bool>? onLockedChanged;
 
   static Future<void> show(
     BuildContext context, {
     required String noteId,
     String? currentNotebookId,
     String? currentColorSeed,
+    bool currentlyLocked = false,
     ValueChanged<String?>? onNotebookChanged,
     ValueChanged<List<String>>? onTagsChanged,
     ValueChanged<String?>? onColorChanged,
+    ValueChanged<bool>? onLockedChanged,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -45,9 +51,11 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
         noteId: noteId,
         currentNotebookId: currentNotebookId,
         currentColorSeed: currentColorSeed,
+        currentlyLocked: currentlyLocked,
         onNotebookChanged: onNotebookChanged,
         onTagsChanged: onTagsChanged,
         onColorChanged: onColorChanged,
+        onLockedChanged: onLockedChanged,
       ),
     );
   }
@@ -241,6 +249,31 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
 
                     const SizedBox(height: 24),
 
+                    // ── Lock section ──
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Lock note'),
+                      subtitle: Text(
+                        'Requires biometric to view content',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      secondary: Icon(
+                        widget.currentlyLocked
+                            ? Icons.lock_rounded
+                            : Icons.lock_open_rounded,
+                        color: widget.currentlyLocked
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
+                      value: widget.currentlyLocked,
+                      onChanged: (v) => widget.onLockedChanged?.call(v),
+                    ),
+
+                    const SizedBox(height: 24),
+
                     FilledButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Done'),
@@ -269,29 +302,34 @@ class _ColorDot extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color ?? scheme.surfaceContainerHighest,
-          border: Border.all(
-            color: isSelected
-                ? scheme.onSurface
-                : scheme.outlineVariant.withValues(alpha: 0.3),
-            width: isSelected ? 3 : 1,
+      child: Semantics(
+        label: color != null ? 'Select color' : 'No color',
+        button: true,
+        selected: isSelected,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color ?? scheme.surfaceContainerHighest,
+            border: Border.all(
+              color: isSelected
+                  ? scheme.onSurface
+                  : scheme.outlineVariant.withValues(alpha: 0.3),
+              width: isSelected ? 3 : 1,
+            ),
           ),
+          child: isSelected
+              ? Icon(
+                  color != null ? Icons.check : Icons.close,
+                  size: 18,
+                  color: color != null
+                      ? Colors.white
+                      : scheme.onSurface.withValues(alpha: 0.5),
+                )
+              : null,
         ),
-        child: isSelected
-            ? Icon(
-                color != null ? Icons.check : Icons.close,
-                size: 16,
-                color: color != null
-                    ? Colors.white
-                    : scheme.onSurface.withValues(alpha: 0.5),
-              )
-            : null,
       ),
     );
   }
@@ -358,34 +396,39 @@ class _TagChip extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? tagColor.withValues(alpha: 0.2)
-              : scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? tagColor : scheme.outlineVariant,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isSelected) ...[
-              Icon(Icons.check, size: 14, color: tagColor),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: isSelected ? tagColor : scheme.onSurface,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
+      child: Semantics(
+        label: label,
+        button: true,
+        selected: isSelected,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? tagColor.withValues(alpha: 0.2)
+                : scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? tagColor : scheme.outlineVariant,
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isSelected) ...[
+                Icon(Icons.check, size: 14, color: tagColor),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isSelected ? tagColor : scheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

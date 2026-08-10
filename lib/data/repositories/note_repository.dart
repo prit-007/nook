@@ -51,6 +51,16 @@ class NoteRepository {
         .get();
   }
 
+  /// Returns only locked notes.
+  Future<List<Note>> getLockedNotes() async {
+    return (_db.select(_db.notes)
+          ..where((t) => t.deleted.equals(false) & t.locked.equals(true))
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.updatedAt),
+          ]))
+        .get();
+  }
+
   /// Returns a note by ID, or null if not found.
   Future<Note?> getNoteById(String id) async {
     final results =
@@ -135,6 +145,22 @@ class NoteRepository {
   /// Permanently deletes a note from the database.
   Future<void> permanentlyDelete(String id) async {
     await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// Permanently deletes all soft-deleted notes in a single query.
+  Future<void> permanentlyDeleteAllDeleted() async {
+    await (_db.delete(_db.notes)..where((t) => t.deleted.equals(true))).go();
+  }
+
+  /// Replaces all tag assignments for a note with [tagIds].
+  Future<void> updateNoteTags(String noteId, List<String> tagIds) async {
+    await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(noteId)))
+        .go();
+    for (final tagId in tagIds) {
+      await _db.into(_db.noteTags).insertOnConflictUpdate(
+            NoteTagsCompanion.insert(noteId: noteId, tagId: tagId),
+          );
+    }
   }
 
   /// Returns only pinned, non-deleted notes.
