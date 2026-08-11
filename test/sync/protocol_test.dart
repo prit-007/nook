@@ -322,7 +322,7 @@ void main() {
 
   group('SyncAck', () {
     test('round-trips through CBOR serialization', () {
-      final ack = SyncAck(
+      const ack = SyncAck(
         receivedNoteIds: ['note-1', 'note-2'],
         rejectedNoteIds: ['note-3'],
       );
@@ -335,7 +335,7 @@ void main() {
     });
 
     test('handles empty lists', () {
-      final ack = SyncAck(
+      const ack = SyncAck(
         receivedNoteIds: [],
         rejectedNoteIds: [],
       );
@@ -350,7 +350,7 @@ void main() {
 
   group('SyncHeader', () {
     test('round-trips through CBOR serialization', () {
-      final header = SyncHeader(
+      const header = SyncHeader(
         bundleSizeBytes: 1024,
         checksum: 'abc123',
         noteCount: 3,

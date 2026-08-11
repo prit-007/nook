@@ -1,17 +1,15 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/sync/transport/sync_transport.dart';
 
 void main() {
   group('SyncDevice', () {
     test('equality is based on deviceId', () {
-      final a = SyncDevice(
+      const a = SyncDevice(
         deviceId: 'device-1',
         deviceName: 'Pixel 8',
         isOnline: true,
       );
-      final b = SyncDevice(
+      const b = SyncDevice(
         deviceId: 'device-1',
         deviceName: 'Pixel 9', // different name
         isOnline: false, // different status
@@ -22,12 +20,12 @@ void main() {
     });
 
     test('different deviceIds are not equal', () {
-      final a = SyncDevice(
+      const a = SyncDevice(
         deviceId: 'device-1',
         deviceName: 'Pixel 8',
         isOnline: true,
       );
-      final b = SyncDevice(
+      const b = SyncDevice(
         deviceId: 'device-2',
         deviceName: 'Pixel 8',
         isOnline: true,
@@ -100,7 +98,7 @@ void main() {
       final devices = <SyncDevice>[];
       transport.deviceFoundStream.listen(devices.add);
 
-      final device = SyncDevice(
+      const device = SyncDevice(
         deviceId: 'device-2',
         deviceName: 'Galaxy S24',
         isOnline: true,
@@ -157,7 +155,7 @@ void main() {
 
       await transport.startDiscovery();
 
-      transport.emitDeviceFound(SyncDevice(
+      transport.emitDeviceFound(const SyncDevice(
         deviceId: 'device-2',
         deviceName: 'Galaxy',
         isOnline: true,

@@ -2,7 +2,7 @@
 
 > **How to use:** Check off tasks as you complete them. Each task lists the files to create/modify and the validation command to run. Move the `[ ]` → `[x]` when done. Update the status table at the top of each phase when a phase is fully complete.
 
-**Current project state:** Default Flutter counter template (`lib/main.dart`). Dependencies pinned in `pubspec.yaml`. No app code, no Drift schema, no Riverpod providers, no routes, no CI.
+**Current project state:** Phase 0–4 complete. Phase 5.1–5.3 complete (transport, protocol, merge resolver). Sync UI and log remaining.
 
 ---
 
@@ -15,7 +15,7 @@
 | 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
-| 5 | Nearby Sync (transport, pairing, merge resolver) | NOT STARTED | — | — |
+| 5 | Nearby Sync (transport, pairing, merge resolver) | **~50% COMPLETE** | 2026-08-11 | — |
 | 6 | Hardening for Play Store (accessibility, export, privacy) | NOT STARTED | — | — |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
 
@@ -549,30 +549,30 @@
 
 ### 5.1 Transport Layer (see `.kilo/plans/sync-transport-bake-off.md`)
 
-- [ ] Define `SyncTransport` / `SyncSession` interfaces
+- [x] Define `SyncTransport` / `SyncSession` interfaces
   - File: `lib/sync/transport/sync_transport.dart`
 - [ ] Implement chosen transport (run bake-off first)
   - File: `lib/sync/transport/nearby_service_transport.dart` (or NSD, or P2P)
 - [ ] Test on physical devices (Pixel + Samsung + Xiaomi)
-- [ ] Write transport integration test
+- [x] Write transport integration test
   - File: `test/sync/transport_test.dart`
 
 ### 5.2 Sync Protocol
 
-- [ ] Define `SyncBundle` / `SyncNoteEntry` data classes (CBOR-encoded)
+- [x] Define `SyncBundle` / `SyncNoteEntry` data classes (CBOR-encoded)
   - File: `lib/sync/protocol/sync_bundle.dart`
-- [ ] Implement SHA-256 checksum verification
-- [ ] Implement chunked transfer with progress callback
-- [ ] Implement ack response (`{received: [noteIds], rejected: [noteIds]}`)
-- [ ] Write protocol unit test (serialize, checksum, deserialize)
+- [x] Implement SHA-256 checksum verification
+- [x] Implement chunked transfer with progress callback
+- [x] Implement ack response (`{received: [noteIds], rejected: [noteIds]}`)
+- [x] Write protocol unit test (serialize, checksum, deserialize)
   - File: `test/sync/protocol_test.dart`
 
 ### 5.3 Merge Resolver
 
-- [ ] Implement `resolveIncoming()` per detailed plan §8.4
+- [x] Implement `resolveIncoming()` per detailed plan §8.4
   - File: `lib/sync/protocol/merge_resolver.dart`
-- [ ] Branches: insertAsNew, ignore, overwrite, promptUser
-- [ ] Write table-driven unit tests for every branch
+- [x] Branches: insertAsNew, ignore, overwrite, promptUser
+- [x] Write table-driven unit tests for every branch
   - File: `test/sync/merge_resolver_test.dart`
 
 ### 5.4 Sync UI
