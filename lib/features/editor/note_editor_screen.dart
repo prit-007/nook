@@ -54,6 +54,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   bool _locked = false;
   bool _loading = true;
   bool _saving = false;
+  bool _saveQueued = false;
+  bool _disposed = false;
   String? _colorSeed;
   String? _notebookId;
   Timer? _autosaveTimer;
@@ -73,8 +75,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     if (widget.noteId != null) {
       final note = await repo.getNoteById(widget.noteId!);
+      if (_disposed || !mounted) return;
       if (note == null) {
-        if (mounted) context.pop();
+        context.pop();
         return;
       }
       _note = note;
@@ -93,12 +96,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             biometricOnly: true,
             persistAcrossBackgrounding: true,
           );
+          if (_disposed || !mounted) {
+            _cleanupInit();
+            return;
+          }
           if (!ok) {
-            if (mounted) context.pop();
+            context.pop();
             return;
           }
         } catch (_) {
-          if (mounted) context.pop();
+          if (!_disposed && mounted) context.pop();
+          _cleanupInit();
           return;
         }
       }
@@ -138,29 +146,44 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         deviceOriginId: 'local',
         notebookId: widget.notebookId,
       );
+      if (_disposed || !mounted) {
+        // Clean up the blank note we just created.
+        await repo.permanentlyDelete(note.id);
+        _cleanupInit();
+        return;
+      }
       _note = note;
       _editorState = EditorState.blank(withInitialText: true);
+    }
+
+    if (_disposed || !mounted) {
+      _cleanupInit();
+      return;
     }
 
     _transactionSubscription = _editorState!.transactionStream.listen((_) {
       _scheduleAutosave();
     });
 
-    if (mounted) {
-      setState(() => _loading = false);
-      if (_corruptedDelta) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('Note content was corrupted. A fresh note was started.'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        });
-      }
+    setState(() => _loading = false);
+    if (_corruptedDelta) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Note content was corrupted. A fresh note was started.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
     }
+  }
+
+  /// Cleans up resources if _init() completes after disposal.
+  void _cleanupInit() {
+    _editorState?.dispose();
+    _editorState = null;
   }
 
   void _scheduleAutosave() {
@@ -169,7 +192,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   }
 
   Future<void> _save() async {
-    if (_note == null || _editorState == null || _saving) return;
+    if (_note == null || _editorState == null) return;
+    if (_saving) {
+      _saveQueued = true;
+      return;
+    }
 
     _saving = true;
     try {
@@ -191,8 +218,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
       final derivedTitle = plainText.split('\n').firstOrNull ?? _title;
       if (derivedTitle != _title && derivedTitle.isNotEmpty) {
+        await repo.updateNote(_note!.id, title: derivedTitle);
         _title = derivedTitle;
-        await repo.updateNote(_note!.id, title: _title);
       }
 
       await repo.updateContent(
@@ -202,6 +229,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       );
     } finally {
       _saving = false;
+      if (_saveQueued) {
+        _saveQueued = false;
+        unawaited(_save());
+      }
     }
   }
 
@@ -211,8 +242,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     HapticFeedback.lightImpact();
     final repo = NoteRepository(_db!);
     final newPinned = !_pinned;
-    await repo.updateNote(_note!.id, pinned: newPinned);
     setState(() => _pinned = newPinned);
+    await repo.updateNote(_note!.id, pinned: newPinned);
   }
 
   Future<void> _showNoteOptions() async {
@@ -342,7 +373,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       await File(filePath).writeAsBytes(bytes);
 
       // Save to gallery
-      await NoteExporter.saveToGallery(
+      final saved = await NoteExporter.saveToGallery(
         bytes,
         name: NoteExporter.generateFileName(_note!.title),
       );
@@ -351,11 +382,15 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
         SnackBar(
-          content: const Text('Saved to gallery'),
-          action: SnackBarAction(
-            label: 'Share',
-            onPressed: () => NoteExporter.sharePng(filePath),
+          content: Text(
+            saved ? 'Saved to gallery' : 'Gallery permission denied',
           ),
+          action: saved
+              ? SnackBarAction(
+                  label: 'Share',
+                  onPressed: () => NoteExporter.sharePng(filePath),
+                )
+              : null,
         ),
       );
     } catch (e) {
@@ -422,11 +457,62 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
     _autosaveTimer?.cancel();
     _transactionSubscription?.cancel();
-    _save();
+    // Snapshot content synchronously before EditorState is disposed.
+    final note = _note;
+    final db = _db;
+    if (note != null && db != null && _editorState != null) {
+      final snapshot = _snapshotContent(note.id, db);
+      _editorState?.dispose();
+      super.dispose();
+      // Fire-and-forget final write with the captured snapshot.
+      _persistSnapshot(snapshot);
+      return;
+    }
     _editorState?.dispose();
     super.dispose();
+  }
+
+  /// Serializes the editor state to a snapshot without async gaps.
+  _PersistSnapshot _snapshotContent(String noteId, AppDatabase db) {
+    final nodes = _editorState!.document.root.children;
+    String plainText = '';
+    for (final node in nodes) {
+      if (node.delta != null) {
+        for (final op in node.delta!.toList()) {
+          if (op is TextInsert) plainText += op.text;
+        }
+        plainText += '\n';
+      }
+    }
+    plainText = plainText.trim();
+    final derivedTitle = plainText.split('\n').firstOrNull ?? _title;
+    return _PersistSnapshot(
+      noteId: noteId,
+      title: derivedTitle != _title ? derivedTitle : null,
+      deltaJson: jsonEncode(_editorState!.document.toJson()),
+      plainText: plainText,
+      db: db,
+    );
+  }
+
+  /// Writes a pre-captured snapshot to the database, ignoring errors.
+  Future<void> _persistSnapshot(_PersistSnapshot snapshot) async {
+    try {
+      final repo = NoteRepository(snapshot.db);
+      if (snapshot.title != null) {
+        await repo.updateNote(snapshot.noteId, title: snapshot.title!);
+      }
+      await repo.updateContent(
+        snapshot.noteId,
+        deltaContent: snapshot.deltaJson,
+        plainText: snapshot.plainText,
+      );
+    } catch (_) {
+      // Best-effort — app is navigating away.
+    }
   }
 
   Color _ambientBackgroundColor(BuildContext context) {
@@ -950,4 +1036,21 @@ class NoteExportCapture extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Pre-captured editor content for a best-effort dispose save.
+class _PersistSnapshot {
+  const _PersistSnapshot({
+    required this.noteId,
+    required this.deltaJson,
+    required this.plainText,
+    required this.db,
+    this.title,
+  });
+
+  final String noteId;
+  final String? title;
+  final String deltaJson;
+  final String plainText;
+  final AppDatabase db;
 }

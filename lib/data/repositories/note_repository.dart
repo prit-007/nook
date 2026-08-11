@@ -28,7 +28,8 @@ class NoteRepository {
             type: type,
             title: Value(title),
             deviceOriginId: deviceOriginId,
-            notebookId: Value(notebookId),
+            notebookId:
+                notebookId != null ? Value(notebookId) : const Value.absent(),
             colorSeed: Value(colorSeed),
             deltaContent: Value(deltaContent),
             plainText: Value(plainText),

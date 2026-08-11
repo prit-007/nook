@@ -145,15 +145,11 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                       onReorderItem: _reorder,
                       itemBuilder: (context, index) {
                         final item = _items[index];
-                        return Dismissible(
-                          key: ValueKey('${item.id}-${item.checked}'),
-                          direction: DismissDirection.horizontal,
-                          onDismissed: (_) => _toggleItem(item.id),
+                        return _SwipeableTile(
+                          key: ValueKey(item.id),
+                          onSwipe: () => _toggleItem(item.id),
                           background: const _SwipeToCheckBackground(
                             alignment: Alignment.centerRight,
-                          ),
-                          secondaryBackground: const _SwipeToCheckBackground(
-                            alignment: Alignment.centerLeft,
                           ),
                           child: _ChecklistTile(
                             key: ValueKey(item.id),
@@ -307,6 +303,54 @@ class _ChecklistTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Swipeable tile that triggers [onSwipe] on horizontal fling.
+/// Unlike [Dismissible], the child stays in the tree after the gesture.
+class _SwipeableTile extends StatefulWidget {
+  const _SwipeableTile({
+    super.key,
+    required this.onSwipe,
+    required this.background,
+    required this.child,
+  });
+
+  final VoidCallback onSwipe;
+  final Widget background;
+  final Widget child;
+
+  @override
+  State<_SwipeableTile> createState() => _SwipeableTileState();
+}
+
+class _SwipeableTileState extends State<_SwipeableTile> {
+  double _dragExtent = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = _dragExtent.clamp(-120.0, 120.0);
+    return Stack(
+      children: [
+        if (_dragExtent.abs() > 20) widget.background,
+        Transform.translate(
+          offset: Offset(clamped, 0),
+          child: GestureDetector(
+            onHorizontalDragUpdate: (details) {
+              setState(() => _dragExtent += details.delta.dx);
+            },
+            onHorizontalDragEnd: (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (_dragExtent.abs() > 80 || velocity.abs() > 500) {
+                widget.onSwipe();
+              }
+              setState(() => _dragExtent = 0);
+            },
+            child: widget.child,
+          ),
+        ),
+      ],
     );
   }
 }
