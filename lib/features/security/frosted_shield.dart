@@ -157,7 +157,9 @@ class _FrostedShieldButton extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: seed.withValues(alpha: 0.35 - i * 0.1),
+                            color: scheme.outlineVariant.withValues(
+                              alpha: 0.2 - i * 0.05,
+                            ),
                             width: 1.5,
                           ),
                         ),

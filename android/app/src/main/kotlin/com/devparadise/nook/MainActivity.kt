@@ -7,11 +7,11 @@ import android.os.Build
 import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private val WINDOW_CHANNEL = "com.nook/window_manager"
     private val PERMISSIONS_CHANNEL = "com.nook/nearby_permissions"
     private val REQUEST_CODE_NEARBY = 1001

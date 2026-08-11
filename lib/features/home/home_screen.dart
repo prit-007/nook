@@ -66,177 +66,185 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       backgroundColor: scheme.surface,
-      body: notesAsync.when(
-        loading: () => Center(
-          child: CircularProgressIndicator(color: scheme.primary),
-        ),
-        error: (e, _) => Center(child: Text('Error loading vault: $e')),
-        data: (notes) {
-          final filtered = _applyFilters(notes);
-          final counts = _computeCounts(notes);
+      body: Stack(
+        children: [
+          notesAsync.when(
+            loading: () => Center(
+              child: CircularProgressIndicator(color: scheme.primary),
+            ),
+            error: (e, _) => Center(child: Text('Error loading vault: $e')),
+            data: (notes) {
+              final filtered = _applyFilters(notes);
+              final counts = _computeCounts(notes);
 
-          return PullToSearch(
-            onTrigger: () {
-              HapticFeedback.lightImpact();
-              context.push('/home/search');
-            },
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                SliverAppBar.large(
-                  expandedHeight: isWide ? 130.0 : 170.0,
-                  floating: false,
-                  pinned: true,
-                  backgroundColor: scheme.surface,
-                  surfaceTintColor: Colors.transparent,
-                  flexibleSpace: FlexibleSpaceBar(
-                    titlePadding: EdgeInsets.symmetric(
-                      horizontal: isWide ? 32 : 24,
-                      vertical: 16,
-                    ),
-                    title: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _timeGreeting,
-                          style: TextStyle(
-                            fontSize: isWide ? 22 : 26,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.8,
-                            color: scheme.onSurface,
-                          ),
-                        ).animate().fade(duration: 400.ms).slideY(begin: 0.2),
-                        const SizedBox(height: 2),
-                        Text(
-                          'YOUR VAULT',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 2.0,
-                            color: scheme.primary,
-                          ),
-                        ).animate().fade(delay: 150.ms, duration: 400.ms),
-                      ],
-                    ),
+              return PullToSearch(
+                onTrigger: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/home/search');
+                },
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      isWide ? 32 : 16,
-                      8,
-                      isWide ? 32 : 16,
-                      12,
-                    ),
-                    child: GestureDetector(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        context.push('/home/search');
-                      },
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                          child: Container(
-                            height: 54,
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.45),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: scheme.outlineVariant
-                                    .withValues(alpha: 0.25),
+                  slivers: [
+                    SliverAppBar.large(
+                      expandedHeight: isWide ? 130.0 : 170.0,
+                      floating: false,
+                      pinned: true,
+                      backgroundColor: scheme.surface,
+                      surfaceTintColor: Colors.transparent,
+                      flexibleSpace: FlexibleSpaceBar(
+                        titlePadding: EdgeInsets.symmetric(
+                          horizontal: isWide ? 32 : 24,
+                          vertical: 16,
+                        ),
+                        title: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _timeGreeting,
+                              style: TextStyle(
+                                fontSize: isWide ? 22 : 26,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.8,
+                                color: scheme.onSurface,
                               ),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.search_rounded,
-                                  color: scheme.primary,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Search thoughts, doodles, checklists...',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: scheme.onSurfaceVariant
-                                          .withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: scheme.surfaceContainerHigh,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '${notes.length}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: scheme.primary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                            ).animate().fade(duration: 400.ms).slideY(begin: 0.2),
+                            const SizedBox(height: 2),
+                            Text(
+                              'YOUR VAULT',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2.0,
+                                color: scheme.primary,
+                              ),
+                            ).animate().fade(delay: 150.ms, duration: 400.ms),
+                          ],
                         ),
                       ),
                     ),
-                  ).animate().fade(delay: 200.ms, duration: 400.ms),
-                ),
-                SliverToBoxAdapter(
-                  child: FilterPillBar(
-                    selectedType: _selectedType,
-                    counts: counts,
-                    onTypeSelected: (type) {
-                      HapticFeedback.selectionClick();
-                      setState(() => _selectedType = type);
-                    },
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                if (filtered.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyHome(animate: widget.animate),
-                  )
-                else if (isWide)
-                  _buildWideGrid(filtered)
-                else
-                  _buildNarrowStream(filtered),
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
-            ),
-          );
-        },
-      ),
-      floatingActionButton: MorphingEditorialFab(
-        onCreateNote: (type) async {
-          await HapticFeedback.mediumImpact();
-          final db = ref.read(databaseProvider);
-          final id = await db.into(db.notes).insert(
-                NotesCompanion.insert(
-                  title: const Value(''),
-                  type: type,
-                  deviceOriginId: 'local',
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          isWide ? 32 : 16,
+                          8,
+                          isWide ? 32 : 16,
+                          12,
+                        ),
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.push('/home/search');
+                          },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                              child: Container(
+                                height: 54,
+                                decoration: BoxDecoration(
+                                  color: scheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.45),
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: scheme.outlineVariant
+                                        .withValues(alpha: 0.25),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.search_rounded,
+                                      color: scheme.primary,
+                                      size: 22,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Search thoughts, doodles, checklists...',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: scheme.onSurfaceVariant
+                                              .withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: scheme.surfaceContainerHigh,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        '${notes.length}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: scheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ).animate().fade(delay: 200.ms, duration: 400.ms),
+                    ),
+                    SliverToBoxAdapter(
+                      child: FilterPillBar(
+                        selectedType: _selectedType,
+                        counts: counts,
+                        onTypeSelected: (type) {
+                          HapticFeedback.selectionClick();
+                          setState(() => _selectedType = type);
+                        },
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                    if (filtered.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: EmptyHome(animate: widget.animate),
+                      )
+                    else if (isWide)
+                      _buildWideGrid(filtered)
+                    else
+                      _buildNarrowStream(filtered),
+                    const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                  ],
                 ),
               );
-          if (context.mounted) {
-            await context.push('/note/$id');
-          }
-        },
+            },
+          ),
+          Positioned(
+            right: 16,
+            bottom: 100,
+            child: MorphingEditorialFab(
+              onCreateNote: (type) async {
+                await HapticFeedback.mediumImpact();
+                final db = ref.read(databaseProvider);
+                final id = await db.into(db.notes).insert(
+                      NotesCompanion.insert(
+                        title: const Value(''),
+                        type: type,
+                        deviceOriginId: 'local',
+                      ),
+                    );
+                if (context.mounted) {
+                  await context.push('/note/$id');
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

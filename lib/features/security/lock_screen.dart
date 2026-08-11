@@ -120,8 +120,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: seedColor.withValues(
-                                      alpha: 0.1 - i * 0.03,
+                                    color: scheme.outlineVariant.withValues(
+                                      alpha: 0.15 - i * 0.04,
                                     ),
                                     width: 1.5,
                                   ),
