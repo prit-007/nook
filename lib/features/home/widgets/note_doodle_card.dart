@@ -1,110 +1,151 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../data/database.dart';
+import 'note_quick_actions_sheet.dart';
 
-/// Split-view card for doodle notes.
-/// Left side: text info. Right side: visual/icon area.
-class NoteDoodleCard extends StatelessWidget {
+/// Split-view card for doodle notes with theme awareness and gesture feedback.
+class NoteDoodleCard extends StatefulWidget {
   const NoteDoodleCard({super.key, required this.note, this.onTap});
 
   final Note note;
   final VoidCallback? onTap;
 
-  Color _visualColor(BuildContext context) {
-    if (note.colorSeed != null) {
+  @override
+  State<NoteDoodleCard> createState() => _NoteDoodleCardState();
+}
+
+class _NoteDoodleCardState extends State<NoteDoodleCard> {
+  bool _isPressed = false;
+
+  ColorScheme _cardScheme(BuildContext context) {
+    if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
       final seed = Color(
-        int.parse('FF${note.colorSeed!.replaceFirst('#', '')}', radix: 16),
+        int.parse(
+          'FF${widget.note.colorSeed!.replaceFirst('#', '')}',
+          radix: 16,
+        ),
       );
-      return ColorScheme.fromSeed(seedColor: seed).primaryContainer;
+      return ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Theme.of(context).brightness,
+      );
     }
-    return Theme.of(context).colorScheme.primaryContainer;
+    return Theme.of(context).colorScheme;
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final cardScheme = _cardScheme(context);
 
     return GestureDetector(
-      onTap: onTap,
-      child: Hero(
-        tag: 'note-${note.id}',
-        child: Container(
-          height: 140,
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        NoteQuickActionsSheet.show(context, widget.note);
+      },
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: Hero(
+          tag: 'note-${widget.note.id}',
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              height: 140,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: cardScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: cardScheme.primary.withValues(alpha: 0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.draw_rounded,
-                            size: 14,
-                            color: scheme.primary,
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.draw_rounded,
+                                size: 15,
+                                color: cardScheme.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Canvas Doodle',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: cardScheme.primary,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(height: 6),
                           Text(
-                            'Canvas Doodle',
+                            widget.note.title.isEmpty
+                                ? 'Untitled doodle'
+                                : widget.note.title,
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
                               fontSize: 14,
-                              color: scheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                              color: cardScheme.onSurface,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
+                          if (widget.note.pinned) ...[
+                            const SizedBox(height: 6),
+                            Icon(
+                              Icons.push_pin_rounded,
+                              size: 14,
+                              color: cardScheme.primary,
+                            ),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        note.title.isEmpty ? 'Untitled doodle' : note.title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: cardScheme.primaryContainer,
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(24),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      if (note.pinned) ...[
-                        const SizedBox(height: 4),
-                        Icon(
-                          Icons.push_pin_rounded,
-                          size: 12,
-                          color: scheme.outline,
+                      child: Center(
+                        child: Icon(
+                          Icons.gesture_rounded,
+                          size: 40,
+                          color: cardScheme.onPrimaryContainer
+                              .withValues(alpha: 0.7),
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _visualColor(context),
-                    borderRadius: const BorderRadius.horizontal(
-                      right: Radius.circular(24),
+                      ),
                     ),
                   ),
-                  child: Center(
-                    child: Icon(
-                      Icons.gesture_rounded,
-                      size: 36,
-                      color: scheme.onPrimaryContainer.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

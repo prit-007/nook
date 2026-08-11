@@ -15,11 +15,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/theme/note_theme_scope.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/doodle_storage.dart';
 import '../../data/repositories/note_repository.dart';
-import '../../core/theme/note_theme_scope.dart';
 import '../../data/tables/notes.dart';
 import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/doodle/doodle_thumbnail_renderer.dart';
@@ -562,6 +562,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     return NoteThemeScope(
       colorScheme: noteScheme,
+      textTheme: NoteThemeScope.buildDynamicTextTheme(context, noteScheme),
       child: Scaffold(
         backgroundColor: _ambientBackgroundColor(context),
         body: Stack(
@@ -575,50 +576,62 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   ),
                 ),
               ),
-            Positioned.fill(
-              child: AppFlowyEditor(
-                editorState: _editorState!,
-                autoFocus: true,
-                blockComponentBuilders: {
-                  ...standardBlockComponentBuilderMap,
-                  TodoListBlockKeys.type: NookTodoListBlock.builder(),
-                  DoodleBlockKeys.type: DoodleBlockComponentBuilder(
-                    configuration: BlockComponentConfiguration(
-                      padding: (_) => const EdgeInsets.symmetric(vertical: 24),
-                    ),
-                    onTap: (node, editorState) {
-                      HapticFeedback.lightImpact();
-                      _openDoodleCanvas(node, editorState);
-                    },
+            CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    top: topPadding + 84,
+                    bottom: isKeyboardVisible ? keyboardHeight + 80 : 114,
                   ),
-                  // Override the built-in image block with pinch-to-zoom support.
-                  ImageBlockKeys.type: NookImageBlockComponentBuilder(),
-                },
-                characterShortcutEvents: [
-                  ...standardCharacterShortcutEvents,
-                  customSlashCommand(
-                    [
-                      ...standardSelectionMenuItems,
-                      SelectionMenuItem(
-                        getName: () => 'Doodle',
-                        icon: (editorState, isSelected, style) =>
-                            SelectionMenuIconWidget(
-                          name: 'draw',
-                          isSelected: isSelected,
-                          style: style,
+                  sliver: SliverFillRemaining(
+                    hasScrollBody: true,
+                    child: AppFlowyEditor(
+                      editorState: _editorState!,
+                      autoFocus: true,
+                      blockComponentBuilders: {
+                        ...standardBlockComponentBuilderMap,
+                        TodoListBlockKeys.type: NookTodoListBlock.builder(),
+                        DoodleBlockKeys.type: DoodleBlockComponentBuilder(
+                          configuration: BlockComponentConfiguration(
+                            padding: (_) =>
+                                const EdgeInsets.symmetric(vertical: 24),
+                          ),
+                          onTap: (node, editorState) {
+                            HapticFeedback.lightImpact();
+                            _openDoodleCanvas(node, editorState);
+                          },
                         ),
-                        keywords: ['doodle', 'draw', 'sketch'],
-                        handler: (editorState, _, __) async {
-                          final node = doodleNode(
-                            attachmentId: const Uuid().v4(),
-                          );
-                          insertNodeAfterSelection(editorState, node);
-                        },
-                      ),
-                    ],
+                        // Override the built-in image block with pinch-to-zoom support.
+                        ImageBlockKeys.type: NookImageBlockComponentBuilder(),
+                      },
+                      characterShortcutEvents: [
+                        ...standardCharacterShortcutEvents,
+                        customSlashCommand(
+                          [
+                            ...standardSelectionMenuItems,
+                            SelectionMenuItem(
+                              getName: () => 'Doodle',
+                              icon: (editorState, isSelected, style) =>
+                                  SelectionMenuIconWidget(
+                                name: 'draw',
+                                isSelected: isSelected,
+                                style: style,
+                              ),
+                              keywords: ['doodle', 'draw', 'sketch'],
+                              handler: (editorState, _, __) async {
+                                final node = doodleNode(
+                                  attachmentId: const Uuid().v4(),
+                                );
+                                insertNodeAfterSelection(editorState, node);
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             AnimatedPositioned(
               duration: const Duration(milliseconds: 300),
@@ -636,15 +649,22 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                     child: Container(
                       height: 56,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: noteScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color:
-                              noteScheme.outlineVariant.withValues(alpha: 0.2),
-                        ),
+                    decoration: BoxDecoration(
+                      color: noteScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color:
+                            noteScheme.outlineVariant.withValues(alpha: 0.2),
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: noteScheme.shadow.withValues(alpha: 0.08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
                       child: Row(
                         children: [
                           IconButton(
@@ -783,7 +803,7 @@ class _FloatingFormatBar extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
-            height: 52,
+            height: 50,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),

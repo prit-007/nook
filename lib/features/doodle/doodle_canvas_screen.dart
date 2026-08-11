@@ -42,6 +42,9 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
   DoodleStorage? _storage;
 
+  /// Track canvas height for "extend paper" feature.
+  double _canvasHeightMultiplier = 1.0;
+
   @override
   void initState() {
     super.initState();
@@ -79,35 +82,24 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
     });
   }
 
-  void _onDone() {
-    _handleDone();
-  }
-
   Future<void> _handleDone() async {
     final storage = _storage;
     if (storage == null) return;
 
-    // Drift insert — safe in FakeAsync zone.
     final attachmentId = widget.attachmentId ??
         await storage.attachments
             .addDoodle(noteId: widget.noteId, filePath: '');
 
     if (!mounted) return;
 
-    // Snapshot strokes before popping — pop triggers route disposal which
-    // may dispose the controller, and _controller.strokes is a view, not a copy.
     final strokes = List<Stroke>.from(_controller.strokes);
     final background = _controller.background;
 
-    // Pop immediately.  Do NOT block on dart:io file writes below.
     Navigator.of(context).pop(attachmentId);
 
-    // Fire-and-forget: persist the doodle sidecar + thumbnail in the background.
     unawaited(_persistInBackground(storage, attachmentId, strokes, background));
   }
 
-  /// Writes the strokes sidecar file and a thumbnail PNG, then updates the
-  /// attachment row with the thumbnail path.
   Future<void> _persistInBackground(
     DoodleStorage storage,
     String attachmentId,
@@ -138,31 +130,48 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   void _showBackgroundSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
+      backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Background',
-                  style: Theme.of(sheetContext).textTheme.titleMedium,
+        final scheme = Theme.of(context).colorScheme;
+        return Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Canvas Paper Type',
+                    style: Theme.of(sheetContext)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
                 ),
-              ),
-              for (final option in DoodleBackground.values)
-                ListTile(
-                  title: Text(option.name.capitalize()),
-                  trailing: option == _controller.background
-                      ? const Icon(Icons.check_rounded)
-                      : null,
-                  onTap: () {
-                    _controller.setBackground(option);
-                    Navigator.of(sheetContext).pop();
-                  },
-                ),
-              const SizedBox(height: 8),
-            ],
+                for (final option in DoodleBackground.values)
+                  Material(
+                    type: MaterialType.transparency,
+                    child: ListTile(
+                      title: Text(option.name.capitalize(),
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      trailing: option == _controller.background
+                          ? Icon(Icons.check_circle_rounded,
+                              color: scheme.primary)
+                          : null,
+                      onTap: () {
+                        _controller.setBackground(option);
+                        Navigator.of(sheetContext).pop();
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         );
       },
@@ -175,30 +184,71 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
     return Scaffold(
       backgroundColor: scheme.surface,
-      body: Stack(
-        children: [
-          // 1. Edge-to-Edge Canvas (Apple Notes style)
-          Positioned.fill(
-            child: DoodleCanvas(controller: _controller),
-          ),
+      body: ListenableBuilder(
+        listenable: _controller,
+        builder: (context, _) {
+          final isDrawing = _controller.isDrawing;
 
-          // 2. Floating Top Action Bar
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 16,
-            left: 16,
-            right: 16,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _GlassButton(
-                  icon: Icons.close_rounded,
-                  tooltip: 'Close',
-                  onTap: () => Navigator.maybePop(context),
+          return Stack(
+            children: [
+              // 1. Interactive Scrollable Canvas (infinite vertical scroll)
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final baseHeight = MediaQuery.sizeOf(context).height;
+                      return SizedBox(
+                        height: baseHeight * _canvasHeightMultiplier,
+                        child: Stack(
+                          children: [
+                            DoodleCanvas(controller: _controller),
+                            // Extend Paper Trigger
+                            Positioned(
+                              bottom: 120,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: isDrawing ? 0.0 : 1.0,
+                                  child: FilledButton.tonalIcon(
+                                    icon: const Icon(
+                                        Icons.keyboard_arrow_down_rounded),
+                                    label: const Text('Extend Paper'),
+                                    onPressed: () {
+                                      setState(() {
+                                        _canvasHeightMultiplier += 0.5;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                ListenableBuilder(
-                  listenable: _controller,
-                  builder: (context, _) {
-                    return Row(
+              ),
+
+              // 2. Auto-Hiding Top Bar
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                top: isDrawing ? -100 : MediaQuery.paddingOf(context).top + 16,
+                left: 16,
+                right: 16,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _GlassButton(
+                      icon: Icons.close_rounded,
+                      tooltip: 'Close',
+                      onTap: () => Navigator.maybePop(context),
+                    ),
+                    Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _GlassButton(
@@ -221,40 +271,41 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                           onTap: _controller.redo,
                         ),
                       ],
-                    );
-                  },
-                ),
-                FilledButton(
-                  onPressed: _onDone,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: scheme.primary,
-                    foregroundColor: scheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
                     ),
-                    elevation: 4,
-                  ),
-                  child: const Text(
-                    'Done',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                    FilledButton(
+                      onPressed: _handleDone,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: scheme.primary,
+                        foregroundColor: scheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24)),
+                        elevation: 4,
+                      ),
+                      child: const Text('Done',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
-          // 3. Floating Bottom Toolbar (Samsung/Apple Palette Style)
-          Positioned(
-            bottom: MediaQuery.paddingOf(context).bottom + 24,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: DoodleToolbar(controller: _controller),
-            ),
-          ),
-        ],
+              // 3. Auto-Hiding Bottom Dock
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutBack,
+                bottom: isDrawing
+                    ? -120
+                    : MediaQuery.paddingOf(context).bottom + 24,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: DoodleToolbar(controller: _controller),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

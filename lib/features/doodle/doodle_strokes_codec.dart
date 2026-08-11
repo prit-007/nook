@@ -35,6 +35,7 @@ class DoodleStrokesCodec {
             'color': stroke.color.toARGB32(),
             'width': stroke.width,
             'opacity': stroke.opacity,
+            'perfectShape': stroke.isPerfectShape,
             'points': [
               for (final point in stroke.points)
                 [point.position.dx, point.position.dy, point.pressure],
@@ -67,6 +68,7 @@ class DoodleStrokesCodec {
             width: (map['width'] as num).toDouble(),
             tool: DoodleTool.values.byName(map['tool'] as String),
             opacity: (map['opacity'] as num).toDouble(),
+            isPerfectShape: map['perfectShape'] as bool? ?? false,
           ),
         );
       }

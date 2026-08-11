@@ -1,135 +1,164 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
 
-/// Displays a single note as a card in the home grid.
-/// From stitch prompt #3: "Each card has rounded 20px corners, soft tonal
-/// background color unique per card, subtle drop shadow."
-class NoteCard extends StatelessWidget {
+import 'note_quick_actions_sheet.dart';
+
+class NoteCard extends StatefulWidget {
   const NoteCard({super.key, required this.note, this.onTap});
 
   final Note note;
   final VoidCallback? onTap;
 
-  Color _cardColor(BuildContext context) {
-    if (note.colorSeed != null) {
+  @override
+  State<NoteCard> createState() => _NoteCardState();
+}
+
+class _NoteCardState extends State<NoteCard> {
+  bool _isPressed = false;
+
+  ColorScheme _cardScheme(BuildContext context) {
+    if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
       final seed = Color(
-        int.parse('FF${note.colorSeed!.replaceFirst('#', '')}', radix: 16),
+        int.parse(
+          'FF${widget.note.colorSeed!.replaceFirst('#', '')}',
+          radix: 16,
+        ),
       );
-      return ColorScheme.fromSeed(seedColor: seed).surfaceContainerLow;
+      return ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Theme.of(context).brightness,
+      );
     }
-    return Theme.of(context).colorScheme.surfaceContainerLow;
+    return Theme.of(context).colorScheme;
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final cardScheme = _cardScheme(context);
 
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: _cardColor(context),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: scheme.shadow.withValues(alpha: 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            // Content area
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Note type icon + title
-                  Row(
-                    children: [
-                      _typeIcon(scheme),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          note.title,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: note.locked
-                                ? scheme.onSurface.withValues(alpha: 0.3)
-                                : scheme.onSurface,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Preview area
-                  Expanded(
-                    child: note.locked
-                        ? _lockedPreview(scheme)
-                        : _contentPreview(scheme),
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        NoteQuickActionsSheet.show(context, widget.note);
+      },
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: Hero(
+          tag: 'note-${widget.note.id}',
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              decoration: BoxDecoration(
+                color: cardScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: cardScheme.shadow.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            _typeIcon(cardScheme),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                widget.note.title.isNotEmpty
+                                    ? widget.note.title
+                                    : 'Untitled',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: widget.note.locked
+                                      ? cardScheme.onSurface
+                                          .withValues(alpha: 0.3)
+                                      : cardScheme.onSurface,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: widget.note.locked
+                              ? _lockedPreview(cardScheme)
+                              : _contentPreview(cardScheme),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (widget.note.pinned)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: cardScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.push_pin,
+                          size: 14,
+                          color: cardScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  if (widget.note.locked)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: cardScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.lock,
+                          size: 14,
+                          color: cardScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-            // Pin badge (top-right)
-            if (note.pinned)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.push_pin,
-                    size: 14,
-                    color: scheme.onPrimaryContainer,
-                  ),
-                ),
-              ),
-            // Lock badge (bottom-right)
-            if (note.locked)
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.lock,
-                    size: 14,
-                    color: scheme.onSurface.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _typeIcon(ColorScheme scheme) {
-    final icon = switch (note.type) {
+    final icon = switch (widget.note.type) {
       NoteType.checklist => Icons.checklist,
       NoteType.doodle => Icons.draw,
       NoteType.text || NoteType.mixed => Icons.notes,
     };
-    return Icon(icon, size: 16, color: scheme.onSurface.withValues(alpha: 0.5));
+    return Icon(icon, size: 16, color: scheme.primary);
   }
 
   Widget _lockedPreview(ColorScheme scheme) {
@@ -147,11 +176,11 @@ class NoteCard extends StatelessWidget {
   }
 
   Widget _contentPreview(ColorScheme scheme) {
-    final text = note.plainText ?? note.title;
+    final text = widget.note.plainText ?? widget.note.title;
     if (text.isEmpty) {
       return Center(
         child: Icon(
-          note.type == NoteType.doodle ? Icons.draw : Icons.notes,
+          widget.note.type == NoteType.doodle ? Icons.draw : Icons.notes,
           size: 32,
           color: scheme.onSurface.withValues(alpha: 0.15),
         ),
