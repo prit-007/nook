@@ -101,14 +101,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/home/search',
-            pageBuilder: (context, state) => _slideUpTransition(
-              context,
-              state,
-              const SearchScreen(),
-            ),
-          ),
-          GoRoute(
             path: '/notebooks',
             pageBuilder: (context, state) => _fadeTransition(
               context,
@@ -200,15 +192,23 @@ final routerProvider = Provider<GoRouter>((ref) {
               const SettingsAboutScreen(),
             ),
           ),
-          GoRoute(
-            path: '/locked',
-            pageBuilder: (context, state) => _slideUpTransition(
-              context,
-              state,
-              const LockedNotesScreen(),
-            ),
-          ),
         ],
+      ),
+      GoRoute(
+        path: '/home/search',
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const SearchScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/locked',
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const LockedNotesScreen(),
+        ),
       ),
       GoRoute(
         path: '/note/new',

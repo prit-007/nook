@@ -59,6 +59,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   Timer? _autosaveTimer;
   StreamSubscription<void>? _transactionSubscription;
   AppDatabase? _db;
+  bool _corruptedDelta = false;
 
   @override
   void initState() {
@@ -110,6 +111,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           _editorState = EditorState(document: document);
         } catch (e) {
           _editorState = EditorState.blank(withInitialText: true);
+          _corruptedDelta = true;
         }
       } else {
         _editorState = EditorState.blank(withInitialText: true);
@@ -146,6 +148,18 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     if (mounted) {
       setState(() => _loading = false);
+      if (_corruptedDelta) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Note content was corrupted. A fresh note was started.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        });
+      }
     }
   }
 
@@ -284,7 +298,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   /// Exports the current note as a PNG and offers save-to-gallery / share.
   Future<void> _exportNote() async {
-    if (_note == null || !mounted) return;
+    if (_note == null || _editorState == null || !mounted) return;
     unawaited(HapticFeedback.lightImpact());
 
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -298,7 +312,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         color: Colors.transparent,
         child: RepaintBoundary(
           key: boundaryKey,
-          child: _NoteExportCapture(note: _note!),
+          child: NoteExportCapture(
+            note: _note!,
+            editorState: _editorState!,
+          ),
         ),
       ),
     );
@@ -576,8 +593,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                 Text(
                                   _saving
                                       ? 'Saving...'
-                                      : DateFormat('MMM d, yyyy')
-                                          .format(DateTime.now()),
+                                      : DateFormat('MMM d, yyyy').format(
+                                          _note?.updatedAt ?? DateTime.now()),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 11,
@@ -796,15 +813,33 @@ class _FormatAction extends StatelessWidget {
 }
 
 /// Minimal capture-only widget for exporting a note as PNG.
-class _NoteExportCapture extends StatelessWidget {
-  const _NoteExportCapture({required this.note});
+class NoteExportCapture extends StatelessWidget {
+  const NoteExportCapture({
+    super.key,
+    required this.note,
+    required this.editorState,
+  });
 
   final Note note;
+  final EditorState editorState;
+
+  ColorScheme _noteScheme() {
+    if (note.colorSeed != null && note.colorSeed!.isNotEmpty) {
+      return ColorScheme.fromSeed(
+        seedColor:
+            Color(int.parse('0xFF${note.colorSeed!.replaceFirst('#', '')}')),
+      );
+    }
+    return const ColorScheme.light();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = _noteScheme();
+    final nodes = editorState.document.root.children;
+
     return Material(
-      color: Colors.white,
+      color: scheme.surface,
       child: Container(
         width: 400,
         padding: const EdgeInsets.all(32),
@@ -813,40 +848,100 @@ class _NoteExportCapture extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              DateFormat('MMMM d, yyyy').format(note.createdAt),
+              DateFormat('MMMM d, yyyy').format(note.updatedAt),
               style: TextStyle(
                 fontSize: 11,
-                color: Colors.black.withValues(alpha: 0.4),
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
                 letterSpacing: 0.5,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               note.title.isNotEmpty ? note.title : 'Untitled',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: Colors.black,
+                color: scheme.onSurface,
                 height: 1.2,
               ),
             ),
-            if (note.plainText != null && note.plainText!.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              Text(
-                note.plainText!,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF333333),
-                  height: 1.6,
-                ),
-              ),
-            ],
+            const SizedBox(height: 20),
+            ...nodes.map((node) {
+              final type = node.type;
+              if (type == TodoListBlockKeys.type) {
+                final checked =
+                    node.attributes[TodoListBlockKeys.checked] ?? false;
+                final delta = node.delta;
+                String text = '';
+                if (delta != null) {
+                  for (final op in delta) {
+                    if (op is TextInsert) text += op.text;
+                  }
+                }
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        checked ? Icons.check_circle : Icons.circle_outlined,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          text,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: scheme.onSurfaceVariant,
+                            height: 1.5,
+                            decoration:
+                                checked ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              if (type == ImageBlockKeys.type) {
+                final url = node.attributes[ImageBlockKeys.url] as String?;
+                if (url != null && File(url).existsSync()) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Image.file(File(url), width: 300),
+                  );
+                }
+              }
+              final delta = node.delta;
+              if (delta != null && delta.isNotEmpty) {
+                String text = '';
+                for (final op in delta) {
+                  if (op is TextInsert) text += op.text;
+                }
+                if (text.isNotEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: scheme.onSurfaceVariant,
+                        height: 1.6,
+                      ),
+                    ),
+                  );
+                }
+              }
+              return const SizedBox.shrink();
+            }),
             const SizedBox(height: 32),
             Text(
               'nook',
               style: TextStyle(
                 fontSize: 10,
-                color: Colors.black.withValues(alpha: 0.2),
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
                 letterSpacing: 1.5,
               ),
             ),

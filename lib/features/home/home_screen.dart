@@ -1,13 +1,11 @@
 import 'dart:ui';
 
-import 'package:drift/drift.dart' hide Column, isNotNull;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import 'providers/notes_list_provider.dart';
@@ -30,7 +28,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   NoteType? _selectedType;
-  bool _fabMenuOpen = false;
 
   String get _timeGreeting {
     final hour = DateTime.now().hour;
@@ -111,7 +108,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 letterSpacing: -0.8,
                                 color: scheme.onSurface,
                               ),
-                            ).animate().fade(duration: 400.ms).slideY(begin: 0.2),
+                            )
+                                .animate()
+                                .fade(duration: 400.ms)
+                                .slideY(begin: 0.2),
                             const SizedBox(height: 2),
                             Text(
                               'YOUR VAULT',
@@ -154,7 +154,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         .withValues(alpha: 0.25),
                                   ),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
                                 child: Row(
                                   children: [
                                     Icon(
@@ -225,38 +226,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
             },
           ),
-          if (_fabMenuOpen)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => setState(() => _fabMenuOpen = false),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.2),
-                  ),
-                ),
-              ),
-            ),
-          Positioned(
-            right: 16,
-            bottom: 130,
-            child: MorphingEditorialFab(
-              onMenuToggle: (open) => setState(() => _fabMenuOpen = open),
-              onCreateNote: (type) async {
-                await HapticFeedback.mediumImpact();
-                final db = ref.read(databaseProvider);
-                final id = await db.into(db.notes).insert(
-                      NotesCompanion.insert(
-                        title: const Value(''),
-                        type: type,
-                        deviceOriginId: 'local',
-                      ),
-                    );
-                if (context.mounted) {
-                  await context.push('/note/$id');
-                }
-              },
-            ),
+          MorphingEditorialFab(
+            onCreateNote: (type) async {
+              await HapticFeedback.mediumImpact();
+              if (context.mounted) {
+                await context.push('/note/new?type=${type.name}');
+              }
+            },
           ),
         ],
       ),
