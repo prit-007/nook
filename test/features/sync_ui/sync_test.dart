@@ -12,6 +12,7 @@ import 'package:nook/features/sync_ui/sync_screen.dart';
 import 'package:nook/features/sync_ui/sync_send_screen.dart';
 import 'package:nook/features/sync_ui/sync_transfer_screen.dart';
 import 'package:nook/features/sync_ui/widgets/conflict_card.dart';
+import 'package:nook/sync/sync_orchestrator.dart';
 
 AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
 
@@ -20,11 +21,30 @@ Widget wrapInApp(Widget child, {AppDatabase? db}) {
   return ProviderScope(
     overrides: [
       databaseProvider.overrideWithValue(testDb),
+      syncOrchestratorProvider.overrideWith(() => _StubSyncOrchestrator()),
     ],
     child: MaterialApp(
       home: child,
     ),
   );
+}
+
+/// A stub orchestrator that does nothing (for widget tests).
+class _StubSyncOrchestrator extends SyncOrchestrator {
+  @override
+  SyncOrchestratorState build() => const SyncOrchestratorState();
+
+  @override
+  Future<void> initializeTransport() async {}
+
+  @override
+  Future<void> startDiscovery() async {}
+
+  @override
+  Future<void> startAdvertising() async {}
+
+  @override
+  Future<void> stop() async {}
 }
 
 GoRouter testRouter(Widget child, {AppDatabase? db}) {
@@ -208,7 +228,7 @@ void main() {
       ));
       await tester.pump();
 
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
     testWidgets('shows transfer status text', (tester) async {
@@ -218,7 +238,7 @@ void main() {
       ));
       await tester.pump();
 
-      expect(find.text('Sending notes...'), findsOneWidget);
+      expect(find.text('Preparing transfer...'), findsOneWidget);
     });
 
     testWidgets('shows cancel button', (tester) async {
