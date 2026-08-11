@@ -2,7 +2,7 @@
 
 > **How to use:** Check off tasks as you complete them. Each task lists the files to create/modify and the validation command to run. Move the `[ ]` → `[x]` when done. Update the status table at the top of each phase when a phase is fully complete.
 
-**Current project state:** Phase 0–4 complete. Phase 5.1–5.3 complete (transport, protocol, merge resolver). Sync UI and log remaining.
+**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. Validation and physical-device testing remaining.
 
 ---
 
@@ -577,27 +577,29 @@
 
 ### 5.4 Sync UI
 
-- [ ] Build `SyncScreen` — mode toggle (Send/Receive)
+- [x] Build `SyncScreen` — mode toggle (Send/Receive)
   - File: `lib/features/sync_ui/sync_screen.dart` (replace stub)
-- [ ] Build send mode: note selection list, discovered devices list (radar animation)
+- [x] Build send mode: note selection list, discovered devices list (radar animation)
   - File: `lib/features/sync_ui/sync_send_screen.dart` (replace stub)
-- [ ] Build receive mode: discoverable toggle, incoming request card
+- [x] Build receive mode: discoverable toggle, incoming request card
   - File: `lib/features/sync_ui/sync_receive_screen.dart` (replace stub)
-- [ ] Build pairing confirmation: numeric code on both devices
+- [x] Build pairing confirmation: numeric code on both devices
   - File: `lib/features/sync_ui/sync_pairing_screen.dart` (replace stub)
-- [ ] Build transfer progress sheet
+- [x] Build transfer progress sheet
   - File: `lib/features/sync_ui/sync_transfer_screen.dart` (replace stub)
-- [ ] Build conflict resolution card: "Keep this device / Keep incoming / Keep both"
+- [x] Build conflict resolution card: "Keep this device / Keep incoming / Keep both"
   - File: `lib/features/sync_ui/widgets/conflict_card.dart`
-- [ ] Build sync history list
+- [x] Build sync history list
   - File: `lib/features/sync_ui/sync_history_screen.dart` (replace stub)
-- [ ] Write sync UI widget test (discovery, pairing, transfer progress)
+- [x] Write sync UI widget test (discovery, pairing, transfer progress)
   - File: `test/features/sync_ui/sync_test.dart`
 
 ### 5.5 Sync Log
 
-- [ ] Write `SyncLog` row on every send/receive/conflict
-- [ ] Display in Settings > Sync Devices and Sync History screens
+- [x] Write `SyncLog` row on every send/receive/conflict
+  - File: `lib/data/repositories/sync_log_repository.dart`
+- [x] Display in Sync History screen
+  - File: `lib/features/sync_ui/sync_history_screen.dart`
 
 ### Phase 5 Validation
 
@@ -844,11 +846,19 @@ lib/sync/transport/sync_transport.dart
 lib/sync/transport/nearby_service_transport.dart (or chosen transport)
 lib/sync/protocol/sync_bundle.dart
 lib/sync/protocol/merge_resolver.dart
+lib/features/sync_ui/sync_screen.dart
+lib/features/sync_ui/sync_send_screen.dart
+lib/features/sync_ui/sync_receive_screen.dart
+lib/features/sync_ui/sync_pairing_screen.dart
+lib/features/sync_ui/sync_transfer_screen.dart
+lib/features/sync_ui/sync_history_screen.dart
 lib/features/sync_ui/widgets/conflict_card.dart
+lib/data/repositories/sync_log_repository.dart
 test/sync/transport_test.dart
 test/sync/protocol_test.dart
 test/sync/merge_resolver_test.dart
 test/features/sync_ui/sync_test.dart
+test/data/sync_log_repository_test.dart
 ```
 
 ### Phase 6 Files

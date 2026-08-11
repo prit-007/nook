@@ -260,11 +260,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/sync/pairing',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          const SyncPairingScreen(),
-        ),
+        pageBuilder: (context, state) {
+          final extra = state.extra as Map<String, String>? ?? {};
+          return _slideUpTransition(
+            context,
+            state,
+            SyncPairingScreen(
+              pairingCode: extra['pairingCode'] ?? '000000',
+              deviceName: extra['deviceName'] ?? 'Unknown Device',
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/sync/transfer/:sessionId',
