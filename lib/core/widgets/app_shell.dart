@@ -321,16 +321,17 @@ class _WideShell extends StatelessWidget {
     return Scaffold(
       body: Row(
         children: [
-          Container(
-            decoration: BoxDecoration(
-              color: scheme.surface,
-              border: Border(
-                right: BorderSide(
-                  color: scheme.outlineVariant.withValues(alpha: 0.15),
+          Flexible(
+            child: Container(
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                border: Border(
+                  right: BorderSide(
+                    color: scheme.outlineVariant.withValues(alpha: 0.15),
+                  ),
                 ),
               ),
-            ),
-            child: NavigationRail(
+              child: NavigationRail(
               selectedIndex: selectedIndex,
               onDestinationSelected: onTap,
               backgroundColor: Colors.transparent,
@@ -366,6 +367,7 @@ class _WideShell extends StatelessWidget {
               destinations: _destinations,
             ),
           ),
+        ),
           Expanded(child: child),
         ],
       ),

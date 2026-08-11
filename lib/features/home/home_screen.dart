@@ -30,6 +30,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   NoteType? _selectedType;
+  bool _fabMenuOpen = false;
 
   String get _timeGreeting {
     final hour = DateTime.now().hour;
@@ -224,10 +225,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
             },
           ),
+          if (_fabMenuOpen)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() => _fabMenuOpen = false),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             right: 16,
-            bottom: 100,
+            bottom: 130,
             child: MorphingEditorialFab(
+              onMenuToggle: (open) => setState(() => _fabMenuOpen = open),
               onCreateNote: (type) async {
                 await HapticFeedback.mediumImpact();
                 final db = ref.read(databaseProvider);
