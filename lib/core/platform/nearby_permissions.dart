@@ -10,7 +10,8 @@ class NearbyPermissions {
   static Future<bool> check() async {
     if (kIsWeb) return false;
     try {
-      final result = await _channel.invokeMethod<bool>('checkNearbyPermissions');
+      final result =
+          await _channel.invokeMethod<bool>('checkNearbyPermissions');
       return result ?? false;
     } on PlatformException {
       return false;
@@ -23,7 +24,8 @@ class NearbyPermissions {
   static Future<bool> request() async {
     if (kIsWeb) return false;
     try {
-      final result = await _channel.invokeMethod<bool>('requestNearbyPermissions');
+      final result =
+          await _channel.invokeMethod<bool>('requestNearbyPermissions');
       return result ?? false;
     } on PlatformException {
       return false;
