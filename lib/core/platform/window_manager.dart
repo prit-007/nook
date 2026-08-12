@@ -13,6 +13,8 @@ class WindowManager {
       await _channel.invokeMethod<void>('addFlags', {'flags': flags});
     } on PlatformException {
       // Platform not supported (e.g. desktop, web) — silently ignore.
+    } on MissingPluginException {
+      // Platform not supported (e.g. desktop, web) — silently ignore.
     }
   }
 
@@ -20,6 +22,8 @@ class WindowManager {
     try {
       await _channel.invokeMethod<void>('clearFlags', {'flags': flags});
     } on PlatformException {
+      // Platform not supported (e.g. desktop, web) — silently ignore.
+    } on MissingPluginException {
       // Platform not supported (e.g. desktop, web) — silently ignore.
     }
   }

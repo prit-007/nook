@@ -55,13 +55,15 @@ class BiometricGate extends ChangeNotifier {
   void setEnabled(bool value) {
     if (_enabled == value) return;
     _enabled = value;
-    notifyListeners();
     _save();
     if (value) {
       _lock();
     } else {
-      unlock();
+      _state = AppLockState.unlocked;
+      _hasAuthenticated = false;
+      _lastBackgroundedAt = null;
     }
+    notifyListeners();
   }
 
   void setAutoLockDuration(AutoLockDuration value) {

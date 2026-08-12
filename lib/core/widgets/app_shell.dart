@@ -76,10 +76,19 @@ class _MobileShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final dockHeight = 72.0 + 24.0 + bottomInset;
 
     return Scaffold(
-      extendBody: true, // Allows child content to scroll behind the dock
-      body: child,
+      extendBody: true,
+      body: Padding(
+        padding: EdgeInsets.only(bottom: dockHeight),
+        child: MediaQuery.removePadding(
+          context: context,
+          removeBottom: true,
+          child: child,
+        ),
+      ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),

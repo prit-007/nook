@@ -86,13 +86,20 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
           return BackdropFilter(
             filter: ImageFilter.blur(sigmaX: _blur.value, sigmaY: _blur.value),
             child: Container(
+              width: double.infinity,
+              height: double.infinity,
               color: scheme.surface.withValues(alpha: 0.45),
-              child: Center(
-                child: _FrostedShieldButton(
-                  enabled: !gate.isAuthenticating,
-                  onTap: _unlock,
-                  seed: seedColor,
-                  pulse: _pulse,
+              child: SafeArea(
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: _FrostedShieldButton(
+                      enabled: !gate.isAuthenticating,
+                      onTap: _unlock,
+                      seed: seedColor,
+                      pulse: _pulse,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -147,26 +154,32 @@ class _FrostedShieldButton extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    ...List.generate(3, (i) {
-                      return Container(
-                        width: 120.0 + (i + 1) * 28,
-                        height: 120.0 + (i + 1) * 28,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: scheme.outlineVariant.withValues(
-                              alpha: 0.2 - i * 0.05,
+                child: ClipRect(
+                  child: SizedBox(
+                    width: 240,
+                    height: 240,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        ...List.generate(3, (i) {
+                          return Container(
+                            width: 120.0 + (i + 1) * 24,
+                            height: 120.0 + (i + 1) * 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: scheme.outlineVariant.withValues(
+                                  alpha: 0.2 - i * 0.05,
+                                ),
+                                width: 1.5,
+                              ),
                             ),
-                            width: 1.5,
-                          ),
-                        ),
-                      );
-                    }),
-                    Icon(Icons.fingerprint, size: 64, color: seed),
-                  ],
+                          );
+                        }),
+                        Icon(Icons.fingerprint, size: 64, color: seed),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

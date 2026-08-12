@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/theme/note_theme_scope.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
@@ -192,7 +194,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   }
 
   Future<void> _save() async {
-    if (_note == null || _editorState == null) return;
+    if (_disposed || _note == null || _editorState == null) return;
     if (_saving) {
       _saveQueued = true;
       return;
@@ -222,14 +224,25 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         _title = derivedTitle;
       }
 
+      final deltaJson = jsonEncode(_editorState!.document.toJson());
       await repo.updateContent(
         _note!.id,
-        deltaContent: jsonEncode(_editorState!.document.toJson()),
+        deltaContent: deltaJson,
         plainText: plainText,
+      );
+
+      // Keep the local note mirror fresh so the app bar timestamp and the
+      // export path always reflect the latest state.
+      final now = DateTime.now();
+      _note = _note!.copyWith(
+        title: derivedTitle.isNotEmpty ? derivedTitle : _title,
+        deltaContent: Value(deltaJson),
+        plainText: Value(plainText),
+        updatedAt: now,
       );
     } finally {
       _saving = false;
-      if (_saveQueued) {
+      if (!_disposed && _saveQueued) {
         _saveQueued = false;
         unawaited(_save());
       }
@@ -552,8 +565,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     final noteScheme = _colorSeed != null && _colorSeed!.isNotEmpty
         ? ColorScheme.fromSeed(
-            seedColor:
-                Color(int.parse('0xFF${_colorSeed!.replaceFirst('#', '')}')),
+            seedColor: NookColors.parseHex(_colorSeed),
           )
         : Theme.of(context).colorScheme;
 
@@ -580,7 +592,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 SliverPadding(
                   padding: EdgeInsets.only(
                     top: topPadding + 90,
-                    bottom: keyboardHeight + 300,
+                    bottom: keyboardHeight + 120,
                   ),
                   sliver: SliverFillRemaining(
                     hasScrollBody: true,
@@ -678,97 +690,24 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                             ),
                           ],
                         ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              tooltip: 'Back',
-                              icon: Icon(
-                                Icons.arrow_back_rounded,
-                                color: noteScheme.onSurface,
-                              ),
-                              onPressed: () async {
-                                final router = GoRouter.of(context);
-                                unawaited(HapticFeedback.lightImpact());
-                                await _save();
-                                if (mounted) router.pop();
-                              },
-                            ),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _title.isNotEmpty ? _title : 'New Note',
-                                    style:
-                                        dynamicTextTheme.titleMedium?.copyWith(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    _saving
-                                        ? 'Saving...'
-                                        : DateFormat('MMMM d, yyyy').format(
-                                            _note?.updatedAt ?? DateTime.now()),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      color: noteScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Insert image',
-                              icon: Icon(
-                                Icons.add_photo_alternate_rounded,
-                                color: noteScheme.onSurface,
-                              ),
-                              onPressed: _insertImage,
-                            ),
-                            IconButton(
-                              tooltip: 'Insert doodle',
-                              icon: Icon(
-                                Icons.draw_rounded,
-                                color: noteScheme.onSurface,
-                              ),
-                              onPressed: _insertDoodle,
-                            ),
-                            IconButton(
-                              tooltip: _pinned ? 'Unpin note' : 'Pin note',
-                              icon: Icon(
-                                _pinned
-                                    ? Icons.push_pin_rounded
-                                    : Icons.push_pin_outlined,
-                                color: _pinned
-                                    ? noteScheme.primary
-                                    : noteScheme.onSurface,
-                                size: 20,
-                              ),
-                              onPressed: _togglePin,
-                            ),
-                            IconButton(
-                              tooltip: 'Export note',
-                              icon: Icon(
-                                Icons.ios_share_rounded,
-                                color: noteScheme.onSurface,
-                                size: 20,
-                              ),
-                              onPressed: _exportNote,
-                            ),
-                            IconButton(
-                              tooltip: 'More options',
-                              icon: Icon(
-                                Icons.more_horiz_rounded,
-                                color: noteScheme.onSurface,
-                              ),
-                              onPressed: _showNoteOptions,
-                            ),
-                          ],
+                        child: _ResponsiveEditorAppBar(
+                          noteScheme: noteScheme,
+                          dynamicTextTheme: dynamicTextTheme,
+                          title: _title,
+                          saving: _saving,
+                          pinned: _pinned,
+                          note: _note,
+                          onBack: () async {
+                            final router = GoRouter.of(context);
+                            unawaited(HapticFeedback.lightImpact());
+                            await _save();
+                            if (mounted) router.pop();
+                          },
+                          onInsertImage: _insertImage,
+                          onInsertDoodle: _insertDoodle,
+                          onTogglePin: _togglePin,
+                          onExport: _exportNote,
+                          onMoreOptions: _showNoteOptions,
                         ),
                       ),
                     ),
@@ -933,6 +872,215 @@ class _FormatAction extends StatelessWidget {
   }
 }
 
+class _ResponsiveEditorAppBar extends StatelessWidget {
+  const _ResponsiveEditorAppBar({
+    required this.noteScheme,
+    required this.dynamicTextTheme,
+    required this.title,
+    required this.saving,
+    required this.pinned,
+    required this.note,
+    required this.onBack,
+    required this.onInsertImage,
+    required this.onInsertDoodle,
+    required this.onTogglePin,
+    required this.onExport,
+    required this.onMoreOptions,
+  });
+
+  final ColorScheme noteScheme;
+  final TextTheme dynamicTextTheme;
+  final String title;
+  final bool saving;
+  final bool pinned;
+  final Note? note;
+  final VoidCallback onBack;
+  final VoidCallback onInsertImage;
+  final VoidCallback onInsertDoodle;
+  final VoidCallback onTogglePin;
+  final VoidCallback onExport;
+  final VoidCallback onMoreOptions;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 420;
+
+        return Row(
+          children: [
+            IconButton(
+              tooltip: 'Back',
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                color: noteScheme.onSurface,
+              ),
+              onPressed: onBack,
+            ),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title.isNotEmpty ? title : 'New Note',
+                    style: dynamicTextTheme.titleMedium?.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    saving
+                        ? 'Saving...'
+                        : DateFormat('MMMM d, yyyy')
+                            .format(note?.updatedAt ?? DateTime.now()),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: noteScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isNarrow)
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_horiz_rounded,
+                  color: noteScheme.onSurface,
+                ),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'image':
+                      onInsertImage();
+                    case 'doodle':
+                      onInsertDoodle();
+                    case 'pin':
+                      onTogglePin();
+                    case 'export':
+                      onExport();
+                    case 'more':
+                      onMoreOptions();
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'image',
+                    child: Row(
+                      children: [
+                        Icon(Icons.add_photo_alternate_rounded,
+                            size: 20, color: noteScheme.onSurface),
+                        const SizedBox(width: 12),
+                        const Text('Insert image'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'doodle',
+                    child: Row(
+                      children: [
+                        Icon(Icons.draw_rounded,
+                            size: 20, color: noteScheme.onSurface),
+                        const SizedBox(width: 12),
+                        const Text('Insert doodle'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'pin',
+                    child: Row(
+                      children: [
+                        Icon(
+                          pinned
+                              ? Icons.push_pin_rounded
+                              : Icons.push_pin_outlined,
+                          size: 20,
+                          color: pinned
+                              ? noteScheme.primary
+                              : noteScheme.onSurface,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(pinned ? 'Unpin note' : 'Pin note'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'export',
+                    child: Row(
+                      children: [
+                        Icon(Icons.ios_share_rounded,
+                            size: 20, color: noteScheme.onSurface),
+                        const SizedBox(width: 12),
+                        const Text('Export note'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'more',
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings_rounded,
+                            size: 20, color: noteScheme.onSurface),
+                        const SizedBox(width: 12),
+                        const Text('Note options'),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              IconButton(
+                tooltip: 'Insert image',
+                icon: Icon(
+                  Icons.add_photo_alternate_rounded,
+                  color: noteScheme.onSurface,
+                ),
+                onPressed: onInsertImage,
+              ),
+              IconButton(
+                tooltip: 'Insert doodle',
+                icon: Icon(
+                  Icons.draw_rounded,
+                  color: noteScheme.onSurface,
+                ),
+                onPressed: onInsertDoodle,
+              ),
+              IconButton(
+                tooltip: pinned ? 'Unpin note' : 'Pin note',
+                icon: Icon(
+                  pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                  color: pinned ? noteScheme.primary : noteScheme.onSurface,
+                  size: 20,
+                ),
+                onPressed: onTogglePin,
+              ),
+              IconButton(
+                tooltip: 'Export note',
+                icon: Icon(
+                  Icons.ios_share_rounded,
+                  color: noteScheme.onSurface,
+                  size: 20,
+                ),
+                onPressed: onExport,
+              ),
+              IconButton(
+                tooltip: 'More options',
+                icon: Icon(
+                  Icons.more_horiz_rounded,
+                  color: noteScheme.onSurface,
+                ),
+                onPressed: onMoreOptions,
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
 /// Minimal capture-only widget for exporting a note as PNG.
 class NoteExportCapture extends StatelessWidget {
   const NoteExportCapture({
@@ -947,8 +1095,7 @@ class NoteExportCapture extends StatelessWidget {
   ColorScheme _noteScheme() {
     if (note.colorSeed != null && note.colorSeed!.isNotEmpty) {
       return ColorScheme.fromSeed(
-        seedColor:
-            Color(int.parse('0xFF${note.colorSeed!.replaceFirst('#', '')}')),
+        seedColor: NookColors.parseHex(note.colorSeed),
       );
     }
     return const ColorScheme.light();

@@ -42,6 +42,9 @@ class AppDatabase extends _$AppDatabase {
             'CREATE VIRTUAL TABLE notes_fts USING fts5(id UNINDEXED, title, plainText)',
           );
         },
+        beforeOpen: (details) async {
+          await customStatement('PRAGMA foreign_keys = ON;');
+        },
       );
 }
 
@@ -70,12 +73,7 @@ Future<String> _readOrCreateEncryptionKey() async {
   }
 
   final key = _generateRandomKey(32);
-  try {
-    await _secureStorage.write(key: _keyStorageKey, value: key);
-  } on Exception {
-    // Key is in memory; we'll use it for this session even if persistent
-    // storage write fails. Next launch will generate a new key.
-  }
+  await _secureStorage.write(key: _keyStorageKey, value: key);
   return key;
 }
 

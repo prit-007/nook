@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
+import '../../core/app_info.dart';
+
 class SettingsAboutScreen extends StatelessWidget {
   const SettingsAboutScreen({super.key});
 
@@ -44,7 +46,7 @@ class SettingsAboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'VERSION 0.1.0',
+              'VERSION ${AppInfo.version}',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,

@@ -25,6 +25,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     with SingleTickerProviderStateMixin {
   final Set<String> _selectedNoteIds = {};
   String _searchQuery = '';
+  Future<List<Note>>? _notesFuture;
 
   late AnimationController _pulseController;
 
@@ -38,8 +39,16 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        _refreshNotes();
         ref.read(syncOrchestratorProvider.notifier).startDiscovery();
       }
+    });
+  }
+
+  void _refreshNotes() {
+    final db = ref.read(databaseProvider);
+    setState(() {
+      _notesFuture = _fetchNotes(db);
     });
   }
 
@@ -52,7 +61,6 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final db = ref.watch(databaseProvider);
     final syncState = ref.watch(syncOrchestratorProvider);
 
     return Scaffold(
@@ -171,13 +179,15 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                             vertical: 12,
                           ),
                         ),
-                        onChanged: (value) =>
-                            setState(() => _searchQuery = value),
+                        onChanged: (value) {
+                          setState(() => _searchQuery = value);
+                          _refreshNotes();
+                        },
                       ),
                     ),
                     Expanded(
                       child: FutureBuilder<List<Note>>(
-                        future: _fetchNotes(db),
+                        future: _notesFuture,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {

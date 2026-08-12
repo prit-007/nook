@@ -164,6 +164,7 @@ void main() {
     testWidgets('shows empty state when no notes', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
       await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
 
       expect(find.text('No notes found.'), findsOneWidget);
     });

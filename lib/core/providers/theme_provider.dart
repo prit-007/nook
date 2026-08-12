@@ -4,15 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/design_tokens.dart';
 
-/// Persists: manual seed index, dark/light/system mode.
+/// Persists: manual seed index, dark/light/system mode, reduce-motion flag.
 class ThemePreference extends ChangeNotifier {
   ThemePreference({
     this.seedIndex = 0,
     this.themeMode = ThemeMode.system,
+    this.reduceMotion = false,
   });
 
   int seedIndex;
   ThemeMode themeMode;
+  bool reduceMotion;
 
   Color get seedColor => NookColors.seeds[seedIndex];
 
@@ -28,10 +30,17 @@ class ThemePreference extends ChangeNotifier {
     _save();
   }
 
+  void setReduceMotion(bool value) {
+    reduceMotion = value;
+    notifyListeners();
+    _save();
+  }
+
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('seed_index', seedIndex);
     await prefs.setInt('theme_mode', themeMode.index);
+    await prefs.setBool('reduce_motion', reduceMotion);
   }
 
   static Future<ThemePreference> load() async {
@@ -41,6 +50,7 @@ class ThemePreference extends ChangeNotifier {
       seedIndex: prefs.getInt('seed_index') ?? 0,
       themeMode:
           ThemeMode.values[modeIndex.clamp(0, ThemeMode.values.length - 1)],
+      reduceMotion: prefs.getBool('reduce_motion') ?? false,
     );
   }
 }

@@ -46,6 +46,8 @@ class TcpSyncTransport implements SyncTransport {
 
   BonsoirBroadcast? _broadcast;
   BonsoirDiscovery? _discovery;
+  StreamSubscription<dynamic>? _broadcastSubscription;
+  StreamSubscription<dynamic>? _discoverySubscription;
 
   ServerSocket? _serverSocket;
   Socket? _outgoingSocket;
@@ -75,6 +77,10 @@ class TcpSyncTransport implements SyncTransport {
 
   Completer<void>? _ackCompleter;
   Uint8List? _ackData;
+
+  /// Serializes frame writes per socket so two concurrent [socket.add] calls
+  /// can never interleave length prefixes and payloads on the wire.
+  final Map<Socket, _SocketWriteQueue> _writeQueues = {};
 
   bool _initialized = false;
 
@@ -135,7 +141,7 @@ class TcpSyncTransport implements SyncTransport {
 
     _broadcast = BonsoirBroadcast(service: service);
     await _broadcast!.initialize();
-    _broadcast!.eventStream?.listen((event) {
+    _broadcastSubscription = _broadcast!.eventStream?.listen((event) {
       if (event is BonsoirBroadcastNameAlreadyExistsEvent) {
         _emitState(const SyncSessionState.error(
           'Another Nook device is already visible on this network',
@@ -148,6 +154,8 @@ class TcpSyncTransport implements SyncTransport {
   @override
   Future<void> stopAdvertising() async {
     await _broadcast?.stop();
+    await _broadcastSubscription?.cancel();
+    _broadcastSubscription = null;
     _broadcast = null;
     _emitState(const SyncSessionState.idle());
   }
@@ -164,7 +172,7 @@ class TcpSyncTransport implements SyncTransport {
     _discovery = BonsoirDiscovery(type: kNookSyncServiceType);
     await _discovery!.initialize();
 
-    _discovery!.eventStream?.listen((event) async {
+    _discoverySubscription = _discovery!.eventStream?.listen((event) async {
       if (event is BonsoirDiscoveryServiceFoundEvent) {
         // Resolve to get IP address.
         await _discovery!.serviceResolver.resolveService(event.service);
@@ -201,6 +209,8 @@ class TcpSyncTransport implements SyncTransport {
   @override
   Future<void> stopDiscovery() async {
     await _discovery?.stop();
+    await _discoverySubscription?.cancel();
+    _discoverySubscription = null;
     _discovery = null;
   }
 
@@ -312,8 +322,7 @@ class TcpSyncTransport implements SyncTransport {
     _emitState(const SyncSessionState.connected());
     _setupSocketListener(socket);
     await _writeFrame(
-        socket,
-        utf8.encode(jsonEncode({'type': 'pairing_confirm'})));
+        socket, utf8.encode(jsonEncode({'type': 'pairing_confirm'})));
   }
 
   // ---------------------------------------------------------------------------
@@ -377,7 +386,8 @@ class TcpSyncTransport implements SyncTransport {
               : const SyncAck(receivedNoteIds: [], rejectedNoteIds: []);
         } on TimeoutException {
           if (attempt == 1) {
-            _emitState(const SyncSessionState.error('Timed out waiting for ack'));
+            _emitState(
+                const SyncSessionState.error('Timed out waiting for ack'));
             return null;
           }
           // First timeout — retry the whole bundle once.
@@ -479,6 +489,16 @@ class TcpSyncTransport implements SyncTransport {
 
     _serverSubscription = _serverSocket!.listen(
       (socket) async {
+        // Only one active connection at a time: a second device connecting
+        // mid-transfer must not cancel the in-flight socket listener.
+        if (_incomingSocket != null || _outgoingSocket != null) {
+          _emitState(const SyncSessionState.error(
+            'Already connected to a device',
+          ));
+          await socket.close().catchError((_) {});
+          return;
+        }
+
         _emitState(const SyncSessionState.connecting());
 
         try {
@@ -534,6 +554,10 @@ class TcpSyncTransport implements SyncTransport {
   // Socket framing
   // ---------------------------------------------------------------------------
 
+  /// Maximum acceptable frame payload in bytes. Guards against a malicious or
+  /// buggy sender advertising a huge frame and exhausting memory.
+  static const int maxFrameSize = 512 * 1024 * 1024; // 512 MB
+
   void _setupSocketListener(Socket socket) {
     _socketSubscription?.cancel();
 
@@ -547,6 +571,14 @@ class TcpSyncTransport implements SyncTransport {
           final expectedLength = ByteData.sublistView(
             Uint8List.fromList(buffer.sublist(0, 4)),
           ).getUint32(0, Endian.big);
+
+          if (expectedLength > maxFrameSize) {
+            _emitState(SyncSessionState.error(
+                'Frame too large ($expectedLength bytes)'));
+            _resetIncomingBuffer();
+            buffer.clear();
+            return;
+          }
 
           if (buffer.length < 4 + expectedLength) break;
 
@@ -583,10 +615,11 @@ class TcpSyncTransport implements SyncTransport {
   }
 
   Future<void> _writeFrame(Socket socket, List<int> payload) async {
-    final lengthBytes = ByteData(4)..setUint32(0, payload.length, Endian.big);
-    socket.add(lengthBytes.buffer.asUint8List());
-    socket.add(payload);
-    await socket.flush();
+    final queue = _writeQueues.putIfAbsent(
+      socket,
+      () => _SocketWriteQueue(),
+    );
+    return queue.enqueue(socket, payload);
   }
 
   Future<List<int>> _readFrame(Socket socket) async {
@@ -601,6 +634,14 @@ class TcpSyncTransport implements SyncTransport {
           final expectedLength = ByteData.sublistView(
             Uint8List.fromList(buffer.sublist(0, 4)),
           ).getUint32(0, Endian.big);
+
+          if (expectedLength > maxFrameSize) {
+            sub.cancel();
+            completer.completeError(
+              StateError('Frame too large ($expectedLength bytes)'),
+            );
+            return;
+          }
 
           if (buffer.length >= 4 + expectedLength) {
             sub.cancel();
@@ -646,6 +687,7 @@ class TcpSyncTransport implements SyncTransport {
     _outgoingSocket = null;
     await _incomingSocket?.close();
     _incomingSocket = null;
+    _writeQueues.clear();
 
     await _serverSubscription?.cancel();
     _serverSubscription = null;
@@ -653,8 +695,12 @@ class TcpSyncTransport implements SyncTransport {
     _serverSocket = null;
 
     await _broadcast?.stop();
+    await _broadcastSubscription?.cancel();
+    _broadcastSubscription = null;
     _broadcast = null;
     await _discovery?.stop();
+    await _discoverySubscription?.cancel();
+    _discoverySubscription = null;
     _discovery = null;
 
     _connectedDeviceId = null;
@@ -668,6 +714,14 @@ class TcpSyncTransport implements SyncTransport {
     _sessionStateController.close();
     _bytesReceivedController.close();
     _progressController.close();
+    if (!_pairingRequestController.isClosed) {
+      _pairingRequestController.close();
+    }
+    unawaited(_socketSubscription?.cancel());
+    unawaited(_serverSubscription?.cancel());
+    unawaited(_broadcastSubscription?.cancel());
+    unawaited(_discoverySubscription?.cancel());
+    _writeQueues.clear();
     _outgoingSocket?.destroy();
     _incomingSocket?.destroy();
     _serverSocket?.close();
@@ -687,5 +741,25 @@ class TcpSyncTransport implements SyncTransport {
     if (!_progressController.isClosed) {
       _progressController.add(progress);
     }
+  }
+}
+
+/// Serializes writes to a single [Socket] so length-prefixed frames are never
+/// interleaved on the wire.
+class _SocketWriteQueue {
+  Future<void>? _tail;
+
+  Future<void> enqueue(Socket socket, List<int> payload) {
+    final previous = _tail ?? Future<void>.value();
+    final next = previous.then((_) async {
+      final lengthBytes = ByteData(4)..setUint32(0, payload.length, Endian.big);
+      socket.add(lengthBytes.buffer.asUint8List());
+      socket.add(payload);
+      await socket.flush();
+    });
+    // Keep the chain alive even if one write fails, so a later write is not
+    // permanently stuck behind a failed one.
+    _tail = next.catchError((_) {});
+    return next;
   }
 }

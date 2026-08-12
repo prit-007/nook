@@ -18,14 +18,17 @@ class SyncAttachment {
   final Uint8List bytes;
 
   /// Reads a [SyncAttachment] from a CBOR map, tolerating a legacy single
-  /// attachment payload where only raw bytes were stored.
+  /// attachment payload where only raw bytes were stored. Malformed input
+  /// falls back to an empty attachment instead of throwing.
   factory SyncAttachment.fromMap(Map<dynamic, dynamic> map) {
     Uint8List bytes;
     final raw = map['bytes'] ?? map['data'];
     if (raw is Uint8List) {
       bytes = raw;
+    } else if (raw is List<int>) {
+      bytes = Uint8List.fromList(raw);
     } else {
-      bytes = Uint8List.fromList(raw as List<int>);
+      bytes = Uint8List(0);
     }
 
     return SyncAttachment(
@@ -103,10 +106,11 @@ class SyncNoteEntry {
       attachments = rawAttachments
           .map((a) => SyncAttachment.fromMap(a as Map<dynamic, dynamic>))
           .toList();
-    } else if (map['hasAttachment'] == true &&
-        map['attachmentBytes'] != null) {
+    } else if (map['hasAttachment'] == true && map['attachmentBytes'] != null) {
       final raw = map['attachmentBytes'];
-      final rawBytes = raw is Uint8List ? raw : Uint8List.fromList(raw as List<int>);
+      final rawBytes = raw is Uint8List
+          ? raw
+          : (raw is List<int> ? Uint8List.fromList(raw) : Uint8List(0));
       attachments = [
         SyncAttachment(
           id: '',
@@ -195,7 +199,7 @@ class SyncBundle {
 
   static List<Uint8List> splitIntoChunks(
     Uint8List data, {
-    int chunkSize = 64,
+    int chunkSize = 256 * 1024,
   }) {
     final chunks = <Uint8List>[];
     for (var i = 0; i < data.length; i += chunkSize) {

@@ -27,15 +27,11 @@ class _PullToSearchState extends State<PullToSearch> {
   bool _triggered = false;
 
   bool _onNotification(ScrollNotification notification) {
-    if (notification is ScrollStartNotification &&
-        notification.dragDetails != null) {
+    if (notification is ScrollEndNotification) {
       _triggered = false;
     } else if (notification is ScrollUpdateNotification &&
         notification.dragDetails != null &&
         notification.metrics.pixels < 0) {
-      // With BouncingScrollPhysics, pulling down at the top drives pixels
-      // negative. Trigger once the pull passes the threshold (drag only, so
-      // flings and ballistic scrolls are ignored).
       if (!_triggered &&
           notification.metrics.pixels.abs() >= widget.threshold) {
         _triggered = true;

@@ -78,6 +78,7 @@ class NoteRepository {
   }
 
   /// Updates a note's fields. Only non-null parameters are updated.
+  /// [updatedAt] defaults to now for local edits. Sync callers pass explicit value.
   Future<void> updateNote(
     String id, {
     String? title,
@@ -94,25 +95,39 @@ class NoteRepository {
         colorSeed: colorSeed != null ? Value(colorSeed) : const Value.absent(),
         pinned: pinned != null ? Value(pinned) : const Value.absent(),
         locked: locked != null ? Value(locked) : const Value.absent(),
-        notebookId: Value(notebookId),
+        notebookId:
+            notebookId != null ? Value(notebookId) : const Value.absent(),
         syncVersion:
             syncVersion != null ? Value(syncVersion) : const Value.absent(),
-        updatedAt: updatedAt != null ? Value(updatedAt) : Value(DateTime.now()),
+        updatedAt: Value(updatedAt ?? DateTime.now()),
       ),
     );
   }
 
+  /// Increments only the `syncVersion` column, leaving `updatedAt` untouched.
+  /// Used after a successful sync send so the timestamp does not drift and
+  /// cause spurious conflicts on the next merge.
+  Future<void> bumpSyncVersion(String id) async {
+    await _db.customStatement(
+      'UPDATE notes SET sync_version = sync_version + 1 WHERE id = ?',
+      [id],
+    );
+  }
+
   /// Updates the content (deltaContent + plainText) of a note.
+  /// If [updatedAt] is not provided, defaults to now (for local edits).
+  /// Sync callers should pass the remote timestamp explicitly.
   Future<void> updateContent(
     String id, {
     String? deltaContent,
     String? plainText,
+    DateTime? updatedAt,
   }) async {
     await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
       NotesCompanion(
         deltaContent: Value(deltaContent),
         plainText: Value(plainText),
-        updatedAt: Value(DateTime.now()),
+        updatedAt: Value(updatedAt ?? DateTime.now()),
       ),
     );
 
@@ -154,25 +169,56 @@ class NoteRepository {
         .get();
   }
 
-  /// Permanently deletes a note from the database.
+  /// Permanently deletes a note and all associated data from the database.
   Future<void> permanentlyDelete(String id) async {
-    await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
+    await _db.transaction(() async {
+      await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(id))).go();
+      await (_db.delete(_db.checklistItems)..where((t) => t.noteId.equals(id)))
+          .go();
+      await (_db.delete(_db.attachments)..where((a) => a.noteId.equals(id)))
+          .go();
+      await _db.customStatement(
+        'DELETE FROM notes_fts WHERE id = ?',
+        [id],
+      );
+      await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
+    });
   }
 
-  /// Permanently deletes all soft-deleted notes in a single query.
+  /// Permanently deletes all soft-deleted notes and their associated data.
   Future<void> permanentlyDeleteAllDeleted() async {
-    await (_db.delete(_db.notes)..where((t) => t.deleted.equals(true))).go();
+    final deleted = await getDeletedNotes();
+    if (deleted.isEmpty) return;
+    await _db.transaction(() async {
+      for (final note in deleted) {
+        await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(note.id)))
+            .go();
+        await (_db.delete(_db.checklistItems)
+              ..where((t) => t.noteId.equals(note.id)))
+            .go();
+        await (_db.delete(_db.attachments)
+              ..where((a) => a.noteId.equals(note.id)))
+            .go();
+        await _db.customStatement(
+          'DELETE FROM notes_fts WHERE id = ?',
+          [note.id],
+        );
+      }
+      await (_db.delete(_db.notes)..where((t) => t.deleted.equals(true))).go();
+    });
   }
 
-  /// Replaces all tag assignments for a note with [tagIds].
+  /// Replaces all tag assignments for a note with [tagIds] atomically.
   Future<void> updateNoteTags(String noteId, List<String> tagIds) async {
-    await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(noteId)))
-        .go();
-    for (final tagId in tagIds) {
-      await _db.into(_db.noteTags).insertOnConflictUpdate(
-            NoteTagsCompanion.insert(noteId: noteId, tagId: tagId),
-          );
-    }
+    await _db.transaction(() async {
+      await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(noteId)))
+          .go();
+      for (final tagId in tagIds) {
+        await _db.into(_db.noteTags).insertOnConflictUpdate(
+              NoteTagsCompanion.insert(noteId: noteId, tagId: tagId),
+            );
+      }
+    });
   }
 
   /// Returns only pinned, non-deleted notes.
@@ -191,14 +237,10 @@ class NoteRepository {
         .get();
   }
 
-  /// Syncs the FTS5 virtual table for a note.
+  /// Syncs the FTS5 virtual table for a note atomically.
   Future<void> _syncFts(String id, String title, String? plainText) async {
     await _db.customStatement(
-      'DELETE FROM notes_fts WHERE id = ?',
-      [id],
-    );
-    await _db.customStatement(
-      'INSERT INTO notes_fts(id, title, plainText) VALUES(?, ?, ?)',
+      'INSERT OR REPLACE INTO notes_fts(id, title, plainText) VALUES(?, ?, ?)',
       [id, title, plainText ?? ''],
     );
   }

@@ -65,9 +65,15 @@ class NotebookRepository {
     );
   }
 
-  /// Deletes a notebook by ID.
+  /// Deletes a notebook by ID and detaches all referencing notes.
   Future<void> deleteNotebook(String id) async {
-    await (_db.delete(_db.notebooks)..where((t) => t.id.equals(id))).go();
+    await _db.transaction(() async {
+      await (_db.update(_db.notes)..where((t) => t.notebookId.equals(id)))
+          .write(const NotesCompanion(
+        notebookId: Value(null),
+      ));
+      await (_db.delete(_db.notebooks)..where((t) => t.id.equals(id))).go();
+    });
   }
 
   /// Counts non-deleted notes in a notebook.

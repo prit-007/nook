@@ -23,9 +23,8 @@ class ColorPickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final currentColor = currentSeed != null
-        ? Color(int.parse('0xFF${currentSeed!.replaceFirst('#', '')}'))
-        : null;
+    final currentColor =
+        currentSeed != null ? NookColors.parseHex(currentSeed) : null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),

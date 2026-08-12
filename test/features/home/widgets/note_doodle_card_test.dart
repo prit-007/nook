@@ -58,12 +58,12 @@ void main() {
       expect(find.text('My Sketch'), findsOneWidget);
     });
 
-    testWidgets('shows "Canvas Doodle" label', (tester) async {
+    testWidgets('shows "Doodle" label', (tester) async {
       final note = await createTestNote(title: 'Art');
       await tester.pumpWidget(buildCard(note));
       await tester.pump();
 
-      expect(find.text('Canvas Doodle'), findsOneWidget);
+      expect(find.text('Doodle'), findsOneWidget);
     });
 
     testWidgets('shows gesture icon in visual area', (tester) async {

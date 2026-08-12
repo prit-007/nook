@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/providers/theme_provider.dart';
 import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import 'providers/notes_list_provider.dart';
@@ -55,12 +56,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     context.push('/note/$noteId');
   }
 
+  bool _animationsAllowed(BuildContext context) {
+    final preferredOff = ref.read(themePreferenceProvider).reduceMotion;
+    return !preferredOff && !MediaQuery.disableAnimationsOf(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final notesAsync = ref.watch(notesListProvider);
     final scheme = Theme.of(context).colorScheme;
     final width = MediaQuery.sizeOf(context).width;
     final isWide = width >= 600;
+    final animate = _animationsAllowed(context);
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -70,10 +77,121 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             loading: () => Center(
               child: CircularProgressIndicator(color: scheme.primary),
             ),
-            error: (e, _) => Center(child: Text('Error loading vault: $e')),
+            error: (e, _) => const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Could not load your vault.\nPlease try again later.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
             data: (notes) {
               final filtered = _applyFilters(notes);
               final counts = _computeCounts(notes);
+
+              Widget greeting = Text(
+                _timeGreeting,
+                style: TextStyle(
+                  fontSize: isWide ? 22 : 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.8,
+                  color: scheme.onSurface,
+                ),
+              );
+              Widget vaultLabel = Text(
+                'YOUR VAULT',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2.0,
+                  color: scheme.primary,
+                ),
+              );
+              if (animate) {
+                greeting = greeting
+                    .animate()
+                    .fade(duration: 400.ms)
+                    .slideY(begin: 0.2);
+                vaultLabel =
+                    vaultLabel.animate().fade(delay: 150.ms, duration: 400.ms);
+              }
+
+              Widget searchPill = Padding(
+                padding: EdgeInsets.fromLTRB(
+                  isWide ? 32 : 16,
+                  8,
+                  isWide ? 32 : 16,
+                  12,
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    context.push('/home/search');
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest
+                              .withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color:
+                                scheme.outlineVariant.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.search_rounded,
+                              color: scheme.primary,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Search thoughts, doodles, checklists...',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: scheme.onSurfaceVariant
+                                      .withValues(alpha: 0.7),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${notes.length}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+              if (animate) {
+                searchPill =
+                    searchPill.animate().fade(delay: 200.ms, duration: 400.ms);
+              }
 
               return PullToSearch(
                 onTrigger: () {
@@ -94,111 +212,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       flexibleSpace: FlexibleSpaceBar(
                         titlePadding: EdgeInsets.symmetric(
                           horizontal: isWide ? 32 : 24,
-                          vertical: 16,
+                          vertical: 8,
                         ),
                         title: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              _timeGreeting,
-                              style: TextStyle(
-                                fontSize: isWide ? 22 : 26,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.8,
-                                color: scheme.onSurface,
-                              ),
-                            )
-                                .animate()
-                                .fade(duration: 400.ms)
-                                .slideY(begin: 0.2),
+                            greeting,
                             const SizedBox(height: 2),
-                            Text(
-                              'YOUR VAULT',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 2.0,
-                                color: scheme.primary,
-                              ),
-                            ).animate().fade(delay: 150.ms, duration: 400.ms),
+                            vaultLabel,
                           ],
                         ),
                       ),
                     ),
                     SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          isWide ? 32 : 16,
-                          8,
-                          isWide ? 32 : 16,
-                          12,
-                        ),
-                        child: GestureDetector(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            context.push('/home/search');
-                          },
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                              child: Container(
-                                height: 54,
-                                decoration: BoxDecoration(
-                                  color: scheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.45),
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: scheme.outlineVariant
-                                        .withValues(alpha: 0.25),
-                                  ),
-                                ),
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 20),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.search_rounded,
-                                      color: scheme.primary,
-                                      size: 22,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        'Search thoughts, doodles, checklists...',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: scheme.onSurfaceVariant
-                                              .withValues(alpha: 0.7),
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: scheme.surfaceContainerHigh,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        '${notes.length}',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: scheme.primary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ).animate().fade(delay: 200.ms, duration: 400.ms),
+                      child: searchPill,
                     ),
                     SliverToBoxAdapter(
                       child: FilterPillBar(
@@ -245,7 +273,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       sliver: SliverList.builder(
         itemCount: filtered.length,
         itemBuilder: (context, index) {
-          return _buildAnimatedCard(filtered[index], index);
+          return _buildAnimatedCard(context, filtered[index], index);
         },
       ),
     );
@@ -271,7 +299,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Expanded(
               child: Column(
                 children: [
-                  for (final pair in left) _buildAnimatedCard(pair.$1, pair.$2),
+                  for (final pair in left)
+                    _buildAnimatedCard(context, pair.$1, pair.$2),
                 ],
               ),
             ),
@@ -280,7 +309,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Column(
                 children: [
                   for (final pair in right)
-                    _buildAnimatedCard(pair.$1, pair.$2),
+                    _buildAnimatedCard(context, pair.$1, pair.$2),
                 ],
               ),
             ),
@@ -290,7 +319,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildAnimatedCard(Note note, int index) {
+  Widget _buildAnimatedCard(BuildContext context, Note note, int index) {
     Widget card;
     if (note.pinned) {
       card = NoteBannerCard(note: note, onTap: () => _openNote(note.id));
@@ -299,6 +328,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } else {
       card = NoteMinimalCard(note: note, onTap: () => _openNote(note.id));
     }
+
+    if (!_animationsAllowed(context)) return card;
 
     return card
         .animate()

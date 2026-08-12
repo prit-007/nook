@@ -10,17 +10,19 @@ class AttachmentRepository {
   final AppDatabase _db;
   static const _uuid = Uuid();
 
-  /// Adds an image attachment for a note.
+  /// Adds an image attachment for a note. Pass [id] to preserve a remote
+  /// attachment id during sync; otherwise a fresh UUID is generated.
   Future<String> addImage({
     required String noteId,
     required String filePath,
+    String? id,
     String? thumbnailPath,
     int sortOrder = 0,
   }) async {
-    final id = _uuid.v4();
+    final attachmentId = id ?? _uuid.v4();
     await _db.into(_db.attachments).insert(
           AttachmentsCompanion.insert(
-            id: Value(id),
+            id: Value(attachmentId),
             noteId: noteId,
             type: AttachmentType.image,
             filePath: filePath,
@@ -28,10 +30,11 @@ class AttachmentRepository {
             sortOrder: Value(sortOrder),
           ),
         );
-    return id;
+    return attachmentId;
   }
 
-  /// Adds a doodle layer attachment for a note.
+  /// Adds a doodle layer attachment for a note. Uses an upsert so a re-sync
+  /// of an already-applied note cannot crash on a primary-key collision.
   Future<String> addDoodle({
     required String noteId,
     required String filePath,
@@ -39,7 +42,7 @@ class AttachmentRepository {
     int sortOrder = 0,
   }) async {
     final attachmentId = id ?? _uuid.v4();
-    await _db.into(_db.attachments).insert(
+    await _db.into(_db.attachments).insertOnConflictUpdate(
           AttachmentsCompanion.insert(
             id: Value(attachmentId),
             noteId: noteId,
@@ -98,12 +101,14 @@ class AttachmentRepository {
         .write(AttachmentsCompanion(thumbnailPath: Value(thumbnailPath)));
   }
 
-  /// Reorders images by updating sort orders.
+  /// Reorders images by updating sort orders atomically.
   Future<void> reorderImages(List<String> orderedIds) async {
-    for (var i = 0; i < orderedIds.length; i++) {
-      await (_db.update(_db.attachments)
-            ..where((a) => a.id.equals(orderedIds[i])))
-          .write(AttachmentsCompanion(sortOrder: Value(i)));
-    }
+    await _db.transaction(() async {
+      for (var i = 0; i < orderedIds.length; i++) {
+        await (_db.update(_db.attachments)
+              ..where((a) => a.id.equals(orderedIds[i])))
+            .write(AttachmentsCompanion(sortOrder: Value(i)));
+      }
+    });
   }
 }

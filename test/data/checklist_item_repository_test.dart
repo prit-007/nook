@@ -64,11 +64,13 @@ void main() {
 
     await repo.toggleChecked(item.id);
     final updated = await repo.getItemById(item.id);
-    expect(updated.checked, isTrue);
+    expect(updated, isNotNull);
+    expect(updated!.checked, isTrue);
 
     await repo.toggleChecked(item.id);
     final toggledBack = await repo.getItemById(item.id);
-    expect(toggledBack.checked, isFalse);
+    expect(toggledBack, isNotNull);
+    expect(toggledBack!.checked, isFalse);
   });
 
   test('updateText changes the item text', () async {
@@ -76,7 +78,8 @@ void main() {
     await repo.updateText(item.id, 'New text');
 
     final updated = await repo.getItemById(item.id);
-    expect(updated.itemText, equals('New text'));
+    expect(updated, isNotNull);
+    expect(updated!.itemText, equals('New text'));
   });
 
   test('deleteItem removes the item', () async {

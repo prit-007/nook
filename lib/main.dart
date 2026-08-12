@@ -16,12 +16,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/native.dart';
 
 import 'app.dart';
 import 'core/providers/biometric_provider.dart';
+import 'core/providers/database_provider.dart';
 import 'core/providers/pin_provider.dart';
 import 'core/providers/screenshot_blocker_provider.dart';
 import 'core/providers/theme_provider.dart';
+import 'data/database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +44,15 @@ void main() async {
   // Apply screenshot blocker flag on startup if persisted.
   await screenshotBlocker.applyPersisted();
 
+  // Open the encrypted on-disk database. Falls back to an in-memory database
+  // on platforms without SQLCipher support (e.g. bare desktop/web dev runs).
+  late final AppDatabase db;
+  try {
+    db = await openEncryptedDatabase();
+  } catch (_) {
+    db = AppDatabase(NativeDatabase.memory());
+  }
+
   runApp(
     ProviderScope(
       overrides: [
@@ -48,6 +60,7 @@ void main() async {
         biometricGateProvider.overrideWith((ref) => biometricGate),
         screenshotBlockerProvider.overrideWith((ref) => screenshotBlocker),
         pinProvider.overrideWith((ref) => pinProv),
+        databaseProvider.overrideWith((ref) => db),
       ],
       child: const NookApp(),
     ),

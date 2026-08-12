@@ -105,8 +105,7 @@ class MockSyncTransport implements SyncTransport {
   SyncSessionState sessionState = const SyncSessionState.idle();
 
   Future<void> Function(List<int> data)? onSend;
-  SyncAck? sendResult =
-      const SyncAck(receivedNoteIds: [], rejectedNoteIds: []);
+  SyncAck? sendResult = const SyncAck(receivedNoteIds: [], rejectedNoteIds: []);
   String? lastPairingCode;
   PairingRequest? lastRespondedPairing;
   bool? lastPairingApproved;
@@ -149,8 +148,7 @@ class MockSyncTransport implements SyncTransport {
   }
 
   @override
-  Future<bool> connectToDevice(SyncDevice device,
-      {String? pairingCode}) async {
+  Future<bool> connectToDevice(SyncDevice device, {String? pairingCode}) async {
     lastPairingCode = pairingCode;
     return connectToDeviceResult;
   }

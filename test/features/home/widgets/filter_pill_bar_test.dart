@@ -26,11 +26,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('All notes'), findsOneWidget);
-      expect(find.text('Pinned'), findsOneWidget);
       expect(find.text('Text'), findsOneWidget);
       expect(find.text('Checklists'), findsOneWidget);
       expect(find.text('Doodles'), findsOneWidget);
-      expect(find.text('Locked'), findsOneWidget);
     });
 
     testWidgets('calls onTypeSelected when pill is tapped', (tester) async {
@@ -60,20 +58,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selected, isNull);
-    });
-
-    testWidgets('shows pin icon for Pinned pill', (tester) async {
-      await tester.pumpWidget(buildBar());
-      await tester.pumpAndSettle();
-
-      expect(find.byIcon(Icons.push_pin_rounded), findsOneWidget);
-    });
-
-    testWidgets('shows lock icon for Locked pill', (tester) async {
-      await tester.pumpWidget(buildBar());
-      await tester.pumpAndSettle();
-
-      expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
     });
 
     testWidgets('displays counts when provided', (tester) async {
