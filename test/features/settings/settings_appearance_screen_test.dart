@@ -25,7 +25,7 @@ void main() {
 
   testWidgets('shows seed color section', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('SEED COLOR'), findsOneWidget);
+    expect(find.text('SEED COLOR SIGNATURE'), findsOneWidget);
   });
 
   testWidgets('shows all 12 seed swatches', (tester) async {

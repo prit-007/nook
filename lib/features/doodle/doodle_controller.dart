@@ -53,6 +53,8 @@ class DoodleController extends ChangeNotifier {
   DoodleBackground _background = DoodleBackground.dotted;
   bool _isDrawing = false;
 
+  bool _shapeAssistEnabled = true;
+
   // --- Hold-to-snap engine ---
   Timer? _holdTimer;
   Offset? _lastPosition;
@@ -63,8 +65,14 @@ class DoodleController extends ChangeNotifier {
   double get currentWidth => _currentWidth;
   DoodleBackground get background => _background;
   bool get isDrawing => _isDrawing;
+  bool get shapeAssistEnabled => _shapeAssistEnabled;
   bool get canUndo => _strokes.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
+
+  void toggleShapeAssist() {
+    _shapeAssistEnabled = !_shapeAssistEnabled;
+    notifyListeners();
+  }
 
   void setCurrentTool(DoodleTool tool) {
     _currentTool = tool;
@@ -111,8 +119,7 @@ class DoodleController extends ChangeNotifier {
     _isDrawing = true;
     _lastPosition = point;
 
-    if (_currentTool == DoodleTool.pen ||
-        _currentTool == DoodleTool.shapeAssist) {
+    if (_shapeAssistEnabled && _currentTool != DoodleTool.eraser) {
       _startHoldTimer();
     }
     notifyListeners();
@@ -124,7 +131,10 @@ class DoodleController extends ChangeNotifier {
     if (_lastPosition != null && (point - _lastPosition!).distance > 2.0) {
       _activeStroke!.points.add(StrokePoint(point, pressure: pressure));
       _lastPosition = point;
-      _startHoldTimer();
+
+      if (_shapeAssistEnabled && _currentTool != DoodleTool.eraser) {
+        _startHoldTimer();
+      }
       notifyListeners();
     }
   }
@@ -139,26 +149,35 @@ class DoodleController extends ChangeNotifier {
 
   void _startHoldTimer() {
     _holdTimer?.cancel();
-    _holdTimer = Timer(const Duration(milliseconds: 400), () {
-      _attemptShapeSnap();
-    });
+    _holdTimer = Timer(const Duration(milliseconds: 400), _attemptShapeSnap);
   }
 
   void _attemptShapeSnap() {
-    if (_activeStroke == null || _activeStroke!.points.length < 10) return;
+    if (_activeStroke == null || _activeStroke!.points.length < 15) return;
 
     final points = _activeStroke!.points.map((p) => p.position).toList();
     final first = points.first;
     final last = points.last;
 
-    // 1. Line Detection
-    final distance = (last - first).distance;
+    final directDistance = (last - first).distance;
     double pathLength = 0.0;
+
+    double minX = first.dx, maxX = first.dx;
+    double minY = first.dy, maxY = first.dy;
+
     for (int i = 1; i < points.length; i++) {
       pathLength += (points[i] - points[i - 1]).distance;
+      if (points[i].dx < minX) minX = points[i].dx;
+      if (points[i].dx > maxX) maxX = points[i].dx;
+      if (points[i].dy < minY) minY = points[i].dy;
+      if (points[i].dy > maxY) maxY = points[i].dy;
     }
 
-    if (pathLength < distance * 1.15) {
+    final width = maxX - minX;
+    final height = maxY - minY;
+
+    // 1. Line Detection
+    if (pathLength < directDistance * 1.15) {
       _activeStroke!.points = [
         StrokePoint(first, pressure: 1.0),
         StrokePoint(last, pressure: 1.0),
@@ -168,44 +187,47 @@ class DoodleController extends ChangeNotifier {
       return;
     }
 
-    // 2. Closed Shape Detection (Circle/Ellipse)
-    if ((last - first).distance < 30.0) {
-      double minX = points.first.dx, maxX = points.first.dx;
-      double minY = points.first.dy, maxY = points.first.dy;
-      for (final p in points) {
-        if (p.dx < minX) minX = p.dx;
-        if (p.dx > maxX) maxX = p.dx;
-        if (p.dy < minY) minY = p.dy;
-        if (p.dy > maxY) maxY = p.dy;
-      }
+    // 2. Closed Shape Detection (Distance between start and end is small)
+    if (directDistance < 40.0 && width > 20 && height > 20) {
+      final perimeter = 2 * (width + height);
+      final circumference =
+          math.pi * math.max(width, height); // rough oval approx
 
-      final width = maxX - minX;
-      final height = maxY - minY;
-
-      if (width > 0 && height > 0) {
-        _activeStroke!.points = _generatePerfectOval(minX, minY, width, height);
+      // Rectangle check
+      if ((pathLength - perimeter).abs() < perimeter * 0.2) {
+        _activeStroke!.points = [
+          StrokePoint(Offset(minX, minY)),
+          StrokePoint(Offset(maxX, minY)),
+          StrokePoint(Offset(maxX, maxY)),
+          StrokePoint(Offset(minX, maxY)),
+          StrokePoint(Offset(minX, minY)), // close path
+        ];
         _activeStroke!.isPerfectShape = true;
         notifyListeners();
+        return;
+      }
+
+      // Oval check
+      if ((pathLength - circumference).abs() < circumference * 0.25) {
+        _activeStroke!.points = _generateOval(minX, minY, width, height);
+        _activeStroke!.isPerfectShape = true;
+        notifyListeners();
+        return;
       }
     }
   }
 
-  List<StrokePoint> _generatePerfectOval(
-      double x, double y, double w, double h) {
+  List<StrokePoint> _generateOval(double x, double y, double w, double h) {
     final center = Offset(x + w / 2, y + h / 2);
-    final radiusX = w / 2;
-    final radiusY = h / 2;
-    final points = <StrokePoint>[];
-
+    final rx = w / 2;
+    final ry = h / 2;
+    final pts = <StrokePoint>[];
     for (int i = 0; i <= 60; i++) {
       final angle = (i / 60) * math.pi * 2;
-      points.add(StrokePoint(
-        Offset(center.dx + radiusX * math.cos(angle),
-            center.dy + radiusY * math.sin(angle)),
-        pressure: 1.0,
-      ));
+      pts.add(StrokePoint(Offset(
+          center.dx + rx * math.cos(angle), center.dy + ry * math.sin(angle))));
     }
-    return points;
+    return pts;
   }
 
   void undo() {

@@ -2,7 +2,7 @@
 
 > **How to use:** Check off tasks as you complete them. Each task lists the files to create/modify and the validation command to run. Move the `[ ]` → `[x]` when done. Update the status table at the top of each phase when a phase is fully complete.
 
-**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. Validation and physical-device testing remaining.
+**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished in **v0.6.2**. Physical-device validation and remaining Phase 5 validation steps below.
 
 ---
 
@@ -15,7 +15,7 @@
 | 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
-| 5 | Nearby Sync (transport, pairing, merge resolver) | **~50% COMPLETE** | 2026-08-11 | — |
+| 5 | Nearby Sync (transport, pairing, merge resolver) | **~60% COMPLETE** | 2026-08-11 | — |
 | 6 | Hardening for Play Store (accessibility, export, privacy) | NOT STARTED | — | — |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
 

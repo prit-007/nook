@@ -1,38 +1,37 @@
-name: CI
+name: CI & Release
 
 on:
   push:
     branches: [main]
+    tags:
+      - 'v*' # Triggers the workflow when you push tags like 'v1.0.0'
   pull_request:
     branches: [main]
+
+# Grant permission to create a release and upload assets
+permissions:
+  contents: write
 
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.8'
           channel: 'stable'
           cache: true
-
       - name: Install dependencies
         run: flutter pub get
-
       - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
         run: dart run tool/patch_appflowy_editor.dart
-
       - name: Generate code (Drift/Riverpod/Freezed)
         run: dart run build_runner build --delete-conflicting-outputs
-
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
-
       - name: Analyze
         run: flutter analyze
-
       - name: Run tests
         run: flutter test --coverage
 
@@ -41,19 +40,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.8'
           channel: 'stable'
           cache: true
-
       - name: Install dependencies
         run: flutter pub get
-
       - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
         run: dart run tool/patch_appflowy_editor.dart
-
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
 
@@ -63,12 +58,20 @@ jobs:
           VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build release APK
+        run: flutter build apk --release
 
-      - name: Upload APK Artifact
+      - name: Upload APK Artifact (Workflow Summary)
         uses: actions/upload-artifact@v4
         with:
-          name: nook-app-v${{ env.APP_VERSION }}-debug
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: nook-app-v${{ env.APP_VERSION }}-release
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+      - name: Create Release and Upload APK
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          generate_release_notes: true
+          files: build/app/outputs/flutter-apk/app-release.apk
+          name: Release ${{ github.ref_name }}

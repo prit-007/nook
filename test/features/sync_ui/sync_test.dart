@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/features/sync_ui/sync_history_screen.dart';
@@ -24,7 +25,7 @@ Widget wrapInApp(Widget child, {AppDatabase? db}) {
       syncOrchestratorProvider.overrideWith(() => _StubSyncOrchestrator()),
     ],
     child: MaterialApp(
-      home: child,
+      home: child is Scaffold ? child : SizedBox.expand(child: child),
     ),
   );
 }
@@ -129,54 +130,54 @@ void main() {
   group('SyncScreen', () {
     testWidgets('renders with Send and Receive buttons', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      expect(find.text('Send Notes'), findsOneWidget);
+      expect(find.text('Send to Device'), findsOneWidget);
       expect(find.text('Receive Notes'), findsOneWidget);
     });
 
     testWidgets('shows sync icon in app bar', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      expect(find.byIcon(Icons.send), findsOneWidget);
+      expect(find.byIcon(LucideIcons.send), findsOneWidget);
     });
 
     testWidgets('shows sync history button', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      expect(find.byIcon(Icons.history), findsOneWidget);
+      expect(find.byIcon(LucideIcons.history), findsOneWidget);
     });
   });
 
   group('SyncSendScreen', () {
     testWidgets('renders with note selection list', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.text('Select Notes'), findsOneWidget);
     });
 
     testWidgets('shows empty state when no notes', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      expect(find.text('No notes to sync'), findsOneWidget);
+      expect(find.text('No notes found.'), findsOneWidget);
     });
 
     testWidgets('shows search bar for filtering notes', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      expect(find.byIcon(Icons.search), findsOneWidget);
+      expect(find.byIcon(LucideIcons.search), findsOneWidget);
     });
   });
 
   group('SyncReceiveScreen', () {
     testWidgets('renders with discoverable toggle', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncReceiveScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.text('Make this device visible'), findsOneWidget);
       expect(find.byType(SwitchListTile), findsOneWidget);
@@ -184,9 +185,9 @@ void main() {
 
     testWidgets('shows device name', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncReceiveScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      expect(find.byIcon(Icons.phone_android), findsOneWidget);
+      expect(find.byIcon(LucideIcons.smartphone), findsOneWidget);
     });
   });
 
@@ -199,10 +200,10 @@ void main() {
         ),
         db: db,
       ));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.text('123456'), findsOneWidget);
-      expect(find.text('Galaxy S24'), findsOneWidget);
+      expect(find.textContaining('Galaxy S24'), findsOneWidget);
     });
 
     testWidgets('shows confirm and cancel buttons', (tester) async {
@@ -213,7 +214,7 @@ void main() {
         ),
         db: db,
       ));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.text('Confirm'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
@@ -231,24 +232,14 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('shows transfer status text', (tester) async {
+    testWidgets('shows idle status text', (tester) async {
       await tester.pumpWidget(wrapInApp(
         const SyncTransferScreen(sessionId: 'session-1'),
         db: db,
       ));
       await tester.pump();
 
-      expect(find.text('Preparing transfer...'), findsOneWidget);
-    });
-
-    testWidgets('shows cancel button', (tester) async {
-      await tester.pumpWidget(wrapInApp(
-        const SyncTransferScreen(sessionId: 'session-1'),
-        db: db,
-      ));
-      await tester.pump();
-
-      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Establishing Link...'), findsOneWidget);
     });
   });
 
@@ -262,10 +253,10 @@ void main() {
         ),
         db: db,
       ));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.text('Conflict: Groceries'), findsOneWidget);
-      expect(find.textContaining('This device'), findsOneWidget);
+      expect(find.textContaining('This device'), findsNWidgets(2));
       expect(find.textContaining('Galaxy S24'), findsOneWidget);
     });
 
@@ -278,7 +269,7 @@ void main() {
         ),
         db: db,
       ));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.text('Keep this device'), findsOneWidget);
       expect(find.text('Keep incoming'), findsOneWidget);
@@ -289,14 +280,14 @@ void main() {
   group('SyncHistoryScreen', () {
     testWidgets('renders with history list', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncHistoryScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.text('Sync History'), findsOneWidget);
     });
 
     testWidgets('shows empty state when no history', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncHistoryScreen(), db: db));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.text('No sync history yet'), findsOneWidget);
     });

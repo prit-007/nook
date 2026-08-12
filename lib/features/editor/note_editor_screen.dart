@@ -238,8 +238,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   Future<void> _togglePin() async {
     if (_note == null) return;
-    // ignore: unawaited_futures
-    HapticFeedback.lightImpact();
+    unawaited(HapticFeedback.lightImpact());
     final repo = NoteRepository(_db!);
     final newPinned = !_pinned;
     setState(() => _pinned = newPinned);
@@ -523,16 +522,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
   }
 
-  Color _ambientBackgroundColor(BuildContext context) {
-    final noteScheme = _colorSeed != null && _colorSeed!.isNotEmpty
-        ? ColorScheme.fromSeed(
-            seedColor:
-                Color(int.parse('0xFF${_colorSeed!.replaceFirst('#', '')}')),
-          )
-        : Theme.of(context).colorScheme;
-    return noteScheme.surfaceContainerLow.withValues(alpha: 0.4);
-  }
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -568,29 +557,30 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           )
         : Theme.of(context).colorScheme;
 
+    final dynamicTextTheme =
+        NoteThemeScope.buildDynamicTextTheme(context, noteScheme);
+
     return NoteThemeScope(
       colorScheme: noteScheme,
-      textTheme: NoteThemeScope.buildDynamicTextTheme(context, noteScheme),
+      textTheme: dynamicTextTheme,
       child: Scaffold(
         resizeToAvoidBottomInset: false,
-        backgroundColor: _ambientBackgroundColor(context),
+        backgroundColor: noteScheme.surfaceContainerLowest,
         body: Stack(
           children: [
             if (widget.noteId != null)
               Positioned.fill(
                 child: Hero(
                   tag: 'note-${widget.noteId}',
-                  child: ColoredBox(
-                    color: _ambientBackgroundColor(context),
-                  ),
+                  child: ColoredBox(color: noteScheme.surfaceContainerLowest),
                 ),
               ),
             CustomScrollView(
               slivers: [
                 SliverPadding(
                   padding: EdgeInsets.only(
-                    top: topPadding + 84,
-                    bottom: isKeyboardVisible ? keyboardHeight + 80 : 114,
+                    top: topPadding + 90,
+                    bottom: keyboardHeight + 300,
                   ),
                   sliver: SliverFillRemaining(
                     hasScrollBody: true,
@@ -600,11 +590,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                         cursorColor: noteScheme.primary,
                         selectionColor:
                             noteScheme.primary.withValues(alpha: 0.2),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
                         textStyleConfiguration: TextStyleConfiguration(
-                          text: TextStyle(
+                          text: dynamicTextTheme.bodyLarge!.copyWith(
                             color: noteScheme.onSurface,
-                            fontSize: 16,
-                            height: 1.6,
+                            height: 1.65,
                           ),
                         ),
                       ),
@@ -622,7 +612,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                             _openDoodleCanvas(node, editorState);
                           },
                         ),
-                        // Override the built-in image block with pinch-to-zoom support.
                         ImageBlockKeys.type: NookImageBlockComponentBuilder(),
                       },
                       characterShortcutEvents: [
@@ -654,36 +643,38 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 ),
               ],
             ),
+
+            // 2. Auto-Hiding Glass App Bar (Zen Mode)
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              top: isKeyboardVisible ? -80 : topPadding + 12,
-              left: 16,
-              right: 16,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutBack,
+              top: isKeyboardVisible ? -100 : topPadding + 12,
+              left: 20,
+              right: 20,
               child: RepaintBoundary(
                 child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 250),
                   opacity: isKeyboardVisible ? 0.0 : 1.0,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(32),
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                       child: Container(
-                        height: 56,
+                        height: 60,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
                           color: noteScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(28),
+                              .withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(32),
                           border: Border.all(
                             color: noteScheme.outlineVariant
-                                .withValues(alpha: 0.2),
+                                .withValues(alpha: 0.25),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: noteScheme.shadow.withValues(alpha: 0.08),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
+                              color: noteScheme.shadow.withValues(alpha: 0.05),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
                             ),
                           ],
                         ),
@@ -696,43 +687,56 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                 color: noteScheme.onSurface,
                               ),
                               onPressed: () async {
-                                // ignore: unawaited_futures
-                                HapticFeedback.lightImpact();
-                                final nav = GoRouter.of(context);
+                                final router = GoRouter.of(context);
+                                unawaited(HapticFeedback.lightImpact());
                                 await _save();
-                                if (mounted) nav.pop();
+                                if (mounted) router.pop();
                               },
                             ),
                             Expanded(
                               child: Column(
-                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _title.isNotEmpty ? _title : 'Untitled',
-                                    textAlign: TextAlign.center,
+                                    _title.isNotEmpty ? _title : 'New Note',
+                                    style:
+                                        dynamicTextTheme.titleMedium?.copyWith(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: noteScheme.onSurface,
-                                    ),
                                   ),
                                   Text(
                                     _saving
                                         ? 'Saving...'
-                                        : DateFormat('MMM d, yyyy').format(
+                                        : DateFormat('MMMM d, yyyy').format(
                                             _note?.updatedAt ?? DateTime.now()),
-                                    textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      fontWeight: FontWeight.w400,
+                                      fontWeight: FontWeight.w500,
                                       color: noteScheme.onSurfaceVariant,
-                                      letterSpacing: 0.3,
                                     ),
                                   ),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              tooltip: 'Insert image',
+                              icon: Icon(
+                                Icons.add_photo_alternate_rounded,
+                                color: noteScheme.onSurface,
+                              ),
+                              onPressed: _insertImage,
+                            ),
+                            IconButton(
+                              tooltip: 'Insert doodle',
+                              icon: Icon(
+                                Icons.draw_rounded,
+                                color: noteScheme.onSurface,
+                              ),
+                              onPressed: _insertDoodle,
                             ),
                             IconButton(
                               tooltip: _pinned ? 'Unpin note' : 'Pin note',
@@ -746,24 +750,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                 size: 20,
                               ),
                               onPressed: _togglePin,
-                            ),
-                            IconButton(
-                              tooltip: 'Insert image',
-                              icon: Icon(
-                                Icons.add_photo_alternate_rounded,
-                                color: noteScheme.onSurface,
-                                size: 20,
-                              ),
-                              onPressed: _insertImage,
-                            ),
-                            IconButton(
-                              tooltip: 'Insert doodle',
-                              icon: Icon(
-                                Icons.draw_rounded,
-                                color: noteScheme.onSurface,
-                                size: 20,
-                              ),
-                              onPressed: _insertDoodle,
                             ),
                             IconButton(
                               tooltip: 'Export note',
@@ -790,16 +776,18 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 ),
               ),
             ),
+
+            // 3. Floating Formatting Pill (Anchors to keyboard)
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
+              duration: const Duration(milliseconds: 400),
               curve: Curves.easeOutCubic,
               bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
               left: 0,
               right: 0,
-              child: RepaintBoundary(
-                child: Center(
+              child: Center(
+                child: RepaintBoundary(
                   child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 250),
+                    duration: const Duration(milliseconds: 300),
                     opacity: isKeyboardVisible ? 1.0 : 0.0,
                     child: _FloatingFormatBar(editorState: _editorState!),
                   ),

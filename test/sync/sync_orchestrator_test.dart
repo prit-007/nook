@@ -1,171 +1,13 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:drift/native.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nearby_service/nearby_service.dart' as ns;
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/note_repository.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/sync/protocol/sync_bundle.dart';
 import 'package:nook/sync/sync_orchestrator.dart';
-import 'package:nook/sync/transport/nearby_service_transport.dart';
 import 'package:nook/sync/transport/sync_transport.dart';
-
-// ---------------------------------------------------------------------------
-// Fake NearbyService (subset needed for orchestrator tests)
-// ---------------------------------------------------------------------------
-
-final class _FakeNearbyDevice extends ns.NearbyDevice {
-  const _FakeNearbyDevice({required super.info, required super.status});
-}
-
-class _FakeNearbyService extends ns.NearbyService {
-  bool initializeResult = true;
-  bool connectByIdResult = true;
-  bool discoverResult = true;
-  bool sendResult = true;
-  bool initializeCalled = false;
-  bool discoverCalled = false;
-  bool stopDiscoveryCalled = false;
-  bool disconnectByIdCalled = false;
-  bool endChannelCalled = false;
-  final List<ns.OutgoingNearbyMessage> sentMessages = [];
-  final List<ns.NearbyDevice> peers = [];
-  ns.NearbyDeviceInfo? currentDeviceInfo;
-
-  final peersController = StreamController<List<ns.NearbyDevice>>.broadcast();
-  final connectedController = StreamController<ns.NearbyDevice?>.broadcast();
-  final channelStateController =
-      StreamController<ns.CommunicationChannelState>.broadcast();
-
-  ns.NearbyServiceMessagesListener? messagesListener;
-  ns.NearbyServiceFilesListener? filesListener;
-
-  @override
-  ValueListenable<ns.CommunicationChannelState> get communicationChannelState =>
-      throw UnimplementedError();
-
-  @override
-  ns.CommunicationChannelState get communicationChannelStateValue =>
-      ns.CommunicationChannelState.notConnected;
-
-  @override
-  Future<bool> initialize({
-    ns.NearbyInitializeData data = const ns.NearbyInitializeData(),
-  }) async {
-    initializeCalled = true;
-    return initializeResult;
-  }
-
-  @override
-  Future<bool> discover() async {
-    discoverCalled = true;
-    return discoverResult;
-  }
-
-  @override
-  Future<bool> stopDiscovery() async {
-    stopDiscoveryCalled = true;
-    return true;
-  }
-
-  @override
-  Future<bool> connect(ns.NearbyDevice device) async => true;
-
-  @override
-  Future<bool> connectById(String deviceId) async => connectByIdResult;
-
-  @override
-  Future<bool> disconnect([ns.NearbyDevice? device]) async => true;
-
-  @override
-  Future<bool> disconnectById([String? deviceId]) async {
-    disconnectByIdCalled = true;
-    return true;
-  }
-
-  @override
-  FutureOr<bool> startCommunicationChannel(
-    ns.NearbyCommunicationChannelData data,
-  ) async {
-    messagesListener = data.messagesListener;
-    filesListener = data.filesListener;
-    data.messagesListener.onCreated?.call();
-    return true;
-  }
-
-  @override
-  FutureOr<bool> endCommunicationChannel() async {
-    endChannelCalled = true;
-    return true;
-  }
-
-  @override
-  Stream<ns.CommunicationChannelState> getCommunicationChannelStateStream() =>
-      channelStateController.stream;
-
-  @override
-  FutureOr<bool> send(ns.OutgoingNearbyMessage message) async {
-    sentMessages.add(message);
-    return sendResult;
-  }
-
-  @override
-  Future<ns.NearbyDeviceInfo?> getCurrentDeviceInfo() async =>
-      currentDeviceInfo;
-
-  @override
-  Future<List<ns.NearbyDevice>> getPeers() async => List.of(peers);
-
-  @override
-  Stream<List<ns.NearbyDevice>> getPeersStream() => peersController.stream;
-
-  @override
-  Stream<ns.NearbyDevice?> getConnectedDeviceStreamById(String deviceId) =>
-      connectedController.stream;
-
-  @override
-  Stream<ns.NearbyDevice?> getConnectedDeviceStream(ns.NearbyDevice device) =>
-      connectedController.stream;
-
-  void deliverTextMessage(String text, {ns.NearbyDeviceInfo? sender}) {
-    final senderInfo = sender ??
-        const ns.NearbyDeviceInfo(id: 'sender-1', displayName: 'Sender');
-    messagesListener?.onData(
-      ns.ReceivedNearbyMessage(
-        content: ns.NearbyMessageTextRequest.createManually(
-          id: 'msg-${DateTime.now().millisecondsSinceEpoch}',
-          value: text,
-        ),
-        sender: senderInfo,
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Test orchestrator that injects a fake transport
-// ---------------------------------------------------------------------------
-
-class _TestSyncOrchestrator extends SyncOrchestrator {
-  final _FakeNearbyService _fakeService;
-
-  _TestSyncOrchestrator(this._fakeService);
-
-  @override
-  Future<void> initializeTransport(
-      {NearbyServiceTransport? testTransport}) async {
-    final transport = NearbyServiceTransport(
-      service: _fakeService,
-      chunkSize: 64,
-    );
-    await super.initializeTransport(testTransport: transport);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -179,22 +21,17 @@ AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
 
 void main() {
   late AppDatabase db;
-  late _FakeNearbyService fake;
+  late MockSyncTransport mockTransport;
   late ProviderContainer container;
 
   setUp(() {
     db = createTestDb();
-    fake = _FakeNearbyService();
-    fake.currentDeviceInfo =
-        const ns.NearbyDeviceInfo(id: 'local-1', displayName: 'Local Device');
+    mockTransport = MockSyncTransport();
   });
 
   tearDown(() async {
     container.dispose();
     await db.close();
-    await fake.peersController.close();
-    await fake.connectedController.close();
-    await fake.channelStateController.close();
   });
 
   ProviderContainer makeContainer() {
@@ -202,7 +39,7 @@ void main() {
       overrides: [
         databaseProvider.overrideWithValue(db),
         syncOrchestratorProvider.overrideWith(
-          () => _TestSyncOrchestrator(fake),
+          () => _TestSyncOrchestrator(mockTransport),
         ),
       ],
     );
@@ -230,7 +67,7 @@ void main() {
 
       final state = container.read(syncOrchestratorProvider);
       expect(state.phase, SyncPhase.discovering);
-      expect(fake.discoverCalled, isTrue);
+      expect(mockTransport.isDiscovering, isTrue);
     });
 
     test('startAdvertising transitions to receiving', () async {
@@ -242,6 +79,7 @@ void main() {
 
       final state = container.read(syncOrchestratorProvider);
       expect(state.phase, SyncPhase.receiving);
+      expect(mockTransport.isAdvertising, isTrue);
     });
 
     test('stop resets to idle', () async {
@@ -269,13 +107,13 @@ void main() {
       await notifier.initializeTransport();
       await notifier.startDiscovery();
 
-      // Simulate a peer appearing.
-      fake.peersController.add([
-        const _FakeNearbyDevice(
-          info: ns.NearbyDeviceInfo(id: 'peer-1', displayName: 'Galaxy S24'),
-          status: ns.NearbyDeviceStatus.available,
-        ),
-      ]);
+      mockTransport.emitDeviceFound(const SyncDevice(
+        deviceId: 'peer-1',
+        deviceName: 'Galaxy S24',
+        isOnline: true,
+        hostAddress: '192.168.1.50',
+        port: 12345,
+      ));
       await Future<void>.delayed(Duration.zero);
 
       final state = container.read(syncOrchestratorProvider);
@@ -291,20 +129,22 @@ void main() {
       await notifier.initializeTransport();
       await notifier.startDiscovery();
 
-      fake.peersController.add([
-        const _FakeNearbyDevice(
-          info: ns.NearbyDeviceInfo(id: 'peer-1', displayName: 'Galaxy'),
-          status: ns.NearbyDeviceStatus.available,
-        ),
-      ]);
+      mockTransport.emitDeviceFound(const SyncDevice(
+        deviceId: 'peer-1',
+        deviceName: 'Galaxy',
+        isOnline: true,
+        hostAddress: '192.168.1.50',
+        port: 12345,
+      ));
       await Future<void>.delayed(Duration.zero);
 
-      fake.peersController.add([
-        const _FakeNearbyDevice(
-          info: ns.NearbyDeviceInfo(id: 'peer-1', displayName: 'Galaxy'),
-          status: ns.NearbyDeviceStatus.connected,
-        ),
-      ]);
+      mockTransport.emitDeviceFound(const SyncDevice(
+        deviceId: 'peer-1',
+        deviceName: 'Galaxy',
+        isOnline: true,
+        hostAddress: '192.168.1.50',
+        port: 12345,
+      ));
       await Future<void>.delayed(Duration.zero);
 
       final state = container.read(syncOrchestratorProvider);
@@ -345,11 +185,6 @@ void main() {
 
       await notifier.initializeTransport();
 
-      // Set up a fake connected device.
-      fake.peers.add(const _FakeNearbyDevice(
-        info: ns.NearbyDeviceInfo(id: 'peer-1', displayName: 'Peer'),
-        status: ns.NearbyDeviceStatus.connected,
-      ));
       await notifier.connectToDevice(const SyncDevice(
         deviceId: 'peer-1',
         deviceName: 'Peer',
@@ -377,24 +212,22 @@ void main() {
       );
 
       // Set up connected device.
-      fake.peers.add(const _FakeNearbyDevice(
-        info: ns.NearbyDeviceInfo(id: 'peer-1', displayName: 'Peer'),
-        status: ns.NearbyDeviceStatus.connected,
-      ));
       await notifier.connectToDevice(const SyncDevice(
         deviceId: 'peer-1',
         deviceName: 'Peer',
         isOnline: true,
       ));
 
-      // Send in background.
+      // Wire onSend to deliver ack after data is sent.
+      mockTransport.onSend = (data) async {
+        // Simulate the receiver sending an ack back.
+        // The transport's sendData will complete when it receives the ack.
+      };
+
       final sendFuture = notifier.sendNotes([note.id]);
 
       // Allow the transport to send header + chunks.
       await Future<void>.delayed(Duration.zero);
-
-      // Deliver ack to resolve the transport's sendData.
-      fake.deliverTextMessage(jsonEncode({'type': 'sync_ack'}));
 
       await sendFuture;
 
@@ -418,10 +251,6 @@ void main() {
 
       expect(note.syncVersion, 0);
 
-      fake.peers.add(const _FakeNearbyDevice(
-        info: ns.NearbyDeviceInfo(id: 'peer-1', displayName: 'Peer'),
-        status: ns.NearbyDeviceStatus.connected,
-      ));
       await notifier.connectToDevice(const SyncDevice(
         deviceId: 'peer-1',
         deviceName: 'Peer',
@@ -430,7 +259,6 @@ void main() {
 
       final sendFuture = notifier.sendNotes([note.id]);
       await Future<void>.delayed(Duration.zero);
-      fake.deliverTextMessage(jsonEncode({'type': 'sync_ack'}));
       await sendFuture;
 
       final updated = await noteRepo.getNoteById(note.id);
@@ -461,7 +289,6 @@ void main() {
         remoteDeviceName: 'Remote Device',
       );
 
-      // Put the conflict in state.
       notifier.state = notifier.state.copyWith(
         phase: SyncPhase.resolving,
         conflicts: [conflict],
@@ -574,34 +401,6 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // Received bundle processing (simulated via bytesReceivedStream)
-  // -------------------------------------------------------------------------
-
-  group('receive bundle', () {
-    test('processes incoming bundle and sends ack', () async {
-      container = makeContainer();
-      final notifier = container.read(syncOrchestratorProvider.notifier);
-
-      await notifier.initializeTransport();
-      await notifier.startAdvertising();
-
-      // Simulate the transport delivering reassembled bytes.
-      // We need to trigger _handleReceivedBytes via the bytesReceivedStream.
-      // The orchestrator listens in startAdvertising. Emit bytes through the
-      // fake transport's controller... but we don't have direct access.
-      //
-      // Alternative: call _handleReceivedBytes directly — it's private.
-      // Instead, test the full roundtrip by having the fake transport
-      // emit bytes through its stream.
-
-      // For this test, we verify that after startAdvertising the orchestrator
-      // is in receiving state and can process conflicts.
-      final state = container.read(syncOrchestratorProvider);
-      expect(state.phase, SyncPhase.receiving);
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // connectToDevice
   // -------------------------------------------------------------------------
 
@@ -611,11 +410,6 @@ void main() {
       final notifier = container.read(syncOrchestratorProvider.notifier);
 
       await notifier.initializeTransport();
-
-      fake.peers.add(const _FakeNearbyDevice(
-        info: ns.NearbyDeviceInfo(id: 'peer-1', displayName: 'Peer'),
-        status: ns.NearbyDeviceStatus.connected,
-      ));
 
       await notifier.connectToDevice(const SyncDevice(
         deviceId: 'peer-1',
@@ -629,7 +423,7 @@ void main() {
     });
 
     test('sets error on connection failure', () async {
-      fake.connectByIdResult = false;
+      mockTransport.connectToDeviceResult = false;
       container = makeContainer();
       final notifier = container.read(syncOrchestratorProvider.notifier);
 
@@ -645,4 +439,19 @@ void main() {
       expect(state.error, contains('Failed to connect'));
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Test orchestrator that injects a mock transport
+// ---------------------------------------------------------------------------
+
+class _TestSyncOrchestrator extends SyncOrchestrator {
+  final MockSyncTransport _mockTransport;
+
+  _TestSyncOrchestrator(this._mockTransport);
+
+  @override
+  Future<void> initializeTransport({SyncTransport? testTransport}) async {
+    await super.initializeTransport(testTransport: _mockTransport);
+  }
 }

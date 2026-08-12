@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
@@ -17,127 +22,179 @@ class SettingsSecurityScreen extends ConsumerWidget {
     final pinProv = ref.watch(pinProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Security')),
+      backgroundColor: scheme.surface,
+      appBar: AppBar(
+        title: const Text(
+          'Security',
+          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+        ),
+        backgroundColor: Colors.transparent,
+      ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         children: [
-          // ── Biometric lock ──
-          Container(
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: SwitchListTile(
-              title: const Text('Biometric lock'),
-              subtitle:
-                  const Text('Lock your vault with Face ID or fingerprint'),
+          _buildGlassCard(
+            scheme,
+            child: SwitchListTile.adaptive(
+              title: const Text(
+                'Biometric Lock',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                'Secure vault with Face ID or fingerprint',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 13,
+                ),
+              ),
               secondary: Icon(
-                Icons.fingerprint,
+                LucideIcons.fingerprint,
                 color: scheme.primary,
+                size: 28,
               ),
               value: gate.enabled,
-              onChanged: (value) =>
-                  ref.read(biometricGateProvider).setEnabled(value),
+              activeThumbColor: scheme.primary,
+              onChanged: (value) {
+                HapticFeedback.lightImpact();
+                ref.read(biometricGateProvider).setEnabled(value);
+              },
             ),
           ),
-
-          const SizedBox(height: 12),
-
-          // ── Screenshot blocking ──
-          Container(
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: SwitchListTile(
-              title: const Text('Block screenshots'),
-              subtitle: const Text(
-                'Prevent screen recording and screenshots',
+          const SizedBox(height: 16),
+          _buildGlassCard(
+            scheme,
+            child: SwitchListTile.adaptive(
+              title: const Text(
+                'Block Screenshots',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                'Prevent screen recording and captures',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 13,
+                ),
               ),
               secondary: Icon(
-                Icons.screen_lock_portrait_rounded,
+                LucideIcons.ban,
                 color: scheme.primary,
+                size: 28,
               ),
               value: blocker.blocked,
-              onChanged: (value) =>
-                  ref.read(screenshotBlockerProvider).setBlocked(value),
+              activeThumbColor: scheme.primary,
+              onChanged: (value) {
+                HapticFeedback.lightImpact();
+                ref.read(screenshotBlockerProvider).setBlocked(value);
+              },
             ),
           ),
-
           if (gate.enabled) ...[
-            const SizedBox(height: 24),
-
-            // ── Auto-lock timer ──
-            Text(
-              'AUTO-LOCK TIMER',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1,
-                color: scheme.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: RadioGroup<AutoLockTile>(
-                groupValue: AutoLockTile(gate.autoLockDuration),
-                onChanged: (tile) {
-                  if (tile != null) {
-                    ref
-                        .read(biometricGateProvider)
-                        .setAutoLockDuration(tile.duration);
-                  }
-                },
-                child: Column(
-                  children: [
-                    for (final duration in AutoLockDuration.values)
-                      RadioListTile<AutoLockTile>(
-                        title: Text(_labelFor(duration)),
-                        value: AutoLockTile(duration),
-                      ),
-                  ],
+            const SizedBox(height: 32),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 8),
+              child: Text(
+                'AUTO-LOCK TIMER',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                  color: scheme.primary.withValues(alpha: 0.8),
                 ),
               ),
             ),
+            _buildGlassCard(
+              scheme,
+              child: Column(
+                children: [
+                  for (final duration in AutoLockDuration.values)
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          ref
+                              .read(biometricGateProvider)
+                              .setAutoLockDuration(duration);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _labelFor(duration),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              if (gate.autoLockDuration == duration)
+                                Icon(
+                                  LucideIcons.checkCircle,
+                                  color: scheme.primary,
+                                  size: 22,
+                                )
+                              else
+                                Icon(
+                                  LucideIcons.circle,
+                                  color: scheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                  size: 22,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
-
-          const SizedBox(height: 24),
-
-          // ── PIN lock ──
-          Text(
-            'PIN LOCK',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
-              color: scheme.primary,
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, bottom: 8),
+            child: Text(
+              'PIN FALLBACK',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+                color: scheme.primary.withValues(alpha: 0.8),
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: SwitchListTile(
-              title: const Text('PIN fallback'),
+          _buildGlassCard(
+            scheme,
+            child: SwitchListTile.adaptive(
+              title: const Text(
+                'PIN Access',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               subtitle: Text(
                 pinProv.enabled
-                    ? 'PIN is set — shown on lock screen'
+                    ? 'PIN is set'
                     : 'Set a PIN as biometric fallback',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 13,
+                ),
               ),
               secondary: Icon(
-                pinProv.enabled ? Icons.pin_rounded : Icons.pin_outlined,
+                pinProv.enabled
+                    ? LucideIcons.lockKeyhole
+                    : LucideIcons.keyRound,
                 color: scheme.primary,
+                size: 28,
               ),
               value: pinProv.enabled,
+              activeThumbColor: scheme.primary,
               onChanged: (value) async {
+                unawaited(HapticFeedback.lightImpact());
                 if (value) {
-                  // Show PIN setup screen.
                   final result = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(
                       builder: (_) => const PinEntryScreen(isSetup: true),
@@ -150,7 +207,27 @@ class SettingsSecurityScreen extends ConsumerWidget {
               },
             ),
           ),
+          const SizedBox(height: 48),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGlassCard(ColorScheme scheme, {required Widget child}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.3),
+            ),
+          ),
+          child: child,
+        ),
       ),
     );
   }
@@ -162,18 +239,4 @@ class SettingsSecurityScreen extends ConsumerWidget {
         AutoLockDuration.fifteenMinutes => 'After 15 minutes',
         AutoLockDuration.never => 'Never',
       };
-}
-
-/// Wrapper so RadioListTile can use value equality on the enum.
-class AutoLockTile {
-  const AutoLockTile(this.duration);
-  final AutoLockDuration duration;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AutoLockTile && duration == other.duration;
-
-  @override
-  int get hashCode => duration.hashCode;
 }

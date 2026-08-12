@@ -60,7 +60,7 @@ void main() {
       expect(controller.currentTool, equals(DoodleTool.highlighter));
     });
 
-    testWidgets('tapping magic wand selects shape assist', (tester) async {
+    testWidgets('tapping magic wand toggles shape assist', (tester) async {
       final controller = DoodleController();
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
@@ -68,10 +68,12 @@ void main() {
         ),
       ));
 
+      expect(controller.shapeAssistEnabled, isTrue);
+
       await tester.tap(find.byIcon(LucideIcons.wandSparkles));
       await tester.pumpAndSettle();
 
-      expect(controller.currentTool, equals(DoodleTool.shapeAssist));
+      expect(controller.shapeAssistEnabled, isFalse);
     });
 
     testWidgets('renders color swatches', (tester) async {

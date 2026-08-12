@@ -1,7 +1,7 @@
 name: nook
 description: "A private, local-first note-taking app. Your notes, your device, yours."
 publish_to: 'none'
-version: 0.5.0+1
+version: 0.6.2+1
 license: GPL-3.0
 
 environment:
@@ -45,10 +45,9 @@ dependencies:
   flutter_secure_storage: ^10.3.1
 
   # Nearby sync
-  nearby_service: ^0.2.1
+  bonsoir: ^7.1.5
   crypto: ^3.0.5
   cbor: ^6.3.4
-  device_info_plus: ^11.5.0
   archive: ^3.6.1
 
   # Small delight, low effort

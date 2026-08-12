@@ -34,15 +34,14 @@ class DoodleToolbar extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.75),
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(32),
                 border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.4),
-                  width: 1,
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: scheme.shadow.withValues(alpha: 0.1),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -51,7 +50,6 @@ class DoodleToolbar extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Tools Row
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -101,18 +99,15 @@ class DoodleToolbar extends StatelessWidget {
                           color: scheme.outlineVariant,
                         ),
                       ),
-                      // Shape Assist Toggle
                       Semantics(
                         label: 'Shape assist',
                         button: true,
-                        selected:
-                            controller.currentTool == DoodleTool.shapeAssist,
+                        selected: controller.shapeAssistEnabled,
                         child: _TactileTool(
                           icon: LucideIcons.wandSparkles,
-                          isSelected:
-                              controller.currentTool == DoodleTool.shapeAssist,
-                          onTap: () =>
-                              controller.setCurrentTool(DoodleTool.shapeAssist),
+                          isSelected: controller.shapeAssistEnabled,
+                          onTap: () => controller.toggleShapeAssist(),
+                          activeColor: scheme.primary,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -132,8 +127,6 @@ class DoodleToolbar extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // Colors Row
                   SizedBox(
                     height: 48,
                     child: ListView.separated(
@@ -187,15 +180,18 @@ class _TactileTool extends StatelessWidget {
     required this.icon,
     required this.isSelected,
     required this.onTap,
+    this.activeColor,
   });
 
   final IconData icon;
   final bool isSelected;
   final VoidCallback onTap;
+  final Color? activeColor;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final color = activeColor ?? scheme.onSurface;
 
     return GestureDetector(
       onTap: onTap,
@@ -205,20 +201,14 @@ class _TactileTool extends StatelessWidget {
         transform: Matrix4.translationValues(0, isSelected ? -8 : 0, 0),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? scheme.primary : Colors.transparent,
+          color:
+              isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: scheme.primary.withValues(alpha: isSelected ? 0.4 : 0),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
         ),
         child: Icon(
           icon,
           size: 24,
-          color: isSelected ? scheme.onPrimary : scheme.onSurfaceVariant,
+          color: isSelected ? color : scheme.onSurfaceVariant,
         ),
       ),
     );

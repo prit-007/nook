@@ -6,11 +6,15 @@ class SyncDevice {
     required this.deviceId,
     required this.deviceName,
     required this.isOnline,
+    this.hostAddress,
+    this.port,
   });
 
   final String deviceId;
   final String deviceName;
   final bool isOnline;
+  final String? hostAddress;
+  final int? port;
 
   @override
   bool operator ==(Object other) =>
@@ -50,9 +54,11 @@ abstract class SyncTransport {
   Future<void> stopAdvertising();
   Future<void> startDiscovery();
   Future<void> stopDiscovery();
+  Future<bool> connectToDevice(SyncDevice device);
   Future<void> sendData(List<int> data);
   Future<void> sendAck(List<int> ackData);
   Future<void> disconnect();
+  void dispose();
 }
 
 /// A mock implementation of SyncTransport for testing.
@@ -71,6 +77,7 @@ class MockSyncTransport implements SyncTransport {
 
   bool isAdvertising = false;
   bool isDiscovering = false;
+  bool connectToDeviceResult = true;
   SyncSessionState sessionState = const SyncSessionState.idle();
 
   Future<void> Function(List<int> data)? onSend;
@@ -109,6 +116,10 @@ class MockSyncTransport implements SyncTransport {
   }
 
   @override
+  Future<bool> connectToDevice(SyncDevice device) async =>
+      connectToDeviceResult;
+
+  @override
   Future<void> sendData(List<int> data) async {
     if (onSend != null) {
       await onSend!(data);
@@ -124,6 +135,9 @@ class MockSyncTransport implements SyncTransport {
     isDiscovering = false;
     sessionState = const SyncSessionState.idle();
   }
+
+  @override
+  void dispose() {}
 
   void emitDeviceFound(SyncDevice device) {
     _deviceFoundController.add(device);

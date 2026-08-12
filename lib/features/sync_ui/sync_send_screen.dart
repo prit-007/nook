@@ -1,6 +1,12 @@
+import 'dart:async' show unawaited;
+import 'dart:math' show Random;
+
 import 'package:drift/drift.dart' hide Column, isNotNull;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
@@ -8,7 +14,6 @@ import '../../data/tables/notes.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
 
-/// Sync send screen — note selection + device discovery.
 class SyncSendScreen extends ConsumerStatefulWidget {
   const SyncSendScreen({super.key});
 
@@ -16,14 +21,21 @@ class SyncSendScreen extends ConsumerStatefulWidget {
   ConsumerState<SyncSendScreen> createState() => _SyncSendScreenState();
 }
 
-class _SyncSendScreenState extends ConsumerState<SyncSendScreen> {
+class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
+    with SingleTickerProviderStateMixin {
   final Set<String> _selectedNoteIds = {};
   String _searchQuery = '';
+
+  late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
-    // Start discovery when screen opens (errors are non-fatal in tests)
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(syncOrchestratorProvider.notifier).startDiscovery();
@@ -33,185 +45,240 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen> {
 
   @override
   void dispose() {
-    // Don't stop discovery here — let the orchestrator manage it
+    _pulseController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final scheme = Theme.of(context).colorScheme;
     final db = ref.watch(databaseProvider);
     final syncState = ref.watch(syncOrchestratorProvider);
 
     return Scaffold(
+      backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: const Text('Select Notes'),
-        actions: [
-          if (_selectedNoteIds.isNotEmpty)
-            TextButton(
-              onPressed: syncState.phase == SyncPhase.sending
-                  ? null
-                  : () => _showDevicePicker(context),
-              child: Text('Send (${_selectedNoteIds.length})'),
-            ),
-        ],
+        title: const Text(
+          'Select Notes',
+          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+        ),
+        backgroundColor: Colors.transparent,
       ),
       body: Column(
         children: [
-          // Device discovery status
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Row(
+              children: [
+                _buildRadarIndicator(
+                  scheme,
+                  isSearching: syncState.phase == SyncPhase.discovering,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        syncState.phase == SyncPhase.discovering
+                            ? 'Searching for devices...'
+                            : 'Nearby Devices',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'Ensure the receiver has "Receive Notes" open.',
+                        style: TextStyle(
+                            fontSize: 12, color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           if (syncState.devices.isNotEmpty)
-            Container(
-              height: 80,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ListView.builder(
+            SizedBox(
+              height: 64,
+              child: ListView.separated(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 scrollDirection: Axis.horizontal,
                 itemCount: syncState.devices.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final device = syncState.devices[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ActionChip(
-                      avatar: Icon(
-                        Icons.phone_android,
-                        color: theme.colorScheme.primary,
-                      ),
-                      label: Text(device.deviceName),
-                      onPressed: () => _connectAndSend(context, device),
-                    ),
+                  return _DeviceChip(
+                    device: device,
+                    onTap: () {
+                      if (_selectedNoteIds.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Select at least one note to send.',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+                      _connectAndSend(context, device);
+                    },
                   );
                 },
-              ),
-            ),
-          if (syncState.phase == SyncPhase.discovering)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Searching for nearby devices...',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
               ),
             ),
           if (syncState.error != null)
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
               child: Text(
                 syncState.error!,
-                style: TextStyle(color: theme.colorScheme.error),
+                style:
+                    TextStyle(color: scheme.error, fontWeight: FontWeight.w600),
               ),
             ),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search notes...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-              onChanged: (value) {
-                setState(() => _searchQuery = value);
-              },
-            ),
-          ),
+          const SizedBox(height: 16),
           Expanded(
-            child: FutureBuilder<List<Note>>(
-              future: (db.select(db.notes)
-                    ..where((t) => t.deleted.equals(false))
-                    ..orderBy([
-                      (t) => OrderingTerm.desc(t.pinned),
-                      (t) => OrderingTerm.desc(t.updatedAt),
-                    ]))
-                  .get()
-                  .then((notes) {
-                if (_searchQuery.isEmpty) return notes;
-                final q = _searchQuery.toLowerCase();
-                return notes
-                    .where((n) =>
-                        n.title.toLowerCase().contains(q) ||
-                        (n.plainText?.toLowerCase().contains(q) == true))
-                    .toList();
-              }),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final notes = snapshot.data ?? [];
-
-                if (notes.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.note_add_outlined,
-                          size: 64,
-                          color: theme.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No notes to sync',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(32),
+              ),
+              child: Container(
+                color: scheme.surfaceContainerLowest,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Search your vault...',
+                          prefixIcon: Icon(
+                            LucideIcons.search,
+                            color: scheme.primary,
+                          ),
+                          filled: true,
+                          fillColor: scheme.surfaceContainerHigh.withValues(
+                            alpha: 0.5,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
                         ),
-                      ],
+                        onChanged: (value) =>
+                            setState(() => _searchQuery = value),
+                      ),
                     ),
-                  );
-                }
-
-                return ListView.builder(
-                  itemCount: notes.length,
-                  itemBuilder: (context, index) {
-                    final note = notes[index];
-                    final isSelected = _selectedNoteIds.contains(note.id);
-
-                    return CheckboxListTile(
-                      value: isSelected,
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            _selectedNoteIds.add(note.id);
-                          } else {
-                            _selectedNoteIds.remove(note.id);
+                    Expanded(
+                      child: FutureBuilder<List<Note>>(
+                        future: _fetchNotes(db),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(
+                              child: CircularProgressIndicator(
+                                color: scheme.primary,
+                              ),
+                            );
                           }
-                        });
-                      },
-                      title: Text(
-                        note.title.isEmpty ? 'Untitled' : note.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                          final notes = snapshot.data ?? [];
+                          if (notes.isEmpty) {
+                            return Center(
+                              child: Text(
+                                'No notes found.',
+                                style: TextStyle(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 120),
+                            itemCount: notes.length,
+                            itemBuilder: (context, index) {
+                              final note = notes[index];
+                              final isSelected = _selectedNoteIds.contains(
+                                note.id,
+                              );
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 4,
+                                ),
+                                leading: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    _noteTypeIcon(note.type),
+                                    size: 20,
+                                    color: scheme.primary,
+                                  ),
+                                ),
+                                title: Text(
+                                  note.title.isEmpty ? 'Untitled' : note.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                  _noteTypeLabel(note.type),
+                                  style: TextStyle(
+                                    color: scheme.onSurfaceVariant,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                trailing: Checkbox(
+                                  value: isSelected,
+                                  activeColor: scheme.primary,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  onChanged: (value) {
+                                    HapticFeedback.selectionClick();
+                                    setState(() {
+                                      if (value == true) {
+                                        _selectedNoteIds.add(note.id);
+                                      } else {
+                                        _selectedNoteIds.remove(note.id);
+                                      }
+                                    });
+                                  },
+                                ),
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setState(() {
+                                    if (isSelected) {
+                                      _selectedNoteIds.remove(note.id);
+                                    } else {
+                                      _selectedNoteIds.add(note.id);
+                                    }
+                                  });
+                                },
+                              );
+                            },
+                          );
+                        },
                       ),
-                      subtitle: Text(
-                        _noteTypeLabel(note.type),
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      secondary: Icon(_noteTypeIcon(note.type)),
-                    );
-                  },
-                );
-              },
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -219,86 +286,143 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen> {
     );
   }
 
-  void _showDevicePicker(BuildContext context) {
+  Widget _buildRadarIndicator(
+    ColorScheme scheme, {
+    required bool isSearching,
+  }) {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        return Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: scheme.primaryContainer,
+            boxShadow: isSearching
+                ? [
+                    BoxShadow(
+                      color: scheme.primary.withValues(
+                        alpha: 0.4 * (1.0 - _pulseController.value),
+                      ),
+                      spreadRadius: 20 * _pulseController.value,
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Icon(
+            LucideIcons.radar,
+            color: scheme.onPrimaryContainer,
+            size: 28,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<List<Note>> _fetchNotes(AppDatabase db) async {
+    final notes = await (db.select(
+      db.notes,
+    )
+          ..where((t) => t.deleted.equals(false))
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.pinned),
+            (t) => OrderingTerm.desc(t.updatedAt),
+          ]))
+        .get();
+    if (_searchQuery.isEmpty) return notes;
+    final q = _searchQuery.toLowerCase();
+    return notes
+        .where(
+          (n) =>
+              n.title.toLowerCase().contains(q) ||
+              (n.plainText?.toLowerCase().contains(q) == true),
+        )
+        .toList();
+  }
+
+  Future<void> _connectAndSend(
+    BuildContext context,
+    SyncDevice device,
+  ) async {
+    unawaited(HapticFeedback.mediumImpact());
+    final pairingCode = (Random.secure().nextInt(900000) + 100000).toString();
+
+    final confirmed = await context.push<bool>(
+      '/sync/pairing',
+      extra: {
+        'pairingCode': pairingCode,
+        'deviceName': device.deviceName,
+      },
+    );
+    if (confirmed != true) return;
+
+    final notifier = ref.read(syncOrchestratorProvider.notifier);
+    await notifier.connectToDevice(device);
+
     final syncState = ref.read(syncOrchestratorProvider);
-    if (syncState.devices.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('No devices found. Make sure the receiver is visible.')),
-      );
+    if (syncState.phase == SyncPhase.error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(syncState.error ?? 'Connection failed')),
+        );
+      }
       return;
     }
 
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
+    if (context.mounted) {
+      unawaited(context.push('/sync/transfer/local-send'));
+    }
+    await notifier.sendNotes(_selectedNoteIds.toList());
+  }
+
+  String _noteTypeLabel(NoteType type) => switch (type) {
+        NoteType.text => 'Text',
+        NoteType.checklist => 'Checklist',
+        NoteType.doodle => 'Doodle',
+        NoteType.mixed => 'Mixed',
+      };
+
+  IconData _noteTypeIcon(NoteType type) => switch (type) {
+        NoteType.text => LucideIcons.type,
+        NoteType.checklist => LucideIcons.squareCheck,
+        NoteType.doodle => LucideIcons.penLine,
+        NoteType.mixed => LucideIcons.layers,
+      };
+}
+
+class _DeviceChip extends StatelessWidget {
+  const _DeviceChip({required this.device, required this.onTap});
+  final SyncDevice device;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Select a device',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+            Icon(LucideIcons.smartphone, color: scheme.primary, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              device.deviceName,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
             ),
-            ...syncState.devices.map(
-              (device) => ListTile(
-                leading: const Icon(Icons.phone_android),
-                title: Text(device.deviceName),
-                onTap: () {
-                  Navigator.pop(context);
-                  _connectAndSend(context, device);
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _connectAndSend(BuildContext context, SyncDevice device) async {
-    final notifier = ref.read(syncOrchestratorProvider.notifier);
-    await notifier.connectToDevice(device);
-    await notifier.sendNotes(_selectedNoteIds.toList());
-
-    if (context.mounted) {
-      final syncState = ref.read(syncOrchestratorProvider);
-      if (syncState.phase == SyncPhase.complete) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sent ${_selectedNoteIds.length} notes')),
-        );
-        Navigator.pop(context);
-      }
-    }
-  }
-
-  String _noteTypeLabel(NoteType type) {
-    switch (type) {
-      case NoteType.text:
-        return 'Text note';
-      case NoteType.checklist:
-        return 'Checklist';
-      case NoteType.doodle:
-        return 'Doodle';
-      case NoteType.mixed:
-        return 'Mixed';
-    }
-  }
-
-  IconData _noteTypeIcon(NoteType type) {
-    switch (type) {
-      case NoteType.text:
-        return Icons.note;
-      case NoteType.checklist:
-        return Icons.checklist;
-      case NoteType.doodle:
-        return Icons.brush;
-      case NoteType.mixed:
-        return Icons.dynamic_feed;
-    }
   }
 }

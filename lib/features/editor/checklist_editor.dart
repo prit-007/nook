@@ -105,134 +105,181 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final checkedCount = _items.where((i) => i.checked).length;
     final totalCount = _items.length;
     final progress = totalCount > 0 ? checkedCount / totalCount : 0.0;
+    final viewInsets = MediaQuery.viewInsetsOf(context);
 
-    return Column(
-      children: [
-        if (totalCount > 0)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.2),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          // 1. Dynamic Progress Capsule
+          if (totalCount > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.3),
+                  ),
                 ),
+                child: Row(
+                  children: [
+                    Text(
+                      '$checkedCount of $totalCount Done',
+                      style: textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: scheme.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: AnimatedProgressBar(
+                          value: progress,
+                          color: scheme.primary,
+                          backgroundColor: scheme.surfaceContainerLow,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // 2. Reorderable Task List
+          Expanded(
+            child: _loading
+                ? Center(
+                    child: CircularProgressIndicator(color: scheme.primary))
+                : _items.isEmpty
+                    ? Center(
+                        child: Text(
+                          'A fresh start.',
+                          style: textTheme.titleMedium?.copyWith(
+                            color: scheme.onSurface.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      )
+                    : ReorderableListView.builder(
+                        padding: EdgeInsets.only(
+                          top: 8,
+                          left: 20,
+                          right: 20,
+                          bottom: viewInsets.bottom + 100,
+                        ),
+                        itemCount: _items.length,
+                        onReorderItem: _reorder,
+                        proxyDecorator: (child, index, animation) =>
+                            Material(color: Colors.transparent, child: child),
+                        itemBuilder: (context, index) {
+                          final item = _items[index];
+                          return _SwipeableTile(
+                            key: ValueKey(item.id),
+                            onSwipe: () => _toggleItem(item.id),
+                            background: _SwipeToCheckBackground(
+                              alignment: Alignment.centerRight,
+                              isChecked: item.checked,
+                            ),
+                            child: _ChecklistTile(
+                              key: ValueKey(item.id),
+                              index: index,
+                              id: item.id,
+                              text: item.text,
+                              checked: item.checked,
+                              onToggle: () => _toggleItem(item.id),
+                              onDelete: () => _deleteItem(item.id),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+      // 3. Floating Input Pill
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.shadow.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  Text(
-                    '$checkedCount of $totalCount completed',
-                    style: textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: scheme.primary,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
+                  Icon(Icons.add_rounded, color: scheme.primary, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 6,
-                        backgroundColor: scheme.surfaceContainerLow,
-                        color: scheme.primary,
+                    child: TextField(
+                      controller: _addController,
+                      focusNode: _addFocusNode,
+                      style: textTheme.bodyLarge
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                      textInputAction: TextInputAction.done,
+                      decoration: InputDecoration(
+                        hintText: 'Add a new task...',
+                        hintStyle: textTheme.bodyLarge?.copyWith(
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
                       ),
+                      onSubmitted: _addItem,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-        Expanded(
-          child: _loading
-              ? Center(child: CircularProgressIndicator(color: scheme.primary))
-              : _items.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No checklist tasks yet',
-                        style: textTheme.bodyLarge?.copyWith(
-                          color: scheme.onSurface.withValues(alpha: 0.4),
-                        ),
-                      ),
-                    )
-                  : ReorderableListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 8, horizontal: 16),
-                      itemCount: _items.length,
-                      onReorderItem: _reorder,
-                      itemBuilder: (context, index) {
-                        final item = _items[index];
-                        return _SwipeableTile(
-                          key: ValueKey(item.id),
-                          onSwipe: () => _toggleItem(item.id),
-                          background: _SwipeToCheckBackground(
-                            alignment: Alignment.centerRight,
-                            isChecked: item.checked,
-                          ),
-                          child: _ChecklistTile(
-                            key: ValueKey(item.id),
-                            index: index,
-                            id: item.id,
-                            text: item.text,
-                            checked: item.checked,
-                            onToggle: () => _toggleItem(item.id),
-                            onDelete: () => _deleteItem(item.id),
-                          ),
-                        );
-                      },
-                    ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SafeArea(
-            top: false,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-                  decoration: BoxDecoration(
-                    color:
-                        scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: scheme.outlineVariant.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.add_rounded, color: scheme.primary, size: 22),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _addController,
-                          focusNode: _addFocusNode,
-                          style: textTheme.bodyLarge,
-                          decoration: InputDecoration(
-                            hintText: 'Add a new task...',
-                            hintStyle: textTheme.bodyLarge?.copyWith(
-                              color: scheme.onSurfaceVariant
-                                  .withValues(alpha: 0.6),
-                            ),
-                            border: InputBorder.none,
-                            isDense: true,
-                          ),
-                          onSubmitted: _addItem,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
+    );
+  }
+}
+
+class AnimatedProgressBar extends StatelessWidget {
+  const AnimatedProgressBar({
+    super.key,
+    required this.value,
+    required this.color,
+    required this.backgroundColor,
+  });
+
+  final double value;
+  final Color color;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: value),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, _) => LinearProgressIndicator(
+        value: val,
+        minHeight: 8,
+        backgroundColor: backgroundColor,
+        color: color,
+      ),
     );
   }
 }
@@ -275,15 +322,15 @@ class _ChecklistTile extends StatelessWidget {
     final textTheme = NoteThemeScope.textThemeOf(context);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: checked
-            ? scheme.surfaceContainerLow.withValues(alpha: 0.3)
-            : scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+            ? scheme.surfaceContainerLow.withValues(alpha: 0.4)
+            : scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: checked ? 0.1 : 0.25),
+          color: scheme.outlineVariant.withValues(alpha: checked ? 0.1 : 0.3),
         ),
       ),
       child: Row(
@@ -291,9 +338,10 @@ class _ChecklistTile extends StatelessWidget {
           GestureDetector(
             onTap: onToggle,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 22,
-              height: 22,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutBack,
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: checked ? scheme.primary : Colors.transparent,
@@ -303,20 +351,21 @@ class _ChecklistTile extends StatelessWidget {
                 ),
               ),
               child: checked
-                  ? Icon(Icons.check_rounded, size: 14, color: scheme.onPrimary)
+                  ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary)
                   : null,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Stack(
               alignment: Alignment.centerLeft,
               children: [
                 AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 250),
                   style: (textTheme.bodyLarge ?? const TextStyle()).copyWith(
+                    fontWeight: FontWeight.w600,
                     color: checked
-                        ? scheme.onSurface.withValues(alpha: 0.4)
+                        ? scheme.onSurface.withValues(alpha: 0.3)
                         : scheme.onSurface,
                   ),
                   child: Text(text),
@@ -326,13 +375,13 @@ class _ChecklistTile extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: TweenAnimationBuilder<double>(
                       tween: Tween(begin: 0, end: checked ? 1.0 : 0.0),
-                      duration: const Duration(milliseconds: 250),
+                      duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOutCubic,
                       builder: (context, value, _) => FractionallySizedBox(
                         widthFactor: value,
                         child: Container(
-                          height: 1.8,
-                          color: scheme.primary.withValues(alpha: 0.7),
+                          height: 2,
+                          color: scheme.primary.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -342,21 +391,15 @@ class _ChecklistTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: Icon(
-              Icons.close_rounded,
-              size: 18,
-              color: scheme.onSurface.withValues(alpha: 0.35),
-            ),
+            icon: Icon(Icons.close_rounded,
+                size: 20, color: scheme.onSurface.withValues(alpha: 0.3)),
             onPressed: onDelete,
             visualDensity: VisualDensity.compact,
           ),
           ReorderableDragStartListener(
             index: index,
-            child: Icon(
-              Icons.drag_indicator_rounded,
-              size: 20,
-              color: scheme.onSurface.withValues(alpha: 0.3),
-            ),
+            child: Icon(Icons.drag_indicator_rounded,
+                size: 22, color: scheme.onSurface.withValues(alpha: 0.2)),
           ),
         ],
       ),
@@ -385,7 +428,7 @@ class _SwipeableTileState extends State<_SwipeableTile> {
 
   @override
   Widget build(BuildContext context) {
-    final clamped = _dragExtent.clamp(-100.0, 100.0);
+    final clamped = _dragExtent.clamp(-120.0, 120.0);
     return Stack(
       children: [
         if (_dragExtent.abs() > 10) widget.background,
@@ -397,7 +440,7 @@ class _SwipeableTileState extends State<_SwipeableTile> {
             },
             onHorizontalDragEnd: (details) {
               final velocity = details.primaryVelocity ?? 0;
-              if (_dragExtent.abs() > 70 || velocity.abs() > 400) {
+              if (_dragExtent.abs() > 80 || velocity.abs() > 400) {
                 widget.onSwipe();
               }
               setState(() => _dragExtent = 0);
@@ -423,27 +466,27 @@ class _SwipeToCheckBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = NoteThemeScope.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: scheme.primary.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
       ),
       alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             isChecked ? Icons.undo_rounded : Icons.check_circle_rounded,
-            size: 20,
+            size: 24,
             color: scheme.primary,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Text(
             isChecked ? 'Uncheck' : 'Complete',
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
               color: scheme.primary,
             ),
           ),

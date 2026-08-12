@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
@@ -283,6 +283,27 @@ void main() {
       expect(allNotes.first.colorSeed, '#6750A4');
     });
 
+    test('insertAsNew preserves remote noteId', () async {
+      final incoming = SyncNoteEntry(
+        noteId: 'remote-preserved-id',
+        syncVersion: 1,
+        updatedAt: DateTime.utc(2026, 8, 11),
+        deviceOriginId: 'device-b',
+        noteFields: {
+          'title': 'Preserve My ID',
+          'type': 'text',
+        },
+        checklistItems: null,
+        attachmentBytes: null,
+      );
+
+      await resolver.applyIncoming(incoming);
+
+      final note = await noteRepo.getNoteById('remote-preserved-id');
+      expect(note, isNotNull);
+      expect(note!.title, 'Preserve My ID');
+    });
+
     test('overwrite updates the local note with remote data', () async {
       final local = await noteRepo.createNote(
         title: 'Old Title',
@@ -315,6 +336,78 @@ void main() {
       final note = await noteRepo.getNoteById(local.id);
       expect(note!.title, 'Updated Title');
       expect(note.syncVersion, 5);
+    });
+  });
+
+  group('forceOverwrite', () {
+    test('overwrites local even with different deviceOriginId', () async {
+      final local = await noteRepo.createNote(
+        title: 'Local Version',
+        type: NoteType.text,
+        deviceOriginId: 'device-a',
+      );
+
+      await setSyncMeta(
+        local.id,
+        syncVersion: 2,
+        updatedAt: DateTime.utc(2026, 8, 10),
+      );
+
+      final incoming = SyncNoteEntry(
+        noteId: local.id,
+        syncVersion: 1,
+        updatedAt: DateTime.utc(2026, 8, 9),
+        deviceOriginId: 'device-b',
+        noteFields: {
+          'title': 'Force Overwritten',
+          'type': 'text',
+        },
+        checklistItems: null,
+        attachmentBytes: null,
+      );
+
+      final result = await resolver.forceOverwrite(incoming);
+      expect(result, MergeAction.overwrite);
+
+      final note = await noteRepo.getNoteById(local.id);
+      expect(note!.title, 'Force Overwritten');
+    });
+  });
+
+  group('public insertAsNew', () {
+    test('inserts note with new ID when local with same ID exists', () async {
+      await noteRepo.createNote(
+        id: 'shared-id',
+        title: 'Local Version',
+        type: NoteType.text,
+        deviceOriginId: 'device-a',
+      );
+
+      final incoming = SyncNoteEntry(
+        noteId: 'shared-id',
+        syncVersion: 1,
+        updatedAt: DateTime.utc(2026, 8, 11),
+        deviceOriginId: 'device-b',
+        noteFields: {
+          'title': 'Remote Version',
+          'type': 'text',
+        },
+        checklistItems: null,
+        attachmentBytes: null,
+      );
+
+      final result = await resolver.insertAsNew(incoming);
+      expect(result, MergeAction.insertAsNew);
+
+      final allNotes = await noteRepo.getAllNotes();
+      expect(allNotes.length, 2);
+
+      final localNote = await noteRepo.getNoteById('shared-id');
+      expect(localNote!.title, 'Local Version');
+
+      final remoteNote = allNotes.firstWhere((n) => n.id != 'shared-id');
+      expect(remoteNote.title, 'Remote Version');
+      expect(remoteNote.deviceOriginId, 'device-b');
     });
   });
 }

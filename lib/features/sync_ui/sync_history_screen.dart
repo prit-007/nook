@@ -8,11 +8,18 @@ import '../../data/repositories/sync_log_repository.dart';
 import '../../data/tables/sync_log.dart';
 
 /// Sync history screen — past transfers.
-class SyncHistoryScreen extends ConsumerWidget {
+class SyncHistoryScreen extends ConsumerStatefulWidget {
   const SyncHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SyncHistoryScreen> createState() => _SyncHistoryScreenState();
+}
+
+class _SyncHistoryScreenState extends ConsumerState<SyncHistoryScreen> {
+  int _refreshKey = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final db = ref.watch(databaseProvider);
     final repo = SyncLogRepository(db);
 
@@ -43,14 +50,16 @@ class SyncHistoryScreen extends ConsumerWidget {
                   ],
                 ),
               );
-              if (confirmed == true && context.mounted) {
+              if (confirmed == true && mounted) {
                 await repo.clearHistory();
+                setState(() => _refreshKey++);
               }
             },
           ),
         ],
       ),
       body: FutureBuilder<List<SyncLogData>>(
+        key: ValueKey(_refreshKey),
         future: repo.getRecentLogs(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {

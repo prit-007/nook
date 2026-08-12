@@ -1,59 +1,77 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'dart:ui';
 
-/// Sync screen — mode toggle between Send and Receive.
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
+
 class SyncScreen extends StatelessWidget {
   const SyncScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: const Text('Sync'),
+        title: const Text(
+          'Peer Sync',
+          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+        ),
+        backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            icon: const Icon(Icons.history),
+            icon: Icon(LucideIcons.history, color: scheme.onSurface),
             tooltip: 'Sync History',
-            onPressed: () => context.push('/sync/history'),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              context.push('/sync/history');
+            },
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Share notes with nearby devices',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+      body: ListView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        children: [
+          Text(
+            'Transfer notes directly to nearby devices over your local network. No cloud required.',
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+              color: scheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 32),
-            _ModeCard(
-              icon: Icons.send,
-              title: 'Send Notes',
-              subtitle: 'Select notes and send to a nearby device',
-              onTap: () => context.push('/sync/send'),
-            ),
-            const SizedBox(height: 16),
-            _ModeCard(
-              icon: Icons.download,
-              title: 'Receive Notes',
-              subtitle: 'Make this device visible to nearby senders',
-              onTap: () => context.push('/sync/receive'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 48),
+          _GlassModeCard(
+            icon: LucideIcons.send,
+            title: 'Send to Device',
+            subtitle: 'Select notes and beam them across the room.',
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              context.push('/sync/send');
+            },
+          ),
+          const SizedBox(height: 24),
+          _GlassModeCard(
+            icon: LucideIcons.download,
+            title: 'Receive Notes',
+            subtitle: 'Open your vault to accept incoming transfers.',
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              context.push('/sync/receive');
+            },
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ModeCard extends StatelessWidget {
-  const _ModeCard({
+class _GlassModeCard extends StatefulWidget {
+  const _GlassModeCard({
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -66,48 +84,83 @@ class _ModeCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  State<_GlassModeCard> createState() => _GlassModeCardState();
+}
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 40,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+class _GlassModeCardState extends State<_GlassModeCard> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.primary.withValues(alpha: 0.05),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
               ),
-              Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(widget.icon, size: 32, color: scheme.primary),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.subtitle,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: scheme.onSurfaceVariant,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

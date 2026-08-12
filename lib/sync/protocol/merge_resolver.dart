@@ -90,11 +90,41 @@ class MergeResolver {
     }
   }
 
-  /// Inserts a brand-new note from a remote device.
+  /// Forces an insert of the incoming note as new. If a local note with the
+  /// same ID already exists, a new UUID is generated to avoid primary key
+  /// collision. Used for "keep both" conflict resolution.
+  Future<MergeAction> insertAsNew(SyncNoteEntry incoming) async {
+    final existing = await _noteRepo.getNoteById(incoming.noteId);
+    if (existing != null) {
+      // ID collision — generate a new ID for the duplicate
+      await _noteRepo.createNote(
+        title: incoming.noteFields['title'] as String? ?? '',
+        type: _parseNoteType(incoming.noteFields['type'] as String?),
+        deviceOriginId: incoming.deviceOriginId,
+        colorSeed: incoming.noteFields['colorSeed'] as String?,
+        deltaContent: incoming.noteFields['deltaContent'] as String?,
+        plainText: incoming.noteFields['plainText'] as String?,
+      );
+    } else {
+      await _insertAsNew(incoming);
+    }
+    return MergeAction.insertAsNew;
+  }
+
+  /// Forces an overwrite of the local note with the incoming version,
+  /// regardless of what [resolveIncoming] would return. Used when the
+  /// user explicitly chooses "keep remote" during conflict resolution.
+  Future<MergeAction> forceOverwrite(SyncNoteEntry incoming) async {
+    await _overwrite(incoming);
+    return MergeAction.overwrite;
+  }
+
+  /// Inserts a brand-new note from a remote device, preserving the remote noteId.
   Future<void> _insertAsNew(SyncNoteEntry incoming) async {
     final noteType = _parseNoteType(incoming.noteFields['type'] as String?);
 
     await _noteRepo.createNote(
+      id: incoming.noteId,
       title: incoming.noteFields['title'] as String? ?? '',
       type: noteType,
       deviceOriginId: incoming.deviceOriginId,
@@ -102,10 +132,6 @@ class MergeResolver {
       deltaContent: incoming.noteFields['deltaContent'] as String?,
       plainText: incoming.noteFields['plainText'] as String?,
     );
-
-    // Note: The noteId from remote is not preserved in createNote (it generates
-    // a new UUID). For v1, we accept this — the note gets a new local ID.
-    // A future version could use a cross-device ID mapping table.
   }
 
   /// Overwrites a local note with the remote version (same lineage).
