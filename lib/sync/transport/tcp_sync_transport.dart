@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -23,16 +24,25 @@ class TcpSyncTransport implements SyncTransport {
   TcpSyncTransport({
     this.chunkSize = 256 * 1024,
     String? serviceName,
-  }) : _serviceName = serviceName ?? 'Nook';
+    String? localDeviceName,
+    this.pairingTimeout = const Duration(seconds: 30),
+    this.ackTimeout = const Duration(seconds: 60),
+  })  : _serviceName = serviceName ?? 'Nook',
+        _configuredDeviceName = localDeviceName ?? 'Nook';
 
   final int chunkSize;
   final String _serviceName;
+  final String _configuredDeviceName;
+  final Duration pairingTimeout;
+  final Duration ackTimeout;
 
   final _deviceFoundController = StreamController<SyncDevice>.broadcast();
   final _sessionStateController =
       StreamController<SyncSessionState>.broadcast();
   final _bytesReceivedController = StreamController<List<int>>.broadcast();
   final _progressController = StreamController<double>.broadcast();
+  final _pairingRequestController =
+      StreamController<PairingRequest>.broadcast();
 
   BonsoirBroadcast? _broadcast;
   BonsoirDiscovery? _discovery;
@@ -42,6 +52,16 @@ class TcpSyncTransport implements SyncTransport {
   Socket? _incomingSocket;
   StreamSubscription<Socket>? _serverSubscription;
   StreamSubscription<List<int>>? _socketSubscription;
+
+  /// During a handshake, protocol frames (identity, pairing_confirm) are
+  /// consumed one at a time by [_awaitNextFrame]. Frames that arrive before
+  /// the next read is registered are buffered here so they are never lost.
+  final _protoFrames = Queue<String>();
+  final _protoWaiters = Queue<Completer<String>>();
+  bool _handshaking = false;
+
+  /// Sockets waiting for receiver-side pairing approval.
+  final _pendingSockets = <String, Socket>{};
 
   late String _localDeviceId;
   late String _localDeviceName;
@@ -54,6 +74,7 @@ class TcpSyncTransport implements SyncTransport {
   final _incomingChunks = <int, String>{};
 
   Completer<void>? _ackCompleter;
+  Uint8List? _ackData;
 
   bool _initialized = false;
 
@@ -70,6 +91,10 @@ class TcpSyncTransport implements SyncTransport {
   @override
   Stream<double> get progressStream => _progressController.stream;
 
+  @override
+  Stream<PairingRequest> get pairingRequestStream =>
+      _pairingRequestController.stream;
+
   // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
@@ -77,7 +102,7 @@ class TcpSyncTransport implements SyncTransport {
   Future<void> initialize() async {
     if (_initialized) return;
     _localDeviceId = const Uuid().v4();
-    _localDeviceName = 'Nook';
+    _localDeviceName = _configuredDeviceName;
     _initialized = true;
   }
 
@@ -184,7 +209,7 @@ class TcpSyncTransport implements SyncTransport {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<bool> connectToDevice(SyncDevice device) async {
+  Future<bool> connectToDevice(SyncDevice device, {String? pairingCode}) async {
     if (device.hostAddress == null || device.port == null) {
       _emitState(const SyncSessionState.error('Device address unknown'));
       return false;
@@ -199,30 +224,96 @@ class TcpSyncTransport implements SyncTransport {
         timeout: const Duration(seconds: 10),
       );
 
-      // Send our identity.
+      // Start the persistent, buffered listener up front so handshake frames
+      // (identity + pairing_confirm) can arrive back-to-back without loss.
+      _setupSocketListener(_outgoingSocket!);
+      _handshaking = true;
+
+      // Send our identity (pairing code included when provided).
       await _writeFrame(
           _outgoingSocket!,
           utf8.encode(jsonEncode({
             'deviceId': _localDeviceId,
             'deviceName': _localDeviceName,
             'protocolVersion': '1.0',
+            if (pairingCode != null) 'pairingCode': pairingCode,
           })));
 
       // Read their identity.
-      final identityFrame = await _readFrame(_outgoingSocket!);
-      final remoteIdentity = jsonDecode(utf8.decode(identityFrame));
+      final identityFrame = await _awaitNextFrame();
+      final remoteIdentity = jsonDecode(identityFrame);
 
       _connectedDeviceId = remoteIdentity['deviceId'] as String;
+
+      // If a pairing code was exchanged, wait for the receiver to confirm it
+      // before proceeding.
+      if (pairingCode != null) {
+        final confirmFrame = await _awaitNextFrame().timeout(pairingTimeout);
+        final confirm = jsonDecode(confirmFrame);
+        if (confirm['type'] != 'pairing_confirm') {
+          _handshaking = false;
+          _protoFrames.clear();
+          _emitState(const SyncSessionState.error('Pairing rejected'));
+          await _outgoingSocket?.close();
+          _outgoingSocket = null;
+          return false;
+        }
+      }
+
+      _handshaking = false;
+      _protoFrames.clear();
       _emitState(const SyncSessionState.connected());
 
-      // Listen for acks and incoming data.
-      _setupSocketListener(_outgoingSocket!);
-
       return true;
+    } on TimeoutException {
+      _handshaking = false;
+      _protoFrames.clear();
+      _emitState(const SyncSessionState.error('Pairing timed out'));
+      await _outgoingSocket?.close();
+      _outgoingSocket = null;
+      return false;
     } catch (e) {
+      _handshaking = false;
+      _protoFrames.clear();
       _emitState(SyncSessionState.error('Connection failed: $e'));
+      await _outgoingSocket?.close();
+      _outgoingSocket = null;
       return false;
     }
+  }
+
+  /// Awaits the next full protocol frame delivered by the persistent listener.
+  Future<String> _awaitNextFrame() {
+    if (_protoFrames.isNotEmpty) {
+      return Future.value(_protoFrames.removeFirst());
+    }
+    final completer = Completer<String>();
+    _protoWaiters.add(completer);
+    return completer.future;
+  }
+
+  /// Sends a [pairing_confirm] frame to the sender to approve their request.
+  @override
+  Future<void> respondToPairing(PairingRequest request, bool approve) async {
+    final socket = _pendingSockets.remove(request.connectionId);
+    if (socket == null) return;
+
+    if (!approve) {
+      // Reject — close the socket; the sender will surface an error.
+      await socket.close();
+      _emitState(const SyncSessionState.idle());
+      return;
+    }
+
+    // Approve: activate the socket for data FIRST (so nothing is missed), then
+    // tell the sender the pairing was confirmed.
+    _incomingSocket = socket;
+    _connectedDeviceId = request.remoteDeviceId;
+    _emitState(const SyncSessionState.connected());
+    _setupSocketListener(socket);
+    await _writeFrame(
+        socket,
+        utf8.encode(jsonEncode({'type': 'pairing_confirm'})));
   }
 
   // ---------------------------------------------------------------------------
@@ -230,11 +321,11 @@ class TcpSyncTransport implements SyncTransport {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<void> sendData(List<int> data) async {
+  Future<SyncAck?> sendData(List<int> data) async {
     final socket = _outgoingSocket ?? _incomingSocket;
     if (socket == null) {
       _emitState(const SyncSessionState.error('No device connected'));
-      return;
+      return null;
     }
 
     _emitState(const SyncSessionState.transferring());
@@ -246,42 +337,58 @@ class TcpSyncTransport implements SyncTransport {
 
       final chunks = SyncBundle.splitIntoChunks(bytes, chunkSize: chunkSize);
 
-      // 1. Send header.
-      await _writeFrame(
-          socket,
-          utf8.encode(jsonEncode({
-            'type': 'sync_header',
-            'bundleId': bundleId,
-            'bundleSizeBytes': bytes.length,
-            'checksum': checksum,
-            'totalChunks': chunks.length,
-          })));
+      // Attempt the send; retry the full bundle once if the ack is missed.
+      for (var attempt = 0; attempt < 2; attempt++) {
+        _ackData = null;
+        _ackCompleter = Completer<void>();
 
-      // 2. Send each chunk with progress.
-      for (var i = 0; i < chunks.length; i++) {
+        // 1. Send header.
         await _writeFrame(
             socket,
             utf8.encode(jsonEncode({
-              'type': 'sync_chunk',
+              'type': 'sync_header',
               'bundleId': bundleId,
-              'seq': i,
-              'total': chunks.length,
-              'data': base64Encode(chunks[i]),
+              'bundleSizeBytes': bytes.length,
+              'checksum': checksum,
+              'totalChunks': chunks.length,
             })));
-        _emitProgress((i + 1) / chunks.length);
+
+        // 2. Send each chunk with progress.
+        for (var i = 0; i < chunks.length; i++) {
+          await _writeFrame(
+              socket,
+              utf8.encode(jsonEncode({
+                'type': 'sync_chunk',
+                'bundleId': bundleId,
+                'seq': i,
+                'total': chunks.length,
+                'data': base64Encode(chunks[i]),
+              })));
+          _emitProgress((i + 1) / chunks.length);
+        }
+
+        // 3. Wait for ack from receiver.
+        try {
+          await _ackCompleter!.future.timeout(ackTimeout);
+          _emitProgress(1.0);
+          _emitState(const SyncSessionState.complete());
+          return _ackData != null
+              ? SyncAck.fromCbor(_ackData!)
+              : const SyncAck(receivedNoteIds: [], rejectedNoteIds: []);
+        } on TimeoutException {
+          if (attempt == 1) {
+            _emitState(const SyncSessionState.error('Timed out waiting for ack'));
+            return null;
+          }
+          // First timeout — retry the whole bundle once.
+        }
       }
 
-      // 3. Wait for ack from receiver.
-      _ackCompleter = Completer<void>();
-      await _ackCompleter!.future.timeout(const Duration(seconds: 60));
-      _ackCompleter = null;
-
-      _emitProgress(1.0);
-      _emitState(const SyncSessionState.complete());
-    } on TimeoutException {
       _emitState(const SyncSessionState.error('Timed out waiting for ack'));
+      return null;
     } catch (e) {
       _emitState(SyncSessionState.error('Send failed: $e'));
+      return null;
     }
   }
 
@@ -325,6 +432,7 @@ class TcpSyncTransport implements SyncTransport {
         break;
 
       case 'sync_ack':
+        _ackData = base64Decode(map['data'] as String);
         if (_ackCompleter != null && !_ackCompleter!.isCompleted) {
           _ackCompleter!.complete();
         }
@@ -379,6 +487,9 @@ class TcpSyncTransport implements SyncTransport {
           final remoteIdentity = jsonDecode(utf8.decode(identityFrame));
 
           final remoteDeviceId = remoteIdentity['deviceId'] as String;
+          final remoteDeviceName =
+              (remoteIdentity['deviceName'] as String?) ?? 'Unknown Device';
+          final pairingCode = remoteIdentity['pairingCode'] as String?;
 
           // Send our identity back.
           await _writeFrame(
@@ -388,6 +499,20 @@ class TcpSyncTransport implements SyncTransport {
                 'deviceName': _localDeviceName,
                 'protocolVersion': '1.0',
               })));
+
+          // Mutual pairing: when a code is exchanged, the receiver must
+          // confirm before any data is accepted.
+          if (pairingCode != null) {
+            final connectionId = const Uuid().v4();
+            _pendingSockets[connectionId] = socket;
+            _pairingRequestController.add(PairingRequest(
+              remoteDeviceId: remoteDeviceId,
+              remoteDeviceName: remoteDeviceName,
+              pairingCode: pairingCode,
+              connectionId: connectionId,
+            ));
+            return;
+          }
 
           _incomingSocket = socket;
           _connectedDeviceId = remoteDeviceId;
@@ -444,7 +569,17 @@ class TcpSyncTransport implements SyncTransport {
 
   void _handleFrame(List<int> payload) {
     final text = utf8.decode(payload);
-    _handleIncomingText(text);
+    if (_handshaking) {
+      // Resolve the oldest awaiting read, or buffer for a read that is about
+      // to be registered.
+      if (_protoWaiters.isNotEmpty) {
+        _protoWaiters.removeFirst().complete(text);
+      } else {
+        _protoFrames.add(text);
+      }
+    } else {
+      _handleIncomingText(text);
+    }
   }
 
   Future<void> _writeFrame(Socket socket, List<int> payload) async {
@@ -500,6 +635,12 @@ class TcpSyncTransport implements SyncTransport {
       _ackCompleter!.completeError(StateError('Disconnected'));
     }
     _ackCompleter = null;
+    _ackData = null;
+
+    for (final socket in _pendingSockets.values) {
+      await socket.close().catchError((_) {});
+    }
+    _pendingSockets.clear();
 
     await _outgoingSocket?.close();
     _outgoingSocket = null;

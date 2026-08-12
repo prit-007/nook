@@ -181,6 +181,8 @@ void main() {
       expect(transport.stopAdvertising, isA<Function>());
       expect(transport.startDiscovery, isA<Function>());
       expect(transport.stopDiscovery, isA<Function>());
+      expect(transport.connectToDevice, isA<Function>());
+      expect(transport.respondToPairing, isA<Function>());
       expect(transport.sendData, isA<Function>());
       expect(transport.sendAck, isA<Function>());
       expect(transport.disconnect, isA<Function>());

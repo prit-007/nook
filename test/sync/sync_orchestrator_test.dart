@@ -257,12 +257,52 @@ void main() {
         isOnline: true,
       ));
 
+      // Receiver confirms it kept the note, so the sender bumps syncVersion.
+      final noteId = note.id;
+      mockTransport.sendResult = SyncAck(
+        receivedNoteIds: [noteId],
+        rejectedNoteIds: [],
+      );
+
       final sendFuture = notifier.sendNotes([note.id]);
       await Future<void>.delayed(Duration.zero);
       await sendFuture;
 
       final updated = await noteRepo.getNoteById(note.id);
       expect(updated!.syncVersion, 1);
+    });
+
+    test('does not bump syncVersion for rejected notes', () async {
+      container = makeContainer();
+      final notifier = container.read(syncOrchestratorProvider.notifier);
+
+      await notifier.initializeTransport();
+
+      final noteRepo = NoteRepository(db);
+      final note = await noteRepo.createNote(
+        title: 'Test Note',
+        type: NoteType.text,
+        deviceOriginId: 'local-1',
+      );
+
+      await notifier.connectToDevice(const SyncDevice(
+        deviceId: 'peer-1',
+        deviceName: 'Peer',
+        isOnline: true,
+      ));
+
+      // Receiver rejected the note, so no version bump happens.
+      mockTransport.sendResult = const SyncAck(
+        receivedNoteIds: [],
+        rejectedNoteIds: ['note-rejected'],
+      );
+
+      final sendFuture = notifier.sendNotes([note.id]);
+      await Future<void>.delayed(Duration.zero);
+      await sendFuture;
+
+      final updated = await noteRepo.getNoteById(note.id);
+      expect(updated!.syncVersion, 0);
     });
   });
 
@@ -439,6 +479,78 @@ void main() {
       expect(state.error, contains('Failed to connect'));
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Incoming pairing
+  // -------------------------------------------------------------------------
+
+  group('incoming pairing', () {
+    test('surfaces pending pairing request from transport', () async {
+      container = makeContainer();
+      final notifier = container.read(syncOrchestratorProvider.notifier);
+
+      await notifier.initializeTransport();
+      await notifier.startAdvertising();
+
+      mockTransport.emitPairingRequest(const PairingRequest(
+        remoteDeviceId: 'peer-1',
+        remoteDeviceName: 'Galaxy S24',
+        pairingCode: '123456',
+        connectionId: 'conn-1',
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(syncOrchestratorProvider);
+      expect(state.pendingPairing, isNotNull);
+      expect(state.pendingPairing!.pairingCode, '123456');
+      expect(state.pendingPairing!.remoteDeviceName, 'Galaxy S24');
+    });
+
+    test('confirmPairing approves the request and clears it', () async {
+      container = makeContainer();
+      final notifier = container.read(syncOrchestratorProvider.notifier);
+
+      await notifier.initializeTransport();
+      await notifier.startAdvertising();
+
+      mockTransport.emitPairingRequest(const PairingRequest(
+        remoteDeviceId: 'peer-1',
+        remoteDeviceName: 'Galaxy S24',
+        pairingCode: '123456',
+        connectionId: 'conn-1',
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      await notifier.confirmPairing();
+
+      expect(mockTransport.lastRespondedPairing?.pairingCode, '123456');
+      expect(mockTransport.lastPairingApproved, isTrue);
+      final state = container.read(syncOrchestratorProvider);
+      expect(state.pendingPairing, isNull);
+    });
+
+    test('rejectPairing denies the request and clears it', () async {
+      container = makeContainer();
+      final notifier = container.read(syncOrchestratorProvider.notifier);
+
+      await notifier.initializeTransport();
+      await notifier.startAdvertising();
+
+      mockTransport.emitPairingRequest(const PairingRequest(
+        remoteDeviceId: 'peer-1',
+        remoteDeviceName: 'Galaxy S24',
+        pairingCode: '123456',
+        connectionId: 'conn-1',
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      await notifier.rejectPairing();
+
+      expect(mockTransport.lastPairingApproved, isFalse);
+      final state = container.read(syncOrchestratorProvider);
+      expect(state.pendingPairing, isNull);
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -451,7 +563,8 @@ class _TestSyncOrchestrator extends SyncOrchestrator {
   _TestSyncOrchestrator(this._mockTransport);
 
   @override
-  Future<void> initializeTransport({SyncTransport? testTransport}) async {
+  Future<void> initializeTransport(
+      {SyncTransport? testTransport, String? localDeviceName}) async {
     await super.initializeTransport(testTransport: _mockTransport);
   }
 }

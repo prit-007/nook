@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/providers/database_provider.dart';
@@ -25,6 +26,9 @@ class SyncOrchestratorState {
     this.totalCount = 0,
     this.receivedCount = 0,
     this.conflicts = const [],
+    this.pendingPairing,
+    this.receivedNoteIds = const [],
+    this.rejectedNoteIds = const [],
     this.error,
   });
 
@@ -35,6 +39,9 @@ class SyncOrchestratorState {
   final int totalCount;
   final int receivedCount;
   final List<SyncConflict> conflicts;
+  final PairingRequest? pendingPairing;
+  final List<String> receivedNoteIds;
+  final List<String> rejectedNoteIds;
   final String? error;
 
   SyncOrchestratorState copyWith({
@@ -46,6 +53,10 @@ class SyncOrchestratorState {
     int? totalCount,
     int? receivedCount,
     List<SyncConflict>? conflicts,
+    PairingRequest? pendingPairing,
+    bool clearPendingPairing = false,
+    List<String>? receivedNoteIds,
+    List<String>? rejectedNoteIds,
     String? error,
     bool clearError = false,
   }) {
@@ -58,6 +69,11 @@ class SyncOrchestratorState {
       totalCount: totalCount ?? this.totalCount,
       receivedCount: receivedCount ?? this.receivedCount,
       conflicts: conflicts ?? this.conflicts,
+      pendingPairing: clearPendingPairing
+          ? null
+          : (pendingPairing ?? this.pendingPairing),
+      receivedNoteIds: receivedNoteIds ?? this.receivedNoteIds,
+      rejectedNoteIds: rejectedNoteIds ?? this.rejectedNoteIds,
       error: clearError ? null : (error ?? this.error),
     );
   }
@@ -98,23 +114,28 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   StreamSubscription? _stateSub;
   StreamSubscription? _bytesSub;
   StreamSubscription? _progressSub;
+  StreamSubscription? _pairingSub;
   String _localDeviceId = '';
   String _localDeviceName = '';
 
   /// Initializes the transport and gets local device info.
   ///
-  /// Pass [testTransport] in tests to inject a mock.
-  Future<void> initializeTransport({SyncTransport? testTransport}) async {
+  /// Pass [testTransport] in tests to inject a mock, and [localDeviceName] to
+  /// give this device a friendly name shown during sync/conflict resolution.
+  Future<void> initializeTransport({
+    SyncTransport? testTransport,
+    String? localDeviceName,
+  }) async {
     if (testTransport != null) {
       _transport = testTransport;
       _localDeviceId = const Uuid().v4();
-      _localDeviceName = 'Test Device';
+      _localDeviceName = localDeviceName ?? 'Test Device';
     } else {
-      final tcp = TcpSyncTransport();
+      final tcp = TcpSyncTransport(localDeviceName: localDeviceName);
       _transport = tcp;
       await tcp.initialize();
       _localDeviceId = await tcp.getCurrentDeviceId() ?? const Uuid().v4();
-      _localDeviceName = 'Nook';
+      _localDeviceName = localDeviceName ?? 'Nook';
     }
   }
 
@@ -172,16 +193,43 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         );
       },
     );
+
+    // Surface incoming pairing requests so the receive UI can confirm them.
+    unawaited(_pairingSub?.cancel());
+    _pairingSub = _transport!.pairingRequestStream.listen((request) {
+      state = state.copyWith(
+        pendingPairing: request,
+        phase: SyncPhase.receiving,
+        clearError: true,
+      );
+    });
+  }
+
+  /// Confirms a pending incoming pairing request.
+  Future<void> confirmPairing() async {
+    final request = state.pendingPairing;
+    if (request == null) return;
+    await _transport?.respondToPairing(request, true);
+    state = state.copyWith(clearPendingPairing: true);
+  }
+
+  /// Rejects a pending incoming pairing request.
+  Future<void> rejectPairing() async {
+    final request = state.pendingPairing;
+    if (request == null) return;
+    await _transport?.respondToPairing(request, false);
+    state = state.copyWith(clearPendingPairing: true);
   }
 
   /// Connects to a specific device and prepares for transfer.
-  Future<void> connectToDevice(SyncDevice device) async {
+  Future<void> connectToDevice(SyncDevice device, {String? pairingCode}) async {
     state = state.copyWith(
       phase: SyncPhase.connecting,
       selectedDevice: device,
     );
 
-    final connected = await _transport!.connectToDevice(device);
+    final connected =
+        await _transport!.connectToDevice(device, pairingCode: pairingCode);
     if (!connected) {
       state = state.copyWith(
         phase: SyncPhase.error,
@@ -217,13 +265,18 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         final note = await noteRepo.getNoteById(noteId);
         if (note == null) continue;
 
-        // Attach first attachment file bytes (v1: single attachment per note).
-        Uint8List? attachmentBytes;
-        final attachments = await attachmentRepo.getAllForNote(noteId);
-        if (attachments.isNotEmpty) {
-          final file = File(attachments.first.filePath);
+        // Attach all of the note's attachment file bytes (images + doodle layers).
+        final attachments = <SyncAttachment>[];
+        final attachmentRows = await attachmentRepo.getAllForNote(noteId);
+        for (final row in attachmentRows) {
+          final file = File(row.filePath);
           if (file.existsSync()) {
-            attachmentBytes = file.readAsBytesSync();
+            attachments.add(SyncAttachment(
+              id: row.id,
+              type: row.type.name,
+              sortOrder: row.sortOrder,
+              bytes: file.readAsBytesSync(),
+            ));
           }
         }
 
@@ -242,7 +295,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
             'deltaContent': note.deltaContent,
             'plainText': note.plainText,
           },
-          attachmentBytes: attachmentBytes,
+          attachments: attachments.isEmpty ? null : attachments,
         ));
       }
 
@@ -266,8 +319,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       // Serialize to CBOR
       final bundleBytes = bundle.toCbor();
 
-      // Send via transport
-      await _transport!.sendData(bundleBytes);
+      // Send via transport and capture the receiver's ack.
+      final ack = await _transport!.sendData(bundleBytes);
 
       // Log each sent note
       final syncLog = SyncLogRepository(db);
@@ -279,20 +332,25 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         );
       }
 
-      // Increment syncVersion for sent notes
-      for (final noteId in noteIds) {
-        final note = await noteRepo.getNoteById(noteId);
-        if (note != null) {
-          await noteRepo.updateNote(
-            noteId,
-            syncVersion: note.syncVersion + 1,
-          );
+      // Increment syncVersion only for notes the receiver actually kept.
+      final accepted = ack?.receivedNoteIds ?? const <String>[];
+      if (accepted.isNotEmpty && ack != null) {
+        for (final noteId in accepted) {
+          final note = await noteRepo.getNoteById(noteId);
+          if (note != null) {
+            await noteRepo.updateNote(
+              noteId,
+              syncVersion: (note.syncVersion) + 1,
+            );
+          }
         }
       }
 
       state = state.copyWith(
         phase: SyncPhase.complete,
         sentCount: entries.length,
+        receivedNoteIds: ack?.receivedNoteIds ?? const [],
+        rejectedNoteIds: ack?.rejectedNoteIds ?? const [],
       );
     } catch (e) {
       state = state.copyWith(
@@ -328,7 +386,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
           case MergeAction.insertAsNew:
           case MergeAction.overwrite:
             await resolver.applyIncoming(entry);
-            await _restoreAttachment(
+            await _restoreAttachments(
                 entry: entry, attachmentRepo: attachmentRepo);
             receivedIds.add(entry.noteId);
             await syncLog.logReceived(
@@ -395,7 +453,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       case 'remote':
         // Overwrite local with remote version
         await resolver.forceOverwrite(conflict.incoming);
-        await _restoreAttachment(
+        await _restoreAttachments(
             entry: conflict.incoming, attachmentRepo: attachmentRepo);
         await syncLog.logReceived(
           deviceId: conflict.incoming.deviceOriginId,
@@ -412,12 +470,16 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         );
         break;
       case 'both':
-        // Keep both — force insert incoming as new (even if noteId exists)
-        await resolver.insertAsNew(conflict.incoming);
-        await _restoreAttachment(
+        // Keep both — insert incoming as new, owned by THIS device so the
+        // duplicate never re-conflicts on the next sync.
+        await resolver.insertAsNew(
+          conflict.incoming,
+          originIdOverride: _localDeviceId,
+        );
+        await _restoreAttachments(
             entry: conflict.incoming, attachmentRepo: attachmentRepo);
         await syncLog.logReceived(
-          deviceId: conflict.incoming.deviceOriginId,
+          deviceId: _localDeviceId,
           deviceName: conflict.remoteDeviceName,
           noteId: conflict.incoming.noteId,
         );
@@ -438,10 +500,12 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     unawaited(_stateSub?.cancel());
     unawaited(_bytesSub?.cancel());
     unawaited(_progressSub?.cancel());
+    unawaited(_pairingSub?.cancel());
     _deviceSub = null;
     _stateSub = null;
     _bytesSub = null;
     _progressSub = null;
+    _pairingSub = null;
 
     await _transport?.disconnect();
     state = const SyncOrchestratorState();
@@ -452,26 +516,48 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     unawaited(_stateSub?.cancel());
     unawaited(_bytesSub?.cancel());
     unawaited(_progressSub?.cancel());
+    unawaited(_pairingSub?.cancel());
     _transport?.dispose();
   }
 
-  /// Restores attachment bytes to a temp file and creates an Attachment row.
-  Future<void> _restoreAttachment({
+  /// Restores all attachment bytes into the app's managed documents directory
+  /// and creates Attachment rows (images + doodle layers) preserving ids/order.
+  Future<void> _restoreAttachments({
     required SyncNoteEntry entry,
     required AttachmentRepository attachmentRepo,
   }) async {
-    if (entry.attachmentBytes == null) return;
+    final attachments = entry.attachments;
+    if (attachments == null || attachments.isEmpty) return;
+
     final noteRepo = NoteRepository(ref.read(databaseProvider));
     final note = await noteRepo.getNoteById(entry.noteId);
     if (note == null) return;
-    final tempDir = Directory.systemTemp.createTempSync('sync_');
-    final ext = entry.noteFields['type'] == 'doodle' ? 'drawn' : 'img';
-    final filePath = '${tempDir.path}/${entry.noteId}_att.$ext';
-    await File(filePath).writeAsBytes(entry.attachmentBytes!);
-    await attachmentRepo.addImage(
-      noteId: note.id,
-      filePath: filePath,
-    );
+
+    final baseDir = await getApplicationDocumentsDirectory();
+    final noteDir = Directory('${baseDir.path}/sync/attachments');
+    await noteDir.create(recursive: true);
+
+    for (final att in attachments) {
+      final ext = att.type == 'doodleLayer' ? 'drawn' : 'img';
+      final fileName = '${entry.noteId}_${att.id.isEmpty ? att.sortOrder : att.id}.$ext';
+      final filePath = '${noteDir.path}/$fileName';
+      await File(filePath).writeAsBytes(att.bytes, flush: true);
+
+      if (att.type == 'doodleLayer') {
+        await attachmentRepo.addDoodle(
+          noteId: note.id,
+          filePath: filePath,
+          id: att.id.isEmpty ? null : att.id,
+          sortOrder: att.sortOrder,
+        );
+      } else {
+        await attachmentRepo.addImage(
+          noteId: note.id,
+          filePath: filePath,
+          sortOrder: att.sortOrder,
+        );
+      }
+    }
   }
 }
 

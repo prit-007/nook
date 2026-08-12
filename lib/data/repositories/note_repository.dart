@@ -24,6 +24,7 @@ class NoteRepository {
     String? colorSeed,
     String? deltaContent,
     String? plainText,
+    int? syncVersion,
   }) async {
     final noteId = id ?? _uuid.v4();
     await _db.into(_db.notes).insert(
@@ -37,6 +38,8 @@ class NoteRepository {
             colorSeed: Value(colorSeed),
             deltaContent: Value(deltaContent),
             plainText: Value(plainText),
+            syncVersion:
+                syncVersion != null ? Value(syncVersion) : const Value.absent(),
           ),
         );
 

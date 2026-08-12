@@ -3,6 +3,47 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart';
 import 'package:crypto/crypto.dart';
 
+/// A single binary attachment (image or doodle layer) carried by a note.
+class SyncAttachment {
+  const SyncAttachment({
+    required this.id,
+    required this.type,
+    required this.sortOrder,
+    required this.bytes,
+  });
+
+  final String id;
+  final String type; // 'image' | 'doodleLayer'
+  final int sortOrder;
+  final Uint8List bytes;
+
+  /// Reads a [SyncAttachment] from a CBOR map, tolerating a legacy single
+  /// attachment payload where only raw bytes were stored.
+  factory SyncAttachment.fromMap(Map<dynamic, dynamic> map) {
+    Uint8List bytes;
+    final raw = map['bytes'] ?? map['data'];
+    if (raw is Uint8List) {
+      bytes = raw;
+    } else {
+      bytes = Uint8List.fromList(raw as List<int>);
+    }
+
+    return SyncAttachment(
+      id: (map['id'] as String?) ?? '',
+      type: (map['type'] as String?) ?? 'image',
+      sortOrder: (map['sortOrder'] as int?) ?? 0,
+      bytes: bytes,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'type': type,
+        'sortOrder': sortOrder,
+        'bytes': bytes,
+      };
+}
+
 /// A single note entry within a sync bundle.
 class SyncNoteEntry {
   const SyncNoteEntry({
@@ -12,7 +53,7 @@ class SyncNoteEntry {
     required this.deviceOriginId,
     required this.noteFields,
     this.checklistItems,
-    this.attachmentBytes,
+    this.attachments,
   });
 
   final String noteId;
@@ -21,7 +62,7 @@ class SyncNoteEntry {
   final String deviceOriginId;
   final Map<String, dynamic> noteFields;
   final List<Map<String, dynamic>>? checklistItems;
-  final Uint8List? attachmentBytes;
+  final List<SyncAttachment>? attachments;
 
   Uint8List toCbor() {
     final map = CborMap.fromEntries([
@@ -33,9 +74,14 @@ class SyncNoteEntry {
       MapEntry(CborString('noteFields'), CborValue(noteFields)),
       if (checklistItems != null)
         MapEntry(CborString('checklistItems'), CborValue(checklistItems)),
-      MapEntry(CborString('hasAttachment'), CborBool(attachmentBytes != null)),
-      if (attachmentBytes != null)
-        MapEntry(CborString('attachmentBytes'), CborBytes(attachmentBytes!)),
+      MapEntry(CborString('hasAttachment'), CborBool(attachments != null)),
+      if (attachments != null)
+        MapEntry(
+          CborString('attachments'),
+          CborList.of(
+            attachments!.map((a) => CborValue(a.toMap())).toList(),
+          ),
+        ),
     ]);
     return Uint8List.fromList(cborEncode(map));
   }
@@ -50,14 +96,29 @@ class SyncNoteEntry {
       return m.map((k, v) => MapEntry(k.toString(), v));
     }).toList();
 
-    Uint8List? attachment;
-    if (map['hasAttachment'] == true && map['attachmentBytes'] != null) {
+    // Multi-attachment payload (new). Falls back to a single legacy attachment.
+    List<SyncAttachment>? attachments;
+    final rawAttachments = map['attachments'] as List<dynamic>?;
+    if (rawAttachments != null) {
+      attachments = rawAttachments
+          .map((a) => SyncAttachment.fromMap(a as Map<dynamic, dynamic>))
+          .toList();
+    } else if (map['hasAttachment'] == true &&
+        map['attachmentBytes'] != null) {
       final raw = map['attachmentBytes'];
-      if (raw is Uint8List) {
-        attachment = raw;
-      } else {
-        attachment = Uint8List.fromList(raw as List<int>);
-      }
+      final rawBytes = raw is Uint8List ? raw : Uint8List.fromList(raw as List<int>);
+      attachments = [
+        SyncAttachment(
+          id: '',
+          type: (map['noteFields'] is Map &&
+                  (map['noteFields'] as Map<dynamic, dynamic>)['type'] ==
+                      'doodle')
+              ? 'doodleLayer'
+              : 'image',
+          sortOrder: 0,
+          bytes: rawBytes,
+        ),
+      ];
     }
 
     return SyncNoteEntry(
@@ -68,7 +129,7 @@ class SyncNoteEntry {
       noteFields: (map['noteFields'] as Map<dynamic, dynamic>)
           .map((k, v) => MapEntry(k.toString(), v)),
       checklistItems: checklistItems,
-      attachmentBytes: attachment,
+      attachments: attachments,
     );
   }
 }

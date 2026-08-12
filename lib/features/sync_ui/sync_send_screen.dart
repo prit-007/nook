@@ -359,7 +359,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     if (confirmed != true) return;
 
     final notifier = ref.read(syncOrchestratorProvider.notifier);
-    await notifier.connectToDevice(device);
+    await notifier.connectToDevice(device, pairingCode: pairingCode);
 
     final syncState = ref.read(syncOrchestratorProvider);
     if (syncState.phase == SyncPhase.error) {

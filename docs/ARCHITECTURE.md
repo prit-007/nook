@@ -1,0 +1,219 @@
+# Nook — Architecture & Codebase Map
+
+This is the **current-state** map of the code (not the future plan). If you want
+to understand a patch, find a bug, or add a feature, start here. Product vision
+lives in [`notes-app-masterplan.md`](notes-app-masterplan.md) and the schema/protocol
+spec in [`notes-app-detailed-plan.md`](notes-app-detailed-plan.md).
+
+---
+
+## 1. The big picture
+
+```
+┌───────────────────────────── Nook app ─────────────────────────────┐
+│                                                                     │
+│  lib/core        app shell, router, theme, providers, platform      │
+│                  bridges (window manager, nearby permissions)        │
+│                                                                     │
+│  lib/data        Drift DB + SQLCipher                               │
+│   ├── tables/    notes, notebooks, tags, note_tags, checklist_items, │
+│   │              attachments, sync_log                               │
+│   └── repositories/  note, notebook, tag, checklist_item,           │
+│                      attachment, doodle_storage, search, sync_log    │
+│                                                                     │
+│  lib/features    screens & widgets                                   │
+│   ├── home/      notes grid, cards, search, filters                 │
+│   ├── editor/    AppFlowy editor, checklist editor, doodle block    │
+│   ├── doodle/    canvas, painter, strokes codec, thumbnail renderer │
+│   ├── sync_ui/   pair/send/receive/transfer/conflict screens        │
+│   ├── security/  biometric gate, lock screen, PIN                   │
+│   ├── settings/  appearance, security, storage, about, sync devices │
+│   ├── notebooks/ tags/ trash/ onboarding/                            │
+│                                                                     │
+│  lib/sync        peer-to-peer sync engine                            │
+│   ├── protocol/  sync_bundle (CBOR), merge_resolver                  │
+│   ├── sync_orchestrator.dart                                        │
+│   └── transport/ sync_transport (interface), tcp_sync_transport      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+Entry point: `lib/main.dart` → `lib/app.dart` → `lib/core/router.dart`.
+
+---
+
+## 2. Data layer (`lib/data`)
+
+- **Schema:** `lib/data/database.dart` declares the Drift `@DriftDatabase`.
+  Tables live in `lib/data/tables/` (`notes.dart`, `attachments.dart`, …).
+- **Encryption:** the DB is opened with SQLCipher. The key comes from the
+  platform keystore via `flutter_secure_storage` (see
+  `lib/core/providers/database_provider.dart`) — never hardcoded.
+- **Opening gate:** DB open happens only after biometric unlock
+  (`lib/core/providers/biometric_provider.dart`, `lib/features/security/`).
+- **Repositories** wrap each table with `Stream`-based query API consumed by
+  Riverpod providers.
+
+Key note fields (see `docs/notes-app-detailed-plan.md`): `deviceOriginId`,
+`syncVersion`, `updatedAt`, `pinned`, `locked`, `colorSeed`, `coverImagePath`,
+`title`, `type`.
+
+Generated code lives alongside tables (`database.g.dart`, `*.drift.dart`);
+regenerate with `dart run build_runner build --delete-conflicting-outputs`.
+
+---
+
+## 3. Sync engine (`lib/sync`)
+
+### 3.1 Protocol — `lib/sync/protocol/sync_bundle.dart`
+
+Wire format is **CBOR**, preceded by a SHA-256 checksum on the wire.
+
+- `SyncBundle` — top-level container: `protocolVersion`, `senderDeviceId`,
+  `senderDeviceName`, `sentAt`, list of `SyncNoteEntry`.
+- `SyncNoteEntry` — one note: `noteId`, `syncVersion`, `updatedAt`,
+  `deviceOriginId`, `noteFields` (map), optional `checklistItems`, optional
+  `attachments` (`List<SyncAttachment>`).
+- `SyncAttachment` — `id`, `type` (`'image' | 'doodleLayer'`), `sortOrder`,
+  `bytes`. Reads legacy single-attachment payloads for backward compatibility.
+- `SyncHeader` — announces `bundleSizeBytes`, `checksum`, `noteCount` before the
+  bundle so the receiver can stream and verify.
+- `SyncAck` — `receivedNoteIds` + `rejectedNoteIds`, sent after processing.
+- Helpers: `computeChecksum` / `verifyChecksum` (SHA-256), `splitIntoChunks` /
+  `reassembleChunks`.
+
+### 3.2 Merge resolver — `lib/sync/protocol/merge_resolver.dart`
+
+Reconciles arriving notes with local state. Table-driven resolution by
+`deviceOriginId` + `updatedAt` + `syncVersion`. Branch rules:
+
+- incoming note is new → insert
+- incoming is older → keep local (no-op)
+- same lineage, newer → overwrite
+- true conflict (both changed) → **never silently resolved**: returns
+  `promptUser`, which surfaces a conflict card. User chooses Keep this device /
+  Keep incoming / Keep both.
+
+Merge semantics details:
+
+- **Keep both** resets `deviceOriginId` to the receiving device so the
+  duplicate becomes a locally-owned note and never re-conflicts.
+- On kept notes (insert or overwrite), the receiver bumps `syncVersion` so the
+  next exchange stays coherent.
+
+### 3.3 Orchestrator — `lib/sync/sync_orchestrator.dart`
+
+Coordinates a transfer end-to-end:
+
+- Exposes `pendingPairing` state and `confirmPairing()` / `rejectPairing()`
+  (receiver-side pairing enforcement).
+- Serializes notes (with **all** attachments) into a `SyncBundle`, computes the
+  checksum, and hands the bytes to the transport.
+- Receives a bundle, verifies checksum, feeds entries to the merge resolver,
+  persists accepted notes/attachments (images + doodles into the app's managed
+  documents directory via `path_provider`), and replies with an `SyncAck`.
+- Records transfer results into `sync_log` for the history screen.
+
+### 3.4 Transports — `lib/sync/transport/`
+
+- `sync_transport.dart` — abstract `SyncTransport` + the session state streams
+  and device/naming types.
+- `tcp_sync_transport.dart` — `TcpSyncTransport` over length-prefixed JSON
+  frames on raw TCP.
+  - **Handshake:** sender `hello` (device identity + optional `pairingCode`);
+    receiver replies with identity; if a code is present the receiver must send
+    `pairing_confirm` before the sender's `connectToDevice(...)` succeeds.
+  - **Transfer:** `sync_header` → `sync_chunk`* → receiver verifies SHA-256 and
+    sends `sync_ack`.
+  - **Reliability:** `sendData` returns the parsed `SyncAck`; it retries the
+    full bundle once on ack timeout before surfacing an error.
+  - **Naming:** configurable `localDeviceName` (no more hardcoded 'Nook').
+- Discovery (mDNS) uses Bonsoir; the TCP transfer itself is plain sockets, so
+  it's testable over `127.0.0.1` loopback without any platform dummies.
+
+### 3.5 Sync wire frames (TCP)
+
+All frames are: `uint32 BE length` + UTF-8 JSON payload.
+
+| Frame | Sender | Payload |
+|---|---|---|
+| `hello` | connecting | `{deviceId, deviceName, protocolVersion, pairingCode?}` |
+| identity reply | server | `{deviceId, deviceName, protocolVersion}` |
+| `pairing_confirm` / `pairing_rejected` | server | confirmation after user approves code |
+| `sync_header` + `sync_chunk`… | sender | checksum + size, then base64 payload chunks |
+| `sync_ack` | receiver | `{data: base64(CBOR SyncAck)}` |
+
+---
+
+## 4. Feature surface (`lib/features`)
+
+- **home/** — polymorphic note cards (`note_card`, `note_banner_card`,
+  `note_doodle_card`, `note_minimal_card`), staggered grid, filter pills,
+  pull-to-search, morphing editorial FAB.
+- **editor/** — AppFlowy editor integration in `note_editor_screen`; autosave
+  debounces `transactionStream` (~600ms) and serializes `document.toJson()` into
+  Drift. Custom node types: `doodle` (`lib/features/editor/doodle/doodle_block.dart`)
+  and re-skinned `todo_list` (`custom_todo_list_block.dart`). Image
+  handling in `zoomable_image_block.dart` / `image_picker_handler.dart`.
+- **doodle/** — `doodle_controller` (undo/redo, mode), `doodle_painter`,
+  `doodle_strokes_codec` (v1/v2 codec, `isPerfectShape`), thumbnail renderer,
+  shape-assist toolbar.
+- **sync_ui/** — screen-by-screen UI over the orchestrator:
+  `sync_screen`, `sync_send_screen`, `sync_receive_screen`, `sync_pairing_screen`,
+  `sync_transfer_screen`, `sync_history_screen`, plus `widgets/conflict_card.dart`.
+
+---
+
+## 5. Platform / core (`lib/core`)
+
+- **Theme:** `theme/app_theme.dart` + `design_tokens.dart`; per-note color
+  scopes via `note_theme_scope.dart`.
+- **Router:** `router.dart` (go_router, 26 routes).
+- **Providers:** database, theme, pin, biometric, screenshot blocker.
+- **Platform bridges:** `platform/window_manager.dart` (MethodChannel, replaced
+  discontinued `flutter_windowmanager`), `platform/nearby_permissions.dart`.
+
+---
+
+## 6. Editor patches & gotchas (`docs/notes-app-part3-editor…`)
+
+- `AppFlowyEditorLocalizations.delegate` must be added to
+  `MaterialApp.localizationsDelegates` or the editor throws at runtime.
+- `android/settings.gradle.kts` patches the pub-cache `keyboard_height_plugin`
+  build.gradle (compileSdk 31 → 34) — see
+  https://github.com/AppFlowy-IO/appflowy-editor/issues/1036.
+- `tool/patch_appflowy_editor.dart` adds the missing
+  `TextInputClient.onFocusReceived` override (Flutter 3.44+). CI runs it after
+  `flutter pub get`; local dev must too. Remove both once upstream publishes
+  fixes.
+
+---
+
+## 7. Testing
+
+| Area | Approach | Where |
+|---|---|---|
+| Data | in-memory Drift `NativeDatabase.memory()` | `test/data/*` |
+| Merge | table-driven over all resolver branches | `test/sync/merge_resolver_test.dart` |
+| Protocol | CBOR round-trips, legacy payload compat, checksum | `test/sync/protocol_test.dart` |
+| Orchestrator | fake transport + real resolver/DB | `test/sync/sync_orchestrator_test.dart` |
+| Transport | mock + **real loopback TCP** (`127.0.0.1`) | `test/sync/transport_test.dart`, `test/sync/tcp_transport_integration_test.dart` |
+| Widgets | `flutter_test` + goldens (NoteCard color/locked/pinned) | `test/features/*` |
+| Real devices | two-emulator harness (Nearby Connections over virtual network) | see detailed plan §11 |
+
+CI (`github/workflows/ci.yml`): `format → analyze → test --coverage`, then an
+APK build + tag-triggered GitHub release.
+
+---
+
+## 8. Common changes & where to make them
+
+| You want to… | Touch |
+|---|---|
+| Add a note field | table → repository → serialization in `sync_bundle.dart` |
+| Change the wire protocol | `sync_bundle.dart` + `tcp_sync_transport.dart` + `protocol_test.dart` |
+| Change conflict UX | `merge_resolver.dart` + `sync_ui/widgets/conflict_card.dart` |
+| Add a sync screen/route | `core/router.dart` + `features/sync_ui/` |
+| New attachment type | `tables/attachments.dart` + `SyncAttachment` mapping + restore path |
+| Change editor behavior | `features/editor/` (blocks, autosave, toolbar) |
+| Security/scanner UI | `core/providers/*_provider.dart` + `features/security/` |
+| CI / release | `.github/workflows/ci.yml` |
