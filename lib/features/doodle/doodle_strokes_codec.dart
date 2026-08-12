@@ -19,7 +19,7 @@ class DoodleData {
 class DoodleStrokesCodec {
   DoodleStrokesCodec._();
 
-  static const int _version = 1;
+  static const int _version = 2;
 
   static String encode(
     List<Stroke> strokes, {
@@ -35,7 +35,7 @@ class DoodleStrokesCodec {
             'color': stroke.color.toARGB32(),
             'width': stroke.width,
             'opacity': stroke.opacity,
-            'perfectShape': stroke.isPerfectShape,
+            'isPerfectShape': stroke.isPerfectShape,
             'points': [
               for (final point in stroke.points)
                 [point.position.dx, point.position.dy, point.pressure],
@@ -61,6 +61,12 @@ class DoodleStrokesCodec {
           final pressure = list.length > 2 ? list[2].toDouble() : 1.0;
           points.add(StrokePoint(Offset(dx, dy), pressure: pressure));
         }
+
+        // Support both v1 ('perfectShape') and v2 ('isPerfectShape') field names.
+        final perfectShape = map['isPerfectShape'] as bool? ??
+            map['perfectShape'] as bool? ??
+            false;
+
         strokes.add(
           Stroke(
             points: points,
@@ -68,7 +74,7 @@ class DoodleStrokesCodec {
             width: (map['width'] as num).toDouble(),
             tool: DoodleTool.values.byName(map['tool'] as String),
             opacity: (map['opacity'] as num).toDouble(),
-            isPerfectShape: map['perfectShape'] as bool? ?? false,
+            isPerfectShape: perfectShape,
           ),
         );
       }

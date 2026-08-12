@@ -13,13 +13,19 @@ class SyncReceiveScreen extends ConsumerStatefulWidget {
 }
 
 class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
-  bool _isDiscoverable = false;
+  SyncOrchestrator? _notifier;
+  bool _shouldStopOnDispose = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifier = ref.read(syncOrchestratorProvider.notifier);
+  }
 
   @override
   void dispose() {
-    // Stop advertising when leaving the screen
-    if (_isDiscoverable) {
-      ref.read(syncOrchestratorProvider.notifier).stop();
+    if (_shouldStopOnDispose) {
+      _notifier?.stop();
     }
     super.dispose();
   }
@@ -28,6 +34,12 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final syncState = ref.watch(syncOrchestratorProvider);
+    final isDiscoverable = syncState.phase == SyncPhase.receiving ||
+        syncState.phase == SyncPhase.resolving ||
+        syncState.phase == SyncPhase.complete;
+
+    _shouldStopOnDispose = syncState.phase == SyncPhase.receiving ||
+        syncState.phase == SyncPhase.resolving;
 
     return Scaffold(
       appBar: AppBar(
@@ -41,20 +53,19 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
             SwitchListTile(
               title: const Text('Make this device visible'),
               subtitle: Text(
-                _isDiscoverable
+                isDiscoverable
                     ? 'Other devices can find this phone'
                     : 'Other devices cannot find this phone',
                 style: theme.textTheme.bodySmall,
               ),
               secondary: Icon(
-                _isDiscoverable ? Icons.visibility : Icons.visibility_off,
-                color: _isDiscoverable
+                isDiscoverable ? Icons.visibility : Icons.visibility_off,
+                color: isDiscoverable
                     ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,
               ),
-              value: _isDiscoverable,
+              value: isDiscoverable,
               onChanged: (value) {
-                setState(() => _isDiscoverable = value);
                 if (value) {
                   ref
                       .read(syncOrchestratorProvider.notifier)
@@ -82,7 +93,7 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
                         style: theme.textTheme.titleSmall,
                       ),
                       Text(
-                        _isDiscoverable
+                        isDiscoverable
                             ? 'Waiting for incoming connections...'
                             : 'Not visible to other devices',
                         style: theme.textTheme.bodySmall?.copyWith(

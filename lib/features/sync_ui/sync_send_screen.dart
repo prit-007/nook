@@ -1,6 +1,9 @@
+import 'dart:async' show unawaited;
+
 import 'package:drift/drift.dart' hide Column, isNotNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
@@ -263,17 +266,24 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen> {
   Future<void> _connectAndSend(BuildContext context, SyncDevice device) async {
     final notifier = ref.read(syncOrchestratorProvider.notifier);
     await notifier.connectToDevice(device);
-    await notifier.sendNotes(_selectedNoteIds.toList());
 
-    if (context.mounted) {
-      final syncState = ref.read(syncOrchestratorProvider);
-      if (syncState.phase == SyncPhase.complete) {
+    // Check if connection succeeded before attempting send.
+    final syncState = ref.read(syncOrchestratorProvider);
+    if (syncState.phase == SyncPhase.error) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sent ${_selectedNoteIds.length} notes')),
+          SnackBar(content: Text(syncState.error ?? 'Connection failed')),
         );
-        Navigator.pop(context);
       }
+      return;
     }
+
+    // Navigate to transfer screen for progress tracking.
+    if (context.mounted) {
+      unawaited(context.push('/sync/transfer/local-send'));
+    }
+
+    await notifier.sendNotes(_selectedNoteIds.toList());
   }
 
   String _noteTypeLabel(NoteType type) {

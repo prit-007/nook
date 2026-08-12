@@ -48,7 +48,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.text('No checklist tasks yet'), findsOneWidget);
+    expect(find.text('A fresh start.'), findsOneWidget);
   });
 
   testWidgets('shows add item text field', (tester) async {
@@ -131,7 +131,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.text('0 of 2 completed'), findsOneWidget);
+    expect(find.text('0 of 2 Done'), findsOneWidget);
   });
 
   testWidgets('shows singular item count', (tester) async {
@@ -140,7 +140,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.text('0 of 1 completed'), findsOneWidget);
+    expect(find.text('0 of 1 Done'), findsOneWidget);
   });
 
   testWidgets('shows progress indicator', (tester) async {
@@ -153,7 +153,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.text('1 of 2 completed'), findsOneWidget);
+    expect(find.text('1 of 2 Done'), findsOneWidget);
   });
 
   testWidgets('delete icon appears on item', (tester) async {
@@ -175,7 +175,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Delete me'), findsNothing);
-    expect(find.text('No checklist tasks yet'), findsOneWidget);
+    expect(find.text('A fresh start.'), findsOneWidget);
   });
 
   testWidgets('checked item shows strikethrough text', (tester) async {

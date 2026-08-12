@@ -12,8 +12,8 @@ import '../data/repositories/note_repository.dart';
 import '../data/repositories/sync_log_repository.dart';
 import 'protocol/merge_resolver.dart';
 import 'protocol/sync_bundle.dart';
-import 'transport/nearby_service_transport.dart';
 import 'transport/sync_transport.dart';
+import 'transport/tcp_sync_transport.dart';
 
 /// State of the sync orchestrator.
 class SyncOrchestratorState {
@@ -93,7 +93,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   @override
   SyncOrchestratorState build() => const SyncOrchestratorState();
 
-  NearbyServiceTransport? _transport;
+  SyncTransport? _transport;
   StreamSubscription? _deviceSub;
   StreamSubscription? _stateSub;
   StreamSubscription? _bytesSub;
@@ -103,23 +103,24 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
   /// Initializes the transport and gets local device info.
   ///
-  /// Pass [testTransport] in tests to inject a fake.
-  Future<void> initializeTransport(
-      {NearbyServiceTransport? testTransport}) async {
-    _transport = testTransport ?? NearbyServiceTransport();
-    await _transport!.initialize();
-
-    final info = await _transport!.getCurrentDeviceInfo();
-    _localDeviceId = info?.id ?? const Uuid().v4();
-    _localDeviceName = info?.displayName ?? 'Unknown Device';
+  /// Pass [testTransport] in tests to inject a mock.
+  Future<void> initializeTransport({SyncTransport? testTransport}) async {
+    if (testTransport != null) {
+      _transport = testTransport;
+      _localDeviceId = const Uuid().v4();
+      _localDeviceName = 'Test Device';
+    } else {
+      final tcp = TcpSyncTransport();
+      _transport = tcp;
+      await tcp.initialize();
+      _localDeviceId = await tcp.getCurrentDeviceId() ?? const Uuid().v4();
+      _localDeviceName = 'Nook';
+    }
   }
 
   /// Starts discovery for nearby devices (sender mode).
   Future<void> startDiscovery() async {
     if (_transport == null) await initializeTransport();
-
-    // On Darwin, switch to browser role for discovery
-    await _transport!.setDarwinBrowserRole();
 
     state = state.copyWith(phase: SyncPhase.discovering, clearError: true);
 
@@ -141,15 +142,21 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       }
     });
 
+    unawaited(_progressSub?.cancel());
+    _progressSub = _transport!.progressStream.listen((progress) {
+      if (state.phase == SyncPhase.sending) {
+        state = state.copyWith(
+          sentCount: (progress * state.totalCount).round(),
+        );
+      }
+    });
+
     await _transport!.startDiscovery();
   }
 
   /// Starts advertising for incoming connections (receiver mode).
   Future<void> startAdvertising() async {
     if (_transport == null) await initializeTransport();
-
-    // On Darwin, switch to advertiser role
-    await _transport!.setDarwinAdvertiserRole();
 
     state = state.copyWith(phase: SyncPhase.receiving, clearError: true);
     await _transport!.startAdvertising();
@@ -174,7 +181,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       selectedDevice: device,
     );
 
-    final connected = await _transport!.connectToDevice(device.deviceId);
+    final connected = await _transport!.connectToDevice(device);
     if (!connected) {
       state = state.copyWith(
         phase: SyncPhase.error,
@@ -321,21 +328,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
           case MergeAction.insertAsNew:
           case MergeAction.overwrite:
             await resolver.applyIncoming(entry);
-            // Restore attachment bytes if present.
-            if (entry.attachmentBytes != null) {
-              final note = await noteRepo.getNoteById(entry.noteId);
-              if (note != null) {
-                final tempDir = Directory.systemTemp.createTempSync('sync_');
-                final ext =
-                    entry.noteFields['type'] == 'doodle' ? 'drawn' : 'img';
-                final filePath = '${tempDir.path}/${entry.noteId}_att.$ext';
-                await File(filePath).writeAsBytes(entry.attachmentBytes!);
-                await attachmentRepo.addImage(
-                  noteId: note.id,
-                  filePath: filePath,
-                );
-              }
-            }
+            await _restoreAttachment(
+                entry: entry, attachmentRepo: attachmentRepo);
             receivedIds.add(entry.noteId);
             await syncLog.logReceived(
               deviceId: bundle.senderDeviceId,
@@ -400,24 +394,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     switch (choice) {
       case 'remote':
         await resolver.applyIncoming(conflict.incoming);
-        // Restore attachment if present.
-        if (conflict.incoming.attachmentBytes != null) {
-          final note = await noteRepo.getNoteById(conflict.incoming.noteId);
-          if (note != null) {
-            final tempDir = Directory.systemTemp.createTempSync('sync_');
-            final ext = conflict.incoming.noteFields['type'] == 'doodle'
-                ? 'drawn'
-                : 'img';
-            final filePath =
-                '${tempDir.path}/${conflict.incoming.noteId}_att.$ext';
-            await File(filePath)
-                .writeAsBytes(conflict.incoming.attachmentBytes!);
-            await attachmentRepo.addImage(
-              noteId: note.id,
-              filePath: filePath,
-            );
-          }
-        }
+        await _restoreAttachment(
+            entry: conflict.incoming, attachmentRepo: attachmentRepo);
         await syncLog.logReceived(
           deviceId: conflict.incoming.deviceOriginId,
           deviceName: conflict.remoteDeviceName,
@@ -435,24 +413,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       case 'both':
         // Keep both — insert incoming as new
         await resolver.applyIncoming(conflict.incoming);
-        // Restore attachment if present.
-        if (conflict.incoming.attachmentBytes != null) {
-          final note = await noteRepo.getNoteById(conflict.incoming.noteId);
-          if (note != null) {
-            final tempDir = Directory.systemTemp.createTempSync('sync_');
-            final ext = conflict.incoming.noteFields['type'] == 'doodle'
-                ? 'drawn'
-                : 'img';
-            final filePath =
-                '${tempDir.path}/${conflict.incoming.noteId}_att.$ext';
-            await File(filePath)
-                .writeAsBytes(conflict.incoming.attachmentBytes!);
-            await attachmentRepo.addImage(
-              noteId: note.id,
-              filePath: filePath,
-            );
-          }
-        }
+        await _restoreAttachment(
+            entry: conflict.incoming, attachmentRepo: attachmentRepo);
         await syncLog.logReceived(
           deviceId: conflict.incoming.deviceOriginId,
           deviceName: conflict.remoteDeviceName,
@@ -490,6 +452,25 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     unawaited(_bytesSub?.cancel());
     unawaited(_progressSub?.cancel());
     _transport?.dispose();
+  }
+
+  /// Restores attachment bytes to a temp file and creates an Attachment row.
+  Future<void> _restoreAttachment({
+    required SyncNoteEntry entry,
+    required AttachmentRepository attachmentRepo,
+  }) async {
+    if (entry.attachmentBytes == null) return;
+    final noteRepo = NoteRepository(ref.read(databaseProvider));
+    final note = await noteRepo.getNoteById(entry.noteId);
+    if (note == null) return;
+    final tempDir = Directory.systemTemp.createTempSync('sync_');
+    final ext = entry.noteFields['type'] == 'doodle' ? 'drawn' : 'img';
+    final filePath = '${tempDir.path}/${entry.noteId}_att.$ext';
+    await File(filePath).writeAsBytes(entry.attachmentBytes!);
+    await attachmentRepo.addImage(
+      noteId: note.id,
+      filePath: filePath,
+    );
   }
 }
 

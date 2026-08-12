@@ -38,7 +38,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    final expectedDate = DateFormat('MMM d, yyyy').format(DateTime.now());
+    final expectedDate = DateFormat('MMMM d, yyyy').format(DateTime.now());
     expect(find.text(expectedDate), findsOneWidget);
   });
 
@@ -52,7 +52,7 @@ void main() {
     await tester.pumpWidget(buildEditor(noteId: note.id));
     await tester.pumpAndSettle();
 
-    final expectedDate = DateFormat('MMM d, yyyy').format(DateTime.now());
+    final expectedDate = DateFormat('MMMM d, yyyy').format(DateTime.now());
     expect(find.text(expectedDate), findsOneWidget);
   });
 
@@ -174,15 +174,15 @@ void main() {
     await tester.pumpWidget(buildEditor(noteId: note.id));
     await tester.pumpAndSettle();
 
-    final expectedDate = DateFormat('MMM d, yyyy').format(DateTime.now());
+    final expectedDate = DateFormat('MMMM d, yyyy').format(DateTime.now());
     expect(find.text(expectedDate), findsOneWidget);
   });
 
-  testWidgets('new note shows Untitled in app bar', (tester) async {
+  testWidgets('new note shows New Note in app bar', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.text('New Note'), findsOneWidget);
   });
 
   testWidgets('has image insert button', (tester) async {
