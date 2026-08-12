@@ -5,8 +5,17 @@ import 'package:flutter/services.dart';
 
 import '../../../data/tables/notes.dart';
 
+/// Editorial compose FAB that owns its full-screen scrim.
+///
+/// This widget expands to fill its parent and renders both the dimming /
+/// blurring scrim and the floating action button + options menu itself, so
+/// the menu state never gets desynced (or reset) by a sibling widget being
+/// inserted into the parent stack.
 class MorphingEditorialFab extends StatefulWidget {
-  const MorphingEditorialFab({super.key, required this.onCreateNote});
+  const MorphingEditorialFab({
+    super.key,
+    required this.onCreateNote,
+  });
 
   final void Function(NoteType type) onCreateNote;
 
@@ -33,13 +42,12 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
     final scheme = Theme.of(context).colorScheme;
 
     return Stack(
-      alignment: Alignment.bottomRight,
-      clipBehavior: Clip.none,
       children: [
         if (_isOpen)
           Positioned.fill(
             child: GestureDetector(
-              onTap: _toggleMenu,
+              behavior: HitTestBehavior.translucent,
+              onTap: () => setState(() => _isOpen = false),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 child: Container(
@@ -48,74 +56,78 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
               ),
             ),
           ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            AnimatedScale(
-              scale: _isOpen ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutBack,
-              alignment: Alignment.bottomRight,
-              child: AnimatedOpacity(
-                opacity: _isOpen ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: _isOpen
-                    ? Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            _MenuOption(
-                              label: 'Canvas Doodle',
-                              icon: Icons.gesture_rounded,
-                              accentColor: scheme.tertiary,
-                              onTap: () => _selectType(NoteType.doodle),
-                            ),
-                            const SizedBox(height: 12),
-                            _MenuOption(
-                              label: 'Interactive Checklist',
-                              icon: Icons.checklist_rounded,
-                              accentColor: scheme.secondary,
-                              onTap: () => _selectType(NoteType.checklist),
-                            ),
-                            const SizedBox(height: 12),
-                            _MenuOption(
-                              label: 'Quick Thought',
-                              icon: Icons.edit_note_rounded,
-                              accentColor: scheme.primary,
-                              onTap: () => _selectType(NoteType.text),
-                            ),
-                          ],
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
-            FloatingActionButton.extended(
-              onPressed: _toggleMenu,
-              elevation: 4,
-              backgroundColor: _isOpen ? scheme.surface : scheme.primary,
-              foregroundColor: _isOpen ? scheme.onSurface : scheme.onPrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-              ),
-              icon: AnimatedRotation(
-                turns: _isOpen ? 0.125 : 0.0,
-                duration: const Duration(milliseconds: 250),
-                child: Icon(
-                  _isOpen ? Icons.add_rounded : Icons.create_rounded,
+        Positioned(
+          right: 16,
+          bottom: 130,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              AnimatedScale(
+                scale: _isOpen ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutBack,
+                alignment: Alignment.bottomRight,
+                child: AnimatedOpacity(
+                  opacity: _isOpen ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: _isOpen
+                      ? Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              _MenuOption(
+                                label: 'Canvas Doodle',
+                                icon: Icons.gesture_rounded,
+                                accentColor: scheme.tertiary,
+                                onTap: () => _selectType(NoteType.doodle),
+                              ),
+                              const SizedBox(height: 12),
+                              _MenuOption(
+                                label: 'Interactive Checklist',
+                                icon: Icons.checklist_rounded,
+                                accentColor: scheme.secondary,
+                                onTap: () => _selectType(NoteType.checklist),
+                              ),
+                              const SizedBox(height: 12),
+                              _MenuOption(
+                                label: 'Quick Thought',
+                                icon: Icons.edit_note_rounded,
+                                accentColor: scheme.primary,
+                                onTap: () => _selectType(NoteType.text),
+                              ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ),
-              label: Text(
-                _isOpen ? 'Close' : 'New Note',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
+              FloatingActionButton.extended(
+                onPressed: _toggleMenu,
+                elevation: 4,
+                backgroundColor: _isOpen ? scheme.surface : scheme.primary,
+                foregroundColor: _isOpen ? scheme.onSurface : scheme.onPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                icon: AnimatedRotation(
+                  turns: _isOpen ? 0.125 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: Icon(
+                    _isOpen ? Icons.add_rounded : Icons.create_rounded,
+                  ),
+                ),
+                label: Text(
+                  _isOpen ? 'Close' : 'New Note',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );

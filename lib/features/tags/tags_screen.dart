@@ -200,9 +200,13 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                     ),
                   ),
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateSheet,
-        child: const Icon(Icons.add),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 114),
+        child: FloatingActionButton(
+          onPressed: _showCreateSheet,
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

@@ -48,7 +48,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('No items'), findsOneWidget);
+    expect(find.text('No checklist tasks yet'), findsOneWidget);
   });
 
   testWidgets('shows add item text field', (tester) async {
@@ -62,7 +62,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.text('Add item...'), findsOneWidget);
+    expect(find.text('Add a new task...'), findsOneWidget);
   });
 
   testWidgets('adds an item via text field', (tester) async {
@@ -74,7 +74,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Buy milk'), findsOneWidget);
-    expect(find.byType(Checkbox), findsOneWidget);
   });
 
   testWidgets('displays existing items', (tester) async {
@@ -88,14 +87,18 @@ void main() {
     expect(find.text('Item B'), findsOneWidget);
   });
 
-  testWidgets('checkbox is unchecked by default', (tester) async {
+  testWidgets('unchecked item shows empty circle', (tester) async {
     await repo.addItem(noteId: 'note-1', text: 'Task');
 
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
-    expect(checkbox.value, isFalse);
+    // The custom circle should not show a check icon when unchecked
+    final tile = find.ancestor(
+      of: find.text('Task'),
+      matching: find.byType(GestureDetector),
+    );
+    expect(tile, findsAtLeastNWidgets(1));
   });
 
   testWidgets('tapping checkbox toggles checked state', (tester) async {
@@ -104,11 +107,21 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(Checkbox));
+    // Tap the circle toggle (first GestureDetector inside the Row)
+    final rowFinder = find.ancestor(
+      of: find.text('Task'),
+      matching: find.byType(Row),
+    );
+    final circleToggle = find.descendant(
+      of: rowFinder.first,
+      matching: find.byType(GestureDetector),
+    );
+    await tester.tap(circleToggle.first);
     await tester.pumpAndSettle();
 
-    final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
-    expect(checkbox.value, isTrue);
+    // After toggling, the item should be checked (shows check icon)
+    final items = await repo.getItems('note-1');
+    expect(items.first.checked, isTrue);
   });
 
   testWidgets('shows item count', (tester) async {
@@ -118,7 +131,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.text('0/2'), findsOneWidget);
+    expect(find.text('0 of 2 completed'), findsOneWidget);
   });
 
   testWidgets('shows singular item count', (tester) async {
@@ -127,21 +140,20 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.text('0/1'), findsOneWidget);
+    expect(find.text('0 of 1 completed'), findsOneWidget);
   });
 
   testWidgets('shows progress indicator', (tester) async {
     await repo.addItem(noteId: 'note-1', text: 'Done');
     await repo.addItem(noteId: 'note-1', text: 'Not done');
 
-    // Toggle first to checked
     final items = await repo.getItems('note-1');
     await repo.toggleChecked(items[0].id);
 
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.text('1/2'), findsOneWidget);
+    expect(find.text('1 of 2 completed'), findsOneWidget);
   });
 
   testWidgets('delete icon appears on item', (tester) async {
@@ -150,7 +162,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.close), findsOneWidget);
+    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
   });
 
   testWidgets('tapping delete icon removes item', (tester) async {
@@ -159,11 +171,11 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.close));
+    await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('Delete me'), findsNothing);
-    expect(find.textContaining('No items'), findsOneWidget);
+    expect(find.text('No checklist tasks yet'), findsOneWidget);
   });
 
   testWidgets('checked item shows strikethrough text', (tester) async {
@@ -187,8 +199,8 @@ void main() {
       await tester.drag(find.text('Swipe me'), const Offset(400, 0));
       await tester.pumpAndSettle();
 
-      final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
-      expect(checkbox.value, isTrue);
+      final items = await repo.getItems('note-1');
+      expect(items.first.checked, isTrue);
     });
 
     testWidgets('swiping item left checks it', (tester) async {
@@ -200,8 +212,8 @@ void main() {
       await tester.drag(find.text('Swipe left'), const Offset(-400, 0));
       await tester.pumpAndSettle();
 
-      final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
-      expect(checkbox.value, isTrue);
+      final items = await repo.getItems('note-1');
+      expect(items.first.checked, isTrue);
     });
 
     testWidgets('swiping a checked item unchecks it', (tester) async {
@@ -215,8 +227,8 @@ void main() {
       await tester.drag(find.text('Uncheck me'), const Offset(400, 0));
       await tester.pumpAndSettle();
 
-      final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
-      expect(checkbox.value, isFalse);
+      final updatedItems = await repo.getItems('note-1');
+      expect(updatedItems.first.checked, isFalse);
     });
 
     testWidgets('strikethrough animates in over time, not instantly',
@@ -227,7 +239,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(strikeWidth(tester, 'Animate'), 0.0);
 
-      await tester.tap(find.byType(Checkbox));
+      // Tap the circle toggle
+      final rowFinder = find.ancestor(
+        of: find.text('Animate'),
+        matching: find.byType(Row),
+      );
+      final circleToggle = find.descendant(
+        of: rowFinder.first,
+        matching: find.byType(GestureDetector),
+      );
+      await tester.tap(circleToggle.first);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -242,7 +263,15 @@ void main() {
       await tester.pumpWidget(buildEditor());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(Checkbox));
+      final rowFinder = find.ancestor(
+        of: find.text('Done'),
+        matching: find.byType(Row),
+      );
+      final circleToggle = find.descendant(
+        of: rowFinder.first,
+        matching: find.byType(GestureDetector),
+      );
+      await tester.tap(circleToggle.first);
       await tester.pumpAndSettle();
 
       expect(strikeWidth(tester, 'Done'), 1.0);

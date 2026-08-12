@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 import 'doodle_controller.dart';
 
@@ -29,28 +30,28 @@ class DoodleToolbar extends StatelessWidget {
         return ClipRRect(
           borderRadius: BorderRadius.circular(32),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.7),
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.75),
                 borderRadius: BorderRadius.circular(32),
                 border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Tools Row (Tactile)
+                  // Tools Row
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -59,33 +60,33 @@ class DoodleToolbar extends StatelessWidget {
                         button: true,
                         selected: controller.currentTool == DoodleTool.pen,
                         child: _TactileTool(
-                          icon: Icons.edit_rounded,
+                          icon: LucideIcons.penLine,
                           isSelected: controller.currentTool == DoodleTool.pen,
                           onTap: () =>
                               controller.setCurrentTool(DoodleTool.pen),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Semantics(
                         label: 'Highlighter tool',
                         button: true,
                         selected:
                             controller.currentTool == DoodleTool.highlighter,
                         child: _TactileTool(
-                          icon: Icons.brush_rounded,
+                          icon: LucideIcons.highlighter,
                           isSelected:
                               controller.currentTool == DoodleTool.highlighter,
                           onTap: () =>
                               controller.setCurrentTool(DoodleTool.highlighter),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Semantics(
                         label: 'Eraser tool',
                         button: true,
                         selected: controller.currentTool == DoodleTool.eraser,
                         child: _TactileTool(
-                          icon: Icons.cleaning_services_rounded,
+                          icon: LucideIcons.eraser,
                           isSelected:
                               controller.currentTool == DoodleTool.eraser,
                           onTap: () =>
@@ -100,12 +101,27 @@ class DoodleToolbar extends StatelessWidget {
                           color: scheme.outlineVariant,
                         ),
                       ),
+                      // Shape Assist Toggle
+                      Semantics(
+                        label: 'Shape assist',
+                        button: true,
+                        selected:
+                            controller.currentTool == DoodleTool.shapeAssist,
+                        child: _TactileTool(
+                          icon: LucideIcons.wandSparkles,
+                          isSelected:
+                              controller.currentTool == DoodleTool.shapeAssist,
+                          onTap: () =>
+                              controller.setCurrentTool(DoodleTool.shapeAssist),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Semantics(
                         label: 'Clear all strokes',
                         button: true,
                         child: IconButton(
                           icon: Icon(
-                            Icons.delete_sweep_rounded,
+                            LucideIcons.trash2,
                             color: scheme.error,
                           ),
                           onPressed: controller.strokes.isNotEmpty

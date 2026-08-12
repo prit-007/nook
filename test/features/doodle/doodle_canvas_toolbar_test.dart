@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:nook/features/doodle/doodle_canvas.dart';
 import 'package:nook/features/doodle/doodle_controller.dart';
 import 'package:nook/features/doodle/doodle_toolbar.dart';
@@ -14,9 +15,10 @@ void main() {
         ),
       ));
 
-      expect(find.byIcon(Icons.edit_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.brush_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.cleaning_services_rounded), findsOneWidget);
+      expect(find.byIcon(LucideIcons.penLine), findsOneWidget);
+      expect(find.byIcon(LucideIcons.highlighter), findsOneWidget);
+      expect(find.byIcon(LucideIcons.eraser), findsOneWidget);
+      expect(find.byIcon(LucideIcons.wandSparkles), findsOneWidget);
     });
 
     testWidgets('pen is selected by default', (tester) async {
@@ -27,7 +29,6 @@ void main() {
         ),
       ));
 
-      // Pen button should be selected by default
       expect(controller.currentTool, equals(DoodleTool.pen));
     });
 
@@ -39,7 +40,7 @@ void main() {
         ),
       ));
 
-      await tester.tap(find.byIcon(Icons.cleaning_services_rounded));
+      await tester.tap(find.byIcon(LucideIcons.eraser));
       await tester.pumpAndSettle();
 
       expect(controller.currentTool, equals(DoodleTool.eraser));
@@ -53,10 +54,24 @@ void main() {
         ),
       ));
 
-      await tester.tap(find.byIcon(Icons.brush_rounded));
+      await tester.tap(find.byIcon(LucideIcons.highlighter));
       await tester.pumpAndSettle();
 
       expect(controller.currentTool, equals(DoodleTool.highlighter));
+    });
+
+    testWidgets('tapping magic wand selects shape assist', (tester) async {
+      final controller = DoodleController();
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: DoodleToolbar(controller: controller),
+        ),
+      ));
+
+      await tester.tap(find.byIcon(LucideIcons.wandSparkles));
+      await tester.pumpAndSettle();
+
+      expect(controller.currentTool, equals(DoodleTool.shapeAssist));
     });
 
     testWidgets('renders color swatches', (tester) async {
@@ -80,7 +95,7 @@ void main() {
         ),
       ));
 
-      expect(find.byIcon(Icons.delete_sweep_rounded), findsOneWidget);
+      expect(find.byIcon(LucideIcons.trash2), findsOneWidget);
     });
   });
 
@@ -109,7 +124,6 @@ void main() {
         ),
       ));
 
-      // Simulate drawing
       final center = tester.getCenter(find.byType(DoodleCanvas));
       final gesture = await tester.startGesture(center);
       await gesture.moveBy(const Offset(50, 50));
@@ -133,7 +147,6 @@ void main() {
         ),
       ));
 
-      // Add a stroke programmatically
       controller.startStroke(const Offset(100, 100));
       controller.continueStroke(const Offset(150, 150));
       controller.endStroke();

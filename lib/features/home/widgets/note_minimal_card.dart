@@ -1,9 +1,11 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../data/database.dart';
 import '../../../data/tables/notes.dart';
+import 'note_quick_actions_sheet.dart';
 
 class NoteMinimalCard extends StatefulWidget {
   const NoteMinimalCard({super.key, required this.note, this.onTap});
@@ -18,96 +20,105 @@ class NoteMinimalCard extends StatefulWidget {
 class _NoteMinimalCardState extends State<NoteMinimalCard> {
   bool _isPressed = false;
 
-  Color _seedColor(BuildContext context) {
-    if (widget.note.colorSeed != null) {
+  ColorScheme _cardScheme(BuildContext context) {
+    if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
       final seed = Color(
         int.parse(
           'FF${widget.note.colorSeed!.replaceFirst('#', '')}',
           radix: 16,
         ),
       );
-      return ColorScheme.fromSeed(seedColor: seed).primaryContainer;
+      return ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Theme.of(context).brightness,
+      );
     }
-    return Theme.of(context).colorScheme.surfaceContainerLow;
+    return Theme.of(context).colorScheme;
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final cardBg = _seedColor(context);
+    final cardScheme = _cardScheme(context);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        NoteQuickActionsSheet.show(context, widget.note);
+      },
       child: AnimatedScale(
         scale: _isPressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOutCubic,
         child: Hero(
           tag: 'note-${widget.note.id}',
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(26),
-              boxShadow: [
-                BoxShadow(
-                  color: cardBg.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(_typeIcon, size: 15, color: scheme.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          _typeLabel,
-                          style: TextStyle(
-                            color: scheme.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (widget.note.pinned)
-                      Icon(
-                        Icons.push_pin_rounded,
-                        size: 16,
-                        color: scheme.primary,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (widget.note.locked)
-                  _lockedPreview(scheme)
-                else
-                  Text(
-                    widget.note.title.isEmpty
-                        ? (widget.note.plainText ?? 'Untitled')
-                        : (widget.note.plainText ?? widget.note.title),
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.45,
-                      fontWeight: FontWeight.w500,
-                      color: scheme.onSurface,
-                    ),
-                    maxLines: 6,
-                    overflow: TextOverflow.ellipsis,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: cardScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(26),
+                boxShadow: [
+                  BoxShadow(
+                    color: cardScheme.primary.withValues(alpha: 0.15),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
-              ],
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(_typeIcon, size: 15, color: cardScheme.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            _typeLabel,
+                            style: TextStyle(
+                              color: cardScheme.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (widget.note.pinned)
+                        Icon(
+                          Icons.push_pin_rounded,
+                          size: 16,
+                          color: cardScheme.primary,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (widget.note.locked)
+                    _lockedPreview(cardScheme)
+                  else
+                    Text(
+                      widget.note.title.isEmpty
+                          ? (widget.note.plainText ?? 'Untitled')
+                          : (widget.note.plainText ?? widget.note.title),
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                        color: cardScheme.onSurface,
+                      ),
+                      maxLines: 6,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
             ),
           ),
         ),

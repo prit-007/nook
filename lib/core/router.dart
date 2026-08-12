@@ -13,6 +13,7 @@ import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/trash/trash_screen.dart';
 import '../../features/security/lock_screen.dart';
 import '../../features/security/locked_notes_screen.dart';
+import '../../features/sync_ui/sync_screen.dart';
 import '../../features/sync_ui/sync_send_screen.dart';
 import '../../features/sync_ui/sync_receive_screen.dart';
 import '../../features/sync_ui/sync_pairing_screen.dart';
@@ -98,14 +99,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               context,
               state,
               const HomeScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/home/search',
-            pageBuilder: (context, state) => _slideUpTransition(
-              context,
-              state,
-              const SearchScreen(),
             ),
           ),
           GoRoute(
@@ -200,15 +193,23 @@ final routerProvider = Provider<GoRouter>((ref) {
               const SettingsAboutScreen(),
             ),
           ),
-          GoRoute(
-            path: '/locked',
-            pageBuilder: (context, state) => _slideUpTransition(
-              context,
-              state,
-              const LockedNotesScreen(),
-            ),
-          ),
         ],
+      ),
+      GoRoute(
+        path: '/home/search',
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const SearchScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/locked',
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const LockedNotesScreen(),
+        ),
       ),
       GoRoute(
         path: '/note/new',
@@ -243,6 +244,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/sync',
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const SyncScreen(),
+        ),
+      ),
+      GoRoute(
         path: '/sync/send',
         pageBuilder: (context, state) => _slideUpTransition(
           context,
@@ -260,11 +269,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/sync/pairing',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          const SyncPairingScreen(),
-        ),
+        pageBuilder: (context, state) {
+          final extra = state.extra as Map<String, String>? ?? {};
+          return _slideUpTransition(
+            context,
+            state,
+            SyncPairingScreen(
+              pairingCode: extra['pairingCode'] ?? '000000',
+              deviceName: extra['deviceName'] ?? 'Unknown Device',
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/sync/transfer/:sessionId',

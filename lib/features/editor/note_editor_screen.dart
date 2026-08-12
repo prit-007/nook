@@ -15,11 +15,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/theme/note_theme_scope.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/doodle_storage.dart';
 import '../../data/repositories/note_repository.dart';
-import '../../core/theme/note_theme_scope.dart';
 import '../../data/tables/notes.dart';
 import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/doodle/doodle_thumbnail_renderer.dart';
@@ -54,11 +54,14 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   bool _locked = false;
   bool _loading = true;
   bool _saving = false;
+  bool _saveQueued = false;
+  bool _disposed = false;
   String? _colorSeed;
   String? _notebookId;
   Timer? _autosaveTimer;
   StreamSubscription<void>? _transactionSubscription;
   AppDatabase? _db;
+  bool _corruptedDelta = false;
 
   @override
   void initState() {
@@ -72,8 +75,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     if (widget.noteId != null) {
       final note = await repo.getNoteById(widget.noteId!);
+      if (_disposed || !mounted) return;
       if (note == null) {
-        if (mounted) context.pop();
+        context.pop();
         return;
       }
       _note = note;
@@ -92,12 +96,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             biometricOnly: true,
             persistAcrossBackgrounding: true,
           );
+          if (_disposed || !mounted) {
+            _cleanupInit();
+            return;
+          }
           if (!ok) {
-            if (mounted) context.pop();
+            context.pop();
             return;
           }
         } catch (_) {
-          if (mounted) context.pop();
+          if (!_disposed && mounted) context.pop();
+          _cleanupInit();
           return;
         }
       }
@@ -110,6 +119,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           _editorState = EditorState(document: document);
         } catch (e) {
           _editorState = EditorState.blank(withInitialText: true);
+          _corruptedDelta = true;
         }
       } else {
         _editorState = EditorState.blank(withInitialText: true);
@@ -136,17 +146,44 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         deviceOriginId: 'local',
         notebookId: widget.notebookId,
       );
+      if (_disposed || !mounted) {
+        // Clean up the blank note we just created.
+        await repo.permanentlyDelete(note.id);
+        _cleanupInit();
+        return;
+      }
       _note = note;
       _editorState = EditorState.blank(withInitialText: true);
+    }
+
+    if (_disposed || !mounted) {
+      _cleanupInit();
+      return;
     }
 
     _transactionSubscription = _editorState!.transactionStream.listen((_) {
       _scheduleAutosave();
     });
 
-    if (mounted) {
-      setState(() => _loading = false);
+    setState(() => _loading = false);
+    if (_corruptedDelta) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Note content was corrupted. A fresh note was started.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
     }
+  }
+
+  /// Cleans up resources if _init() completes after disposal.
+  void _cleanupInit() {
+    _editorState?.dispose();
+    _editorState = null;
   }
 
   void _scheduleAutosave() {
@@ -155,7 +192,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   }
 
   Future<void> _save() async {
-    if (_note == null || _editorState == null || _saving) return;
+    if (_note == null || _editorState == null) return;
+    if (_saving) {
+      _saveQueued = true;
+      return;
+    }
 
     _saving = true;
     try {
@@ -177,8 +218,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
       final derivedTitle = plainText.split('\n').firstOrNull ?? _title;
       if (derivedTitle != _title && derivedTitle.isNotEmpty) {
+        await repo.updateNote(_note!.id, title: derivedTitle);
         _title = derivedTitle;
-        await repo.updateNote(_note!.id, title: _title);
       }
 
       await repo.updateContent(
@@ -188,6 +229,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       );
     } finally {
       _saving = false;
+      if (_saveQueued) {
+        _saveQueued = false;
+        unawaited(_save());
+      }
     }
   }
 
@@ -197,8 +242,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     HapticFeedback.lightImpact();
     final repo = NoteRepository(_db!);
     final newPinned = !_pinned;
-    await repo.updateNote(_note!.id, pinned: newPinned);
     setState(() => _pinned = newPinned);
+    await repo.updateNote(_note!.id, pinned: newPinned);
   }
 
   Future<void> _showNoteOptions() async {
@@ -260,7 +305,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     if (result == null || !mounted) return;
 
     // Insert an image node at the current cursor position.
-    await _editorState!.insertImageNode(result.filePath);
+    final node = imageNode(url: result.filePath);
+    insertNodeAfterSelection(_editorState!, node);
+
+    // Force an empty paragraph after the image so the user can keep typing.
+    final pNode = paragraphNode();
+    insertNodeAfterSelection(_editorState!, pNode);
+
     _scheduleAutosave();
   }
 
@@ -273,9 +324,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     // Insert a placeholder doodle node at the current cursor position.
     final node = doodleNode(attachmentId: attachmentId);
-    final transaction = _editorState!.transaction;
-    transaction.insertNode(_editorState!.document.root.path, node);
-    await _editorState!.apply(transaction);
+    insertNodeAfterSelection(_editorState!, node);
+
+    // Force an empty paragraph after the doodle so the user can keep typing.
+    final pNode = paragraphNode();
+    insertNodeAfterSelection(_editorState!, pNode);
 
     // Open the canvas for the new doodle.
     await _openDoodleCanvas(node, _editorState!);
@@ -284,7 +337,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   /// Exports the current note as a PNG and offers save-to-gallery / share.
   Future<void> _exportNote() async {
-    if (_note == null || !mounted) return;
+    if (_note == null || _editorState == null || !mounted) return;
     unawaited(HapticFeedback.lightImpact());
 
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -298,7 +351,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         color: Colors.transparent,
         child: RepaintBoundary(
           key: boundaryKey,
-          child: _NoteExportCapture(note: _note!),
+          child: NoteExportCapture(
+            note: _note!,
+            editorState: _editorState!,
+          ),
         ),
       ),
     );
@@ -325,7 +381,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       await File(filePath).writeAsBytes(bytes);
 
       // Save to gallery
-      await NoteExporter.saveToGallery(
+      final saved = await NoteExporter.saveToGallery(
         bytes,
         name: NoteExporter.generateFileName(_note!.title),
       );
@@ -334,11 +390,15 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
         SnackBar(
-          content: const Text('Saved to gallery'),
-          action: SnackBarAction(
-            label: 'Share',
-            onPressed: () => NoteExporter.sharePng(filePath),
+          content: Text(
+            saved ? 'Saved to gallery' : 'Gallery permission denied',
           ),
+          action: saved
+              ? SnackBarAction(
+                  label: 'Share',
+                  onPressed: () => NoteExporter.sharePng(filePath),
+                )
+              : null,
         ),
       );
     } catch (e) {
@@ -405,11 +465,62 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
     _autosaveTimer?.cancel();
     _transactionSubscription?.cancel();
-    _save();
+    // Snapshot content synchronously before EditorState is disposed.
+    final note = _note;
+    final db = _db;
+    if (note != null && db != null && _editorState != null) {
+      final snapshot = _snapshotContent(note.id, db);
+      _editorState?.dispose();
+      super.dispose();
+      // Fire-and-forget final write with the captured snapshot.
+      _persistSnapshot(snapshot);
+      return;
+    }
     _editorState?.dispose();
     super.dispose();
+  }
+
+  /// Serializes the editor state to a snapshot without async gaps.
+  _PersistSnapshot _snapshotContent(String noteId, AppDatabase db) {
+    final nodes = _editorState!.document.root.children;
+    String plainText = '';
+    for (final node in nodes) {
+      if (node.delta != null) {
+        for (final op in node.delta!.toList()) {
+          if (op is TextInsert) plainText += op.text;
+        }
+        plainText += '\n';
+      }
+    }
+    plainText = plainText.trim();
+    final derivedTitle = plainText.split('\n').firstOrNull ?? _title;
+    return _PersistSnapshot(
+      noteId: noteId,
+      title: derivedTitle != _title ? derivedTitle : null,
+      deltaJson: jsonEncode(_editorState!.document.toJson()),
+      plainText: plainText,
+      db: db,
+    );
+  }
+
+  /// Writes a pre-captured snapshot to the database, ignoring errors.
+  Future<void> _persistSnapshot(_PersistSnapshot snapshot) async {
+    try {
+      final repo = NoteRepository(snapshot.db);
+      if (snapshot.title != null) {
+        await repo.updateNote(snapshot.noteId, title: snapshot.title!);
+      }
+      await repo.updateContent(
+        snapshot.noteId,
+        deltaContent: snapshot.deltaJson,
+        plainText: snapshot.plainText,
+      );
+    } catch (_) {
+      // Best-effort — app is navigating away.
+    }
   }
 
   Color _ambientBackgroundColor(BuildContext context) {
@@ -459,7 +570,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     return NoteThemeScope(
       colorScheme: noteScheme,
+      textTheme: NoteThemeScope.buildDynamicTextTheme(context, noteScheme),
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: _ambientBackgroundColor(context),
         body: Stack(
           children: [
@@ -472,50 +585,74 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   ),
                 ),
               ),
-            Positioned.fill(
-              child: AppFlowyEditor(
-                editorState: _editorState!,
-                autoFocus: true,
-                blockComponentBuilders: {
-                  ...standardBlockComponentBuilderMap,
-                  TodoListBlockKeys.type: NookTodoListBlock.builder(),
-                  DoodleBlockKeys.type: DoodleBlockComponentBuilder(
-                    configuration: BlockComponentConfiguration(
-                      padding: (_) => const EdgeInsets.symmetric(vertical: 24),
-                    ),
-                    onTap: (node, editorState) {
-                      HapticFeedback.lightImpact();
-                      _openDoodleCanvas(node, editorState);
-                    },
+            CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    top: topPadding + 84,
+                    bottom: isKeyboardVisible ? keyboardHeight + 80 : 114,
                   ),
-                  // Override the built-in image block with pinch-to-zoom support.
-                  ImageBlockKeys.type: NookImageBlockComponentBuilder(),
-                },
-                characterShortcutEvents: [
-                  ...standardCharacterShortcutEvents,
-                  customSlashCommand(
-                    [
-                      ...standardSelectionMenuItems,
-                      SelectionMenuItem(
-                        getName: () => 'Doodle',
-                        icon: (editorState, isSelected, style) =>
-                            SelectionMenuIconWidget(
-                          name: 'draw',
-                          isSelected: isSelected,
-                          style: style,
+                  sliver: SliverFillRemaining(
+                    hasScrollBody: true,
+                    child: AppFlowyEditor(
+                      editorState: _editorState!,
+                      editorStyle: EditorStyle.mobile(
+                        cursorColor: noteScheme.primary,
+                        selectionColor:
+                            noteScheme.primary.withValues(alpha: 0.2),
+                        textStyleConfiguration: TextStyleConfiguration(
+                          text: TextStyle(
+                            color: noteScheme.onSurface,
+                            fontSize: 16,
+                            height: 1.6,
+                          ),
                         ),
-                        keywords: ['doodle', 'draw', 'sketch'],
-                        handler: (editorState, _, __) async {
-                          final node = doodleNode(
-                            attachmentId: const Uuid().v4(),
-                          );
-                          insertNodeAfterSelection(editorState, node);
-                        },
                       ),
-                    ],
+                      autoFocus: true,
+                      blockComponentBuilders: {
+                        ...standardBlockComponentBuilderMap,
+                        TodoListBlockKeys.type: NookTodoListBlock.builder(),
+                        DoodleBlockKeys.type: DoodleBlockComponentBuilder(
+                          configuration: BlockComponentConfiguration(
+                            padding: (_) =>
+                                const EdgeInsets.symmetric(vertical: 24),
+                          ),
+                          onTap: (node, editorState) {
+                            HapticFeedback.lightImpact();
+                            _openDoodleCanvas(node, editorState);
+                          },
+                        ),
+                        // Override the built-in image block with pinch-to-zoom support.
+                        ImageBlockKeys.type: NookImageBlockComponentBuilder(),
+                      },
+                      characterShortcutEvents: [
+                        ...standardCharacterShortcutEvents,
+                        customSlashCommand(
+                          [
+                            ...standardSelectionMenuItems,
+                            SelectionMenuItem(
+                              getName: () => 'Doodle',
+                              icon: (editorState, isSelected, style) =>
+                                  SelectionMenuIconWidget(
+                                name: 'draw',
+                                isSelected: isSelected,
+                                style: style,
+                              ),
+                              keywords: ['doodle', 'draw', 'sketch'],
+                              handler: (editorState, _, __) async {
+                                final node = doodleNode(
+                                  attachmentId: const Uuid().v4(),
+                                );
+                                insertNodeAfterSelection(editorState, node);
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             AnimatedPositioned(
               duration: const Duration(milliseconds: 300),
@@ -523,121 +660,130 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               top: isKeyboardVisible ? -80 : topPadding + 12,
               left: 16,
               right: 16,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: isKeyboardVisible ? 0.0 : 1.0,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: Container(
-                      height: 56,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: noteScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color:
-                              noteScheme.outlineVariant.withValues(alpha: 0.2),
+              child: RepaintBoundary(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: isKeyboardVisible ? 0.0 : 1.0,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      child: Container(
+                        height: 56,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: noteScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: noteScheme.outlineVariant
+                                .withValues(alpha: 0.2),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: noteScheme.shadow.withValues(alpha: 0.08),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            tooltip: 'Back',
-                            icon: Icon(
-                              Icons.arrow_back_rounded,
-                              color: noteScheme.onSurface,
+                        child: Row(
+                          children: [
+                            IconButton(
+                              tooltip: 'Back',
+                              icon: Icon(
+                                Icons.arrow_back_rounded,
+                                color: noteScheme.onSurface,
+                              ),
+                              onPressed: () async {
+                                // ignore: unawaited_futures
+                                HapticFeedback.lightImpact();
+                                final nav = GoRouter.of(context);
+                                await _save();
+                                if (mounted) nav.pop();
+                              },
                             ),
-                            onPressed: () async {
-                              // ignore: unawaited_futures
-                              HapticFeedback.lightImpact();
-                              final nav = GoRouter.of(context);
-                              await _save();
-                              if (mounted) nav.pop();
-                            },
-                          ),
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _title.isNotEmpty ? _title : 'Untitled',
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: noteScheme.onSurface,
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _title.isNotEmpty ? _title : 'Untitled',
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: noteScheme.onSurface,
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  _saving
-                                      ? 'Saving...'
-                                      : DateFormat('MMM d, yyyy')
-                                          .format(DateTime.now()),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w400,
-                                    color: noteScheme.onSurfaceVariant,
-                                    letterSpacing: 0.3,
+                                  Text(
+                                    _saving
+                                        ? 'Saving...'
+                                        : DateFormat('MMM d, yyyy').format(
+                                            _note?.updatedAt ?? DateTime.now()),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w400,
+                                      color: noteScheme.onSurfaceVariant,
+                                      letterSpacing: 0.3,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            tooltip: _pinned ? 'Unpin note' : 'Pin note',
-                            icon: Icon(
-                              _pinned
-                                  ? Icons.push_pin_rounded
-                                  : Icons.push_pin_outlined,
-                              color: _pinned
-                                  ? noteScheme.primary
-                                  : noteScheme.onSurface,
-                              size: 20,
+                            IconButton(
+                              tooltip: _pinned ? 'Unpin note' : 'Pin note',
+                              icon: Icon(
+                                _pinned
+                                    ? Icons.push_pin_rounded
+                                    : Icons.push_pin_outlined,
+                                color: _pinned
+                                    ? noteScheme.primary
+                                    : noteScheme.onSurface,
+                                size: 20,
+                              ),
+                              onPressed: _togglePin,
                             ),
-                            onPressed: _togglePin,
-                          ),
-                          IconButton(
-                            tooltip: 'Insert image',
-                            icon: Icon(
-                              Icons.add_photo_alternate_rounded,
-                              color: noteScheme.onSurface,
-                              size: 20,
+                            IconButton(
+                              tooltip: 'Insert image',
+                              icon: Icon(
+                                Icons.add_photo_alternate_rounded,
+                                color: noteScheme.onSurface,
+                                size: 20,
+                              ),
+                              onPressed: _insertImage,
                             ),
-                            onPressed: _insertImage,
-                          ),
-                          IconButton(
-                            tooltip: 'Insert doodle',
-                            icon: Icon(
-                              Icons.draw_rounded,
-                              color: noteScheme.onSurface,
-                              size: 20,
+                            IconButton(
+                              tooltip: 'Insert doodle',
+                              icon: Icon(
+                                Icons.draw_rounded,
+                                color: noteScheme.onSurface,
+                                size: 20,
+                              ),
+                              onPressed: _insertDoodle,
                             ),
-                            onPressed: _insertDoodle,
-                          ),
-                          IconButton(
-                            tooltip: 'Export note',
-                            icon: Icon(
-                              Icons.ios_share_rounded,
-                              color: noteScheme.onSurface,
-                              size: 20,
+                            IconButton(
+                              tooltip: 'Export note',
+                              icon: Icon(
+                                Icons.ios_share_rounded,
+                                color: noteScheme.onSurface,
+                                size: 20,
+                              ),
+                              onPressed: _exportNote,
                             ),
-                            onPressed: _exportNote,
-                          ),
-                          IconButton(
-                            tooltip: 'More options',
-                            icon: Icon(
-                              Icons.more_horiz_rounded,
-                              color: noteScheme.onSurface,
+                            IconButton(
+                              tooltip: 'More options',
+                              icon: Icon(
+                                Icons.more_horiz_rounded,
+                                color: noteScheme.onSurface,
+                              ),
+                              onPressed: _showNoteOptions,
                             ),
-                            onPressed: _showNoteOptions,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -650,11 +796,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
               left: 0,
               right: 0,
-              child: Center(
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
-                  opacity: isKeyboardVisible ? 1.0 : 0.0,
-                  child: _FloatingFormatBar(editorState: _editorState!),
+              child: RepaintBoundary(
+                child: Center(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: isKeyboardVisible ? 1.0 : 0.0,
+                    child: _FloatingFormatBar(editorState: _editorState!),
+                  ),
                 ),
               ),
             ),
@@ -674,86 +822,88 @@ class _FloatingFormatBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = NoteThemeScope.of(context);
 
-    return ExcludeFocus(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: scheme.outlineVariant.withValues(alpha: 0.3),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: scheme.shadow.withValues(alpha: 0.1),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+    return RepaintBoundary(
+      child: ExcludeFocus(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _FormatAction(
-                  icon: Icons.format_bold_rounded,
-                  tooltip: 'Bold',
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    editorState.toggleAttribute('bold');
-                  },
-                ),
-                _FormatAction(
-                  icon: Icons.format_italic_rounded,
-                  tooltip: 'Italic',
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    editorState.toggleAttribute('italic');
-                  },
-                ),
-                _FormatAction(
-                  icon: Icons.format_strikethrough_rounded,
-                  tooltip: 'Strikethrough',
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    editorState.toggleAttribute('strikethrough');
-                  },
-                ),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-                  child: VerticalDivider(
-                    width: 1,
-                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.shadow.withValues(alpha: 0.1),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                _FormatAction(
-                  icon: Icons.format_list_bulleted_rounded,
-                  tooltip: 'Bullet list',
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    insertNodeAfterSelection(
-                      editorState,
-                      bulletedListNode(),
-                    );
-                  },
-                ),
-                _FormatAction(
-                  icon: Icons.checklist_rounded,
-                  tooltip: 'Checklist',
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    insertNodeAfterSelection(
-                      editorState,
-                      todoListNode(checked: false),
-                    );
-                  },
-                ),
-              ],
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FormatAction(
+                    icon: Icons.format_bold_rounded,
+                    tooltip: 'Bold',
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      editorState.toggleAttribute('bold');
+                    },
+                  ),
+                  _FormatAction(
+                    icon: Icons.format_italic_rounded,
+                    tooltip: 'Italic',
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      editorState.toggleAttribute('italic');
+                    },
+                  ),
+                  _FormatAction(
+                    icon: Icons.format_strikethrough_rounded,
+                    tooltip: 'Strikethrough',
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      editorState.toggleAttribute('strikethrough');
+                    },
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+                    child: VerticalDivider(
+                      width: 1,
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  _FormatAction(
+                    icon: Icons.format_list_bulleted_rounded,
+                    tooltip: 'Bullet list',
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      insertNodeAfterSelection(
+                        editorState,
+                        bulletedListNode(),
+                      );
+                    },
+                  ),
+                  _FormatAction(
+                    icon: Icons.checklist_rounded,
+                    tooltip: 'Checklist',
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      insertNodeAfterSelection(
+                        editorState,
+                        todoListNode(checked: false),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -796,15 +946,33 @@ class _FormatAction extends StatelessWidget {
 }
 
 /// Minimal capture-only widget for exporting a note as PNG.
-class _NoteExportCapture extends StatelessWidget {
-  const _NoteExportCapture({required this.note});
+class NoteExportCapture extends StatelessWidget {
+  const NoteExportCapture({
+    super.key,
+    required this.note,
+    required this.editorState,
+  });
 
   final Note note;
+  final EditorState editorState;
+
+  ColorScheme _noteScheme() {
+    if (note.colorSeed != null && note.colorSeed!.isNotEmpty) {
+      return ColorScheme.fromSeed(
+        seedColor:
+            Color(int.parse('0xFF${note.colorSeed!.replaceFirst('#', '')}')),
+      );
+    }
+    return const ColorScheme.light();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = _noteScheme();
+    final nodes = editorState.document.root.children;
+
     return Material(
-      color: Colors.white,
+      color: scheme.surface,
       child: Container(
         width: 400,
         padding: const EdgeInsets.all(32),
@@ -813,40 +981,100 @@ class _NoteExportCapture extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              DateFormat('MMMM d, yyyy').format(note.createdAt),
+              DateFormat('MMMM d, yyyy').format(note.updatedAt),
               style: TextStyle(
                 fontSize: 11,
-                color: Colors.black.withValues(alpha: 0.4),
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
                 letterSpacing: 0.5,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               note.title.isNotEmpty ? note.title : 'Untitled',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: Colors.black,
+                color: scheme.onSurface,
                 height: 1.2,
               ),
             ),
-            if (note.plainText != null && note.plainText!.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              Text(
-                note.plainText!,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF333333),
-                  height: 1.6,
-                ),
-              ),
-            ],
+            const SizedBox(height: 20),
+            ...nodes.map((node) {
+              final type = node.type;
+              if (type == TodoListBlockKeys.type) {
+                final checked =
+                    node.attributes[TodoListBlockKeys.checked] ?? false;
+                final delta = node.delta;
+                String text = '';
+                if (delta != null) {
+                  for (final op in delta) {
+                    if (op is TextInsert) text += op.text;
+                  }
+                }
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        checked ? Icons.check_circle : Icons.circle_outlined,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          text,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: scheme.onSurfaceVariant,
+                            height: 1.5,
+                            decoration:
+                                checked ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              if (type == ImageBlockKeys.type) {
+                final url = node.attributes[ImageBlockKeys.url] as String?;
+                if (url != null && File(url).existsSync()) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Image.file(File(url), width: 300),
+                  );
+                }
+              }
+              final delta = node.delta;
+              if (delta != null && delta.isNotEmpty) {
+                String text = '';
+                for (final op in delta) {
+                  if (op is TextInsert) text += op.text;
+                }
+                if (text.isNotEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: scheme.onSurfaceVariant,
+                        height: 1.6,
+                      ),
+                    ),
+                  );
+                }
+              }
+              return const SizedBox.shrink();
+            }),
             const SizedBox(height: 32),
             Text(
               'nook',
               style: TextStyle(
                 fontSize: 10,
-                color: Colors.black.withValues(alpha: 0.2),
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
                 letterSpacing: 1.5,
               ),
             ),
@@ -855,4 +1083,21 @@ class _NoteExportCapture extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Pre-captured editor content for a best-effort dispose save.
+class _PersistSnapshot {
+  const _PersistSnapshot({
+    required this.noteId,
+    required this.deltaJson,
+    required this.plainText,
+    required this.db,
+    this.title,
+  });
+
+  final String noteId;
+  final String? title;
+  final String deltaJson;
+  final String plainText;
+  final AppDatabase db;
 }

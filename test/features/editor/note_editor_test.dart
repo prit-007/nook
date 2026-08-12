@@ -268,4 +268,40 @@ void main() {
     // the derived color scheme to descendant widgets.
     expect(find.byType(AppFlowyEditor), findsOneWidget);
   });
+
+  group('NoteExportCapture', () {
+    testWidgets('renders paragraphs and todos with checked state',
+        (tester) async {
+      final note = await noteRepo.createNote(
+        title: 'Export',
+        type: NoteType.text,
+        deviceOriginId: 'local',
+      );
+      final document = Document(
+        root: Node(
+          type: 'page',
+          children: [
+            paragraphNode(text: 'Hello paragraph'),
+            todoListNode(checked: true, text: 'Done task'),
+            todoListNode(checked: false, text: 'Open task'),
+          ],
+        ),
+      );
+      final editorState = EditorState(document: document);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: NoteExportCapture(note: note, editorState: editorState),
+          ),
+        ),
+      );
+
+      expect(find.text('Hello paragraph'), findsOneWidget);
+      expect(find.text('Done task'), findsOneWidget);
+      expect(find.text('Open task'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(find.byIcon(Icons.circle_outlined), findsOneWidget);
+    });
+  });
 }

@@ -28,7 +28,8 @@ class NoteRepository {
             type: type,
             title: Value(title),
             deviceOriginId: deviceOriginId,
-            notebookId: Value(notebookId),
+            notebookId:
+                notebookId != null ? Value(notebookId) : const Value.absent(),
             colorSeed: Value(colorSeed),
             deltaContent: Value(deltaContent),
             plainText: Value(plainText),
@@ -76,7 +77,8 @@ class NoteRepository {
     bool? pinned,
     bool? locked,
     String? notebookId,
-    String? type,
+    int? syncVersion,
+    DateTime? updatedAt,
   }) async {
     await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
       NotesCompanion(
@@ -85,7 +87,9 @@ class NoteRepository {
         pinned: pinned != null ? Value(pinned) : const Value.absent(),
         locked: locked != null ? Value(locked) : const Value.absent(),
         notebookId: Value(notebookId),
-        updatedAt: Value(DateTime.now()),
+        syncVersion:
+            syncVersion != null ? Value(syncVersion) : const Value.absent(),
+        updatedAt: updatedAt != null ? Value(updatedAt) : Value(DateTime.now()),
       ),
     );
   }

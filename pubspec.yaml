@@ -1,11 +1,11 @@
 name: nook
 description: "A private, local-first note-taking app. Your notes, your device, yours."
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.5.0+1
 license: GPL-3.0
 
 environment:
-  sdk: '>=3.5.0 <4.0.0'
+  sdk: '>=3.6.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -48,6 +48,8 @@ dependencies:
   nearby_service: ^0.2.1
   crypto: ^3.0.5
   cbor: ^6.3.4
+  device_info_plus: ^11.5.0
+  archive: ^3.6.1
 
   # Small delight, low effort
   flutter_animate: ^4.5.2
@@ -62,7 +64,7 @@ dependencies:
   json_annotation: ^4.9.0
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.5.5
-
+  lucide_flutter: ^1.28.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

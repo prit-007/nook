@@ -133,6 +133,27 @@ void main() {
     expect(find.byType(MorphingEditorialFab), findsOneWidget);
   });
 
+  testWidgets('compose FAB toggles the menu on each tap', (tester) async {
+    await tester.pumpWidget(buildHome(notes: []));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quick Thought'), findsNothing);
+
+    // First tap opens the menu (single tap, no blur-only state).
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Canvas Doodle'), findsOneWidget);
+    expect(find.text('Interactive Checklist'), findsOneWidget);
+    expect(find.text('Quick Thought'), findsOneWidget);
+
+    // Second tap closes it again.
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quick Thought'), findsNothing);
+  });
+
   testWidgets('displays notes', (tester) async {
     final notes = await insertNotes([
       (title: 'Note 1', type: NoteType.text, pinned: false),

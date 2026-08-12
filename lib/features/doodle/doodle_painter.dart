@@ -23,18 +23,41 @@ void paintDoodleBackground(
   }
 }
 
-/// Paints a list of organic strokes onto [canvas].
+/// Paints a list of strokes onto [canvas].
+///
+/// Strokes flagged with [Stroke.isPerfectShape] are rendered as mathematically
+/// crisp paths; all others go through perfect_freehand for organic rendering.
 void paintDoodleStrokes(Canvas canvas, Size size, List<Stroke> strokes) {
   for (final stroke in strokes) {
     if (stroke.points.isEmpty) continue;
 
     final paint = Paint()
-      ..color = stroke.color.withValues(alpha: stroke.opacity)
-      ..style = PaintingStyle.fill;
+      ..color = stroke.color.withValues(alpha: stroke.opacity);
 
     if (stroke.tool == DoodleTool.eraser) {
       paint.blendMode = BlendMode.clear;
     }
+
+    // Snapped shapes are drawn as crisp mathematical paths.
+    if (stroke.isPerfectShape) {
+      paint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke.width
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      final path = Path();
+      path.moveTo(
+          stroke.points.first.position.dx, stroke.points.first.position.dy);
+      for (int i = 1; i < stroke.points.length; i++) {
+        path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
+      }
+      canvas.drawPath(path, paint);
+      continue;
+    }
+
+    // Organic strokes via perfect_freehand.
+    paint.style = PaintingStyle.fill;
 
     // 1. Map sampled points (with pressure) to perfect_freehand PointVectors
     final points = stroke.points
