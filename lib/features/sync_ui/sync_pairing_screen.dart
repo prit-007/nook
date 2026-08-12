@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
-/// Sync pairing confirmation — numeric code on both devices.
-class SyncPairingScreen extends StatelessWidget {
+class SyncPairingScreen extends StatefulWidget {
   const SyncPairingScreen({
     super.key,
     required this.pairingCode,
@@ -13,81 +13,143 @@ class SyncPairingScreen extends StatelessWidget {
   final String deviceName;
 
   @override
+  State<SyncPairingScreen> createState() => _SyncPairingScreenState();
+}
+
+class _SyncPairingScreenState extends State<SyncPairingScreen> {
+  bool _isCopied = false;
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pairing'),
-      ),
-      body: Center(
+      backgroundColor: scheme.surface,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.phonelink_setup,
-                size: 80,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Confirm pairing with',
-                style: theme.textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                deviceName,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  LucideIcons.shieldCheck,
+                  size: 64,
+                  color: scheme.onPrimaryContainer,
                 ),
               ),
               const SizedBox(height: 32),
-              Text(
-                'Verify this code matches on both devices:',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              const Text(
+                'Confirm Identity',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              Text(
+                'Verify this code on ${widget.deviceName} to establish a secure connection.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: scheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 48),
+
+              // Tactile Code Pill
               GestureDetector(
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: pairingCode));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Code copied')),
+                  HapticFeedback.lightImpact();
+                  Clipboard.setData(
+                    ClipboardData(text: widget.pairingCode),
                   );
+                  setState(() => _isCopied = true);
+                  Future.delayed(const Duration(seconds: 2), () {
+                    if (mounted) setState(() => _isCopied = false);
+                  });
                 },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    pairingCode,
-                    style: theme.textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 8,
-                      color: theme.colorScheme.onPrimaryContainer,
+                child: AnimatedScale(
+                  scale: _isCopied ? 0.95 : 1.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 40,
+                      vertical: 20,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isCopied
+                          ? scheme.primary
+                          : scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      widget.pairingCode,
+                      style: TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 12,
+                        color: _isCopied ? scheme.onPrimary : scheme.onSurface,
+                      ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+
+              const SizedBox(height: 12),
+              Text(
+                _isCopied ? 'Copied to clipboard' : 'Tap to copy',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.primary,
+                ),
+              ),
+
+              const Spacer(),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel'),
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
                   ),
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Confirm'),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text(
+                        'Confirm',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
                   ),
                 ],
               ),

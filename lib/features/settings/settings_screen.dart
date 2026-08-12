@@ -1,122 +1,152 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
 
-/// Settings root screen per prompt #11.
-/// Grouped list with rounded section cards, leading icons, switches.
+/// Settings root screen.
+/// Frosted glass section cards with tight macro-typography and tactile
+/// haptic feedback. Lucide iconography throughout.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     final gate = ref.watch(biometricGateProvider);
     final screenshotBlocker = ref.watch(screenshotBlockerProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      backgroundColor: scheme.surface,
+      appBar: AppBar(
+        title: const Text(
+          'Settings',
+          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+        ),
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+      ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         children: [
-          // ── Appearance ──
           _Section(
             title: 'Appearance',
             children: [
               _SettingsTile(
-                icon: Icons.dark_mode_outlined,
-                title: 'Theme',
+                icon: LucideIcons.palette,
+                title: 'Theme & Colors',
                 value: 'System',
-                onTap: () => context.push('/settings/appearance'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/appearance');
+                },
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          // ── Security ──
+          const SizedBox(height: 24),
           _Section(
-            title: 'Security',
+            title: 'Security & Privacy',
             children: [
               _SettingsTile(
-                icon: Icons.fingerprint,
-                title: 'Biometric lock',
-                trailing: Switch(
+                icon: LucideIcons.fingerprint,
+                title: 'Biometric Lock',
+                trailing: Switch.adaptive(
                   value: gate.enabled,
-                  onChanged: (value) =>
-                      ref.read(biometricGateProvider).setEnabled(value),
+                  activeThumbColor: scheme.primary,
+                  onChanged: (value) {
+                    HapticFeedback.lightImpact();
+                    ref.read(biometricGateProvider).setEnabled(value);
+                  },
                 ),
               ),
               _SettingsTile(
-                icon: Icons.timer_outlined,
-                title: 'Auto-lock timer',
+                icon: LucideIcons.timer,
+                title: 'Auto-Lock Timer',
                 value: _autoLockLabel(gate.autoLockDuration),
-                onTap: () => context.push('/settings/security'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/security');
+                },
               ),
               _SettingsTile(
-                icon: Icons.screenshot_outlined,
-                title: 'Screenshot blocking',
-                trailing: Switch(
+                icon: LucideIcons.ban,
+                title: 'Screenshot Blocking',
+                trailing: Switch.adaptive(
                   value: screenshotBlocker.blocked,
-                  onChanged: (value) =>
-                      ref.read(screenshotBlockerProvider).setBlocked(value),
+                  activeThumbColor: scheme.primary,
+                  onChanged: (value) {
+                    HapticFeedback.lightImpact();
+                    ref.read(screenshotBlockerProvider).setBlocked(value);
+                  },
                 ),
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          // ── Storage & Sync ──
+          const SizedBox(height: 24),
           _Section(
             title: 'Storage & Sync',
             children: [
               _SettingsTile(
-                icon: Icons.storage_outlined,
-                title: 'Storage used',
+                icon: LucideIcons.hardDrive,
+                title: 'Storage Used',
                 value: '48 MB \u00b7 214 notes',
-                onTap: () => context.push('/settings/storage'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/storage');
+                },
               ),
               _SettingsTile(
-                icon: Icons.file_download_outlined,
-                title: 'Export all notes',
-                onTap: () {},
+                icon: LucideIcons.arrowUpFromLine,
+                title: 'Export Vault',
+                onTap: () => HapticFeedback.lightImpact(),
               ),
               _SettingsTile(
-                icon: Icons.devices_outlined,
-                title: 'Paired devices',
-                value: '2 devices',
-                onTap: () => context.push('/settings/sync-devices'),
+                icon: LucideIcons.monitorSmartphone,
+                title: 'Paired Devices',
+                value: '2 active',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/sync-devices');
+                },
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          // ── About ──
+          const SizedBox(height: 24),
           _Section(
             title: 'About',
             children: [
               _SettingsTile(
-                icon: Icons.policy_outlined,
-                title: 'Privacy policy',
-                onTap: () {},
+                icon: LucideIcons.shieldCheck,
+                title: 'Privacy Policy',
+                onTap: () => HapticFeedback.lightImpact(),
               ),
               _SettingsTile(
-                icon: Icons.code_outlined,
-                title: 'Open source licenses',
-                onTap: () => showLicensePage(context: context),
+                icon: LucideIcons.code,
+                title: 'Open Source Licenses',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  showLicensePage(context: context);
+                },
               ),
               _SettingsTile(
-                icon: Icons.info_outline,
+                icon: LucideIcons.info,
                 title: 'Version',
                 value: '0.1.0',
-                onTap: () => context.push('/settings/about'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/about');
+                },
               ),
             ],
           ),
-
-          const SizedBox(height: 32),
+          const SizedBox(height: 48),
         ],
       ),
     );
@@ -133,7 +163,6 @@ String _autoLockLabel(AutoLockDuration duration) => switch (duration) {
 
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});
-
   final String title;
   final List<Widget> children;
 
@@ -145,23 +174,32 @@ class _Section extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          padding: const EdgeInsets.only(left: 16, bottom: 8),
           child: Text(
-            title,
+            title.toUpperCase(),
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: scheme.primary,
-              letterSpacing: 0.3,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: scheme.primary.withValues(alpha: 0.8),
+              letterSpacing: 1.2,
             ),
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(20),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(children: children),
+            ),
           ),
-          child: Column(children: children),
         ),
       ],
     );
@@ -176,7 +214,6 @@ class _SettingsTile extends StatelessWidget {
     this.trailing,
     this.onTap,
   });
-
   final IconData icon;
   final String title;
   final String? value;
@@ -187,49 +224,58 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Icon(icon, size: 20, color: scheme.onSurface),
               ),
-              child: Icon(icon, size: 20, color: scheme.primary),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(fontSize: 15),
-              ),
-            ),
-            if (value != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
+              const SizedBox(width: 16),
+              Expanded(
                 child: Text(
-                  value!,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: scheme.onSurface.withValues(alpha: 0.5),
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            if (trailing != null)
-              trailing!
-            else if (onTap != null)
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: scheme.onSurface.withValues(alpha: 0.3),
-              ),
-          ],
+              if (value != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    value!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              if (trailing != null)
+                trailing!
+              else if (onTap != null)
+                Icon(
+                  LucideIcons.chevronRight,
+                  size: 18,
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+            ],
+          ),
         ),
       ),
     );
