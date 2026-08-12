@@ -23,13 +23,14 @@ class TcpSyncTransport implements SyncTransport {
   TcpSyncTransport({
     this.chunkSize = 256 * 1024,
     String? serviceName,
-  })  : _serviceName = serviceName ?? 'Nook';
+  }) : _serviceName = serviceName ?? 'Nook';
 
   final int chunkSize;
   final String _serviceName;
 
   final _deviceFoundController = StreamController<SyncDevice>.broadcast();
-  final _sessionStateController = StreamController<SyncSessionState>.broadcast();
+  final _sessionStateController =
+      StreamController<SyncSessionState>.broadcast();
   final _bytesReceivedController = StreamController<List<int>>.broadcast();
   final _progressController = StreamController<double>.broadcast();
 
@@ -148,8 +149,7 @@ class TcpSyncTransport implements SyncTransport {
         if (hostAddress == null) return;
 
         final deviceId = service.attributes['deviceId'] ?? 'unknown';
-        final deviceName =
-            service.attributes['deviceName'] ?? 'Unknown Device';
+        final deviceName = service.attributes['deviceName'] ?? 'Unknown Device';
 
         _deviceFoundController.add(SyncDevice(
           deviceId: deviceId,
@@ -200,11 +200,13 @@ class TcpSyncTransport implements SyncTransport {
       );
 
       // Send our identity.
-      await _writeFrame(_outgoingSocket!, utf8.encode(jsonEncode({
-        'deviceId': _localDeviceId,
-        'deviceName': _localDeviceName,
-        'protocolVersion': '1.0',
-      })));
+      await _writeFrame(
+          _outgoingSocket!,
+          utf8.encode(jsonEncode({
+            'deviceId': _localDeviceId,
+            'deviceName': _localDeviceName,
+            'protocolVersion': '1.0',
+          })));
 
       // Read their identity.
       final identityFrame = await _readFrame(_outgoingSocket!);
@@ -245,23 +247,27 @@ class TcpSyncTransport implements SyncTransport {
       final chunks = SyncBundle.splitIntoChunks(bytes, chunkSize: chunkSize);
 
       // 1. Send header.
-      await _writeFrame(socket, utf8.encode(jsonEncode({
-        'type': 'sync_header',
-        'bundleId': bundleId,
-        'bundleSizeBytes': bytes.length,
-        'checksum': checksum,
-        'totalChunks': chunks.length,
-      })));
+      await _writeFrame(
+          socket,
+          utf8.encode(jsonEncode({
+            'type': 'sync_header',
+            'bundleId': bundleId,
+            'bundleSizeBytes': bytes.length,
+            'checksum': checksum,
+            'totalChunks': chunks.length,
+          })));
 
       // 2. Send each chunk with progress.
       for (var i = 0; i < chunks.length; i++) {
-        await _writeFrame(socket, utf8.encode(jsonEncode({
-          'type': 'sync_chunk',
-          'bundleId': bundleId,
-          'seq': i,
-          'total': chunks.length,
-          'data': base64Encode(chunks[i]),
-        })));
+        await _writeFrame(
+            socket,
+            utf8.encode(jsonEncode({
+              'type': 'sync_chunk',
+              'bundleId': bundleId,
+              'seq': i,
+              'total': chunks.length,
+              'data': base64Encode(chunks[i]),
+            })));
         _emitProgress((i + 1) / chunks.length);
       }
 
@@ -283,10 +289,12 @@ class TcpSyncTransport implements SyncTransport {
   Future<void> sendAck(List<int> ackData) async {
     final socket = _outgoingSocket ?? _incomingSocket;
     if (socket == null) return;
-    await _writeFrame(socket, utf8.encode(jsonEncode({
-      'type': 'sync_ack',
-      'data': base64Encode(ackData),
-    })));
+    await _writeFrame(
+        socket,
+        utf8.encode(jsonEncode({
+          'type': 'sync_ack',
+          'data': base64Encode(ackData),
+        })));
   }
 
   // ---------------------------------------------------------------------------
@@ -373,11 +381,13 @@ class TcpSyncTransport implements SyncTransport {
           final remoteDeviceId = remoteIdentity['deviceId'] as String;
 
           // Send our identity back.
-          await _writeFrame(socket, utf8.encode(jsonEncode({
-            'deviceId': _localDeviceId,
-            'deviceName': _localDeviceName,
-            'protocolVersion': '1.0',
-          })));
+          await _writeFrame(
+              socket,
+              utf8.encode(jsonEncode({
+                'deviceId': _localDeviceId,
+                'deviceName': _localDeviceName,
+                'protocolVersion': '1.0',
+              })));
 
           _incomingSocket = socket;
           _connectedDeviceId = remoteDeviceId;
@@ -468,8 +478,8 @@ class TcpSyncTransport implements SyncTransport {
       },
       onDone: () {
         if (!completer.isCompleted) {
-          completer.completeError(
-              StateError('Socket closed before frame complete'));
+          completer
+              .completeError(StateError('Socket closed before frame complete'));
         }
       },
     );

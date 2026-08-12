@@ -405,8 +405,7 @@ void main() {
       final localNote = await noteRepo.getNoteById('shared-id');
       expect(localNote!.title, 'Local Version');
 
-      final remoteNote =
-          allNotes.firstWhere((n) => n.id != 'shared-id');
+      final remoteNote = allNotes.firstWhere((n) => n.id != 'shared-id');
       expect(remoteNote.title, 'Remote Version');
       expect(remoteNote.deviceOriginId, 'device-b');
     });

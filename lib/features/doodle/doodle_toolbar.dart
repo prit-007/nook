@@ -201,7 +201,8 @@ class _TactileTool extends StatelessWidget {
         transform: Matrix4.translationValues(0, isSelected ? -8 : 0, 0),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
+          color:
+              isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           shape: BoxShape.circle,
         ),
         child: Icon(

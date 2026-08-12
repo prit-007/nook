@@ -700,7 +700,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                 children: [
                                   Text(
                                     _title.isNotEmpty ? _title : 'New Note',
-                                    style: dynamicTextTheme.titleMedium?.copyWith(
+                                    style:
+                                        dynamicTextTheme.titleMedium?.copyWith(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
                                     ),

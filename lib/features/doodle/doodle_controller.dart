@@ -107,8 +107,9 @@ class DoodleController extends ChangeNotifier {
 
     _activeStroke = Stroke(
       points: [StrokePoint(point, pressure: pressure)],
-      color:
-          _currentTool == DoodleTool.eraser ? Colors.transparent : _currentColor,
+      color: _currentTool == DoodleTool.eraser
+          ? Colors.transparent
+          : _currentColor,
       width: actualWidth,
       tool: _currentTool,
       opacity: opacity,

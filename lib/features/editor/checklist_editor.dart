@@ -119,12 +119,10 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
-                  color:
-                      scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color:
-                        scheme.outlineVariant.withValues(alpha: 0.3),
+                    color: scheme.outlineVariant.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
@@ -157,15 +155,13 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
           Expanded(
             child: _loading
                 ? Center(
-                    child:
-                        CircularProgressIndicator(color: scheme.primary))
+                    child: CircularProgressIndicator(color: scheme.primary))
                 : _items.isEmpty
                     ? Center(
                         child: Text(
                           'A fresh start.',
                           style: textTheme.titleMedium?.copyWith(
-                            color:
-                                scheme.onSurface.withValues(alpha: 0.4),
+                            color: scheme.onSurface.withValues(alpha: 0.4),
                           ),
                         ),
                       )
@@ -179,8 +175,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                         itemCount: _items.length,
                         onReorderItem: _reorder,
                         proxyDecorator: (child, index, animation) =>
-                            Material(
-                                color: Colors.transparent, child: child),
+                            Material(color: Colors.transparent, child: child),
                         itemBuilder: (context, index) {
                           final item = _items[index];
                           return _SwipeableTile(
@@ -214,20 +209,16 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest
-                    .withValues(alpha: 0.8),
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(32),
                 border: Border.all(
-                  color:
-                      scheme.outlineVariant.withValues(alpha: 0.3),
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color:
-                        scheme.shadow.withValues(alpha: 0.1),
+                    color: scheme.shadow.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -235,8 +226,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.add_rounded,
-                      color: scheme.primary, size: 24),
+                  Icon(Icons.add_rounded, color: scheme.primary, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
@@ -248,8 +238,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                       decoration: InputDecoration(
                         hintText: 'Add a new task...',
                         hintStyle: textTheme.bodyLarge?.copyWith(
-                          color: scheme.onSurfaceVariant
-                              .withValues(alpha: 0.6),
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
                         ),
                         border: InputBorder.none,
                         isDense: true,
@@ -341,8 +330,7 @@ class _ChecklistTile extends StatelessWidget {
             : scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: scheme.outlineVariant
-              .withValues(alpha: checked ? 0.1 : 0.3),
+          color: scheme.outlineVariant.withValues(alpha: checked ? 0.1 : 0.3),
         ),
       ),
       child: Row(
@@ -363,8 +351,7 @@ class _ChecklistTile extends StatelessWidget {
                 ),
               ),
               child: checked
-                  ? Icon(Icons.check_rounded,
-                      size: 16, color: scheme.onPrimary)
+                  ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary)
                   : null,
             ),
           ),
@@ -387,17 +374,14 @@ class _ChecklistTile extends StatelessWidget {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: TweenAnimationBuilder<double>(
-                      tween: Tween(
-                          begin: 0, end: checked ? 1.0 : 0.0),
+                      tween: Tween(begin: 0, end: checked ? 1.0 : 0.0),
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOutCubic,
-                      builder: (context, value, _) =>
-                          FractionallySizedBox(
+                      builder: (context, value, _) => FractionallySizedBox(
                         widthFactor: value,
                         child: Container(
                           height: 2,
-                          color:
-                              scheme.primary.withValues(alpha: 0.6),
+                          color: scheme.primary.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -408,18 +392,14 @@ class _ChecklistTile extends StatelessWidget {
           ),
           IconButton(
             icon: Icon(Icons.close_rounded,
-                size: 20,
-                color:
-                    scheme.onSurface.withValues(alpha: 0.3)),
+                size: 20, color: scheme.onSurface.withValues(alpha: 0.3)),
             onPressed: onDelete,
             visualDensity: VisualDensity.compact,
           ),
           ReorderableDragStartListener(
             index: index,
             child: Icon(Icons.drag_indicator_rounded,
-                size: 22,
-                color:
-                    scheme.onSurface.withValues(alpha: 0.2)),
+                size: 22, color: scheme.onSurface.withValues(alpha: 0.2)),
           ),
         ],
       ),

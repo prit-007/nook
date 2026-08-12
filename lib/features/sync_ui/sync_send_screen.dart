@@ -265,8 +265,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen> {
   }
 
   Future<void> _connectAndSend(BuildContext context, SyncDevice device) async {
-    final pairingCode =
-        (Random.secure().nextInt(900000) + 100000).toString();
+    final pairingCode = (Random.secure().nextInt(900000) + 100000).toString();
 
     final confirmed = await context.push<bool>(
       '/sync/pairing',
