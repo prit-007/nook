@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'dart:math' show Random;
 
 import 'package:drift/drift.dart' hide Column, isNotNull;
 import 'package:flutter/material.dart';
@@ -264,6 +265,16 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen> {
   }
 
   Future<void> _connectAndSend(BuildContext context, SyncDevice device) async {
+    final pairingCode =
+        (Random.secure().nextInt(900000) + 100000).toString();
+
+    final confirmed = await context.push<bool>(
+      '/sync/pairing',
+      extra: {'pairingCode': pairingCode, 'deviceName': device.deviceName},
+    );
+
+    if (confirmed != true) return;
+
     final notifier = ref.read(syncOrchestratorProvider.notifier);
     await notifier.connectToDevice(device);
 

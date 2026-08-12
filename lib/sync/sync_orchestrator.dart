@@ -393,7 +393,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
     switch (choice) {
       case 'remote':
-        await resolver.applyIncoming(conflict.incoming);
+        // Overwrite local with remote version
+        await resolver.forceOverwrite(conflict.incoming);
         await _restoreAttachment(
             entry: conflict.incoming, attachmentRepo: attachmentRepo);
         await syncLog.logReceived(
@@ -411,8 +412,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         );
         break;
       case 'both':
-        // Keep both — insert incoming as new
-        await resolver.applyIncoming(conflict.incoming);
+        // Keep both — force insert incoming as new (even if noteId exists)
+        await resolver.insertAsNew(conflict.incoming);
         await _restoreAttachment(
             entry: conflict.incoming, attachmentRepo: attachmentRepo);
         await syncLog.logReceived(

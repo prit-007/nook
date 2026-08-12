@@ -12,7 +12,11 @@ class NoteRepository {
   static const _uuid = Uuid();
 
   /// Creates a new note and returns the inserted row.
+  ///
+  /// If [id] is provided (e.g. from a remote device), it is used instead of
+  /// generating a new UUID. This preserves cross-device identity during sync.
   Future<Note> createNote({
+    String? id,
     required String title,
     required NoteType type,
     required String deviceOriginId,
@@ -21,10 +25,10 @@ class NoteRepository {
     String? deltaContent,
     String? plainText,
   }) async {
-    final id = _uuid.v4();
+    final noteId = id ?? _uuid.v4();
     await _db.into(_db.notes).insert(
           NotesCompanion.insert(
-            id: Value(id),
+            id: Value(noteId),
             type: type,
             title: Value(title),
             deviceOriginId: deviceOriginId,
@@ -36,9 +40,10 @@ class NoteRepository {
           ),
         );
 
-    await _syncFts(id, title, plainText);
+    await _syncFts(noteId, title, plainText);
 
-    return (_db.select(_db.notes)..where((t) => t.id.equals(id))).getSingle();
+    return (_db.select(_db.notes)..where((t) => t.id.equals(noteId)))
+        .getSingle();
   }
 
   /// Returns all non-deleted notes, ordered by pinned desc, then updatedAt desc.

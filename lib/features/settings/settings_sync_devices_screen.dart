@@ -1,13 +1,131 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SettingsSyncDevicesScreen extends StatelessWidget {
+import '../../core/providers/database_provider.dart';
+import '../../data/repositories/sync_log_repository.dart';
+import '../../sync/sync_orchestrator.dart';
+import '../../sync/transport/sync_transport.dart';
+
+class SettingsSyncDevicesScreen extends ConsumerWidget {
   const SettingsSyncDevicesScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final syncState = ref.watch(syncOrchestratorProvider);
+    final db = ref.watch(databaseProvider);
+    final syncLogRepo = SyncLogRepository(db);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Sync Devices')),
-      body: const Center(child: Text('Paired Devices (Phase 5)')),
+      body: Column(
+        children: [
+          if (syncState.selectedDevice != null)
+            _ConnectedDeviceCard(
+              device: syncState.selectedDevice!,
+              onDisconnect: () {
+                ref.read(syncOrchestratorProvider.notifier).stop();
+              },
+            ),
+          Expanded(
+            child: FutureBuilder(
+              future: syncLogRepo.getRecentLogs(limit: 30),
+              builder: (context, snapshot) {
+                final logs = snapshot.data ?? [];
+                if (logs.isEmpty) {
+                  return const Center(
+                    child: Text('No sync history yet'),
+                  );
+                }
+
+                final devices = <String, _DeviceSummary>{};
+                for (final log in logs) {
+                  devices.putIfAbsent(
+                    log.deviceId,
+                    () => _DeviceSummary(
+                      deviceId: log.deviceId,
+                      deviceName: log.deviceName,
+                    ),
+                  );
+                  devices[log.deviceId]!.lastSync = log.timestamp;
+                  devices[log.deviceId]!.syncCount++;
+                }
+
+                final deviceList = devices.values.toList()
+                  ..sort((a, b) => b.lastSync.compareTo(a.lastSync));
+
+                return ListView.builder(
+                  itemCount: deviceList.length,
+                  itemBuilder: (context, index) {
+                    final device = deviceList[index];
+                    return ListTile(
+                      leading: const Icon(Icons.devices),
+                      title: Text(device.deviceName),
+                      subtitle: Text(
+                        '${device.syncCount} notes synced · '
+                        '${_formatTime(device.lastSync)}',
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
+
+  String _formatTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+}
+
+class _ConnectedDeviceCard extends StatelessWidget {
+  const _ConnectedDeviceCard({
+    required this.device,
+    required this.onDisconnect,
+  });
+
+  final SyncDevice device;
+  final VoidCallback onDisconnect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: theme.colorScheme.primaryContainer,
+          child: Icon(
+            Icons.phone_android,
+            color: theme.colorScheme.onPrimaryContainer,
+          ),
+        ),
+        title: Text(device.deviceName),
+        subtitle: const Text('Connected'),
+        trailing: TextButton(
+          onPressed: onDisconnect,
+          child: const Text('Disconnect'),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeviceSummary {
+  _DeviceSummary({
+    required this.deviceId,
+    required this.deviceName,
+  });
+
+  final String deviceId;
+  final String deviceName;
+  late DateTime lastSync;
+  int syncCount = 0;
 }
