@@ -53,11 +53,12 @@ class TagRepository {
     );
   }
 
-  /// Deletes a tag by ID.
+  /// Deletes a tag by ID and all its associations atomically.
   Future<void> deleteTag(String id) async {
-    // Remove all associations first
-    await (_db.delete(_db.noteTags)..where((t) => t.tagId.equals(id))).go();
-    await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
+    await _db.transaction(() async {
+      await (_db.delete(_db.noteTags)..where((t) => t.tagId.equals(id))).go();
+      await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
+    });
   }
 
   /// Assigns a tag to a note.

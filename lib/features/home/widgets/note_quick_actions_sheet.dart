@@ -4,8 +4,10 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/design_tokens.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
@@ -213,6 +215,19 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
                           : 'Lock with Biometrics',
                       color: scheme.onSurface,
                       onTap: () async {
+                        if (!_currentNote.locked) {
+                          final auth = LocalAuthentication();
+                          try {
+                            final ok = await auth.authenticate(
+                              localizedReason: 'Authenticate to lock this note',
+                              biometricOnly: true,
+                              persistAcrossBackgrounding: true,
+                            );
+                            if (!ok) return;
+                          } catch (_) {
+                            return;
+                          }
+                        }
                         await HapticFeedback.lightImpact();
                         await _noteRepo.updateNote(
                           _currentNote.id,
@@ -403,12 +418,7 @@ class _NotebookAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final seed = Color(
-      int.parse(
-        'FF${notebook.colorSeed.replaceFirst('#', '')}',
-        radix: 16,
-      ),
-    );
+    final seed = NookColors.parseHex(notebook.colorSeed);
     return Container(
       width: 32,
       height: 32,
@@ -473,12 +483,7 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final tagColor = Color(
-      int.parse(
-        'FF${tag.colorSeed.replaceFirst('#', '')}',
-        radix: 16,
-      ),
-    );
+    final tagColor = NookColors.parseHex(tag.colorSeed);
 
     return GestureDetector(
       onTap: onTap,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
@@ -57,9 +58,7 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final seedColor = Color(
-      int.parse('FF${_notebookColor.replaceFirst('#', '')}', radix: 16),
-    );
+    final seedColor = NookColors.parseHex(_notebookColor);
 
     return Scaffold(
       appBar: AppBar(

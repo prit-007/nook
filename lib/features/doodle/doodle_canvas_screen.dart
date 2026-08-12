@@ -95,17 +95,10 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
     final strokes = List<Stroke>.from(_controller.strokes);
     final background = _controller.background;
 
-    Navigator.of(context).pop(attachmentId);
-
-    unawaited(_persistInBackground(storage, attachmentId, strokes, background));
-  }
-
-  Future<void> _persistInBackground(
-    DoodleStorage storage,
-    String attachmentId,
-    List<Stroke> strokes,
-    DoodleBackground background,
-  ) async {
+    // Persist the strokes BEFORE popping so the caller (note editor) is
+    // guaranteed to find the doodle file on disk when it re-loads it.
+    // Thumbnail rendering is best-effort — the editor regenerates it anyway —
+    // so a thumbnail failure must not block or lose the doodle.
     try {
       await storage.saveDoodle(
         noteId: widget.noteId,
@@ -113,14 +106,38 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
         background: background,
         attachmentId: attachmentId,
       );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save doodle. Please try again.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
 
+    if (!mounted) return;
+    Navigator.of(context).pop(attachmentId);
+
+    unawaited(_renderThumbnail(storage, attachmentId, strokes, background));
+  }
+
+  Future<void> _renderThumbnail(
+    DoodleStorage storage,
+    String attachmentId,
+    List<Stroke> strokes,
+    DoodleBackground background,
+  ) async {
+    try {
       final thumbBytes = await DoodleThumbnailRenderer.render(
         strokes,
         background: background,
       );
-      final baseDir = storage.baseDir;
-      final thumbFile = await File('${baseDir.path}/${attachmentId}_thumb.png')
-          .writeAsBytes(thumbBytes);
+      final thumbFile =
+          await File('${storage.baseDir.path}/${attachmentId}_thumb.png')
+              .writeAsBytes(thumbBytes);
       await storage.attachments.updateThumbnail(attachmentId, thumbFile.path);
     } catch (_) {
       // Thumbnail generation is best-effort; don't crash on save.

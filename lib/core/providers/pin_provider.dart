@@ -44,7 +44,6 @@ class PinProvider extends ChangeNotifier {
   Future<void> clearPin() async {
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'pin_hash');
-    await storage.delete(key: 'pin_salt');
     enabled = false;
     _authenticated = false;
     notifyListeners();
@@ -78,9 +77,7 @@ class PinProvider extends ChangeNotifier {
 
   Future<void> _writeHash(String hash) async {
     const storage = FlutterSecureStorage();
-    // Hash format is "salt:sha256hex". Store salt separately for clarity.
-    final parts = hash.split(':');
-    await storage.write(key: 'pin_salt', value: parts[0]);
+    // Hash format is "salt:sha256hex" — the salt is embedded in the hash.
     await storage.write(key: 'pin_hash', value: hash);
   }
 

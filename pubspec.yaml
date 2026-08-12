@@ -49,6 +49,7 @@ dependencies:
   crypto: ^3.0.5
   cbor: ^6.3.4
   archive: ^3.6.1
+  file_picker: ^10.3.10
 
   # Small delight, low effort
   flutter_animate: ^4.5.2

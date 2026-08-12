@@ -14,10 +14,12 @@ class SearchRepository {
   Future<List<Note>> searchNotes(String query, {NoteType? type}) async {
     if (query.trim().isEmpty) return [];
 
-    // Use FTS5 to find matching IDs
+    final sanitized = _sanitizeFts5Query(query);
+    if (sanitized.isEmpty) return [];
+
     final ftsResults = await _db.customSelect(
       'SELECT id FROM notes_fts WHERE notes_fts MATCH ?',
-      variables: [Variable.withString('$query*')],
+      variables: [Variable.withString('$sanitized*')],
     ).get();
 
     if (ftsResults.isEmpty) return [];
@@ -36,5 +38,15 @@ class SearchRepository {
     }
 
     return queryBuilder.get();
+  }
+
+  /// Strips FTS5 special characters and operators from user input to prevent
+  /// query injection / parse errors.
+  static String _sanitizeFts5Query(String input) {
+    return input
+        .replaceAll(RegExp(r'["()*]'), ' ')
+        .replaceAll(RegExp(r'\b(NOT|AND|OR|NEAR)\b', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 }

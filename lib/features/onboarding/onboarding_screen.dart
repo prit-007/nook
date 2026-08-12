@@ -280,7 +280,14 @@ class _VibePage extends StatelessWidget {
                           : null,
                     ),
                     child: isSelected
-                        ? const Icon(Icons.check, color: Colors.white)
+                        ? Icon(
+                            Icons.check,
+                            color: switch (
+                                ThemeData.estimateBrightnessForColor(color)) {
+                              Brightness.dark => Colors.white,
+                              Brightness.light => Colors.black87,
+                            },
+                          )
                         : null,
                   ),
                 );

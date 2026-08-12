@@ -116,11 +116,10 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final currentColor = widget.currentColorSeed != null &&
-            widget.currentColorSeed!.isNotEmpty
-        ? Color(
-            int.parse('0xFF${widget.currentColorSeed!.replaceFirst('#', '')}'))
-        : null;
+    final currentColor =
+        widget.currentColorSeed != null && widget.currentColorSeed!.isNotEmpty
+            ? NookColors.parseHex(widget.currentColorSeed)
+            : null;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
@@ -392,7 +391,7 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final tagColor = Color(int.parse('0xFF${colorSeed.replaceFirst('#', '')}'));
+    final tagColor = NookColors.parseHex(colorSeed);
 
     return GestureDetector(
       onTap: onTap,

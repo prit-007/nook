@@ -80,6 +80,50 @@ class SettingsAppearanceScreen extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 36),
+          const _SectionHeader(title: 'Reduce Motion'),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: SwitchListTile.adaptive(
+                  title: const Text(
+                    'Reduce motion',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Fades, slides, and entrance animations are disabled. '
+                    'Also honors your device\u2019s system setting.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  secondary: Icon(
+                    LucideIcons.rabbit,
+                    color: scheme.primary,
+                    size: 28,
+                  ),
+                  value: pref.reduceMotion,
+                  activeThumbColor: scheme.primary,
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    pref.setReduceMotion(value);
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 48),
         ],
       ),
     );

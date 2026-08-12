@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/theme/design_tokens.dart';
 import '../../../data/database.dart';
 import '../../../data/tables/notes.dart';
 import 'note_quick_actions_sheet.dart';
@@ -20,12 +21,7 @@ class _NoteBannerCardState extends State<NoteBannerCard> {
 
   ColorScheme _bannerScheme(BuildContext context) {
     if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
-      final seed = Color(
-        int.parse(
-          'FF${widget.note.colorSeed!.replaceFirst('#', '')}',
-          radix: 16,
-        ),
-      );
+      final seed = NookColors.parseHex(widget.note.colorSeed);
       return ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Theme.of(context).brightness,

@@ -50,14 +50,26 @@ class MergeResolver {
       return MergeAction.insertAsNew;
     }
 
-    // Check if incoming is older or same version with older/same timestamp
+    // Never resurrect a soft-deleted note through sync.
+    if (existing.deleted) {
+      return MergeAction.ignore;
+    }
+
+    // Incoming is strictly older (same lineage, lower/equal version and an
+    // older-or-equal timestamp) — ignore it.
     if (incoming.syncVersion <= existing.syncVersion &&
         !incoming.updatedAt.isAfter(existing.updatedAt)) {
       return MergeAction.ignore;
     }
 
-    // Same device origin — same lineage, just a newer edit
+    // Same device origin — same lineage, just a newer edit. Guard against
+    // clock skew: a *lower* syncVersion from the same origin must never
+    // overwrite a locally newer version even if its wall-clock timestamp is
+    // ahead (e.g. a device whose clock was wrong when the edit was made).
     if (incoming.deviceOriginId == existing.deviceOriginId) {
+      if (incoming.syncVersion < existing.syncVersion) {
+        return MergeAction.ignore;
+      }
       return MergeAction.overwrite;
     }
 
@@ -101,7 +113,7 @@ class MergeResolver {
     String? originIdOverride,
   }) async {
     final existing = await _noteRepo.getNoteById(incoming.noteId);
-    if (existing != null) {
+    if (existing != null && !existing.deleted) {
       // ID collision — generate a new ID for the duplicate
       await _noteRepo.createNote(
         title: incoming.noteFields['title'] as String? ?? '',
@@ -111,6 +123,7 @@ class MergeResolver {
         deltaContent: incoming.noteFields['deltaContent'] as String?,
         plainText: incoming.noteFields['plainText'] as String?,
         syncVersion: incoming.syncVersion,
+        notebookId: incoming.noteFields['notebookId'] as String?,
       );
     } else {
       await _insertAsNew(incoming, originIdOverride: originIdOverride);
@@ -142,7 +155,19 @@ class MergeResolver {
       deltaContent: incoming.noteFields['deltaContent'] as String?,
       plainText: incoming.noteFields['plainText'] as String?,
       syncVersion: incoming.syncVersion,
+      notebookId: incoming.noteFields['notebookId'] as String?,
     );
+
+    final pinned = incoming.noteFields['pinned'] as bool?;
+    final locked = incoming.noteFields['locked'] as bool?;
+    if (pinned != null || locked != null) {
+      await _noteRepo.updateNote(
+        incoming.noteId,
+        pinned: pinned,
+        locked: locked,
+        updatedAt: incoming.updatedAt,
+      );
+    }
   }
 
   /// Overwrites a local note with the remote version (same lineage).
@@ -158,16 +183,16 @@ class MergeResolver {
       updatedAt: incoming.updatedAt,
     );
 
-    // Update content if present
+    // Always write content (even when both fields are null) so a remote that
+    // intentionally cleared a note's content actually clears it locally.
     final deltaContent = incoming.noteFields['deltaContent'] as String?;
     final plainText = incoming.noteFields['plainText'] as String?;
-    if (deltaContent != null || plainText != null) {
-      await _noteRepo.updateContent(
-        incoming.noteId,
-        deltaContent: deltaContent,
-        plainText: plainText,
-      );
-    }
+    await _noteRepo.updateContent(
+      incoming.noteId,
+      deltaContent: deltaContent,
+      plainText: plainText,
+      updatedAt: incoming.updatedAt,
+    );
   }
 
   NoteType _parseNoteType(String? type) {

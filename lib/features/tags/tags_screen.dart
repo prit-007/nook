@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../data/database.dart';
 import '../../data/repositories/tag_repository.dart';
@@ -179,12 +180,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                       spacing: 10,
                       runSpacing: 10,
                       children: _tags.map((tag) {
-                        final tagColor = Color(
-                          int.parse(
-                            'FF${tag.colorSeed.replaceFirst('#', '')}',
-                            radix: 16,
-                          ),
-                        );
+                        final tagColor = NookColors.parseHex(tag.colorSeed);
                         return GestureDetector(
                           onTap: () => context.push('/tags/${tag.id}'),
                           onLongPress: () => _showDeleteDialog(tag),

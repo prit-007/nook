@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:uuid/uuid.dart';
+
 import '../../features/doodle/doodle_controller.dart';
 import '../../features/doodle/doodle_strokes_codec.dart';
 import 'attachment_repository.dart';
@@ -19,20 +21,32 @@ class DoodleStorage {
   /// Saves [strokes] for [noteId]. If [attachmentId] is provided the existing
   /// attachment is updated, otherwise a new one is created. Returns the
   /// attachment id.
+  ///
+  /// The sidecar file is written first and only then is the attachment row
+  /// created/updated, so a failed write never leaves an orphaned row pointing
+  /// at an empty path.
   Future<String> saveDoodle({
     required String noteId,
     required List<Stroke> strokes,
     DoodleBackground background = DoodleBackground.dotted,
     String? attachmentId,
   }) async {
-    final id = attachmentId ??
-        await attachments.addDoodle(noteId: noteId, filePath: '');
+    final id = attachmentId ?? const Uuid().v4();
     final file = _fileFor(id);
     await file.parent.create(recursive: true);
     await file.writeAsString(
       DoodleStrokesCodec.encode(strokes, background: background),
     );
-    await attachments.updateFilePath(id, file.path);
+
+    if (attachmentId == null) {
+      await attachments.addDoodle(
+        noteId: noteId,
+        filePath: file.path,
+        id: id,
+      );
+    } else {
+      await attachments.updateFilePath(id, file.path);
+    }
     return id;
   }
 

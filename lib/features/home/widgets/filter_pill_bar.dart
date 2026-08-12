@@ -29,12 +29,6 @@ class FilterPillBar extends StatelessWidget {
             onTap: () => onTypeSelected(null),
           ),
           _FilterPill(
-            label: 'Pinned',
-            icon: Icons.push_pin_rounded,
-            isActive: false,
-            onTap: () {},
-          ),
-          _FilterPill(
             label: 'Text',
             count: counts?[NoteType.text],
             isActive: selectedType == NoteType.text,
@@ -52,12 +46,6 @@ class FilterPillBar extends StatelessWidget {
             isActive: selectedType == NoteType.doodle,
             onTap: () => onTypeSelected(NoteType.doodle),
           ),
-          _FilterPill(
-            label: 'Locked',
-            icon: Icons.lock_rounded,
-            isActive: false,
-            onTap: () {},
-          ),
         ],
       ),
     );
@@ -69,14 +57,12 @@ class _FilterPill extends StatelessWidget {
     required this.label,
     required this.isActive,
     required this.onTap,
-    this.icon,
     this.count,
   });
 
   final String label;
   final bool isActive;
   final VoidCallback onTap;
-  final IconData? icon;
   final int? count;
 
   @override
@@ -100,14 +86,6 @@ class _FilterPill extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  size: 14,
-                  color: isActive ? scheme.onPrimary : scheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 4),
-              ],
               Text(
                 label,
                 style: TextStyle(

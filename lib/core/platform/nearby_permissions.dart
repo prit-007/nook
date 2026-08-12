@@ -8,13 +8,15 @@ class NearbyPermissions {
 
   /// Returns true if all nearby permissions are already granted.
   static Future<bool> check() async {
-    if (kIsWeb) return false;
+    if (kIsWeb) return true;
     try {
       final result =
           await _channel.invokeMethod<bool>('checkNearbyPermissions');
       return result ?? false;
     } on PlatformException {
       return false;
+    } on MissingPluginException {
+      return true;
     }
   }
 
@@ -22,13 +24,15 @@ class NearbyPermissions {
   /// On Android 13+: NEARBY_WIFI_DEVICES, BLUETOOTH_SCAN, BLUETOOTH_CONNECT.
   /// On Android 12-: ACCESS_FINE_LOCATION, BLUETOOTH_SCAN, BLUETOOTH_CONNECT.
   static Future<bool> request() async {
-    if (kIsWeb) return false;
+    if (kIsWeb) return true;
     try {
       final result =
           await _channel.invokeMethod<bool>('requestNearbyPermissions');
       return result ?? false;
     } on PlatformException {
       return false;
+    } on MissingPluginException {
+      return true;
     }
   }
 
@@ -39,6 +43,8 @@ class NearbyPermissions {
       final result = await _channel.invokeMethod<bool>('isWifiEnabled');
       return result ?? false;
     } on PlatformException {
+      return false;
+    } on MissingPluginException {
       return false;
     }
   }

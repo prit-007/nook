@@ -183,8 +183,7 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
                         Expanded(
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                             onPressed: () => ref
                                 .read(syncOrchestratorProvider.notifier)
@@ -196,8 +195,7 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
                         Expanded(
                           child: FilledButton(
                             style: FilledButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                             onPressed: () => ref
                                 .read(syncOrchestratorProvider.notifier)

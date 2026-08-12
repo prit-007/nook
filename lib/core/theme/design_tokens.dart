@@ -52,4 +52,19 @@ class NookColors {
 
   /// Default seed when no preference is set.
   static const defaultSeed = violet;
+
+  /// Safely parses a hex color string (e.g. `#6750A4`, `6750A4`, `FF6750A4`)
+  /// into a [Color]. Returns [fallback] when [hex] is null, empty, or not
+  /// valid hex — callers must never crash on a malformed stored seed.
+  static Color parseHex(String? hex, {Color fallback = defaultSeed}) {
+    if (hex == null) return fallback;
+    var value = hex.replaceFirst('#', '').trim();
+    if (value.length == 6) {
+      value = 'FF$value';
+    }
+    if (value.length != 8) return fallback;
+    final parsed = int.tryParse(value, radix: 16);
+    if (parsed == null) return fallback;
+    return Color(parsed);
+  }
 }

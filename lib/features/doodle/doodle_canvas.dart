@@ -5,6 +5,10 @@ import 'doodle_painter.dart';
 
 /// Full-screen drawing canvas that renders organic, pressure-sensitive
 /// strokes via perfect_freehand and a selectable background template.
+///
+/// Uses a [Listener] for raw pointer events (captures stylus pressure).
+/// The [Listener] does not participate in the gesture arena, so the parent
+/// scroll view can still handle 2-finger scrolling.
 class DoodleCanvas extends StatefulWidget {
   const DoodleCanvas({
     super.key,
@@ -56,7 +60,6 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
       key: widget.boundaryKey,
       child: CustomPaint(
         key: ValueKey('doodle-bg-${background.name}'),
-        // The background template (blank / dotted / ruled / graph)
         painter: _BackgroundPainter(
           background: background,
           color: scheme.outlineVariant.withValues(alpha: 0.3),
@@ -74,7 +77,6 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
           onPointerUp: (_) => widget.controller.endStroke(),
           onPointerCancel: (_) => widget.controller.endStroke(),
           child: CustomPaint(
-            // The organic strokes
             painter: _StrokePainter(
               strokes: widget.controller.strokes,
             ),

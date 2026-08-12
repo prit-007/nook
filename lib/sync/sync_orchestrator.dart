@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -69,9 +70,8 @@ class SyncOrchestratorState {
       totalCount: totalCount ?? this.totalCount,
       receivedCount: receivedCount ?? this.receivedCount,
       conflicts: conflicts ?? this.conflicts,
-      pendingPairing: clearPendingPairing
-          ? null
-          : (pendingPairing ?? this.pendingPairing),
+      pendingPairing:
+          clearPendingPairing ? null : (pendingPairing ?? this.pendingPairing),
       receivedNoteIds: receivedNoteIds ?? this.receivedNoteIds,
       rejectedNoteIds: rejectedNoteIds ?? this.rejectedNoteIds,
       error: clearError ? null : (error ?? this.error),
@@ -117,6 +117,12 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   StreamSubscription? _pairingSub;
   String _localDeviceId = '';
   String _localDeviceName = '';
+  bool _stopped = false;
+
+  /// Serializes received bundles so two frames delivered back-to-back over a
+  /// broadcast stream can never interleave DB writes / acks.
+  final Queue<List<int>> _bytesQueue = Queue<List<int>>();
+  bool _processingBytes = false;
 
   /// Initializes the transport and gets local device info.
   ///
@@ -143,13 +149,20 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   Future<void> startDiscovery() async {
     if (_transport == null) await initializeTransport();
 
+    _stopped = false;
     state = state.copyWith(phase: SyncPhase.discovering, clearError: true);
 
     unawaited(_deviceSub?.cancel());
     _deviceSub = _transport!.deviceFoundStream.listen((device) {
       final existing = state.devices;
-      if (!existing.any((d) => d.deviceId == device.deviceId)) {
+      final match = existing.indexWhere((d) => d.deviceId == device.deviceId);
+      if (match == -1) {
         state = state.copyWith(devices: [...existing, device]);
+      } else if (device.isOnline != existing[match].isOnline ||
+          device.deviceName.isNotEmpty &&
+              device.deviceName != existing[match].deviceName) {
+        final updated = List<SyncDevice>.from(existing)..[match] = device;
+        state = state.copyWith(devices: updated);
       }
     });
 
@@ -179,13 +192,14 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   Future<void> startAdvertising() async {
     if (_transport == null) await initializeTransport();
 
+    _stopped = false;
     state = state.copyWith(phase: SyncPhase.receiving, clearError: true);
     await _transport!.startAdvertising();
 
     // Listen for incoming connections
     unawaited(_bytesSub?.cancel());
     _bytesSub = _transport!.bytesReceivedStream.listen(
-      _handleReceivedBytes,
+      _enqueueReceivedBytes,
       onError: (e) {
         state = state.copyWith(
           phase: SyncPhase.error,
@@ -334,16 +348,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
       // Increment syncVersion only for notes the receiver actually kept.
       final accepted = ack?.receivedNoteIds ?? const <String>[];
-      if (accepted.isNotEmpty && ack != null) {
-        for (final noteId in accepted) {
-          final note = await noteRepo.getNoteById(noteId);
-          if (note != null) {
-            await noteRepo.updateNote(
-              noteId,
-              syncVersion: (note.syncVersion) + 1,
-            );
-          }
-        }
+      for (final noteId in accepted) {
+        await noteRepo.bumpSyncVersion(noteId);
       }
 
       state = state.copyWith(
@@ -360,12 +366,45 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     }
   }
 
+  /// Queues received bytes and drains the queue serially. Broadcast streams do
+  /// not await async listeners, so without this serialization two bundles
+  /// arriving back-to-back could interleave DB writes and acks.
+  void _enqueueReceivedBytes(List<int> bytes) {
+    _bytesQueue.add(bytes);
+    if (_processingBytes) return;
+    _processingBytes = true;
+    unawaited(_drainBytesQueue());
+  }
+
+  Future<void> _drainBytesQueue() async {
+    try {
+      while (_bytesQueue.isNotEmpty && !_stopped) {
+        final bytes = _bytesQueue.removeFirst();
+        await _handleReceivedBytes(bytes);
+      }
+    } finally {
+      _processingBytes = false;
+    }
+  }
+
   /// Handles received CBOR bytes from the transport.
   Future<void> _handleReceivedBytes(List<int> bytes) async {
+    if (_stopped) return;
     state = state.copyWith(phase: SyncPhase.receiving);
 
     try {
       final bundle = SyncBundle.fromCbor(Uint8List.fromList(bytes));
+
+      // Reject bundles from an incompatible protocol version rather than
+      // silently misparsing them.
+      if (bundle.protocolVersion != '1.0') {
+        state = state.copyWith(
+          phase: SyncPhase.error,
+          error:
+              'Unsupported sync protocol ${bundle.protocolVersion} (expected 1.0)',
+        );
+        return;
+      }
 
       final db = ref.read(databaseProvider);
       final noteRepo = NoteRepository(db);
@@ -496,6 +535,9 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
   /// Stops the current sync operation and cleans up.
   Future<void> stop() async {
+    _stopped = true;
+    _bytesQueue.clear();
+    _processingBytes = false;
     unawaited(_deviceSub?.cancel());
     unawaited(_stateSub?.cancel());
     unawaited(_bytesSub?.cancel());
@@ -522,6 +564,9 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
   /// Restores all attachment bytes into the app's managed documents directory
   /// and creates Attachment rows (images + doodle layers) preserving ids/order.
+  ///
+  /// Existing attachment rows for the note are replaced (not duplicated) so a
+  /// re-sync of the same note cannot accumulate orphaned rows or files.
   Future<void> _restoreAttachments({
     required SyncNoteEntry entry,
     required AttachmentRepository attachmentRepo,
@@ -537,9 +582,15 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     final noteDir = Directory('${baseDir.path}/sync/attachments');
     await noteDir.create(recursive: true);
 
-    for (final att in attachments) {
+    // Delete existing attachments first so overwrites never duplicate.
+    await attachmentRepo.deleteAllForNote(note.id);
+
+    for (var i = 0; i < attachments.length; i++) {
+      final att = attachments[i];
       final ext = att.type == 'doodleLayer' ? 'drawn' : 'img';
-      final fileName = '${entry.noteId}_${att.id.isEmpty ? att.sortOrder : att.id}.$ext';
+      // Ensure a unique filename even when ids are empty and sortOrder collides.
+      final idPart = att.id.isEmpty ? '${att.sortOrder}_$i' : att.id;
+      final fileName = '${entry.noteId}_$idPart.$ext';
       final filePath = '${noteDir.path}/$fileName';
       await File(filePath).writeAsBytes(att.bytes, flush: true);
 
@@ -554,6 +605,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         await attachmentRepo.addImage(
           noteId: note.id,
           filePath: filePath,
+          id: att.id.isEmpty ? null : att.id,
           sortOrder: att.sortOrder,
         );
       }

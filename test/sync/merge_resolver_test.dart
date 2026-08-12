@@ -229,8 +229,7 @@ void main() {
     });
 
     group('edge cases', () {
-      test('soft-deleted note still exists in DB → merge logic applies',
-          () async {
+      test('soft-deleted note is never resurrected by sync', () async {
         final local = await noteRepo.createNote(
           title: 'Deleted Note',
           type: NoteType.text,
@@ -252,7 +251,7 @@ void main() {
         );
 
         final action = await resolver.resolveIncoming(incoming);
-        expect(action, MergeAction.promptUser);
+        expect(action, MergeAction.ignore);
       });
     });
   });

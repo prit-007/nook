@@ -6,8 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
+import '../../core/app_info.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
+import '../../sync/sync_orchestrator.dart';
+import 'providers/vault_stats_provider.dart';
 
 /// Settings root screen.
 /// Frosted glass section cards with tight macro-typography and tactile
@@ -20,6 +23,9 @@ class SettingsScreen extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final gate = ref.watch(biometricGateProvider);
     final screenshotBlocker = ref.watch(screenshotBlockerProvider);
+    final vaultStats = ref.watch(vaultStatsProvider);
+    final syncState = ref.watch(syncOrchestratorProvider);
+    final deviceCount = syncState.devices.length;
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -96,7 +102,11 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: LucideIcons.hardDrive,
                 title: 'Storage Used',
-                value: '48 MB \u00b7 214 notes',
+                value: vaultStats.maybeWhen(
+                  data: (stats) => '${formatBytes(stats.dbBytes)} '
+                      '\u00b7 ${stats.noteCount} notes',
+                  orElse: () => '\u2014',
+                ),
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.push('/settings/storage');
@@ -105,15 +115,35 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: LucideIcons.arrowUpFromLine,
                 title: 'Export Vault',
-                onTap: () => HapticFeedback.lightImpact(),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/storage');
+                },
+              ),
+              _SettingsTile(
+                icon: LucideIcons.wifi,
+                title: 'Peer Sync',
+                value: 'Send & receive',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/sync');
+                },
               ),
               _SettingsTile(
                 icon: LucideIcons.monitorSmartphone,
                 title: 'Paired Devices',
-                value: '2 active',
+                value: deviceCount > 0 ? '$deviceCount active' : 'None',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.push('/settings/sync-devices');
+                },
+              ),
+              _SettingsTile(
+                icon: LucideIcons.history,
+                title: 'Sync History',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/sync/history');
                 },
               ),
             ],
@@ -125,7 +155,10 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: LucideIcons.shieldCheck,
                 title: 'Privacy Policy',
-                onTap: () => HapticFeedback.lightImpact(),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/privacy');
+                },
               ),
               _SettingsTile(
                 icon: LucideIcons.code,
@@ -138,7 +171,7 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: LucideIcons.info,
                 title: 'Version',
-                value: '0.1.0',
+                value: AppInfo.version,
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.push('/settings/about');

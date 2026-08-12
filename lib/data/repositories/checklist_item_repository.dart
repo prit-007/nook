@@ -28,7 +28,8 @@ class ChecklistItemRepository {
           ),
         );
 
-    return getItemById(id);
+    final item = await getItemById(id);
+    return item!;
   }
 
   /// Returns all items for a note, ordered by sortOrder ascending.
@@ -39,17 +40,17 @@ class ChecklistItemRepository {
         .get();
   }
 
-  /// Returns a single item by ID.
-  Future<ChecklistItem> getItemById(String id) async {
+  /// Returns a single item by ID, or null if not found.
+  Future<ChecklistItem?> getItemById(String id) async {
     return (_db.select(_db.checklistItems)..where((t) => t.id.equals(id)))
-        .getSingle();
+        .getSingleOrNull();
   }
 
-  /// Toggles the checked state of an item.
+  /// Toggles the checked state of an item atomically.
   Future<void> toggleChecked(String id) async {
-    final item = await getItemById(id);
-    await (_db.update(_db.checklistItems)..where((t) => t.id.equals(id))).write(
-      ChecklistItemsCompanion(checked: Value(!item.checked)),
+    await _db.customStatement(
+      'UPDATE checklist_items SET checked = NOT checked WHERE id = ?',
+      [id],
     );
   }
 
@@ -74,13 +75,16 @@ class ChecklistItemRepository {
 
   /// Reorders items by updating their sortOrder to match the given order.
   Future<void> reorderItems(String noteId, List<String> orderedIds) async {
-    for (int i = 0; i < orderedIds.length; i++) {
-      await (_db.update(_db.checklistItems)
-            ..where((t) => t.id.equals(orderedIds[i])))
-          .write(
-        ChecklistItemsCompanion(sortOrder: Value(i)),
-      );
-    }
+    await _db.transaction(() async {
+      for (int i = 0; i < orderedIds.length; i++) {
+        await (_db.update(_db.checklistItems)
+              ..where(
+                  (t) => t.id.equals(orderedIds[i]) & t.noteId.equals(noteId)))
+            .write(
+          ChecklistItemsCompanion(sortOrder: Value(i)),
+        );
+      }
+    });
   }
 
   Future<int> _nextSortOrder(String noteId) async {

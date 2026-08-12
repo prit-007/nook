@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -54,10 +53,6 @@ class DoodleController extends ChangeNotifier {
   bool _isDrawing = false;
 
   bool _shapeAssistEnabled = true;
-
-  // --- Hold-to-snap engine ---
-  Timer? _holdTimer;
-  Offset? _lastPosition;
 
   List<Stroke> get strokes => List.unmodifiable(_strokes);
   DoodleTool get currentTool => _currentTool;
@@ -117,39 +112,22 @@ class DoodleController extends ChangeNotifier {
     _strokes.add(_activeStroke!);
     _redoStack.clear();
     _isDrawing = true;
-    _lastPosition = point;
-
-    if (_shapeAssistEnabled && _currentTool != DoodleTool.eraser) {
-      _startHoldTimer();
-    }
     notifyListeners();
   }
 
   void continueStroke(Offset point, {double pressure = 1.0}) {
     if (_activeStroke == null) return;
 
-    if (_lastPosition != null && (point - _lastPosition!).distance > 2.0) {
-      _activeStroke!.points.add(StrokePoint(point, pressure: pressure));
-      _lastPosition = point;
-
-      if (_shapeAssistEnabled && _currentTool != DoodleTool.eraser) {
-        _startHoldTimer();
-      }
-      notifyListeners();
-    }
-  }
-
-  void endStroke() {
-    _holdTimer?.cancel();
-    if (_activeStroke == null) return;
-    _activeStroke = null;
-    _isDrawing = false;
+    _activeStroke!.points.add(StrokePoint(point, pressure: pressure));
     notifyListeners();
   }
 
-  void _startHoldTimer() {
-    _holdTimer?.cancel();
-    _holdTimer = Timer(const Duration(milliseconds: 400), _attemptShapeSnap);
+  void endStroke() {
+    if (_activeStroke == null) return;
+    _attemptShapeSnap();
+    _activeStroke = null;
+    _isDrawing = false;
+    notifyListeners();
   }
 
   void _attemptShapeSnap() {

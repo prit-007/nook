@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
+import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/editor/widgets/note_assignment_sheet.dart';
 
 AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
@@ -19,6 +20,18 @@ void main() {
   tearDown(() async {
     await db.close();
   });
+
+  Future<String> insertNote(String id) async {
+    await db.into(db.notes).insert(
+          NotesCompanion.insert(
+            id: Value(id),
+            title: const Value('Test Note'),
+            type: NoteType.text,
+            deviceOriginId: 'test-device',
+          ),
+        );
+    return id;
+  }
 
   Future<String> insertNotebook(String name) async {
     final id = 'nb-${name.toLowerCase().replaceAll(' ', '-')}';
@@ -154,6 +167,7 @@ void main() {
   });
 
   testWidgets('shows already-assigned tags as selected', (tester) async {
+    await insertNote('note-1');
     final tagId = await insertTag('important');
     await assignTag('note-1', tagId);
 

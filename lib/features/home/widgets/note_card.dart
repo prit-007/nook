@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nook/core/theme/design_tokens.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
 
@@ -22,12 +23,7 @@ class _NoteCardState extends State<NoteCard> {
 
   ColorScheme _cardScheme(BuildContext context) {
     if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
-      final seed = Color(
-        int.parse(
-          'FF${widget.note.colorSeed!.replaceFirst('#', '')}',
-          radix: 16,
-        ),
-      );
+      final seed = NookColors.parseHex(widget.note.colorSeed);
       return ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Theme.of(context).brightness,

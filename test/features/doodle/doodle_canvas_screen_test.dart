@@ -199,11 +199,17 @@ void main() {
       drawStroke(tester);
       await tester.pump();
 
+      // Persist (dart:io) now runs before popping. Alternate real-async
+      // delays (to let file I/O complete) with frame pumps until the pop
+      // result arrives.
       await tester.tap(find.text('Done'));
-      // Pump to let drift addDoodle complete and pop fire.
-      await tester.pump();
-      await tester.pump();
-      await tester.pump();
+      for (var i = 0; i < 40; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+        if (pushedResult != null) break;
+      }
+      await tester.pumpAndSettle();
 
       expect(pushedResult, isNotNull);
       expect(pushedResult, isNotEmpty);
@@ -235,9 +241,24 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
+      // Let the existing doodle's file load complete (real I/O), so the
+      // controller holds the loaded stroke before Done is tapped.
+      for (var i = 0; i < 40; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
+
+      // Persist runs before popping; alternate real-async delays with frame
+      // pumps until the pop result arrives.
       await tester.tap(find.text('Done'));
-      await tester.pump();
-      await tester.pump();
+      for (var i = 0; i < 40; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+        if (pushedResult != null) break;
+      }
+      await tester.pumpAndSettle();
 
       expect(pushedResult, equals(existingId));
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/design_tokens.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/notebook_repository.dart';
 
@@ -30,12 +31,7 @@ class NotebookCard extends ConsumerStatefulWidget {
 class _NotebookCardState extends ConsumerState<NotebookCard> {
   Color? _dominantColor;
 
-  Color get _seedColor {
-    return Color(
-      int.parse('FF${widget.notebook.colorSeed.replaceFirst('#', '')}',
-          radix: 16),
-    );
-  }
+  Color get _seedColor => NookColors.parseHex(widget.notebook.colorSeed);
 
   @override
   void initState() {

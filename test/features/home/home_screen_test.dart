@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nook/core/providers/database_provider.dart';
+import 'package:nook/core/providers/theme_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/home/home_screen.dart';
@@ -14,6 +15,7 @@ import 'package:nook/features/home/widgets/morphing_editorial_fab.dart';
 import 'package:nook/features/home/widgets/note_banner_card.dart';
 import 'package:nook/features/home/widgets/note_doodle_card.dart';
 import 'package:nook/features/home/widgets/note_minimal_card.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
 
@@ -54,10 +56,13 @@ void main() {
   Widget buildHome({
     List<Note>? notes,
     double screenWidth = 400,
+    ThemePreference? preference,
   }) {
     return ProviderScope(
       overrides: [
         databaseProvider.overrideWithValue(db),
+        if (preference != null)
+          themePreferenceProvider.overrideWith((ref) => preference),
         if (notes != null)
           notesListProvider.overrideWith((ref) => Stream.value(notes)),
       ],
@@ -372,5 +377,32 @@ void main() {
       expect(find.text('Type to search notes'), findsNothing);
       expect(find.byType(HomeScreen), findsOneWidget);
     });
+  });
+
+  testWidgets('gates entrance animations behind reduceMotion and still renders',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final notes = await insertNotes([
+      (title: 'Pinned Thought', type: NoteType.text, pinned: true),
+      (title: 'Sketch', type: NoteType.doodle, pinned: false),
+      (title: 'Grocery Run', type: NoteType.checklist, pinned: false),
+    ]);
+    final reduced = await ThemePreference.load()
+      ..setReduceMotion(true);
+
+    await tester.pumpWidget(
+      buildHome(notes: notes, preference: reduced),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('YOUR VAULT'), findsOneWidget);
+    expect(find.text('Pinned Thought'), findsOneWidget);
+    expect(find.text('Sketch'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Grocery Run'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Grocery Run'), findsOneWidget);
   });
 }

@@ -62,7 +62,6 @@ void main() {
   testWidgets('renders storage used tile', (tester) async {
     await tester.pumpWidget(buildScreen());
     expect(find.text('Storage Used'), findsOneWidget);
-    expect(find.text('48 MB \u00b7 214 notes'), findsOneWidget);
   });
 
   testWidgets('renders export vault tile', (tester) async {
@@ -73,7 +72,7 @@ void main() {
   testWidgets('renders paired devices tile', (tester) async {
     await tester.pumpWidget(buildScreen());
     expect(find.text('Paired Devices'), findsOneWidget);
-    expect(find.text('2 active'), findsOneWidget);
+    expect(find.text('None'), findsOneWidget);
   });
 
   testWidgets('renders privacy policy tile', (tester) async {
@@ -92,7 +91,7 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.scrollUntilVisible(find.text('Version'), 100);
     expect(find.text('Version'), findsOneWidget);
-    expect(find.text('0.1.0'), findsOneWidget);
+    expect(find.text('0.6.2'), findsOneWidget);
   });
 
   testWidgets('renders two switches', (tester) async {

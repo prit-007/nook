@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/design_tokens.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
@@ -278,7 +279,7 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final tagColor = Color(int.parse('0xFF${colorSeed.replaceFirst('#', '')}'));
+    final tagColor = NookColors.parseHex(colorSeed);
 
     return GestureDetector(
       onTap: onTap,
