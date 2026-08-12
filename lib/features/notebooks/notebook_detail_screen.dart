@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/masked_reveal.dart';
+import '../../core/widgets/masked_reveal_text.dart';
+import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
 import '../home/widgets/note_card.dart';
@@ -59,10 +62,13 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final seedColor = NookColors.parseHex(_notebookColor);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_notebookName.isEmpty ? 'Notebook' : _notebookName),
+        title: MaskedRevealText(
+          _notebookName.isEmpty ? 'Notebook' : _notebookName,
+        ),
         iconTheme: IconThemeData(color: seedColor),
       ),
       body: _loading
@@ -83,10 +89,21 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
                     childAspectRatio: 0.75,
                   ),
                   itemCount: _notes.length,
-                  itemBuilder: (context, index) => NoteCard(
-                    note: _notes[index],
-                    onTap: () => context.push('/note/${_notes[index].id}'),
-                  ),
+                  itemBuilder: (context, index) {
+                    final card = NoteCard(
+                      note: _notes[index],
+                      onTap: () => context.push('/note/${_notes[index].id}'),
+                    );
+                    if (reduceMotion) return card;
+                    return ParallaxCard(
+                      child: MaskedReveal(
+                        delay: Duration(
+                          milliseconds: (index * 70).clamp(0, 500),
+                        ),
+                        child: card,
+                      ),
+                    );
+                  },
                 ),
     );
   }

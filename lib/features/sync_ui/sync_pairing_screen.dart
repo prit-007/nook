@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
+import 'widgets/pairing_code_field.dart';
+
 class SyncPairingScreen extends StatefulWidget {
   const SyncPairingScreen({
     super.key,
@@ -18,6 +20,15 @@ class SyncPairingScreen extends StatefulWidget {
 
 class _SyncPairingScreenState extends State<SyncPairingScreen> {
   bool _isCopied = false;
+
+  void _copyCode() {
+    HapticFeedback.lightImpact();
+    Clipboard.setData(ClipboardData(text: widget.pairingCode));
+    setState(() => _isCopied = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _isCopied = false);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,46 +76,13 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
               ),
               const SizedBox(height: 48),
 
-              // Tactile Code Pill
-              GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Clipboard.setData(
-                    ClipboardData(text: widget.pairingCode),
-                  );
-                  setState(() => _isCopied = true);
-                  Future.delayed(const Duration(seconds: 2), () {
-                    if (mounted) setState(() => _isCopied = false);
-                  });
-                },
-                child: AnimatedScale(
-                  scale: _isCopied ? 0.95 : 1.0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 20,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _isCopied
-                          ? scheme.primary
-                          : scheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: scheme.outlineVariant.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Text(
-                      widget.pairingCode,
-                      style: TextStyle(
-                        fontSize: 42,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 12,
-                        color: _isCopied ? scheme.onPrimary : scheme.onSurface,
-                      ),
-                    ),
-                  ),
-                ),
+              // Tactile Code Field
+              PairingCodeField(
+                code: widget.pairingCode,
+                accentColor: _isCopied
+                    ? scheme.primary
+                    : scheme.outlineVariant.withValues(alpha: 0.3),
+                onTap: _copyCode,
               ),
 
               const SizedBox(height: 12),

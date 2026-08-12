@@ -5,6 +5,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../sync/sync_orchestrator.dart';
 import 'widgets/conflict_card.dart';
+import 'widgets/pairing_code_field.dart';
 
 /// Sync receive screen — discoverable toggle + incoming requests.
 class SyncReceiveScreen extends ConsumerStatefulWidget {
@@ -159,23 +160,8 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        syncState.pendingPairing!.pairingCode,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 8,
-                        ),
-                      ),
+                    PairingCodeField(
+                      code: syncState.pendingPairing!.pairingCode,
                     ),
                     const SizedBox(height: 20),
                     Row(

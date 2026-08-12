@@ -58,20 +58,79 @@ jobs:
           VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Build release APK
-        run: flutter build apk --release
+      - name: Build release APKs (split per ABI)
+        run: flutter build apk --release --split-per-abi
 
-      - name: Upload APK Artifact (Workflow Summary)
+      - name: Upload APK Artifacts (Workflow Summary)
         uses: actions/upload-artifact@v4
         with:
-          name: nook-app-v${{ env.APP_VERSION }}-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: nook-apks
+          path: build/app/outputs/flutter-apk/*-release.apk
           if-no-files-found: error
 
-      - name: Create Release and Upload APK
+  build-web:
+    needs: analyze-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: 'stable'
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
+        run: dart run tool/patch_appflowy_editor.dart
+      - name: Generate code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Extract App Version
+        id: version
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Build release web
+        run: flutter build web --release
+
+      - name: Package web build
+        run: |
+          cd build/web
+          zip -r ../nook-web-v${{ env.APP_VERSION }}.zip .
+          cd ../..
+
+      - name: Upload Web Artifact (Workflow Summary)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nook-web
+          path: build/nook-web-v${{ env.APP_VERSION }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: [build-android, build-web]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nook-apks
+          path: release/apks
+
+      - name: Download web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nook-web
+          path: release/web
+
+      - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           generate_release_notes: true
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: |
+            release/apks/*.apk
+            release/web/*.zip
           name: Release ${{ github.ref_name }}

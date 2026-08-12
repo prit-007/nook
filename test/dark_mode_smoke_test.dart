@@ -59,7 +59,7 @@ void main() {
   testWidgets('trash screen renders in dark mode', (tester) async {
     await tester.pumpWidget(darkApp(const TrashScreen()));
     await tester.pumpAndSettle();
-    expect(find.text('Trash'), findsOneWidget);
+    expect(find.text('Archive'), findsOneWidget);
   });
 
   testWidgets('notebooks screen renders in dark mode', (tester) async {
@@ -70,7 +70,9 @@ void main() {
 
   testWidgets('tags screen renders in dark mode', (tester) async {
     await tester.pumpWidget(darkApp(const TagsScreen()));
-    await tester.pumpAndSettle();
+    // The tags empty-state animation loops forever; settle with fixed frames.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Tags'), findsOneWidget);
   });
 

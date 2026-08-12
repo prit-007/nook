@@ -5,14 +5,16 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nook/sync/crypto/sync_session_cipher.dart';
 import 'package:nook/sync/protocol/sync_bundle.dart';
 import 'package:nook/sync/transport/tcp_sync_transport.dart';
 import 'package:nook/sync/transport/sync_transport.dart';
 
 /// Persistent buffered frame reader so a single-subscription socket can be
-/// read frame-by-frame (mirrors the transport's own approach).
+/// read frame-by-frame (mirrors the transport's own approach). Frames are
+/// decrypted when [cipher] is active.
 class FrameReader {
-  FrameReader(this._socket) {
+  FrameReader(this._socket, {this.cipher}) {
     _socket.listen(
       (chunk) {
         _buffer.addAll(chunk);
@@ -24,6 +26,7 @@ class FrameReader {
   }
 
   final Socket _socket;
+  final SyncSessionCipher? cipher;
   final _buffer = <int>[];
   final _frames = <String>[];
   final _waiters = <Completer<String>>[];
@@ -45,13 +48,23 @@ class FrameReader {
       if (_buffer.length < 4 + len) break;
       final payload = _buffer.sublist(4, 4 + len);
       _buffer.removeRange(0, 4 + len);
-      final text = utf8.decode(payload);
+      _dispatch(payload);
+    }
+  }
+
+  void _dispatch(List<int> payload) {
+    Future<void> deliver() async {
+      final decrypted =
+          cipher == null ? payload : await cipher!.decryptFrame(payload);
+      final text = utf8.decode(decrypted);
       if (_waiters.isNotEmpty) {
         _waiters.removeAt(0).complete(text);
       } else {
         _frames.add(text);
       }
     }
+
+    deliver();
   }
 
   void _failAll(Object error) {
@@ -66,24 +79,80 @@ class FrameReader {
   Future<void> close() => _socket.close();
 }
 
+Future<void> writeFrame(
+  Socket socket,
+  String payload, {
+  SyncSessionCipher? cipher,
+}) async {
+  final bytes = cipher == null
+      ? utf8.encode(payload)
+      : await cipher.encryptFrame(utf8.encode(payload));
+  final lengthBytes = ByteData(4)..setUint32(0, bytes.length, Endian.big);
+  socket.add(lengthBytes.buffer.asUint8List());
+  socket.add(bytes);
+  await socket.flush();
+}
+
+/// Scripted peer performing the ECDH handshake + encrypted reads/writes.
+class ScriptedPeer {
+  ScriptedPeer(this.socket);
+
+  final Socket socket;
+  final cipher = SyncSessionCipher();
+
+  Future<void> handshake({
+    required String remoteDeviceId,
+    required String remoteDeviceName,
+    String? expectPairingCode,
+  }) async {
+    final reader = FrameReader(socket, cipher: cipher);
+    await cipher.beginHandshake();
+
+    // 1. Read sender hello.
+    final hello = jsonDecode(await reader.readFrame()) as Map<String, dynamic>;
+    expect(hello['deviceName'], remoteDeviceName);
+    if (expectPairingCode != null) {
+      expect(hello['pairingCode'], expectPairingCode);
+    }
+    final senderKey = hello['publicKey'] as String;
+    await cipher.completeKeyExchange(base64Decode(senderKey));
+
+    // 2. Reply with our identity (with our public key).
+    await writeFrame(
+      socket,
+      jsonEncode({
+        'deviceId': remoteDeviceId,
+        'deviceName': 'Peer',
+        'protocolVersion': kSyncProtocolVersion,
+        'publicKey': base64Encode(cipher.exportPublicKey()),
+      }),
+    );
+
+    // 3. Approve pairing (now encrypted).
+    await writeFrame(
+      socket,
+      jsonEncode({'type': 'pairing_confirm'}),
+      cipher: cipher,
+    );
+    _reader = reader;
+  }
+
+  FrameReader? _reader;
+
+  FrameReader get reader => _reader!;
+
+  Future<String> readEncryptedFrame() => reader.readFrame();
+
+  Future<void> writeEncryptedFrame(String payload) =>
+      writeFrame(socket, payload, cipher: cipher);
+}
+
 /// Loopback integration test for [TcpSyncTransport].
 ///
 /// Exercises the real TCP + length-prefixed framing against a scripted server
 /// bound on 127.0.0.1 (no mDNS/bonsoir, which needs platform channels). Covers
-/// hello/pairing handshake, chunked transfer, SHA-256 checksum, and ack.
+/// the encrypted ECDH handshake, chunked transfer, SHA-256 checksum, and ack.
 void main() {
-// -------------------------------------------------------------------------
-// Framing helpers mirroring the transport's wire protocol.
-// -------------------------------------------------------------------------
-
-  Future<void> writeFrame(Socket socket, String payload) async {
-    final bytes = utf8.encode(payload);
-    final lengthBytes = ByteData(4)..setUint32(0, bytes.length, Endian.big);
-    socket.add(lengthBytes.buffer.asUint8List());
-    socket.add(bytes);
-    await socket.flush();
-  }
-
   group('TcpSyncTransport loopback', () {
     late ServerSocket server;
     late TcpSyncTransport sender;
@@ -111,7 +180,7 @@ void main() {
           port: server.port,
         );
 
-    test('pairing handshake + chunked transfer + ack round-trip', () async {
+    test('encrypted pairing handshake + transfer + ack round-trip', () async {
       final payload = Uint8List.fromList(List.generate(3000, (i) => i % 251));
       final expectedChecksum = sha256.convert(payload).toString();
 
@@ -124,35 +193,22 @@ void main() {
       });
 
       final socket = await server.first;
-      final reader = FrameReader(socket);
-
-      // 1. Read sender hello — should carry the pairing code.
-      final hello =
-          jsonDecode(await reader.readFrame()) as Map<String, dynamic>;
-      expect(hello['deviceName'], 'Loopback Sender');
-      expect(hello['pairingCode'], '123456');
-
-      // 2. Reply with our identity.
-      await writeFrame(
-          socket,
-          jsonEncode({
-            'deviceId': 'peer-1',
-            'deviceName': 'Peer',
-            'protocolVersion': '1.0',
-          }));
-
-      // 3. Approve pairing.
-      await writeFrame(socket, jsonEncode({'type': 'pairing_confirm'}));
+      final peer = ScriptedPeer(socket);
+      await peer.handshake(
+        remoteDeviceId: 'peer-1',
+        remoteDeviceName: 'Loopback Sender',
+        expectPairingCode: '123456',
+      );
 
       expect(await connectFuture, isTrue,
           reason: 'errors: ${errors.join(' | ')}');
 
-      // 4. Receive the bundle.
+      // Receive the (encrypted) bundle.
       final sendFuture = sender.sendData(payload);
 
       // Header.
       final header =
-          jsonDecode(await reader.readFrame()) as Map<String, dynamic>;
+          jsonDecode(await peer.readEncryptedFrame()) as Map<String, dynamic>;
       expect(header['type'], 'sync_header');
       expect(header['checksum'], expectedChecksum);
 
@@ -160,7 +216,7 @@ void main() {
       final chunks = <Uint8List>[];
       final total = header['totalChunks'] as int;
       while (chunks.length < total) {
-        final frame = jsonDecode(await reader.readFrame());
+        final frame = jsonDecode(await peer.readEncryptedFrame());
         expect(frame['type'], 'sync_chunk');
         chunks.add(base64Decode(frame['data'] as String));
       }
@@ -168,20 +224,38 @@ void main() {
       expect(reassembled, payload);
       expect(sha256.convert(reassembled).toString(), expectedChecksum);
 
-      // 5. Send ack back.
+      // Send ack back (encrypted).
       final ack =
           const SyncAck(receivedNoteIds: ['n1'], rejectedNoteIds: ['n2']);
-      await writeFrame(
-          socket,
-          jsonEncode({
-            'type': 'sync_ack',
-            'data': base64Encode(ack.toCbor()),
-          }));
+      await peer.writeEncryptedFrame(jsonEncode({
+        'type': 'sync_ack',
+        'data': base64Encode(ack.toCbor()),
+      }));
 
       final result = await sendFuture;
       expect(result, isNotNull);
       expect(result!.receivedNoteIds, ['n1']);
       expect(result.rejectedNoteIds, ['n2']);
+      await peer.socket.close();
+    });
+
+    test('sender rejects a peer that does not perform key exchange', () async {
+      final connectFuture =
+          sender.connectToDevice(functionDevice(), pairingCode: '999');
+
+      final socket = await server.first;
+      final reader = FrameReader(socket);
+      await reader.readFrame(); // hello (plaintext)
+      // Reply with an identity that omits the public key.
+      await writeFrame(
+          socket,
+          jsonEncode({
+            'deviceId': 'peer-1',
+            'deviceName': 'Peer',
+            'protocolVersion': kSyncProtocolVersion,
+          }));
+
+      expect(await connectFuture, isFalse);
       await reader.close();
     });
 
@@ -190,18 +264,25 @@ void main() {
           sender.connectToDevice(functionDevice(), pairingCode: '999');
 
       final socket = await server.first;
+      final peer = ScriptedPeer(socket);
       final reader = FrameReader(socket);
-      await reader.readFrame(); // hello
+      await peer.cipher.beginHandshake();
+      final hello =
+          jsonDecode(await reader.readFrame()) as Map<String, dynamic>;
+      await peer.cipher
+          .completeKeyExchange(base64Decode(hello['publicKey'] as String));
+
+      // Send identity but reject pairing instead of confirming.
       await writeFrame(
           socket,
           jsonEncode({
             'deviceId': 'peer-1',
             'deviceName': 'Peer',
-            'protocolVersion': '1.0',
+            'protocolVersion': kSyncProtocolVersion,
+            'publicKey': base64Encode(peer.cipher.exportPublicKey()),
           }));
-
-      // Send something that is not a confirmation.
-      await writeFrame(socket, jsonEncode({'type': 'pairing_rejected'}));
+      await writeFrame(socket, jsonEncode({'type': 'pairing_rejected'}),
+          cipher: peer.cipher);
 
       expect(await connectFuture, isFalse);
       await reader.close();

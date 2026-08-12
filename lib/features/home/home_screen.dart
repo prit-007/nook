@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/theme_provider.dart';
+import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import 'providers/notes_list_provider.dart';
@@ -331,16 +332,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     if (!_animationsAllowed(context)) return card;
 
-    return card
-        .animate()
-        .fade(
-          duration: 350.ms,
-          delay: Duration(milliseconds: (index * 40).clamp(0, 400)),
-        )
-        .slideY(
-          begin: 0.08,
-          duration: 350.ms,
-          curve: Curves.easeOutCubic,
-        );
+    return ParallaxCard(
+      child: card
+          .animate()
+          .fade(
+            duration: 350.ms,
+            delay: Duration(milliseconds: (index * 40).clamp(0, 400)),
+          )
+          .slideY(
+            begin: 0.08,
+            duration: 350.ms,
+            curve: Curves.easeOutCubic,
+          ),
+    );
   }
 }

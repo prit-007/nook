@@ -1,11 +1,18 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/masked_reveal.dart';
+import '../../core/widgets/masked_reveal_text.dart';
 import '../../data/repositories/note_repository.dart';
 
-/// Trash screen — lists soft-deleted notes with restore / permanent delete.
+/// Trash screen — high-contrast archive of deleted notes with glass dialogs.
 class TrashScreen extends ConsumerStatefulWidget {
   const TrashScreen({super.key});
 
@@ -30,8 +37,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     if (mounted) {
       setState(() {
         _notes = deleted
-            .map((n) =>
-                _DeletedNote(id: n.id, title: n.title, deletedAt: n.deletedAt))
+            .map((n) => _DeletedNote(
+                  id: n.id,
+                  title: n.title,
+                  deletedAt: n.deletedAt,
+                ))
             .toList();
         _loading = false;
       });
@@ -39,6 +49,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   }
 
   Future<void> _restore(String id) async {
+    unawaited(HapticFeedback.mediumImpact());
     final db = ref.read(databaseProvider);
     final repo = NoteRepository(db);
     await repo.restore(id);
@@ -46,30 +57,52 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   }
 
   Future<void> _permanentDelete(String id, String title) async {
+    unawaited(HapticFeedback.heavyImpact());
+    final scheme = Theme.of(context).colorScheme;
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Permanently delete?'),
-        content: Text(
-            '"$title" will be permanently deleted. This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: AlertDialog(
+          backgroundColor: scheme.surfaceContainerHigh,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+          title: const Text(
+            'Permanently Delete?',
+            style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+          ),
+          content: Text(
+            '"$title" will be destroyed forever. This action cannot be undone.',
+            style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
-            child: const Text('Delete'),
-          ),
-        ],
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text(
+                'Destroy',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+
     if (confirmed == true) {
-      final db = ref.read(databaseProvider);
-      final repo = NoteRepository(db);
+      final repo = NoteRepository(ref.read(databaseProvider));
       await repo.permanentlyDelete(id);
       await _load();
     }
@@ -77,30 +110,62 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
   Future<void> _emptyTrash() async {
     if (_notes.isEmpty) return;
+    unawaited(HapticFeedback.heavyImpact());
+    final scheme = Theme.of(context).colorScheme;
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Empty trash?'),
-        content: Text(
-            'Permanently delete all ${_notes.length} notes in trash? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: AlertDialog(
+          backgroundColor: scheme.surfaceContainerHigh,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+          title: Row(
+            children: [
+              Icon(LucideIcons.alertTriangle, color: scheme.error),
+              const SizedBox(width: 8),
+              const Text(
+                'Empty Archive?',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Permanently destroy all ${_notes.length} notes in the trash? '
+            'This is absolute and irreversible.',
+            style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
-            child: const Text('Delete all'),
-          ),
-        ],
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text(
+                'Empty Trash',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+
     if (confirmed == true) {
-      final db = ref.read(databaseProvider);
-      final repo = NoteRepository(db);
+      final repo = NoteRepository(ref.read(databaseProvider));
       await repo.permanentlyDeleteAllDeleted();
       if (mounted) await _load();
     }
@@ -111,71 +176,119 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: const Text('Trash'),
-        actions: [
-          if (_notes.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined),
-              tooltip: 'Empty trash',
-              onPressed: _emptyTrash,
-            ),
-        ],
+        title: const MaskedRevealText(
+          'Archive',
+          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+        ),
+        backgroundColor: Colors.transparent,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: scheme.primary))
           : _notes.isEmpty
               ? const EmptyState(
-                  icon: Icons.delete_outline,
-                  title: 'Trash is empty',
-                  subtitle: 'Deleted notes will appear here',
+                  icon: LucideIcons.trash,
+                  title: 'Archive is empty',
+                  subtitle: 'Deleted notes will be held here',
                   animate: false,
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
                   itemCount: _notes.length,
                   itemBuilder: (context, index) {
                     final note = _notes[index];
                     final age = _formatAge(note.deletedAt);
-                    return ListTile(
-                      leading: Icon(
-                        Icons.description_outlined,
-                        color: scheme.onSurfaceVariant,
+                    return MaskedReveal(
+                      delay: Duration(
+                        milliseconds: (index * 50).clamp(0, 400),
                       ),
-                      title: Text(
-                        note.title.isEmpty ? 'Untitled' : note.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        'Deleted $age',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: scheme.onSurface.withValues(alpha: 0.5),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest
+                              .withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: scheme.outlineVariant.withValues(alpha: 0.2),
+                          ),
                         ),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.restore_from_trash_outlined),
-                            tooltip: 'Restore',
-                            onPressed: () => _restore(note.id),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
                           ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.delete_forever_outlined,
-                              color: scheme.error,
+                          title: Text(
+                            note.title.isEmpty
+                                ? 'Untitled Document'
+                                : note.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurface.withValues(alpha: 0.7),
                             ),
-                            tooltip: 'Delete permanently',
-                            onPressed: () =>
-                                _permanentDelete(note.id, note.title),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
+                          subtitle: Text(
+                            'Archived $age',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  LucideIcons.undo2,
+                                  color: scheme.primary,
+                                ),
+                                tooltip: 'Restore Note',
+                                onPressed: () => _restore(note.id),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  LucideIcons.trash,
+                                  color: scheme.error.withValues(alpha: 0.8),
+                                ),
+                                tooltip: 'Destroy',
+                                onPressed: () =>
+                                    _permanentDelete(note.id, note.title),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },
                 ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: _notes.isNotEmpty
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: FloatingActionButton.extended(
+                    backgroundColor:
+                        scheme.errorContainer.withValues(alpha: 0.9),
+                    foregroundColor: scheme.onErrorContainer,
+                    elevation: 0,
+                    icon: const Icon(LucideIcons.flame),
+                    label: const Text(
+                      'Empty Archive',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    onPressed: _emptyTrash,
+                  ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 

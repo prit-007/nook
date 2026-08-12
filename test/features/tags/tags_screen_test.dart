@@ -35,24 +35,31 @@ void main() {
     await repo.createTag(name: name, colorSeed: colorSeed);
   }
 
+  /// Pumps with a fixed number of frames. The empty-state animation loops
+  /// forever, so `pumpAndSettle` would never settle while it is visible.
+  Future<void> pumpFrames(WidgetTester tester) async {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
   testWidgets('renders app bar title', (tester) async {
     await tester.pumpWidget(buildScreen());
-    await tester.pumpAndSettle();
+    await pumpFrames(tester);
     expect(find.text('Tags'), findsOneWidget);
   });
 
   testWidgets('shows empty state when no tags', (tester) async {
     await tester.pumpWidget(buildScreen());
-    await tester.pumpAndSettle();
+    await pumpFrames(tester);
     expect(find.textContaining('No tags'), findsOneWidget);
   });
 
-  testWidgets('displays tags as chips', (tester) async {
+  testWidgets('displays tags as pills', (tester) async {
     await insertTag(name: 'important');
     await insertTag(name: 'todo');
 
     await tester.pumpWidget(buildScreen());
-    await tester.pumpAndSettle();
+    await pumpFrames(tester);
 
     expect(find.text('important'), findsOneWidget);
     expect(find.text('todo'), findsOneWidget);
@@ -60,26 +67,31 @@ void main() {
 
   testWidgets('FAB opens create tag form', (tester) async {
     await tester.pumpWidget(buildScreen());
-    await tester.pumpAndSettle();
+    await pumpFrames(tester);
 
     await tester.tap(find.byType(FloatingActionButton));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Create Tag'), findsOneWidget);
+    // The headline "New Tag" (size 22) is the sheet title; the FAB label is
+    // smaller. Assert the sheet is present via the name TextField.
+    expect(find.byType(TextField), findsOneWidget);
   });
 
   testWidgets('create tag via form sheet', (tester) async {
     await tester.pumpWidget(buildScreen());
-    await tester.pumpAndSettle();
+    await pumpFrames(tester);
 
     await tester.tap(find.byType(FloatingActionButton));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     await tester.enterText(find.byType(TextField).first, 'new-tag');
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Tag'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('new-tag'), findsOneWidget);
   });
@@ -88,7 +100,7 @@ void main() {
     await insertTag(name: 'delete-me');
 
     await tester.pumpWidget(buildScreen());
-    await tester.pumpAndSettle();
+    await pumpFrames(tester);
 
     await tester.longPress(find.text('delete-me'));
     await tester.pumpAndSettle();
@@ -100,13 +112,14 @@ void main() {
     await insertTag(name: 'removable');
 
     await tester.pumpWidget(buildScreen());
-    await tester.pumpAndSettle();
+    await pumpFrames(tester);
 
     await tester.longPress(find.text('removable'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Delete'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('removable'), findsNothing);
   });
