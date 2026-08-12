@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-12
+
+Major reliability and correctness release: a deep bug sweep across the sync
+protocol, data layer, editor, and UI.
+
+### Sync
+- Received bundles are now processed serially, so back-to-back frames can no
+  longer interleave database writes or acknowledgments.
+- Attachment restore is idempotent: stale rows are removed before overwrite,
+  doodle layers upsert instead of colliding on primary keys, and image IDs are
+  preserved — re-syncing a note no longer duplicates files or rows.
+- Frame writes are atomic per socket; a maximum frame size guards against
+  memory-exhaustion; protocol version is validated on receive.
+- Soft-deleted notes are never resurrected by sync; `syncVersion` bumps no
+  longer drift `updatedAt`; clock-skew no longer causes incorrect overwrites.
+- Transport cleanup now cancels all subscriptions and closes the pairing
+  controller; a second device is rejected mid-transfer.
+
+### Data layer
+- Production vault now opens the encrypted on-disk database instead of
+  in-memory, so data survives app restarts.
+- Foreign keys are enforced; note deletion cascades to tags, checklists,
+  attachments, and full-text search; multi-statement operations are
+  transactional.
+- `updateNote` no longer silently clears `notebookId`; `updateContent` keeps
+  sync timestamps intact; `toggleChecked` is atomic; FTS5 queries are
+  sanitized.
+- Doodle saves write the sidecar file before creating the attachment row.
+
+### Editor & UI
+- Doodle strokes are persisted before the canvas closes, preventing data loss.
+- Safe hex color parsing everywhere (no more crashes on malformed seeds).
+- Editor saves no longer race disposal and keep the in-editor note fresh.
+- Vault import/export, privacy screen, and live vault stats shipped.
+
 ## [0.6.2] - 2026-08-12
 
 UI/UX redesign of the sync and settings surfaces — Lucide iconography, polished

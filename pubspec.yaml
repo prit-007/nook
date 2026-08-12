@@ -1,7 +1,7 @@
 name: nook
 description: "A private, local-first note-taking app. Your notes, your device, yours."
 publish_to: 'none'
-version: 0.6.2+1
+version: 0.7.0+1
 license: GPL-3.0
 
 environment:

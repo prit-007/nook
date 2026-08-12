@@ -91,7 +91,7 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.scrollUntilVisible(find.text('Version'), 100);
     expect(find.text('Version'), findsOneWidget);
-    expect(find.text('0.6.2'), findsOneWidget);
+    expect(find.text('0.7.0'), findsOneWidget);
   });
 
   testWidgets('renders two switches', (tester) async {
