@@ -51,6 +51,7 @@ abstract class SyncTransport {
   Future<void> startDiscovery();
   Future<void> stopDiscovery();
   Future<void> sendData(List<int> data);
+  Future<void> sendAck(List<int> ackData);
   Future<void> disconnect();
 }
 
@@ -113,6 +114,9 @@ class MockSyncTransport implements SyncTransport {
       await onSend!(data);
     }
   }
+
+  @override
+  Future<void> sendAck(List<int> ackData) async {}
 
   @override
   Future<void> disconnect() async {

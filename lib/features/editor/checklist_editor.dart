@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -59,7 +60,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
 
   Future<void> _addItem(String text) async {
     if (text.trim().isEmpty) return;
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.addItem(noteId: widget.noteId, text: text.trim());
@@ -69,7 +70,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   }
 
   Future<void> _toggleItem(String id) async {
-    HapticFeedback.lightImpact();
+    unawaited(HapticFeedback.lightImpact());
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.toggleChecked(id);
@@ -77,7 +78,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   }
 
   Future<void> _deleteItem(String id) async {
-    HapticFeedback.selectionClick();
+    unawaited(HapticFeedback.selectionClick());
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.deleteItem(id);
@@ -85,7 +86,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   }
 
   Future<void> _reorder(int oldIndex, int newIndex) async {
-    HapticFeedback.selectionClick();
+    unawaited(HapticFeedback.selectionClick());
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
 
@@ -145,11 +146,9 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
               ),
             ),
           ),
-
         Expanded(
           child: _loading
-              ? Center(
-                  child: CircularProgressIndicator(color: scheme.primary))
+              ? Center(child: CircularProgressIndicator(color: scheme.primary))
               : _items.isEmpty
                   ? Center(
                       child: Text(
@@ -186,7 +185,6 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                       },
                     ),
         ),
-
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: SafeArea(
@@ -199,7 +197,8 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                    color:
+                        scheme.surfaceContainerHighest.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
                       color: scheme.outlineVariant.withValues(alpha: 0.3),
@@ -207,8 +206,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.add_rounded,
-                          color: scheme.primary, size: 22),
+                      Icon(Icons.add_rounded, color: scheme.primary, size: 22),
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextField(

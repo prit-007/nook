@@ -75,11 +75,13 @@ void main() {
       expect(logs.length, 3);
       // All three actions present
       final actions = logs.map((l) => l.action).toSet();
-      expect(actions, containsAll([
-        SyncAction.sent,
-        SyncAction.received,
-        SyncAction.conflict,
-      ]));
+      expect(
+          actions,
+          containsAll([
+            SyncAction.sent,
+            SyncAction.received,
+            SyncAction.conflict,
+          ]));
     });
 
     test('getRecentLogs respects limit parameter', () async {

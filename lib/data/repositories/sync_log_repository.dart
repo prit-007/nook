@@ -24,8 +24,7 @@ class SyncLogRepository {
           ),
         );
 
-    return (_db.select(_db.syncLog)..where((t) => t.id.equals(id)))
-        .getSingle();
+    return (_db.select(_db.syncLog)..where((t) => t.id.equals(id))).getSingle();
   }
 
   /// Logs a received sync action.
@@ -43,8 +42,7 @@ class SyncLogRepository {
           ),
         );
 
-    return (_db.select(_db.syncLog)..where((t) => t.id.equals(id)))
-        .getSingle();
+    return (_db.select(_db.syncLog)..where((t) => t.id.equals(id))).getSingle();
   }
 
   /// Logs a conflict sync action.
@@ -62,8 +60,7 @@ class SyncLogRepository {
           ),
         );
 
-    return (_db.select(_db.syncLog)..where((t) => t.id.equals(id)))
-        .getSingle();
+    return (_db.select(_db.syncLog)..where((t) => t.id.equals(id))).getSingle();
   }
 
   /// Returns recent log entries, ordered by timestamp descending.

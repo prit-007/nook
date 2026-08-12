@@ -145,9 +145,11 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen> {
                   .then((notes) {
                 if (_searchQuery.isEmpty) return notes;
                 final q = _searchQuery.toLowerCase();
-                return notes.where((n) =>
-                    n.title.toLowerCase().contains(q) ||
-                    (n.plainText?.toLowerCase().contains(q) == true)).toList();
+                return notes
+                    .where((n) =>
+                        n.title.toLowerCase().contains(q) ||
+                        (n.plainText?.toLowerCase().contains(q) == true))
+                    .toList();
               }),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -221,7 +223,9 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen> {
     final syncState = ref.read(syncOrchestratorProvider);
     if (syncState.devices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No devices found. Make sure the receiver is visible.')),
+        const SnackBar(
+            content:
+                Text('No devices found. Make sure the receiver is visible.')),
       );
       return;
     }

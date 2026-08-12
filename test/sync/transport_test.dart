@@ -182,6 +182,7 @@ void main() {
       expect(transport.startDiscovery, isA<Function>());
       expect(transport.stopDiscovery, isA<Function>());
       expect(transport.sendData, isA<Function>());
+      expect(transport.sendAck, isA<Function>());
       expect(transport.disconnect, isA<Function>());
     });
 

@@ -79,6 +79,7 @@ class NoteThemeScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(NoteThemeScope oldWidget) {
-    return oldWidget.colorScheme != colorScheme || oldWidget.textTheme != textTheme;
+    return oldWidget.colorScheme != colorScheme ||
+        oldWidget.textTheme != textTheme;
   }
 }

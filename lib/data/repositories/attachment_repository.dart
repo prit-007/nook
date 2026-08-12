@@ -57,6 +57,14 @@ class AttachmentRepository {
         .write(AttachmentsCompanion(filePath: Value(filePath)));
   }
 
+  /// Returns all attachments (images + doodle layers) for a note, ordered by sortOrder.
+  Future<List<Attachment>> getAllForNote(String noteId) {
+    return (_db.select(_db.attachments)
+          ..where((a) => a.noteId.equals(noteId))
+          ..orderBy([(a) => OrderingTerm.asc(a.sortOrder)]))
+        .get();
+  }
+
   /// Returns all image attachments for a note, ordered by sortOrder.
   Future<List<Attachment>> getImagesForNote(String noteId) {
     return (_db.select(_db.attachments)

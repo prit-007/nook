@@ -35,7 +35,7 @@ class _StubSyncOrchestrator extends SyncOrchestrator {
   SyncOrchestratorState build() => const SyncOrchestratorState();
 
   @override
-  Future<void> initializeTransport() async {}
+  Future<void> initializeTransport({dynamic testTransport}) async {}
 
   @override
   Future<void> startDiscovery() async {}

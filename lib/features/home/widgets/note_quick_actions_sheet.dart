@@ -30,25 +30,30 @@ class NoteQuickActionsSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final db = ref.read(databaseProvider);
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.75,
-          ),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.25),
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.75,
             ),
-          ),
-          child: _QuickActionsBody(
-            note: note,
-            db: db,
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.25),
+              ),
+            ),
+            child: _QuickActionsBody(
+              note: note,
+              db: db,
+            ),
           ),
         ),
       ),

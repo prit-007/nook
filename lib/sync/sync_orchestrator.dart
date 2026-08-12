@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/providers/database_provider.dart';
+import '../data/repositories/attachment_repository.dart';
 import '../data/repositories/note_repository.dart';
 import '../data/repositories/sync_log_repository.dart';
 import 'protocol/merge_resolver.dart';
@@ -100,8 +102,11 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   String _localDeviceName = '';
 
   /// Initializes the transport and gets local device info.
-  Future<void> initializeTransport() async {
-    _transport = NearbyServiceTransport();
+  ///
+  /// Pass [testTransport] in tests to inject a fake.
+  Future<void> initializeTransport(
+      {NearbyServiceTransport? testTransport}) async {
+    _transport = testTransport ?? NearbyServiceTransport();
     await _transport!.initialize();
 
     final info = await _transport!.getCurrentDeviceInfo();
@@ -118,7 +123,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
     state = state.copyWith(phase: SyncPhase.discovering, clearError: true);
 
-    _deviceSub?.cancel();
+    unawaited(_deviceSub?.cancel());
     _deviceSub = _transport!.deviceFoundStream.listen((device) {
       final existing = state.devices;
       if (!existing.any((d) => d.deviceId == device.deviceId)) {
@@ -126,7 +131,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       }
     });
 
-    _stateSub?.cancel();
+    unawaited(_stateSub?.cancel());
     _stateSub = _transport!.sessionStateStream.listen((sessionState) {
       if (sessionState.error != null) {
         state = state.copyWith(
@@ -150,7 +155,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     await _transport!.startAdvertising();
 
     // Listen for incoming connections
-    _bytesSub?.cancel();
+    unawaited(_bytesSub?.cancel());
     _bytesSub = _transport!.bytesReceivedStream.listen(
       _handleReceivedBytes,
       onError: (e) {
@@ -197,12 +202,23 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     try {
       final db = ref.read(databaseProvider);
       final noteRepo = NoteRepository(db);
+      final attachmentRepo = AttachmentRepository(db);
 
       // Build SyncNoteEntry for each selected note
       final entries = <SyncNoteEntry>[];
       for (final noteId in noteIds) {
         final note = await noteRepo.getNoteById(noteId);
         if (note == null) continue;
+
+        // Attach first attachment file bytes (v1: single attachment per note).
+        Uint8List? attachmentBytes;
+        final attachments = await attachmentRepo.getAllForNote(noteId);
+        if (attachments.isNotEmpty) {
+          final file = File(attachments.first.filePath);
+          if (file.existsSync()) {
+            attachmentBytes = file.readAsBytesSync();
+          }
+        }
 
         entries.add(SyncNoteEntry(
           noteId: note.id,
@@ -219,6 +235,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
             'deltaContent': note.deltaContent,
             'plainText': note.plainText,
           },
+          attachmentBytes: attachmentBytes,
         ));
       }
 
@@ -285,18 +302,9 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     try {
       final bundle = SyncBundle.fromCbor(Uint8List.fromList(bytes));
 
-      // Verify checksum
-      final checksum = SyncBundle.computeChecksum(bundle);
-      if (!SyncBundle.verifyChecksum(bundle, checksum)) {
-        state = state.copyWith(
-          phase: SyncPhase.error,
-          error: 'Bundle checksum mismatch',
-        );
-        return;
-      }
-
       final db = ref.read(databaseProvider);
       final noteRepo = NoteRepository(db);
+      final attachmentRepo = AttachmentRepository(db);
       final syncLog = SyncLogRepository(db);
       final resolver = MergeResolver(noteRepo);
 
@@ -313,6 +321,21 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
           case MergeAction.insertAsNew:
           case MergeAction.overwrite:
             await resolver.applyIncoming(entry);
+            // Restore attachment bytes if present.
+            if (entry.attachmentBytes != null) {
+              final note = await noteRepo.getNoteById(entry.noteId);
+              if (note != null) {
+                final tempDir = Directory.systemTemp.createTempSync('sync_');
+                final ext =
+                    entry.noteFields['type'] == 'doodle' ? 'drawn' : 'img';
+                final filePath = '${tempDir.path}/${entry.noteId}_att.$ext';
+                await File(filePath).writeAsBytes(entry.attachmentBytes!);
+                await attachmentRepo.addImage(
+                  noteId: note.id,
+                  filePath: filePath,
+                );
+              }
+            }
             receivedIds.add(entry.noteId);
             await syncLog.logReceived(
               deviceId: bundle.senderDeviceId,
@@ -340,6 +363,13 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         );
       }
 
+      // Send ack back to sender.
+      final ack = SyncAck(
+        receivedNoteIds: receivedIds,
+        rejectedNoteIds: rejectedIds,
+      );
+      await _transport?.sendAck(ack.toCbor());
+
       if (conflicts.isNotEmpty) {
         state = state.copyWith(
           phase: SyncPhase.resolving,
@@ -363,12 +393,31 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   ) async {
     final db = ref.read(databaseProvider);
     final noteRepo = NoteRepository(db);
+    final attachmentRepo = AttachmentRepository(db);
     final syncLog = SyncLogRepository(db);
     final resolver = MergeResolver(noteRepo);
 
     switch (choice) {
       case 'remote':
         await resolver.applyIncoming(conflict.incoming);
+        // Restore attachment if present.
+        if (conflict.incoming.attachmentBytes != null) {
+          final note = await noteRepo.getNoteById(conflict.incoming.noteId);
+          if (note != null) {
+            final tempDir = Directory.systemTemp.createTempSync('sync_');
+            final ext = conflict.incoming.noteFields['type'] == 'doodle'
+                ? 'drawn'
+                : 'img';
+            final filePath =
+                '${tempDir.path}/${conflict.incoming.noteId}_att.$ext';
+            await File(filePath)
+                .writeAsBytes(conflict.incoming.attachmentBytes!);
+            await attachmentRepo.addImage(
+              noteId: note.id,
+              filePath: filePath,
+            );
+          }
+        }
         await syncLog.logReceived(
           deviceId: conflict.incoming.deviceOriginId,
           deviceName: conflict.remoteDeviceName,
@@ -386,6 +435,24 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       case 'both':
         // Keep both — insert incoming as new
         await resolver.applyIncoming(conflict.incoming);
+        // Restore attachment if present.
+        if (conflict.incoming.attachmentBytes != null) {
+          final note = await noteRepo.getNoteById(conflict.incoming.noteId);
+          if (note != null) {
+            final tempDir = Directory.systemTemp.createTempSync('sync_');
+            final ext = conflict.incoming.noteFields['type'] == 'doodle'
+                ? 'drawn'
+                : 'img';
+            final filePath =
+                '${tempDir.path}/${conflict.incoming.noteId}_att.$ext';
+            await File(filePath)
+                .writeAsBytes(conflict.incoming.attachmentBytes!);
+            await attachmentRepo.addImage(
+              noteId: note.id,
+              filePath: filePath,
+            );
+          }
+        }
         await syncLog.logReceived(
           deviceId: conflict.incoming.deviceOriginId,
           deviceName: conflict.remoteDeviceName,
@@ -404,10 +471,10 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
   /// Stops the current sync operation and cleans up.
   Future<void> stop() async {
-    _deviceSub?.cancel();
-    _stateSub?.cancel();
-    _bytesSub?.cancel();
-    _progressSub?.cancel();
+    unawaited(_deviceSub?.cancel());
+    unawaited(_stateSub?.cancel());
+    unawaited(_bytesSub?.cancel());
+    unawaited(_progressSub?.cancel());
     _deviceSub = null;
     _stateSub = null;
     _bytesSub = null;
@@ -418,10 +485,10 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   }
 
   void dispose() {
-    _deviceSub?.cancel();
-    _stateSub?.cancel();
-    _bytesSub?.cancel();
-    _progressSub?.cancel();
+    unawaited(_deviceSub?.cancel());
+    unawaited(_stateSub?.cancel());
+    unawaited(_bytesSub?.cancel());
+    unawaited(_progressSub?.cancel());
     _transport?.dispose();
   }
 }

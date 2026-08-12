@@ -13,6 +13,7 @@ import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/trash/trash_screen.dart';
 import '../../features/security/lock_screen.dart';
 import '../../features/security/locked_notes_screen.dart';
+import '../../features/sync_ui/sync_screen.dart';
 import '../../features/sync_ui/sync_send_screen.dart';
 import '../../features/sync_ui/sync_receive_screen.dart';
 import '../../features/sync_ui/sync_pairing_screen.dart';
@@ -240,6 +241,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             noteId: state.pathParameters['noteId']!,
             attachmentId: state.pathParameters['attachmentId']!,
           ),
+        ),
+      ),
+      GoRoute(
+        path: '/sync',
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          const SyncScreen(),
         ),
       ),
       GoRoute(

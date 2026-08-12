@@ -56,7 +56,9 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
               onChanged: (value) {
                 setState(() => _isDiscoverable = value);
                 if (value) {
-                  ref.read(syncOrchestratorProvider.notifier).startAdvertising();
+                  ref
+                      .read(syncOrchestratorProvider.notifier)
+                      .startAdvertising();
                 } else {
                   ref.read(syncOrchestratorProvider.notifier).stop();
                 }
