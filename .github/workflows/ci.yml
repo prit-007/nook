@@ -83,6 +83,9 @@ jobs:
       - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
         shell: bash
         run: dart run tool/patch_appflowy_editor.dart
+      - name: Patch local_auth_windows (MSVC coroutine deprecation)
+        shell: bash
+        run: dart run tool/patch_local_auth_windows.dart
       - name: Generate code
         shell: bash
         run: dart run build_runner build --delete-conflicting-outputs
