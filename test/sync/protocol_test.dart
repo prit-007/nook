@@ -21,7 +21,7 @@ void main() {
           {'itemText': 'Milk', 'checked': false, 'sortOrder': 0},
           {'itemText': 'Eggs', 'checked': true, 'sortOrder': 1},
         ],
-        attachmentBytes: null,
+        attachments: null,
       );
 
       final encoded = entry.toCbor();
@@ -48,18 +48,19 @@ void main() {
         deviceOriginId: 'device-b',
         noteFields: {'title': 'Simple'},
         checklistItems: null,
-        attachmentBytes: null,
+        attachments: null,
       );
 
       final encoded = entry.toCbor();
       final decoded = SyncNoteEntry.fromCbor(encoded);
 
       expect(decoded.checklistItems, isNull);
-      expect(decoded.attachmentBytes, isNull);
+      expect(decoded.attachments, isNull);
     });
 
-    test('handles binary attachment data', () {
+    test('round-trips binary attachment data (multiple attachments)', () {
       final fakeBytes = Uint8List.fromList([1, 2, 3, 4, 5]);
+      final fakeBytes2 = Uint8List.fromList([9, 8, 7]);
       final entry = SyncNoteEntry(
         noteId: 'note-3',
         syncVersion: 2,
@@ -67,13 +68,32 @@ void main() {
         deviceOriginId: 'device-c',
         noteFields: {'title': 'With Image'},
         checklistItems: null,
-        attachmentBytes: fakeBytes,
+        attachments: [
+          SyncAttachment(
+            id: 'att-1',
+            type: 'image',
+            sortOrder: 0,
+            bytes: fakeBytes,
+          ),
+          SyncAttachment(
+            id: 'att-2',
+            type: 'doodleLayer',
+            sortOrder: 1,
+            bytes: fakeBytes2,
+          ),
+        ],
       );
 
       final encoded = entry.toCbor();
       final decoded = SyncNoteEntry.fromCbor(encoded);
 
-      expect(decoded.attachmentBytes, fakeBytes);
+      expect(decoded.attachments, hasLength(2));
+      expect(decoded.attachments![0].id, 'att-1');
+      expect(decoded.attachments![0].type, 'image');
+      expect(decoded.attachments![0].bytes, fakeBytes);
+      expect(decoded.attachments![1].type, 'doodleLayer');
+      expect(decoded.attachments![1].sortOrder, 1);
+      expect(decoded.attachments![1].bytes, fakeBytes2);
     });
   });
 
@@ -92,7 +112,7 @@ void main() {
             deviceOriginId: 'device-a',
             noteFields: {'title': 'Groceries'},
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           ),
         ],
       );
@@ -137,7 +157,7 @@ void main() {
             deviceOriginId: 'device-a',
             noteFields: {'title': 'Note $i'},
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           ),
         ),
       );
@@ -167,7 +187,7 @@ void main() {
             deviceOriginId: 'device-a',
             noteFields: {'title': 'Test'},
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           ),
         ],
       );
@@ -193,7 +213,7 @@ void main() {
             deviceOriginId: 'device-a',
             noteFields: {'title': 'Version A'},
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           ),
         ],
       );
@@ -211,7 +231,7 @@ void main() {
             deviceOriginId: 'device-a',
             noteFields: {'title': 'Version B'},
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           ),
         ],
       );
@@ -259,7 +279,7 @@ void main() {
             deviceOriginId: 'device-b',
             noteFields: {'title': 'Injected'},
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           ),
         ],
       );

@@ -14,6 +14,7 @@ import 'package:nook/features/sync_ui/sync_send_screen.dart';
 import 'package:nook/features/sync_ui/sync_transfer_screen.dart';
 import 'package:nook/features/sync_ui/widgets/conflict_card.dart';
 import 'package:nook/sync/sync_orchestrator.dart';
+import 'package:nook/sync/transport/sync_transport.dart';
 
 AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
 
@@ -36,7 +37,8 @@ class _StubSyncOrchestrator extends SyncOrchestrator {
   SyncOrchestratorState build() => const SyncOrchestratorState();
 
   @override
-  Future<void> initializeTransport({dynamic testTransport}) async {}
+  Future<void> initializeTransport(
+      {SyncTransport? testTransport, String? localDeviceName}) async {}
 
   @override
   Future<void> startDiscovery() async {}

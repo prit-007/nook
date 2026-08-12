@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../protocol/sync_bundle.dart';
+
 /// Represents a nearby device discovered via the sync transport.
 class SyncDevice {
   const SyncDevice({
@@ -27,6 +29,24 @@ class SyncDevice {
   int get hashCode => deviceId.hashCode;
 }
 
+/// An incoming connection that requests pairing confirmation on the receiver.
+///
+/// The receiver must confirm (or reject) before any note data is transferred,
+/// so both devices verify the same pairing code.
+class PairingRequest {
+  const PairingRequest({
+    required this.remoteDeviceId,
+    required this.remoteDeviceName,
+    required this.pairingCode,
+    required this.connectionId,
+  });
+
+  final String remoteDeviceId;
+  final String remoteDeviceName;
+  final String pairingCode;
+  final String connectionId;
+}
+
 /// State machine for a sync session.
 class SyncSessionState {
   const SyncSessionState.idle() : error = null;
@@ -49,13 +69,15 @@ abstract class SyncTransport {
   Stream<SyncSessionState> get sessionStateStream;
   Stream<List<int>> get bytesReceivedStream;
   Stream<double> get progressStream;
+  Stream<PairingRequest> get pairingRequestStream;
 
   Future<void> startAdvertising();
   Future<void> stopAdvertising();
   Future<void> startDiscovery();
   Future<void> stopDiscovery();
-  Future<bool> connectToDevice(SyncDevice device);
-  Future<void> sendData(List<int> data);
+  Future<bool> connectToDevice(SyncDevice device, {String? pairingCode});
+  Future<void> respondToPairing(PairingRequest request, bool approve);
+  Future<SyncAck?> sendData(List<int> data);
   Future<void> sendAck(List<int> ackData);
   Future<void> disconnect();
   void dispose();
@@ -68,12 +90,14 @@ class MockSyncTransport implements SyncTransport {
     _sessionStateController = StreamController<SyncSessionState>.broadcast();
     _bytesReceivedController = StreamController<List<int>>.broadcast();
     _progressController = StreamController<double>.broadcast();
+    _pairingRequestController = StreamController<PairingRequest>.broadcast();
   }
 
   late final StreamController<SyncDevice> _deviceFoundController;
   late final StreamController<SyncSessionState> _sessionStateController;
   late final StreamController<List<int>> _bytesReceivedController;
   late final StreamController<double> _progressController;
+  late final StreamController<PairingRequest> _pairingRequestController;
 
   bool isAdvertising = false;
   bool isDiscovering = false;
@@ -81,6 +105,11 @@ class MockSyncTransport implements SyncTransport {
   SyncSessionState sessionState = const SyncSessionState.idle();
 
   Future<void> Function(List<int> data)? onSend;
+  SyncAck? sendResult =
+      const SyncAck(receivedNoteIds: [], rejectedNoteIds: []);
+  String? lastPairingCode;
+  PairingRequest? lastRespondedPairing;
+  bool? lastPairingApproved;
 
   @override
   Stream<SyncDevice> get deviceFoundStream => _deviceFoundController.stream;
@@ -94,6 +123,10 @@ class MockSyncTransport implements SyncTransport {
 
   @override
   Stream<double> get progressStream => _progressController.stream;
+
+  @override
+  Stream<PairingRequest> get pairingRequestStream =>
+      _pairingRequestController.stream;
 
   @override
   Future<void> startAdvertising() async {
@@ -116,14 +149,24 @@ class MockSyncTransport implements SyncTransport {
   }
 
   @override
-  Future<bool> connectToDevice(SyncDevice device) async =>
-      connectToDeviceResult;
+  Future<bool> connectToDevice(SyncDevice device,
+      {String? pairingCode}) async {
+    lastPairingCode = pairingCode;
+    return connectToDeviceResult;
+  }
 
   @override
-  Future<void> sendData(List<int> data) async {
+  Future<void> respondToPairing(PairingRequest request, bool approve) async {
+    lastRespondedPairing = request;
+    lastPairingApproved = approve;
+  }
+
+  @override
+  Future<SyncAck?> sendData(List<int> data) async {
     if (onSend != null) {
       await onSend!(data);
     }
+    return sendResult;
   }
 
   @override
@@ -154,5 +197,9 @@ class MockSyncTransport implements SyncTransport {
 
   void emitProgress(double progress) {
     _progressController.add(progress);
+  }
+
+  void emitPairingRequest(PairingRequest request) {
+    _pairingRequestController.add(request);
   }
 }

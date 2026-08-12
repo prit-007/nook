@@ -93,20 +93,27 @@ class MergeResolver {
   /// Forces an insert of the incoming note as new. If a local note with the
   /// same ID already exists, a new UUID is generated to avoid primary key
   /// collision. Used for "keep both" conflict resolution.
-  Future<MergeAction> insertAsNew(SyncNoteEntry incoming) async {
+  ///
+  /// Pass [originIdOverride] to re-own the duplicate note (e.g. to the local
+  /// device) so it never re-conflicts on the next sync.
+  Future<MergeAction> insertAsNew(
+    SyncNoteEntry incoming, {
+    String? originIdOverride,
+  }) async {
     final existing = await _noteRepo.getNoteById(incoming.noteId);
     if (existing != null) {
       // ID collision — generate a new ID for the duplicate
       await _noteRepo.createNote(
         title: incoming.noteFields['title'] as String? ?? '',
         type: _parseNoteType(incoming.noteFields['type'] as String?),
-        deviceOriginId: incoming.deviceOriginId,
+        deviceOriginId: originIdOverride ?? incoming.deviceOriginId,
         colorSeed: incoming.noteFields['colorSeed'] as String?,
         deltaContent: incoming.noteFields['deltaContent'] as String?,
         plainText: incoming.noteFields['plainText'] as String?,
+        syncVersion: incoming.syncVersion,
       );
     } else {
-      await _insertAsNew(incoming);
+      await _insertAsNew(incoming, originIdOverride: originIdOverride);
     }
     return MergeAction.insertAsNew;
   }
@@ -120,17 +127,21 @@ class MergeResolver {
   }
 
   /// Inserts a brand-new note from a remote device, preserving the remote noteId.
-  Future<void> _insertAsNew(SyncNoteEntry incoming) async {
+  Future<void> _insertAsNew(
+    SyncNoteEntry incoming, {
+    String? originIdOverride,
+  }) async {
     final noteType = _parseNoteType(incoming.noteFields['type'] as String?);
 
     await _noteRepo.createNote(
       id: incoming.noteId,
       title: incoming.noteFields['title'] as String? ?? '',
       type: noteType,
-      deviceOriginId: incoming.deviceOriginId,
+      deviceOriginId: originIdOverride ?? incoming.deviceOriginId,
       colorSeed: incoming.noteFields['colorSeed'] as String?,
       deltaContent: incoming.noteFields['deltaContent'] as String?,
       plainText: incoming.noteFields['plainText'] as String?,
+      syncVersion: incoming.syncVersion,
     );
   }
 

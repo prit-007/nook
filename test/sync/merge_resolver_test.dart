@@ -49,7 +49,7 @@ void main() {
             'type': 'text',
           },
           checklistItems: null,
-          attachmentBytes: null,
+          attachments: null,
         );
 
         final action = await resolver.resolveIncoming(incoming);
@@ -83,7 +83,7 @@ void main() {
               'type': 'text',
             },
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           );
 
           final action = await resolver.resolveIncoming(incoming);
@@ -116,7 +116,7 @@ void main() {
               'type': 'text',
             },
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           );
 
           final action = await resolver.resolveIncoming(incoming);
@@ -151,7 +151,7 @@ void main() {
               'type': 'text',
             },
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           );
 
           final action = await resolver.resolveIncoming(incoming);
@@ -186,7 +186,7 @@ void main() {
               'type': 'text',
             },
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           );
 
           final action = await resolver.resolveIncoming(incoming);
@@ -219,7 +219,7 @@ void main() {
               'type': 'text',
             },
             checklistItems: null,
-            attachmentBytes: null,
+            attachments: null,
           );
 
           final action = await resolver.resolveIncoming(incoming);
@@ -248,7 +248,7 @@ void main() {
             'type': 'text',
           },
           checklistItems: null,
-          attachmentBytes: null,
+          attachments: null,
         );
 
         final action = await resolver.resolveIncoming(incoming);
@@ -270,7 +270,7 @@ void main() {
           'colorSeed': '#6750A4',
         },
         checklistItems: null,
-        attachmentBytes: null,
+        attachments: null,
       );
 
       final result = await resolver.applyIncoming(incoming);
@@ -294,7 +294,7 @@ void main() {
           'type': 'text',
         },
         checklistItems: null,
-        attachmentBytes: null,
+        attachments: null,
       );
 
       await resolver.applyIncoming(incoming);
@@ -327,7 +327,7 @@ void main() {
           'type': 'text',
         },
         checklistItems: null,
-        attachmentBytes: null,
+        attachments: null,
       );
 
       final result = await resolver.applyIncoming(incoming);
@@ -363,7 +363,7 @@ void main() {
           'type': 'text',
         },
         checklistItems: null,
-        attachmentBytes: null,
+        attachments: null,
       );
 
       final result = await resolver.forceOverwrite(incoming);
@@ -393,7 +393,7 @@ void main() {
           'type': 'text',
         },
         checklistItems: null,
-        attachmentBytes: null,
+        attachments: null,
       );
 
       final result = await resolver.insertAsNew(incoming);
