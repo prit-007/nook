@@ -12,7 +12,7 @@ either version 3 of the License, or (at your option) any later version.
 
 ## Status
 
-🚧 Pre-alpha — **v0.5** — Phases 0–4 complete (foundation, core notes, checklists + doodles, theming, security). Phase 5 (nearby sync) in progress.
+🚧 Pre-alpha — **v0.6.2** — Phases 0–4 complete (foundation, core notes, checklists + doodles, theming, security). Phase 5 (nearby sync) implemented; physical-device validation remaining.
 
 ## Core principles
 
@@ -36,8 +36,8 @@ See `docs/` for the full architecture and product plan.
 - **Theming** — Material You 3 dynamic color + per-note color overrides, light/dark
 - **Security** — SQLCipher encryption, biometric gate, screenshot blocking
 - **Trash** — soft-delete with 30-day auto-expiry
-- **Sync UI** — pairing, send/receive screens (transport not yet wired)
-- **CI** — GitHub Actions: format, analyze, test, build APK artifact
+- **Sync UI** — pairing, send/receive, transfer progress, conflict resolution, sync history
+- **CI** — GitHub Actions: format, analyze, test, build APK artifact + release
 
 ## Getting started
 
@@ -54,7 +54,7 @@ flutter run
 - Drift (SQLite) + SQLCipher for encrypted local storage
 - AppFlowy Editor for block-based note editing
 - Material You 3 dynamic + per-note theming
-- `nearby_service` for device-to-device sync (no server, ever)
+- Bonsoir/TCP for device-to-device sync (no server, ever)
 - `perfect_freehand` for doodle input
 - `archive` for `.nook` export bundles
 - Custom MethodChannel for Android permissions (no `permission_handler`)
