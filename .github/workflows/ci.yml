@@ -53,7 +53,6 @@ jobs:
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Extract App Version
-        id: version
         run: |
           VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
@@ -68,9 +67,51 @@ jobs:
           path: build/app/outputs/flutter-apk/*-release.apk
           if-no-files-found: error
 
-  build-web:
+  build-windows:
     needs: analyze-and-test
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: 'stable'
+          cache: true
+      - name: Install dependencies
+        shell: bash
+        run: flutter pub get
+      - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
+        shell: bash
+        run: dart run tool/patch_appflowy_editor.dart
+      - name: Generate code
+        shell: bash
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Extract App Version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Build release Windows
+        shell: bash
+        run: flutter build windows --release
+
+      - name: Package Windows build
+        shell: powershell
+        run: |
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath build/nook-windows-v$env:APP_VERSION.zip -Force
+
+      - name: Upload Windows Artifact (Workflow Summary)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nook-windows
+          path: build/nook-windows-v${{ env.APP_VERSION }}.zip
+          if-no-files-found: error
+
+  build-ios:
+    needs: analyze-and-test
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -86,29 +127,28 @@ jobs:
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Extract App Version
-        id: version
         run: |
           VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Build release web
-        run: flutter build web --release
+      - name: Build release iOS (unsigned)
+        run: flutter build ios --release --no-codesign
 
-      - name: Package web build
+      - name: Package iOS build
         run: |
-          cd build/web
-          zip -r ../nook-web-v${{ env.APP_VERSION }}.zip .
-          cd ../..
+          cd build/ios/iphoneos
+          zip -r ../nook-ios-v${{ env.APP_VERSION }}.zip Runner.app
+          cd ../../..
 
-      - name: Upload Web Artifact (Workflow Summary)
+      - name: Upload iOS Artifact (Workflow Summary)
         uses: actions/upload-artifact@v4
         with:
-          name: nook-web
-          path: build/nook-web-v${{ env.APP_VERSION }}.zip
+          name: nook-ios
+          path: build/ios/nook-ios-v${{ env.APP_VERSION }}.zip
           if-no-files-found: error
 
   release:
-    needs: [build-android, build-web]
+    needs: [build-android, build-windows, build-ios]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
@@ -120,17 +160,38 @@ jobs:
           name: nook-apks
           path: release/apks
 
-      - name: Download web artifact
+      - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: nook-web
-          path: release/web
+          name: nook-windows
+          path: release/windows
+
+      - name: Download iOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nook-ios
+          path: release/ios
+
+      - name: Prepare release body from CHANGELOG
+        shell: bash
+        run: |
+          VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          awk -v ver="[$VERSION]" '
+            /^## \[/ {
+              if (index($0, "## " ver) == 1) { on = 1; print; next }
+              if (on) exit
+            }
+            on
+          ' CHANGELOG.md > release-body.md
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: release-body.md
+          allowUpdates: true
+          update_release_body: true
           files: |
             release/apks/*.apk
-            release/web/*.zip
+            release/windows/*.zip
+            release/ios/*.zip
           name: Release ${{ github.ref_name }}

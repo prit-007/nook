@@ -4,6 +4,14 @@ publish_to: 'none'
 version: 0.7.1+1
 license: GPL-3.0
 
+# Select a SQLCipher build for the sqlite3 native-assets hook so that
+# `PRAGMA key` in openEncryptedDatabase actually encrypts at rest. The default
+# `sqlite3` build silently ignores the pragma and stores data in plaintext.
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher
+
 environment:
   sdk: '>=3.6.0 <4.0.0'
 
@@ -20,8 +28,6 @@ dependencies:
 
   # Local database
   drift: ^2.22.1
-  sqlite3_flutter_libs: ^0.6.0+eol
-  sqlcipher_flutter_libs: ^0.7.0+eol
   path_provider: ^2.1.5
   path: ^1.9.0
 
