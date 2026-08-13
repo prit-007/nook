@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../core/providers/talker_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 
 /// In-app log viewer powered by talker_flutter's [TalkerScreen].
 ///
@@ -60,13 +61,8 @@ class _SettingsLogsScreenState extends ConsumerState<SettingsLogsScreen> {
             child: TalkerScreen(
               talker: talker,
               appBarTitle: 'App Logs',
-              // Note: this replaces the auto back button; navigation back is
-              // available via system gestures / browser back.
-              appBarLeading: IconButton(
-                tooltip: 'Log help',
-                onPressed: () => setState(() => _showHelp = true),
-                icon: Icon(LucideIcons.circleHelp, color: scheme.onSurface),
-              ),
+              // No appBarLeading → TalkerScreen shows the default back button.
+              // The help affordance is the floating frosted chip below.
               theme: TalkerScreenTheme(
                 backgroundColor: scheme.surface,
                 textColor: scheme.onSurface,
@@ -79,7 +75,51 @@ class _SettingsLogsScreenState extends ConsumerState<SettingsLogsScreen> {
             ),
           ),
           if (_showHelp) _LogsHelpOverlay(onDone: _closeHelp),
+          Positioned(
+            right: 20,
+            bottom: DockSafeArea.bottomOf(context) + 24,
+            child: _HelpFloatingButton(
+              onPressed: () => setState(() => _showHelp = true),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Frosted-glass floating chip that re-opens the walkthrough tour.
+class _HelpFloatingButton extends StatelessWidget {
+  const _HelpFloatingButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Semantics(
+      label: 'Log help',
+      button: true,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Icon(LucideIcons.circleHelp, color: scheme.onSurface),
+            ),
+          ),
+        ),
       ),
     );
   }

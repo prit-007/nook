@@ -358,6 +358,13 @@ AppFlowyEditor(
 
 Every edit goes through a `Transaction` (insert/update/delete node operations) applied to `EditorState` — this is also your natural hook point for autosave: listen to `editorState.transactionStream`, debounce ~600ms, serialize `document.toJson()`, write to Drift.
 
+> **Update (2026-08):** on mobile the built-in `/` slash menu is unusable (the
+> `SelectionMenu` overlay closes the soft keyboard and needs hardware-keyboard
+> navigation), so `tool/patch_appflowy_editor.dart` patches `slash_command.dart`
+> to insert `/` and consume the event without the overlay, and the editor is
+> wrapped in `MobileToolbarV2` exposing the same block types plus a Doodle
+> action (see AGENTS.md → "Mobile toolbar & global shortcuts").
+
 ### 6.4 Custom Node Types You'll Build
 
 The built-in `paragraph`, `todo_list`, `bulleted_list`, `numbered_list`, `quote`, `image` block types cover most of it out of the box (via `appflowy_editor_plugins`). You add two custom node types of your own:

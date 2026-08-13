@@ -522,6 +522,40 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _scheduleAutosave();
   }
 
+  /// Builds the mobile toolbar items shown above the on-screen keyboard.
+  ///
+  /// The custom blocks menu mirrors the block-type shortcuts a desktop user
+  /// gets from the slash menu, and the Doodle item opens the doodle canvas
+  /// directly (it is an action, not a block-type toggle).
+  List<MobileToolbarItem> _buildMobileToolbarItems() {
+    return [
+      MobileToolbarItem.withMenu(
+        itemIconBuilder: (context, editorState, _) => AFMobileIcon(
+          afMobileIcons: AFMobileIcons.list,
+          color: MobileToolbarTheme.of(context).iconColor,
+        ),
+        itemMenuBuilder: (context, editorState, _) {
+          final selection = editorState.selection;
+          if (selection == null) return const SizedBox.shrink();
+          return _NookBlocksMenu(
+            editorState: editorState,
+            selection: selection,
+          );
+        },
+      ),
+      MobileToolbarItem.action(
+        itemIconBuilder: (context, editorState, _) => Icon(
+          Icons.gesture_rounded,
+          color: MobileToolbarTheme.of(context).iconColor,
+        ),
+        actionHandler: (context, editorState) {
+          unawaited(_insertDoodle());
+        },
+      ),
+      textDecorationMobileToolbarItemV2,
+    ];
+  }
+
   void _undoEditor() {
     final state = _editorState;
     if (state == null || !state.undoManager.undoStack.isNonEmpty) return;
@@ -849,64 +883,86 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                     ? _openChecklistAttachment
                                     : null,
                               )
-                            : AppFlowyEditor(
+                            : MobileToolbarV2(
                                 editorState: _editorState!,
-                                editorStyle: EditorStyle.mobile(
-                                  cursorColor: noteScheme.primary,
-                                  selectionColor:
-                                      noteScheme.primary.withValues(alpha: 0.2),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 24),
-                                  textStyleConfiguration:
-                                      TextStyleConfiguration(
-                                    text: dynamicTextTheme.bodyLarge!.copyWith(
-                                      color: noteScheme.onSurface,
-                                      height: 1.65,
-                                    ),
-                                  ),
-                                ),
-                                autoFocus: true,
-                                blockComponentBuilders: {
-                                  ...standardBlockComponentBuilderMap,
-                                  TodoListBlockKeys.type:
-                                      NookTodoListBlock.builder(),
-                                  DoodleBlockKeys.type:
-                                      DoodleBlockComponentBuilder(
-                                    configuration: BlockComponentConfiguration(
-                                      padding: (_) =>
-                                          const EdgeInsets.symmetric(
-                                              vertical: 24),
-                                    ),
-                                    onTap: (node, editorState) {
-                                      HapticFeedback.lightImpact();
-                                      _openDoodleCanvas(node, editorState);
-                                    },
-                                  ),
-                                  ImageBlockKeys.type:
-                                      NookImageBlockComponentBuilder(),
-                                },
-                                characterShortcutEvents: [
-                                  ...standardCharacterShortcutEvents,
-                                  customSlashCommand(
-                                    [
-                                      ...standardSelectionMenuItems,
-                                      SelectionMenuItem(
-                                        getName: () => 'Doodle',
-                                        icon:
-                                            (editorState, isSelected, style) =>
-                                                SelectionMenuIconWidget(
-                                          name: 'draw',
-                                          isSelected: isSelected,
-                                          style: style,
-                                        ),
-                                        keywords: ['doodle', 'draw', 'sketch'],
-                                        handler: (editorState, _, __) async {
-                                          await _insertDoodle();
-                                        },
+                                // Frosted-glass look: translucent note-tinted
+                                // surfaces so editor content glows through.
+                                backgroundColor: noteScheme
+                                    .surfaceContainerHighest
+                                    .withValues(alpha: 0.55),
+                                foregroundColor: noteScheme.onSurface,
+                                iconColor: noteScheme.onSurface,
+                                itemHighlightColor: noteScheme.primary,
+                                primaryColor: noteScheme.primary,
+                                onPrimaryColor: noteScheme.onPrimary,
+                                itemOutlineColor: noteScheme.outlineVariant
+                                    .withValues(alpha: 0.4),
+                                toolbarItems: _buildMobileToolbarItems(),
+                                child: AppFlowyEditor(
+                                  editorState: _editorState!,
+                                  editorStyle: EditorStyle.mobile(
+                                    cursorColor: noteScheme.primary,
+                                    selectionColor: noteScheme.primary
+                                        .withValues(alpha: 0.2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24),
+                                    textStyleConfiguration:
+                                        TextStyleConfiguration(
+                                      text:
+                                          dynamicTextTheme.bodyLarge!.copyWith(
+                                        color: noteScheme.onSurface,
+                                        height: 1.65,
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ],
+                                  autoFocus: true,
+                                  blockComponentBuilders: {
+                                    ...standardBlockComponentBuilderMap,
+                                    TodoListBlockKeys.type:
+                                        NookTodoListBlock.builder(),
+                                    DoodleBlockKeys.type:
+                                        DoodleBlockComponentBuilder(
+                                      configuration:
+                                          BlockComponentConfiguration(
+                                        padding: (_) =>
+                                            const EdgeInsets.symmetric(
+                                                vertical: 24),
+                                      ),
+                                      onTap: (node, editorState) {
+                                        HapticFeedback.lightImpact();
+                                        _openDoodleCanvas(node, editorState);
+                                      },
+                                    ),
+                                    ImageBlockKeys.type:
+                                        NookImageBlockComponentBuilder(),
+                                  },
+                                  characterShortcutEvents: [
+                                    ...standardCharacterShortcutEvents,
+                                    customSlashCommand(
+                                      [
+                                        ...standardSelectionMenuItems,
+                                        SelectionMenuItem(
+                                          getName: () => 'Doodle',
+                                          icon: (editorState, isSelected,
+                                                  style) =>
+                                              SelectionMenuIconWidget(
+                                            name: 'draw',
+                                            isSelected: isSelected,
+                                            style: style,
+                                          ),
+                                          keywords: [
+                                            'doodle',
+                                            'draw',
+                                            'sketch'
+                                          ],
+                                          handler: (editorState, _, __) async {
+                                            await _insertDoodle();
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                       ),
                     ),
@@ -992,222 +1048,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   ),
                 ),
 
-                // 3. Floating Formatting Pill (Anchors to keyboard)
-                if (_note?.type != NoteType.checklist)
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.easeOutCubic,
-                    bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: RepaintBoundary(
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 300),
-                          opacity: isKeyboardVisible ? 1.0 : 0.0,
-                          child: _FloatingFormatBar(editorState: _editorState!),
-                        ),
-                      ),
-                    ),
-                  ),
+                // 3. (removed) Floating Formatting Pill — superseded by the
+                // MobileToolbarV2 keyboard toolbar (see _buildMobileToolbarItems).
               ],
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FloatingFormatBar extends StatefulWidget {
-  const _FloatingFormatBar({required this.editorState});
-
-  final EditorState editorState;
-
-  @override
-  State<_FloatingFormatBar> createState() => _FloatingFormatBarState();
-}
-
-class _FloatingFormatBarState extends State<_FloatingFormatBar> {
-  Selection? _selection;
-  Map<String, dynamic> _toggledStyle = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _selection = widget.editorState.selection;
-    _toggledStyle = Map<String, dynamic>.from(
-      widget.editorState.toggledStyle,
-    );
-    widget.editorState.selectionNotifier.addListener(_onSelectionChanged);
-    widget.editorState.toggledStyleNotifier.addListener(_onStyleChanged);
-  }
-
-  @override
-  void dispose() {
-    widget.editorState.selectionNotifier.removeListener(_onSelectionChanged);
-    widget.editorState.toggledStyleNotifier.removeListener(_onStyleChanged);
-    super.dispose();
-  }
-
-  void _onSelectionChanged() {
-    if (!mounted) return;
-    setState(() => _selection = widget.editorState.selection);
-  }
-
-  void _onStyleChanged() {
-    if (!mounted) return;
-    setState(() {
-      _toggledStyle = Map<String, dynamic>.from(
-        widget.editorState.toggledStyle,
-      );
-    });
-  }
-
-  /// Whether [attribute] is active for the current selection.
-  bool _isActive(String attribute) {
-    final selection = _selection;
-    if (selection == null) return false;
-
-    if (selection.isCollapsed) {
-      return _toggledStyle[attribute] == true;
-    }
-
-    // For a ranged selection, check if all selected nodes have the attribute.
-    final nodes = widget.editorState.getNodesInSelection(selection);
-    if (nodes.isEmpty) return false;
-
-    for (final node in nodes) {
-      final delta = node.delta;
-      if (delta == null) continue;
-      final attributes = delta.everyAttributes(
-        (attr) => attr[attribute] == true,
-      );
-      if (attributes != true) return false;
-    }
-    return true;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = NoteThemeScope.of(context);
-
-    return RepaintBoundary(
-      child: ExcludeFocus(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _FormatAction(
-                    icon: Icons.format_bold_rounded,
-                    tooltip: 'Bold',
-                    isActive: _isActive('bold'),
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      widget.editorState.toggleAttribute('bold');
-                    },
-                  ),
-                  _FormatAction(
-                    icon: Icons.format_italic_rounded,
-                    tooltip: 'Italic',
-                    isActive: _isActive('italic'),
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      widget.editorState.toggleAttribute('italic');
-                    },
-                  ),
-                  _FormatAction(
-                    icon: Icons.format_strikethrough_rounded,
-                    tooltip: 'Strikethrough',
-                    isActive: _isActive('strikethrough'),
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      widget.editorState.toggleAttribute('strikethrough');
-                    },
-                  ),
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-                    child: VerticalDivider(
-                      width: 1,
-                      color: scheme.outlineVariant.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  _FormatAction(
-                    icon: Icons.format_list_bulleted_rounded,
-                    tooltip: 'Bullet list',
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      insertBlockNode(
-                        widget.editorState,
-                        bulletedListNode(),
-                      );
-                    },
-                  ),
-                  _FormatAction(
-                    icon: Icons.checklist_rounded,
-                    tooltip: 'Checklist',
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      insertBlockNode(
-                        widget.editorState,
-                        todoListNode(checked: false),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FormatAction extends StatelessWidget {
-  const _FormatAction({
-    required this.icon,
-    required this.onTap,
-    this.tooltip,
-    this.isActive = false,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final String? tooltip;
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = NoteThemeScope.of(context);
-    return Semantics(
-      label: tooltip,
-      button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(
-            icon,
-            size: 22,
-            color: isActive
-                ? scheme.primary
-                : scheme.onSurface.withValues(alpha: 0.8),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1741,6 +1588,125 @@ class _ExportPreviewSheet extends StatelessWidget {
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+/// Grid menu shown by the mobile toolbar's custom blocks item.
+///
+/// Mirrors the block types a desktop user reaches through the `/` slash menu:
+/// headings, bulleted/numbered lists, a checkbox, and a quote. Selecting an
+/// already-selected block reverts it to a plain paragraph.
+class _NookBlocksMenu extends StatefulWidget {
+  const _NookBlocksMenu({
+    required this.editorState,
+    required this.selection,
+  });
+
+  final EditorState editorState;
+  final Selection selection;
+
+  @override
+  State<_NookBlocksMenu> createState() => _NookBlocksMenuState();
+}
+
+class _NookBlocksMenuState extends State<_NookBlocksMenu> {
+  static const _items = [
+    (
+      icon: AFMobileIcons.h1,
+      label: 'Heading 1',
+      type: HeadingBlockKeys.type,
+      level: 1,
+    ),
+    (
+      icon: AFMobileIcons.h2,
+      label: 'Heading 2',
+      type: HeadingBlockKeys.type,
+      level: 2,
+    ),
+    (
+      icon: AFMobileIcons.h3,
+      label: 'Heading 3',
+      type: HeadingBlockKeys.type,
+      level: 3,
+    ),
+    (
+      icon: AFMobileIcons.bulletedList,
+      label: 'Bulleted list',
+      type: BulletedListBlockKeys.type,
+      level: null,
+    ),
+    (
+      icon: AFMobileIcons.numberedList,
+      label: 'Numbered list',
+      type: NumberedListBlockKeys.type,
+      level: null,
+    ),
+    (
+      icon: AFMobileIcons.checkbox,
+      label: 'Checkbox',
+      type: TodoListBlockKeys.type,
+      level: null,
+    ),
+    (
+      icon: AFMobileIcons.quote,
+      label: 'Quote',
+      type: QuoteBlockKeys.type,
+      level: null,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final style = MobileToolbarTheme.of(context);
+
+    final children = _items.map((item) {
+      final node =
+          widget.editorState.getNodeAtPath(widget.selection.start.path);
+      final isSelected = node?.type == item.type &&
+          (item.level == null ||
+              node?.attributes[HeadingBlockKeys.level] == item.level);
+
+      return MobileToolbarItemMenuBtn(
+        icon: AFMobileIcon(
+          afMobileIcons: item.icon,
+          color: MobileToolbarTheme.of(context).iconColor,
+        ),
+        label: Text(item.label),
+        isSelected: isSelected,
+        onPressed: () {
+          setState(() {
+            widget.editorState.formatNode(
+              widget.selection,
+              (n) => n.copyWith(
+                type: isSelected ? ParagraphBlockKeys.type : item.type,
+                attributes: {
+                  ParagraphBlockKeys.delta: (n.delta ?? Delta()).toJson(),
+                  blockComponentBackgroundColor:
+                      n.attributes[blockComponentBackgroundColor],
+                  if (!isSelected && item.type == TodoListBlockKeys.type)
+                    TodoListBlockKeys.checked: false,
+                  if (!isSelected && item.type == HeadingBlockKeys.type)
+                    HeadingBlockKeys.level: item.level,
+                },
+              ),
+              selectionExtraInfo: {
+                selectionExtraInfoDoNotAttachTextService: true,
+              },
+            );
+          });
+        },
+      );
+    }).toList();
+
+    return GridView(
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      gridDelegate: buildMobileToolbarMenuGridDelegate(
+        mobileToolbarStyle: style,
+        crossAxisCount: 2,
+      ),
+      children: children,
     );
   }
 }

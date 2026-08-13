@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-08-13
+
+### Developer tooling — in-app log viewer
+- `talker_flutter` powers an in-app log viewer at `Settings → Developer → App
+  Logs` (`lib/features/settings/settings_logs_screen.dart`): a `TalkerScreen`
+  themed to the app (custom colors for errors, warnings, info, debug, verbose,
+  plus distinct `sync`, `database`, `editor`, `security` domain keys), newest
+  first and expanded by default, with a pure-Flutter first-visit help tour.
+- Global `talker` instance in `lib/core/providers/talker_provider.dart`;
+  `FlutterError.onError` and `PlatformDispatcher.instance.onError` feed into it
+  from `main.dart`, so uncaught framework/async errors are visible in-app.
+- Logging calls added across repositories, sync, editor, security, and settings
+  (`nookLog` with domain keys).
+- `tool/patch_talker_flutter.dart` wraps the package's `ListTile`s in a
+  `Material` to silence the "ink splashes may be invisible" framework warning.
+
+### Desktop & tablet layout polish
+- The wide-shell `NavigationRail` is pinned to a fixed 80px rail
+  (`lib/core/widgets/app_shell.dart`); dual-pane Home/Notebooks/Tags tint their
+  left list pane with `scheme.surfaceContainerLow`.
+
+### Global keyboard shortcuts
+- `lib/core/widgets/keyboard_shortcuts.dart` binds `/` and Ctrl/Cmd+K → search,
+  Ctrl/Cmd+N → new note on desktop/web. A focus guard suppresses them while a
+  text input is focused (`EditableText` ancestry or the editor's nested
+  `FocusScope`), so `/` still opens AppFlowy's slash menu while editing.
+  Covered by `test/core/widgets/keyboard_shortcuts_test.dart`.
+
+### Mobile editor — slash menu + toolbar
+- `tool/patch_appflowy_editor.dart` now also patches `slash_command.dart`: on
+  mobile, `/` inserts the slash character and consumes the event instead of
+  doing nothing (the SelectionMenu overlay is unusable on touch — it closes the
+  soft keyboard and needs hardware-keyboard navigation).
+- The editor is wrapped in `MobileToolbarV2` (translucent, note-themed) with a
+  custom blocks menu (H1/H2/H3, bulleted/numbered lists, checkbox, quote), a
+  Doodle action that opens the doodle canvas, and text-decoration. The old
+  `_FloatingFormatBar` pill was removed.
+- New ADR: `docs/adr/0008-mobile-editor-toolbar-and-global-shortcuts.md`.
+
+### Fixes
+- Logs screen now shows a back button (help moved to a floating frosted chip).
+- `ListTile` ink-splash warnings fixed in the trash screen and the security
+  screen's frosted glass cards.
+
 ## [0.7.5] - 2026-08-13
 
 The sync transport is rebuilt on **libp2p over UDX** — a server-less, account-free

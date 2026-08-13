@@ -247,7 +247,12 @@ class SettingsSecurityScreen extends ConsumerWidget {
               color: scheme.outlineVariant.withValues(alpha: 0.3),
             ),
           ),
-          child: child,
+          // Material keeps SwitchListTile ink splashes on top of the frosted
+          // background (avoids the "ink splashes may be invisible" warning).
+          child: Material(
+            type: MaterialType.transparency,
+            child: child,
+          ),
         ),
       ),
     );

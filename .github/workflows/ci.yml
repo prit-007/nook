@@ -24,8 +24,10 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
-      - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
+      - name: Patch appflowy_editor (onFocusReceived + mobile slash)
         run: dart run tool/patch_appflowy_editor.dart
+      - name: Patch talker_flutter (ListTile ink splash)
+        run: dart run tool/patch_talker_flutter.dart
       - name: Generate code (Drift/Riverpod/Freezed)
         run: dart run build_runner build --delete-conflicting-outputs
       - name: Verify formatting
@@ -49,8 +51,10 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
-      - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
+      - name: Patch appflowy_editor (onFocusReceived + mobile slash)
         run: dart run tool/patch_appflowy_editor.dart
+      - name: Patch talker_flutter (ListTile ink splash)
+        run: dart run tool/patch_talker_flutter.dart
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
 
@@ -82,9 +86,11 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: flutter pub get
-      - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
+      - name: Patch appflowy_editor (onFocusReceived + mobile slash)
         shell: bash
         run: dart run tool/patch_appflowy_editor.dart
+      - name: Patch talker_flutter (ListTile ink splash)
+        run: dart run tool/patch_talker_flutter.dart
       - name: Patch local_auth_windows (MSVC coroutine deprecation)
         shell: bash
         run: dart run tool/patch_local_auth_windows.dart
@@ -126,8 +132,10 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
-      - name: Patch appflowy_editor (TextInputClient.onFocusReceived)
+      - name: Patch appflowy_editor (onFocusReceived + mobile slash)
         run: dart run tool/patch_appflowy_editor.dart
+      - name: Patch talker_flutter (ListTile ink splash)
+        run: dart run tool/patch_talker_flutter.dart
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
 

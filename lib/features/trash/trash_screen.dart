@@ -233,51 +233,57 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                             color: scheme.outlineVariant.withValues(alpha: 0.2),
                           ),
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
-                          ),
-                          title: Text(
-                            note.title.isEmpty
-                                ? 'Untitled Document'
-                                : note.title,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: scheme.onSurface.withValues(alpha: 0.7),
+                        // Material keeps the ListTile's ink splash on top of
+                        // the decorated background ("ink splashes invisible"
+                        // framework warning).
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            'Archived $age',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: scheme.onSurfaceVariant
-                                  .withValues(alpha: 0.6),
+                            title: Text(
+                              note.title.isEmpty
+                                  ? 'Untitled Document'
+                                  : note.title,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onSurface.withValues(alpha: 0.7),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  LucideIcons.undo2,
-                                  color: scheme.primary,
-                                ),
-                                tooltip: 'Restore Note',
-                                onPressed: () => _restore(note.id),
+                            subtitle: Text(
+                              'Archived $age',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: scheme.onSurfaceVariant
+                                    .withValues(alpha: 0.6),
                               ),
-                              IconButton(
-                                icon: Icon(
-                                  LucideIcons.trash,
-                                  color: scheme.error.withValues(alpha: 0.8),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    LucideIcons.undo2,
+                                    color: scheme.primary,
+                                  ),
+                                  tooltip: 'Restore Note',
+                                  onPressed: () => _restore(note.id),
                                 ),
-                                tooltip: 'Destroy',
-                                onPressed: () =>
-                                    _permanentDelete(note.id, note.title),
-                              ),
-                            ],
+                                IconButton(
+                                  icon: Icon(
+                                    LucideIcons.trash,
+                                    color: scheme.error.withValues(alpha: 0.8),
+                                  ),
+                                  tooltip: 'Destroy',
+                                  onPressed: () =>
+                                      _permanentDelete(note.id, note.title),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

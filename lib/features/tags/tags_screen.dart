@@ -351,7 +351,14 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Flexible(flex: 3, child: grid),
+                    Flexible(
+                      flex: 3,
+                      child: Container(
+                        color:
+                            scheme.surfaceContainerLow.withValues(alpha: 0.3),
+                        child: grid,
+                      ),
+                    ),
                     VerticalDivider(
                       width: 1,
                       thickness: 1,

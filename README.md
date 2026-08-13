@@ -105,12 +105,14 @@ dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
-> **Note for AppFlowy editor users:** `appflowy_editor 6.2.0` has two known
-> upstream gaps patched by this repo (the `keyboard_height_plugin` SDK and
-> `TextInputClient.onFocusReceived`). The patches are applied automatically by
-> `android/settings.gradle.kts` and `tool/patch_appflowy_editor.dart`
-> respectively — **do not skip `dart run tool/patch_appflowy_editor.dart`**
-> after `flutter pub get`. Details in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+> **Note for library users:** upstream gaps are patched by this repo —
+> `appflowy_editor 6.2.0` (`keyboard_height_plugin` SDK,
+> `TextInputClient.onFocusReceived`, and the mobile `/` slash command) and
+> `talker_flutter` (ListTile ink-splash background). The patches are applied
+> automatically by `android/settings.gradle.kts`, `tool/patch_appflowy_editor.dart`
+> and `tool/patch_talker_flutter.dart` — **do not skip the two
+> `dart run tool/patch_*.dart` steps** after `flutter pub get`.
+> Details in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ### Build a release APK
 

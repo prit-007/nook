@@ -650,6 +650,8 @@
   - Master–detail panes: `note_preview_pane.dart`, `notebook_detail_pane.dart`, `tag_detail_pane.dart` (home/notebooks/tags)
 - [x] Test on tablet emulator
   - `test/features/tablet/master_detail_test.dart` (1200x900 vs 400x800)
+- [x] Desktop/wide shell polish: `NavigationRail` pinned to 80px (`lib/core/widgets/app_shell.dart`); dual-pane list screens tint the left pane with `scheme.surfaceContainerLow`
+- [x] Global desktop keyboard shortcuts (`lib/core/widgets/keyboard_shortcuts.dart`): `/` + Ctrl/Cmd+K → search, Ctrl/Cmd+N → new note; suppressed while a text input is focused (`test/core/widgets/keyboard_shortcuts_test.dart`)
 - [ ] Verify split-view on Samsung Fold / Pixel Fold (physical device)
 
 ### 6.3 Backup / Export / Import
@@ -662,6 +664,7 @@
 
 ### 6.4 Crash Reporting
 
+- [x] In-app log viewer (Settings → Developer → App Logs) — `talker_flutter`; global `talker` in `lib/core/providers/talker_provider.dart`, framework/async errors hooked in `main.dart`, themed `TalkerScreen` + first-visit help tour in `lib/features/settings/settings_logs_screen.dart`
 - [ ] Opt-in local crash log (or Sentry self-hosted if desired)
 - [ ] Privacy-first: no telemetry unless user opts in
 - [ ] Crash-free rate monitoring before wide rollout

@@ -339,7 +339,8 @@ class _WideShell extends StatelessWidget {
     return Scaffold(
       body: Row(
         children: [
-          Flexible(
+          SizedBox(
+            width: 80,
             child: Container(
               decoration: BoxDecoration(
                 color: scheme.surface,

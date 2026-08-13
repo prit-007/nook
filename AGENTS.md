@@ -32,6 +32,8 @@ flutter test --coverage -x network
 
 ## Platform
 Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` defaults to the host platform.
+- Wide (tablet/desktop/web) shell pins the left `NavigationRail` at 80px (`lib/core/widgets/app_shell.dart`).
+- Dual-pane list screens (Home, Notebooks, Tags) tint the left list pane with `scheme.surfaceContainerLow` so it reads as a distinct surface against the detail pane.
 
 ## Storage / sync
 - Drift + SQLCipher for encrypted local storage.
@@ -60,8 +62,15 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 - No built-in Drift persistence; that is intentional and already handled by the app.
 - **keyboard_height_plugin patch**: `appflowy_editor ^6.2.0` depends on `keyboard_height_plugin ^0.1.5`, which ships `compileSdkVersion 31`. On AGP 9+ (Flutter 3.44+), this fails AAR metadata checks because transitive AndroidX deps require SDK 34. The fix lives in `android/settings.gradle.kts` — it patches the plugin's `build.gradle` in the pub cache during settings evaluation. **Remove the patch block once `appflowy_editor` bumps `keyboard_height_plugin` to `>=0.3.0`.** Monitor: https://github.com/AppFlowy-IO/appflowy-editor/issues/1036
 - **flutter_windowmanager replaced**: The discontinued `flutter_windowmanager 0.2.0` (v1 embedding + jcenter, incompatible with AGP 9+) has been replaced with a direct `MethodChannel` implementation at `lib/core/platform/window_manager.dart` + `MainActivity.kt`. The old pub-cache patch block in `android/settings.gradle.kts` has been removed.
-- **DeltaTextInputService patch**: Flutter 3.44+ added `TextInputClient.onFocusReceived`; `appflowy_editor 6.2.0` does not implement it, so ANY test/app importing the editor fails to compile (`delta_input_service.dart:7:7 missing implementations`). CI runs `dart run tool/patch_appflowy_editor.dart` after `flutter pub get` to add the override idempotently (same one `NonDeltaTextInputService` ships). The pub cache is patched the same way on local machines. **Remove the script + CI step once `appflowy_editor` publishes the override (`>= 6.2.1`).** Note: `flutter test` caches compiled test kernels under `build/test_cache/`, so local edits to pub-cache package files may not be picked up — delete `build/` to force a fresh compile when validating.
+- **appflowy_editor patches**: `tool/patch_appflowy_editor.dart` idempotently patches two files in the pub cache after `flutter pub get` (CI step name: "Patch appflowy_editor (onFocusReceived + mobile slash)"):
+  - `delta_input_service.dart` — adds the `TextInputClient.onFocusReceived` override Flutter 3.44+ requires; `appflowy_editor 6.2.0` does not implement it, so ANY test/app importing the editor fails to compile (`delta_input_service.dart:7:7 missing implementations`). Same override `NonDeltaTextInputService` ships.
+  - `slash_command.dart` — makes the `/` slash command work on mobile. The stock `_showSlashMenu` returns false on mobile, so typing `/` silently does nothing; simply removing the guard breaks touch devices because the SelectionMenu overlay closes the soft keyboard and relies on hardware-keyboard navigation. The patch inserts the `/` character (visual breadcrumb) and consumes the event without showing the overlay; block insertion on mobile comes from `MobileToolbarV2` instead.
+  - **Remove the script + CI step once `appflowy_editor` publishes both fixes (`>= 6.2.1`).** Note: `flutter test` caches compiled test kernels under `build/test_cache/`, so local edits to pub-cache package files may not be picked up — delete `build/` to force a fresh compile when validating.
 - **local_auth_windows MSVC coroutine patch**: `local_auth_windows 2.0.1` passes `/await` and pulls in `<experimental/coroutine>`, which newer MSVC toolchains reject with `error C2338` unless `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` is defined. CI and local Windows builds must run `dart run tool/patch_local_auth_windows.dart` after `flutter pub get` to add the define to the plugin’s CMake target. **Remove once `local_auth_windows` stops using deprecated coroutine headers.**
+
+## Mobile toolbar & global shortcuts
+- Non-checklist notes wrap `AppFlowyEditor` in `MobileToolbarV2` (`lib/features/editor/note_editor_screen.dart`, `_buildMobileToolbarItems()`), themed to the note's scheme with translucent frosted surfaces: a custom blocks menu (H1/H2/H3, bulleted/numbered lists, checkbox, quote — the same block types the desktop `/` slash menu offers), a Doodle action item that opens the doodle canvas via `_insertDoodle()`, and `textDecorationMobileToolbarItemV2`. This is the **only** keyboard toolbar — the old `_FloatingFormatBar` pill was removed; do not reintroduce it (it duplicated the toolbar above the keyboard).
+- Global desktop shortcuts live in `lib/core/widgets/keyboard_shortcuts.dart` (wraps the `MaterialApp.router.builder` output): `/` and Ctrl/Cmd+K open search (`/home/search`), Ctrl/Cmd+N creates a note (`/note/new`). A guard suppresses them while a text input has focus (an `EditableText` anywhere in the focused widget's ancestry, or the AppFlowy editor's nested `FocusScope`), so typing `/` inside the editor still opens AppFlowy's slash menu. Covered by `test/core/widgets/keyboard_shortcuts_test.dart`.
 
 ## Testing
 - Data layer: unit tests against in-memory Drift `NativeDatabase.memory()`.
@@ -75,6 +84,10 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 - Payload: CBOR-encoded `SyncBundle` with `SyncNoteEntry` items, SHA-256 checksum verified before deserialization.
 - Conflict resolution: `promptUser` for true conflicts — never silently overwrite.
 - Never auto-resolve a genuine conflict silently; surface a conflict card with "Keep this device / Keep incoming / Keep both."
+
+## Developer tools
+- **In-app log viewer**: `talker_flutter` (`TalkerFlutter.init`, global instance in `lib/core/providers/talker_provider.dart`) records app, sync, database, editor, and security events. `Settings → Developer → App Logs` (`lib/features/settings/settings_logs_screen.dart`) renders `TalkerScreen` with a theme-aware `logColors` map (scheme colors for error/info/debug plus distinct colors for the `sync`, `database`, `editor`, `security` domain keys), newest-first, plus a pure-Flutter first-visit help tour. `FlutterError.onError` and `PlatformDispatcher.instance.onError` are hooked to `talker.handle()` in `main.dart`, and startup events (DB open/fallback, preferences loaded) are logged there.
+- **talker_flutter ListTile patch**: `tool/patch_talker_flutter.dart` idempotently wraps the package's `ListTile`s (actions bottom sheet + settings cards) in `Material(type: MaterialType.transparency)` so they stop triggering Flutter's "ListTile background color or ink splashes may be invisible" framework warning (which would otherwise flood the log viewer). CI runs it after `flutter pub get`, right after the appflowy patch. Remove once upstream wraps the tiles.
 
 ## Implementation checklist
 - Full task-by-task checklist: `docs/IMPLEMENTATION-CHECKLIST.md`
