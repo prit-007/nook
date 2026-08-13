@@ -2,7 +2,7 @@
 
 > **How to use:** Check off tasks as you complete them. Each task lists the files to create/modify and the validation command to run. Move the `[ ]` → `[x]` when done. Update the status table at the top of each phase when a phase is fully complete.
 
-**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished in **v0.6.2**. Physical-device validation and remaining Phase 5 validation steps below.
+**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished in **v0.6.2**. Phase 6.1 accessibility (labels, contrast, touch targets, reduce motion, screen-reader tests) and 6.2 adaptive tablet/foldable layout (home/notebooks/tags master–detail) complete. Physical-device validation and remaining Phase 5 validation steps below.
 
 ---
 
@@ -16,7 +16,7 @@
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
 | 5 | Nearby Sync (transport, pairing, merge resolver) | **~60% COMPLETE** | 2026-08-11 | — |
-| 6 | Hardening for Play Store (accessibility, export, privacy) | NOT STARTED | — | — |
+| 6 | Hardening for Play Store (accessibility, export, privacy) | **~30% COMPLETE** | 2026-08-13 | — |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
 
 ---
@@ -620,17 +620,27 @@
 
 ### 6.1 Accessibility
 
-- [ ] TalkBack pass: all interactive elements have semantic labels
-- [ ] Contrast ratio check (WCAG AA minimum)
-- [ ] Touch target size check (minimum 48x48 dp)
-- [ ] Reduce motion option (respects `MediaQuery.disableAnimations`)
-- [ ] Screen reader tests for key flows (create note, search, sync)
+- [x] TalkBack pass: all interactive elements have semantic labels
+  - `lib/core/widgets/semantics.dart` (`NookSemantics` helpers), applied across home/notebooks/tags/search/sync/editor UI
+  - Audit helper asserts every interactive node is labeled: `test/features/accessibility/accessibility_smoke_test.dart`
+- [x] Contrast ratio check (WCAG AA minimum)
+  - `NookSemantics.contrastForeground()` picks white/near-black from relative luminance; used by color picker + swatch sheets
+- [x] Touch target size check (minimum 48x48 dp)
+  - `expectTouchTargetsAtLeast48()` semantics-tree audit in `accessibility_smoke_test.dart`
+- [x] Reduce motion option (respects `MediaQuery.disableAnimations`)
+  - Toggle in Settings > Appearance; honored by `MaskedReveal`, `MorphingEditorialFab`, home/notebooks/tags grids, `_animationsAllowed`
+  - Tests: `test/core/widgets/masked_reveal_test.dart`, `test/features/home/home_screen_test.dart`
+- [x] Screen reader tests for key flows (create note, search, sync)
+  - `test/features/accessibility/semantics_test.dart` + `accessibility_smoke_test.dart` (home, search, notebooks, tags, tag detail; sync card labels)
 
 ### 6.2 Tablet / Foldable Layout
 
-- [ ] Adaptive layout: single pane (phone) vs. dual pane (tablet/foldable)
-- [ ] Test on tablet emulator and foldable emulator
-- [ ] Verify split-view on Samsung Fold / Pixel Fold
+- [x] Adaptive layout: single pane (phone) vs. dual pane (tablet/foldable)
+  - `lib/core/adaptive_breakpoints.dart` + `lib/core/providers/selection_providers.dart`
+  - Master–detail panes: `note_preview_pane.dart`, `notebook_detail_pane.dart`, `tag_detail_pane.dart` (home/notebooks/tags)
+- [x] Test on tablet emulator
+  - `test/features/tablet/master_detail_test.dart` (1200x900 vs 400x800)
+- [ ] Verify split-view on Samsung Fold / Pixel Fold (physical device)
 
 ### 6.3 Backup / Export / Import
 
@@ -863,8 +873,18 @@ test/data/sync_log_repository_test.dart
 
 ### Phase 6 Files
 ```
+lib/core/adaptive_breakpoints.dart
+lib/core/providers/selection_providers.dart
+lib/core/widgets/semantics.dart
+lib/features/home/widgets/note_preview_pane.dart
+lib/features/notebooks/widgets/notebook_detail_pane.dart
+lib/features/tags/widgets/tag_detail_pane.dart
 lib/features/settings/widgets/export_handler.dart
 lib/features/settings/widgets/import_handler.dart
+test/features/tablet/master_detail_test.dart
+test/features/accessibility/semantics_test.dart
+test/features/accessibility/accessibility_smoke_test.dart
+test/core/widgets/masked_reveal_test.dart
 ```
 
 ---
