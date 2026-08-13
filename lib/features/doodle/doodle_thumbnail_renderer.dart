@@ -28,8 +28,11 @@ class DoodleThumbnailRenderer {
       Paint()..color = surface,
     );
 
-    final lineColor = noteScheme?.outlineVariant ??
+    final baseLineColor = noteScheme?.outlineVariant ??
         const Color(0xFF9E9E9E).withValues(alpha: 0.45);
+    final lineColor = baseLineColor.computeLuminance() < 0.2
+        ? Colors.white.withValues(alpha: 0.2)
+        : baseLineColor.withValues(alpha: 0.3);
     paintDoodleBackground(
       canvas,
       Size(width, height),

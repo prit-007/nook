@@ -263,9 +263,7 @@ class _SeedSwatch extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutBack,
+            Container(
               width: isSelected ? 52 : 44,
               height: isSelected ? 52 : 44,
               decoration: BoxDecoration(

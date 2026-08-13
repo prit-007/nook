@@ -372,7 +372,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Widget card;
     if (note.pinned) {
       card = NoteBannerCard(note: note, onTap: () => _openNote(note.id));
-    } else if (note.type == NoteType.doodle) {
+    } else if (note.type == NoteType.doodle || note.type == NoteType.mixed) {
       card = NoteDoodleCard(note: note, onTap: () => _openNote(note.id));
     } else {
       card = NoteMinimalCard(note: note, onTap: () => _openNote(note.id));

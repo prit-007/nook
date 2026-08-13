@@ -29,7 +29,42 @@ import '../../features/onboarding/onboarding_screen.dart';
 import 'widgets/app_shell.dart';
 import 'providers/navigation_preference.dart';
 
-/// Custom page transition: fade + slight slide up for forward pushes.
+/// Bespoke page transition for a luxury editorial feel.
+///
+/// Combines a slow fade with a subtle upward glide, using an extended
+/// duration and aggressive easing curve for GSAP-like fluidity.
+CustomTransitionPage<T> buildEditorialTransition<T>({
+  required BuildContext context,
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<T>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 800),
+    reverseTransitionDuration: const Duration(milliseconds: 400),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curve = CurvedAnimation(
+        parent: animation,
+        curve: Curves.fastLinearToSlowEaseIn,
+        reverseCurve: Curves.easeOut,
+      );
+
+      return FadeTransition(
+        opacity: curve,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.0, 0.05), // Subtle 5% drop
+            end: Offset.zero,
+          ).animate(curve),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
+/// Custom page transition: slow fade + slight slide up for forward pushes.
 CustomTransitionPage<void> _slideUpTransition(
   BuildContext context,
   GoRouterState state,
@@ -38,15 +73,22 @@ CustomTransitionPage<void> _slideUpTransition(
   return CustomTransitionPage<void>(
     key: state.pageKey,
     child: child,
+    transitionDuration: const Duration(milliseconds: 800),
+    reverseTransitionDuration: const Duration(milliseconds: 400),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curve = CurvedAnimation(
+        parent: animation,
+        curve: Curves.fastLinearToSlowEaseIn,
+        reverseCurve: Curves.easeOut,
+      );
+
       return FadeTransition(
-        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        opacity: curve,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
+            begin: const Offset(0, 0.05),
             end: Offset.zero,
-          ).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+          ).animate(curve),
           child: child,
         ),
       );

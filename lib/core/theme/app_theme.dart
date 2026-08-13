@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 /// Builds a ColorScheme from a seed color.
@@ -67,6 +68,20 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
+
+    // ── Page Transitions ────────────────────────────────────────
+    // Silky editorial transitions: slow fade + zoom for iOS/macOS,
+    // predictive-back-aware fade for Android.
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+        TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+        TargetPlatform.fuchsia: FadeForwardsPageTransitionsBuilder(),
+      },
+    ),
 
     // ── Text theme ──────────────────────────────────────────────
     // Playfair Display for editorial display/headline styles.
@@ -158,29 +173,34 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
       elevation: 0,
       scrolledUnderElevation: 0,
       backgroundColor: Colors.transparent,
-      surfaceTintColor: surfaceTint,
+      surfaceTintColor: Colors.transparent, // Force transparent for clean look
       foregroundColor: scheme.onSurface,
       titleTextStyle: const TextStyle(
         fontFamily: 'Inter',
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.1,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.5,
       ).copyWith(
         color: scheme.onSurface,
-        fontSize: 18,
+        fontSize: 16,
       ),
     ),
 
     // ── Cards ───────────────────────────────────────────────────
     cardTheme: CardThemeData(
       elevation: 0,
+      // Lowered alpha values create the perfect base for Glassmorphism
       color: isLight
-          ? scheme.surfaceContainerLowest
+          ? scheme.surfaceContainerLowest.withValues(alpha: 0.7)
           : amoled
-              ? scheme.surfaceContainerHigh
-              : scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              ? scheme.surfaceContainerHigh.withValues(alpha: 0.3)
+              : scheme.surfaceContainerHighest.withValues(alpha: 0.15),
       surfaceTintColor: surfaceTint,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: 0.2),
+          width: 0.5,
+        ),
       ),
       margin: EdgeInsets.zero,
     ),

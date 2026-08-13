@@ -48,10 +48,11 @@ void main() {
     test('elevated components use solid surfaces and transparent tint', () {
       final theme = buildDarkTheme(Colors.blue, amoled: true);
 
-      // Cards: solid near-black fill, no M3 elevation tint wash.
+      // Cards: near-black fill with lowered alpha for glassmorphism base,
+      // no M3 elevation tint wash.
       expect(
         theme.cardTheme.color,
-        theme.colorScheme.surfaceContainerHigh,
+        theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.3),
       );
       expect(theme.cardTheme.surfaceTintColor, Colors.transparent);
 
@@ -81,7 +82,8 @@ void main() {
     test('non-AMOLED components keep default tint behavior', () {
       final theme = buildDarkTheme(Colors.blue);
       expect(theme.cardTheme.surfaceTintColor, isNull);
-      expect(theme.appBarTheme.surfaceTintColor, isNull);
+      // AppBar surfaceTintColor is forced transparent for the editorial look.
+      expect(theme.appBarTheme.surfaceTintColor, Colors.transparent);
       expect(theme.popupMenuTheme.surfaceTintColor, isNull);
     });
   });

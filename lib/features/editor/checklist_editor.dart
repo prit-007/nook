@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,8 @@ import '../../core/theme/note_theme_scope.dart';
 import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
+import '../../data/tables/attachments.dart';
+import '../../data/repositories/note_repository.dart';
 
 /// A standalone checklist editor for checklist-type notes.
 /// Shows a list of items with checkboxes, add item field, and delete.
@@ -19,11 +23,13 @@ class ChecklistEditor extends ConsumerStatefulWidget {
     required this.noteId,
     this.onInsertImage,
     this.onInsertDoodle,
+    this.onOpenAttachment,
   });
 
   final String noteId;
   final Future<void> Function()? onInsertImage;
   final Future<void> Function()? onInsertDoodle;
+  final Future<void> Function(Attachment attachment)? onOpenAttachment;
 
   @override
   ConsumerState<ChecklistEditor> createState() => _ChecklistEditorState();
@@ -92,10 +98,31 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     unawaited(HapticFeedback.mediumImpact());
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
+    final wasEmpty = (await repo.getItems(widget.noteId)).isEmpty;
     await repo.addItem(noteId: widget.noteId, text: text.trim());
+    if (wasEmpty) {
+      await NoteRepository(db).updateNote(widget.noteId, title: text.trim());
+    }
     _addController.clear();
     await _load();
     if (mounted) _addFocusNode.requestFocus();
+  }
+
+  Future<void> _reorder(int oldIndex, int newIndex) async {
+    if (oldIndex == newIndex) return;
+    unawaited(HapticFeedback.mediumImpact());
+    _recordHistory();
+
+    final movedItem = _items.removeAt(oldIndex);
+    _items.insert(newIndex, movedItem);
+
+    final db = ref.read(databaseProvider);
+    final repo = ChecklistItemRepository(db);
+    await repo.reorderItems(
+      widget.noteId,
+      _items.map((i) => i.id).toList(),
+    );
+    setState(() {});
   }
 
   Future<void> _toggleItem(String id) async {
@@ -238,6 +265,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                 attachments: _attachments,
                                 onInsertImage: widget.onInsertImage,
                                 onInsertDoodle: widget.onInsertDoodle,
+                                onOpenAttachment: widget.onOpenAttachment,
                               ),
                             ),
                           SliverPadding(
@@ -247,68 +275,86 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                               right: 20,
                               bottom: viewInsets.bottom + 100,
                             ),
-                            sliver: SliverList(
-                              delegate: SliverChildListDelegate([
-                                // Active items
-                                for (var index = 0;
-                                    index < _items.length;
-                                    index++)
-                                  _SwipeableTile(
+                            sliver: SliverReorderableList(
+                              itemCount: _items.length,
+                              onReorderItem: _reorder,
+                              itemBuilder: (context, index) {
+                                return _SwipeableTile(
+                                  key: ValueKey(_items[index].id),
+                                  // Completing from either direction keeps the
+                                  // gesture forgiving; deletion remains an
+                                  // explicit action to avoid accidental loss.
+                                  onSwipeRight: () =>
+                                      _toggleItem(_items[index].id),
+                                  onSwipeLeft: () =>
+                                      _toggleItem(_items[index].id),
+                                  background: const _SwipeToCheckBackground(
+                                    alignment: Alignment.centerRight,
+                                    isChecked: false,
+                                  ),
+                                  leftBackground: const _SwipeToCheckBackground(
+                                    alignment: Alignment.centerLeft,
+                                    isChecked: false,
+                                  ),
+                                  child: _ChecklistTile(
                                     key: ValueKey(_items[index].id),
-                                    onSwipe: () =>
+                                    index: index,
+                                    id: _items[index].id,
+                                    text: _items[index].text,
+                                    checked: false,
+                                    onToggle: () =>
                                         _toggleItem(_items[index].id),
-                                    background: const _SwipeToCheckBackground(
-                                      alignment: Alignment.centerRight,
-                                      isChecked: false,
-                                    ),
-                                    child: _ChecklistTile(
-                                      key: ValueKey(_items[index].id),
-                                      index: index,
-                                      id: _items[index].id,
-                                      text: _items[index].text,
-                                      checked: false,
-                                      onToggle: () =>
-                                          _toggleItem(_items[index].id),
-                                      onDelete: () =>
-                                          _deleteItem(_items[index].id),
-                                    ),
+                                    onDelete: () =>
+                                        _deleteItem(_items[index].id),
                                   ),
-
-                                // Completed divider + archived items
-                                if (_archivedItems.isNotEmpty) ...[
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.fromLTRB(4, 24, 4, 12),
-                                    child: Text(
-                                      'COMPLETED',
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 1.5,
-                                        color: scheme.onSurfaceVariant
-                                            .withValues(alpha: 0.5),
-                                      ),
-                                    ),
-                                  ),
-                                  for (var index = 0;
-                                      index < _archivedItems.length;
-                                      index++)
-                                    _ChecklistTile(
-                                      key: ValueKey(_archivedItems[index].id),
-                                      index: index,
-                                      id: _archivedItems[index].id,
-                                      text: _archivedItems[index].text,
-                                      checked: true,
-                                      onToggle: () =>
-                                          _toggleItem(_archivedItems[index].id),
-                                      onDelete: () =>
-                                          _deleteItem(_archivedItems[index].id),
-                                    ),
-                                ],
-                              ]),
+                                );
+                              },
                             ),
                           ),
+
+                          // Completed divider + archived items
+                          if (_archivedItems.isNotEmpty) ...[
+                            SliverPadding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                              sliver: SliverToBoxAdapter(
+                                child: Text(
+                                  'COMPLETED',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.5,
+                                    color: scheme.onSurfaceVariant
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SliverPadding(
+                              padding: EdgeInsets.only(
+                                left: 20,
+                                right: 20,
+                                bottom: viewInsets.bottom + 100,
+                              ),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) => _ChecklistTile(
+                                    key: ValueKey(_archivedItems[index].id),
+                                    index: index,
+                                    id: _archivedItems[index].id,
+                                    text: _archivedItems[index].text,
+                                    checked: true,
+                                    onToggle: () =>
+                                        _toggleItem(_archivedItems[index].id),
+                                    onDelete: () =>
+                                        _deleteItem(_archivedItems[index].id),
+                                  ),
+                                  childCount: _archivedItems.length,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
           ),
@@ -391,8 +437,15 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
   }
 
   void _handleSubmit(String value) {
+    if (value.trim().isEmpty) {
+      if (_expanded) _collapse();
+      return;
+    }
+
     widget.onAdd(value);
-    if (_expanded) _collapse();
+
+    // UX FIX: Keep pill expanded for rapid multi-item entry.
+    // The parent's _addItem already clears the controller and re-requests focus.
   }
 
   @override
@@ -411,48 +464,58 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
 
         return GestureDetector(
           onTap: _expanded ? null : _expand,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 20),
-            width: pillWidth,
-            height: pillHeight,
-            padding: EdgeInsets.symmetric(horizontal: 8 + 12 * t),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(isCircle ? 28 : 32),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _expanded ? Icons.close_rounded : Icons.add_rounded,
-                  color: scheme.primary,
-                  size: 24,
-                ),
-                if (t > 0.1) ...[
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Opacity(
-                      opacity: t.clamp(0.0, 1.0),
-                      child: TextField(
-                        controller: widget.addController,
-                        focusNode: widget.addFocusNode,
-                        style: textTheme.bodyLarge
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                        textInputAction: TextInputAction.done,
-                        decoration: InputDecoration(
-                          hintText: 'Add a new task...',
-                          hintStyle: textTheme.bodyLarge?.copyWith(
-                            color:
-                                scheme.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                        onSubmitted: _handleSubmit,
-                      ),
-                    ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(isCircle ? 28 : 32),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: pillWidth,
+                height: pillHeight,
+                padding: EdgeInsets.symmetric(horizontal: 8 + 12 * t),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(isCircle ? 28 : 32),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.2),
+                    width: 0.5,
                   ),
-                ],
-              ],
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _expanded ? Icons.close_rounded : Icons.add_rounded,
+                      color: scheme.primary,
+                      size: 24,
+                    ),
+                    if (t > 0.1) ...[
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Opacity(
+                          opacity: t.clamp(0.0, 1.0),
+                          child: TextField(
+                            controller: widget.addController,
+                            focusNode: widget.addFocusNode,
+                            style: textTheme.bodyLarge
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                            textInputAction: TextInputAction.done,
+                            decoration: InputDecoration(
+                              hintText: 'Add a new task...',
+                              hintStyle: textTheme.bodyLarge?.copyWith(
+                                color: scheme.onSurfaceVariant
+                                    .withValues(alpha: 0.6),
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                            onSubmitted: _handleSubmit,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
         );
@@ -588,9 +651,12 @@ class _ChecklistTile extends StatelessWidget {
                       curve: Curves.easeOutCubic,
                       builder: (context, value, _) => FractionallySizedBox(
                         widthFactor: value,
-                        child: Container(
-                          height: 2,
-                          color: scheme.primary.withValues(alpha: 0.6),
+                        child: Opacity(
+                          opacity: value, // Fades in as it expands
+                          child: Container(
+                            height: 1.5,
+                            color: scheme.primary.withValues(alpha: 0.8),
+                          ),
                         ),
                       ),
                     ),
@@ -617,17 +683,21 @@ class _ChecklistTile extends StatelessWidget {
   }
 }
 
-/// Swipeable tile with horizontal squish feedback.
+/// Swipeable tile with deterministic snap-back physics.
 class _SwipeableTile extends StatefulWidget {
   const _SwipeableTile({
     super.key,
-    required this.onSwipe,
+    required this.onSwipeRight,
+    required this.onSwipeLeft,
     required this.background,
+    required this.leftBackground,
     required this.child,
   });
 
-  final VoidCallback onSwipe;
+  final VoidCallback onSwipeRight;
+  final VoidCallback onSwipeLeft;
   final Widget background;
+  final Widget leftBackground;
   final Widget child;
 
   @override
@@ -638,20 +708,19 @@ class _SwipeableTileState extends State<_SwipeableTile>
     with SingleTickerProviderStateMixin {
   double _dragExtent = 0;
   late final AnimationController _snapController;
-  double _snapTarget = 0;
+  late Animation<double> _snapAnimation;
 
   @override
   void initState() {
     super.initState();
     _snapController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
-    )..addListener(() {
-        if (_snapController.isCompleted || _snapController.isDismissed) return;
-        setState(() {
-          _dragExtent = _dragExtent + (_snapTarget - _dragExtent) * 0.15;
-        });
-      });
+      duration: const Duration(milliseconds: 450),
+    );
+    _snapAnimation = const AlwaysStoppedAnimation(0);
+    _snapController.addListener(() {
+      if (mounted) setState(() => _dragExtent = _snapAnimation.value);
+    });
   }
 
   @override
@@ -663,38 +732,50 @@ class _SwipeableTileState extends State<_SwipeableTile>
   @override
   Widget build(BuildContext context) {
     final clamped = _dragExtent.clamp(-120.0, 120.0);
-    final squishFactor = (clamped.abs() / 120.0) * 0.05;
-    final iconScale = 1.0 + (clamped.abs() / 120.0) * 0.4;
+    final progress = (clamped.abs() / 80.0).clamp(0.0, 1.0);
 
     return Stack(
       children: [
-        if (_dragExtent.abs() > 10)
-          Transform.scale(
-            scale: iconScale,
-            child: widget.background,
+        Positioned.fill(
+          child: Opacity(
+            opacity: progress,
+            child: _dragExtent < 0 ? widget.leftBackground : widget.background,
           ),
+        ),
         Transform.translate(
           offset: Offset(clamped, 0),
-          child: Transform.scale(
-            scaleX: 1.0 - squishFactor,
-            scaleY: 1.0,
-            child: GestureDetector(
-              onHorizontalDragUpdate: (details) {
-                _snapController.stop();
-                setState(() => _dragExtent += details.delta.dx);
-              },
-              onHorizontalDragEnd: (details) {
-                final velocity = details.primaryVelocity ?? 0;
-                if (_dragExtent.abs() > 80 || velocity.abs() > 400) {
-                  widget.onSwipe();
-                  setState(() => _dragExtent = 0);
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragUpdate: (details) {
+              _snapController.stop();
+              setState(() {
+                _dragExtent =
+                    (_dragExtent + details.delta.dx * 0.7).clamp(-120.0, 120.0);
+              });
+            },
+            onHorizontalDragEnd: (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              final thresholdMet =
+                  _dragExtent.abs() > 80 || velocity.abs() > 400;
+              if (thresholdMet) {
+                if (_dragExtent < 0) {
+                  widget.onSwipeLeft();
                 } else {
-                  _snapTarget = 0;
-                  _snapController.forward(from: 0);
+                  widget.onSwipeRight();
                 }
-              },
-              child: widget.child,
-            ),
+              }
+              _snapAnimation = Tween<double>(
+                begin: _dragExtent,
+                end: 0,
+              ).animate(
+                CurvedAnimation(
+                  parent: _snapController,
+                  curve: thresholdMet ? Curves.easeOutExpo : Curves.easeOutBack,
+                ),
+              );
+              _snapController.forward(from: 0);
+            },
+            child: widget.child,
           ),
         ),
       ],
@@ -751,11 +832,13 @@ class _ChecklistMediaStrip extends StatelessWidget {
     required this.attachments,
     this.onInsertImage,
     this.onInsertDoodle,
+    this.onOpenAttachment,
   });
 
   final List<dynamic> attachments;
   final Future<void> Function()? onInsertImage;
   final Future<void> Function()? onInsertDoodle;
+  final Future<void> Function(Attachment attachment)? onOpenAttachment;
 
   @override
   Widget build(BuildContext context) {
@@ -777,9 +860,11 @@ class _ChecklistMediaStrip extends StatelessWidget {
                 width: 84,
                 height: 84,
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                child: Icon(
-                  Icons.image_outlined,
-                  color: scheme.onSurfaceVariant,
+                child: GestureDetector(
+                  onTap: onOpenAttachment == null
+                      ? null
+                      : () => onOpenAttachment!(attachments[index]),
+                  child: _attachmentPreview(attachments[index], scheme),
                 ),
               ),
             );
@@ -818,4 +903,21 @@ class _ChecklistMediaStrip extends StatelessWidget {
       ),
     );
   }
+
+  Widget _attachmentPreview(Attachment attachment, ColorScheme scheme) {
+    final path = attachment.thumbnailPath ?? attachment.filePath;
+    if (path.isNotEmpty && File(path).existsSync()) {
+      return Image.file(File(path),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _attachmentIcon(attachment, scheme));
+    }
+    return _attachmentIcon(attachment, scheme);
+  }
+
+  Widget _attachmentIcon(Attachment attachment, ColorScheme scheme) => Icon(
+        attachment.type == AttachmentType.doodleLayer
+            ? Icons.draw_rounded
+            : Icons.image_outlined,
+        color: scheme.onSurfaceVariant,
+      );
 }

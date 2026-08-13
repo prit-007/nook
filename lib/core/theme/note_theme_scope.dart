@@ -41,11 +41,17 @@ class NoteThemeScope extends InheritedWidget {
         displayLarge: base.displayLarge?.copyWith(
           fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w400,
+          fontSize: 72, // Dramatic scaling for macro-typography
+          height: 0.95, // Extremely tight leading for luxury feel
+          letterSpacing: -2.0,
           color: scheme.onSurface,
         ),
         displayMedium: base.displayMedium?.copyWith(
           fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w400,
+          fontSize: 48,
+          height: 1.0,
+          letterSpacing: -1.0,
           color: scheme.onSurface,
         ),
         displaySmall: base.displaySmall?.copyWith(
@@ -120,8 +126,8 @@ class NoteThemeScope extends InheritedWidget {
           color: scheme.primary,
         ),
         labelSmall: base.labelSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
+          fontWeight: FontWeight.w700, // Bold for editorial impact
+          letterSpacing: 2.5, // Extreme tracking — editorial hallmark
           color: scheme.primary,
         ),
       );

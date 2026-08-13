@@ -9,6 +9,7 @@ import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/attachment_repository.dart';
 import '../../../data/tables/attachments.dart';
+import '../../../data/tables/notes.dart';
 import 'note_quick_actions_sheet.dart';
 
 /// Split-view card for doodle notes with theme awareness and gesture feedback.
@@ -111,7 +112,9 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'Doodle',
+                                widget.note.type == NoteType.mixed
+                                    ? 'Mixed note'
+                                    : 'Doodle',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,

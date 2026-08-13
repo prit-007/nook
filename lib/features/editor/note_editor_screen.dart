@@ -24,6 +24,7 @@ import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/doodle_storage.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/tables/notes.dart';
+import '../../data/tables/attachments.dart';
 import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/doodle/doodle_thumbnail_renderer.dart';
 import 'doodle/doodle_block.dart';
@@ -209,6 +210,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     });
 
     setState(() => _loading = false);
+    if (widget.noteId == null && _note?.type == NoteType.doodle) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_insertDoodle());
+      });
+    }
     if (_corruptedDelta) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -392,10 +398,41 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _dirty = true;
   }
 
+  Future<void> _openChecklistAttachment(Attachment attachment) async {
+    if (attachment.type == AttachmentType.doodleLayer) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => DoodleCanvasScreen(
+            noteId: _note!.id,
+            attachmentId: attachment.id,
+          ),
+        ),
+      );
+      return;
+    }
+
+    final file = File(attachment.filePath);
+    if (!file.existsSync() || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: InteractiveViewer(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.file(file, fit: BoxFit.contain),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Creates a doodle and stores it as a checklist attachment.
   Future<void> _insertChecklistDoodle() async {
     if (_note == null) return;
     unawaited(HapticFeedback.lightImpact());
+    final noteId = _note!.id;
 
     final attachmentId = const Uuid().v4();
 
@@ -404,16 +441,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     final baseDir = await getApplicationDocumentsDirectory();
     final doodlePath = '${baseDir.path}/$attachmentId.doodle.json';
     await attachmentRepo.addDoodle(
-      noteId: _note!.id,
+      noteId: noteId,
       filePath: doodlePath,
       id: attachmentId,
     );
 
     // Open the doodle canvas.
+    if (!mounted) return;
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => DoodleCanvasScreen(
-          noteId: _note!.id,
+          noteId: noteId,
           attachmentId: attachmentId,
         ),
       ),
@@ -787,6 +825,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                     : null,
                                 onInsertDoodle: _note != null
                                     ? _insertChecklistDoodle
+                                    : null,
+                                onOpenAttachment: _note != null
+                                    ? _openChecklistAttachment
                                     : null,
                               )
                             : AppFlowyEditor(

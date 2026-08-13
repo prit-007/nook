@@ -592,8 +592,7 @@ class _ColorPickerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedSeed =
-        currentSeed != null ? currentSeed!.replaceFirst('#', '') : null;
+    final normalizedSeed = currentSeed?.replaceFirst('#', '');
     return SizedBox(
       height: 38,
       child: ListView(

@@ -60,6 +60,10 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
     final scheme = Theme.of(context).colorScheme;
     final noteScheme = widget.noteScheme;
     final background = widget.controller.background;
+    final baseGridColor = noteScheme?.outlineVariant ?? scheme.outlineVariant;
+    final gridColor = baseGridColor.computeLuminance() < 0.2
+        ? Colors.white.withValues(alpha: 0.2)
+        : baseGridColor.withValues(alpha: 0.3);
 
     return RepaintBoundary(
       key: widget.boundaryKey,
@@ -67,8 +71,7 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
         key: ValueKey('doodle-bg-${background.name}'),
         painter: _BackgroundPainter(
           background: background,
-          color: (noteScheme?.outlineVariant ?? scheme.outlineVariant)
-              .withValues(alpha: 0.3),
+          color: gridColor,
         ),
         child: Listener(
           behavior: HitTestBehavior.opaque,
