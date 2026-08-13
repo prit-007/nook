@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:uuid/uuid.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../../features/doodle/doodle_controller.dart';
 import '../../features/doodle/doodle_strokes_codec.dart';
 import 'attachment_repository.dart';
@@ -47,6 +48,7 @@ class DoodleStorage {
     } else {
       await attachments.updateFilePath(id, file.path);
     }
+    nookLog(NookLogKey.database, 'Doodle saved: $id', LogLevel.debug);
     return id;
   }
 

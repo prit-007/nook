@@ -25,6 +25,7 @@ import '../../features/settings/settings_storage_screen.dart';
 import '../../features/settings/settings_sync_devices_screen.dart';
 import '../../features/settings/settings_about_screen.dart';
 import '../../features/settings/settings_privacy_screen.dart';
+import '../../features/settings/settings_logs_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import 'widgets/app_shell.dart';
 import 'providers/navigation_preference.dart';
@@ -242,6 +243,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               context,
               state,
               const SettingsPrivacyScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/settings/logs',
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SettingsLogsScreen(),
             ),
           ),
         ],

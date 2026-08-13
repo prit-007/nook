@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 import '../tables/attachments.dart';
 
@@ -30,6 +31,8 @@ class AttachmentRepository {
             sortOrder: Value(sortOrder),
           ),
         );
+    nookLog(NookLogKey.database, 'Image attachment added: $attachmentId',
+        LogLevel.debug);
     return attachmentId;
   }
 
@@ -51,6 +54,8 @@ class AttachmentRepository {
             sortOrder: Value(sortOrder),
           ),
         );
+    nookLog(NookLogKey.database, 'Doodle layer saved: $attachmentId',
+        LogLevel.debug);
     return attachmentId;
   }
 
@@ -87,6 +92,7 @@ class AttachmentRepository {
   /// Deletes an attachment by id.
   Future<void> deleteImage(String id) async {
     await (_db.delete(_db.attachments)..where((a) => a.id.equals(id))).go();
+    nookLog(NookLogKey.database, 'Attachment deleted: $id', LogLevel.debug);
   }
 
   /// Deletes all attachments (images + doodle layers) for a note.

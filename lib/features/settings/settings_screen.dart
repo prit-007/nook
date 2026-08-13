@@ -10,6 +10,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../core/app_info.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
+import '../../core/providers/talker_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../sync/sync_orchestrator.dart';
 import 'providers/vault_stats_provider.dart';
@@ -28,6 +29,10 @@ class SettingsScreen extends ConsumerWidget {
     final vaultStats = ref.watch(vaultStatsProvider);
     final syncState = ref.watch(syncOrchestratorProvider);
     final deviceCount = syncState.devices.length;
+    final logCount = ref.watch(talkerLogCountProvider).maybeWhen(
+          data: (count) => '$count entries',
+          orElse: () => '\u2014',
+        );
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -166,6 +171,21 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.push('/sync/history');
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _Section(
+            title: 'Developer',
+            children: [
+              _SettingsTile(
+                icon: LucideIcons.terminal,
+                title: 'App Logs',
+                value: logCount,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/logs');
                 },
               ),
             ],

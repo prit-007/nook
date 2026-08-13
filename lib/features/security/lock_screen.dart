@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
+import '../../core/providers/talker_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import 'pin_entry_screen.dart';
 
@@ -23,6 +24,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   Future<void> _unlockWithBiometric() async {
     if (_authenticating) return;
+    nookLog(NookLogKey.security, 'Lock screen shown', LogLevel.info);
     setState(() => _authenticating = true);
     final gate = ref.read(biometricGateProvider);
     final ok = await gate.unlock();

@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 import '../tables/sync_log.dart';
 
@@ -24,6 +25,8 @@ class SyncLogRepository {
           ),
         );
 
+    nookLog(NookLogKey.sync, 'Sync sent: $noteId', LogLevel.debug);
+
     return (_db.select(_db.syncLog)..where((t) => t.id.equals(id))).getSingle();
   }
 
@@ -42,6 +45,8 @@ class SyncLogRepository {
           ),
         );
 
+    nookLog(NookLogKey.sync, 'Sync received: $noteId', LogLevel.debug);
+
     return (_db.select(_db.syncLog)..where((t) => t.id.equals(id))).getSingle();
   }
 
@@ -59,6 +64,9 @@ class SyncLogRepository {
             action: SyncAction.conflict,
           ),
         );
+
+    nookLog(
+        NookLogKey.sync, 'Sync conflict recorded: $noteId', LogLevel.warning);
 
     return (_db.select(_db.syncLog)..where((t) => t.id.equals(id))).getSingle();
   }

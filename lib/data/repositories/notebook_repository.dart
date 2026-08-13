@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 import '../tables/attachments.dart';
 
@@ -28,6 +29,8 @@ class NotebookRepository {
             sortOrder: Value(sortOrder),
           ),
         );
+
+    nookLog(NookLogKey.database, 'Notebook created: $id', LogLevel.debug);
 
     return (_db.select(_db.notebooks)..where((t) => t.id.equals(id)))
         .getSingle();
@@ -74,6 +77,7 @@ class NotebookRepository {
       ));
       await (_db.delete(_db.notebooks)..where((t) => t.id.equals(id))).go();
     });
+    nookLog(NookLogKey.database, 'Notebook deleted: $id', LogLevel.debug);
   }
 
   /// Counts non-deleted notes in a notebook.

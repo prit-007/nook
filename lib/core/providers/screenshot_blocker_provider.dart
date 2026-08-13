@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:nook/core/platform/window_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'talker_provider.dart';
+
 /// Controls system-level screenshot/screen-recording blocking.
 class ScreenshotBlocker extends ChangeNotifier {
   ScreenshotBlocker({this.blocked = false});
@@ -18,6 +20,11 @@ class ScreenshotBlocker extends ChangeNotifier {
   Future<void> setBlocked(bool value) async {
     if (blocked == value) return;
     blocked = value;
+    nookLog(
+      NookLogKey.security,
+      'Screenshot blocking ${value ? 'on' : 'off'}',
+      LogLevel.info,
+    );
     notifyListeners();
     await _apply();
     await _save();

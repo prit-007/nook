@@ -8,6 +8,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/talker_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/checklist_item_repository.dart';
@@ -32,6 +33,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
 
   Future<void> _exportVault() async {
     if (_exporting || _importing) return;
+    nookLog(NookLogKey.database, 'Export started', LogLevel.debug);
     setState(() {
       _exporting = true;
       _resultMessage = null;
@@ -46,6 +48,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
       ).exportAll();
 
       if (!mounted) return;
+      nookLog(NookLogKey.database, 'Export completed: $path', LogLevel.info);
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vault exported')),
@@ -57,6 +60,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
         ),
       );
     } catch (e) {
+      nookLog(NookLogKey.database, 'Export failed: $e', LogLevel.error);
       if (mounted) {
         setState(() => _resultMessage = 'Export failed: $e');
       }
@@ -87,6 +91,12 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
       final result = await NookImporter(database: db).importFrom(File(path));
 
       if (!mounted) return;
+      nookLog(
+        NookLogKey.database,
+        'Import completed: ${result.notesImported} notes, '
+        '${result.attachmentsRestored} attachments',
+        LogLevel.info,
+      );
       setState(() {
         _resultMessage = result.error ??
             'Imported ${result.notesImported} '
@@ -98,6 +108,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                 'restored';
       });
     } catch (e) {
+      nookLog(NookLogKey.database, 'Import failed: $e', LogLevel.error);
       if (mounted) {
         setState(() => _resultMessage = 'Import failed: $e');
       }

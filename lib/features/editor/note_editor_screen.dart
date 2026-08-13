@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/talker_provider.dart';
 import '../../core/theme/note_theme.dart';
 import '../../core/theme/note_theme_scope.dart';
 import '../../data/database.dart';
@@ -238,6 +239,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   void _scheduleAutosave() {
     _autosaveTimer?.cancel();
     _autosaveTimer = Timer(const Duration(milliseconds: 600), _save);
+    nookLog(NookLogKey.editor, 'Autosave triggered for ${_note?.id}',
+        LogLevel.debug);
   }
 
   Future<void> _save() async {
@@ -291,6 +294,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
       // Update snapshot after successful save.
       _dirty = false;
+      nookLog(
+        NookLogKey.editor,
+        'Note saved: ${_note!.id} (${plainText.length} chars)',
+        LogLevel.info,
+      );
     } finally {
       _saving = false;
       if (!_disposed && _saveQueued) {

@@ -1,3 +1,4 @@
+import '../../core/providers/talker_provider.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/tables/notes.dart';
 import 'sync_bundle.dart';
@@ -74,6 +75,11 @@ class MergeResolver {
     }
 
     // Different device origin, but incoming is newer — true conflict
+    nookLog(
+      NookLogKey.sync,
+      'True conflict for ${incoming.noteId} (local vs ${incoming.deviceOriginId})',
+      LogLevel.warning,
+    );
     return MergeAction.promptUser;
   }
 

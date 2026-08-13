@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 import '../tables/notes.dart';
 
@@ -27,23 +28,31 @@ class NoteRepository {
     int? syncVersion,
   }) async {
     final noteId = id ?? _uuid.v4();
-    await _db.into(_db.notes).insert(
-          NotesCompanion.insert(
-            id: Value(noteId),
-            type: type,
-            title: Value(title),
-            deviceOriginId: deviceOriginId,
-            notebookId:
-                notebookId != null ? Value(notebookId) : const Value.absent(),
-            colorSeed: Value(colorSeed),
-            deltaContent: Value(deltaContent),
-            plainText: Value(plainText),
-            syncVersion:
-                syncVersion != null ? Value(syncVersion) : const Value.absent(),
-          ),
-        );
+    try {
+      await _db.into(_db.notes).insert(
+            NotesCompanion.insert(
+              id: Value(noteId),
+              type: type,
+              title: Value(title),
+              deviceOriginId: deviceOriginId,
+              notebookId:
+                  notebookId != null ? Value(notebookId) : const Value.absent(),
+              colorSeed: Value(colorSeed),
+              deltaContent: Value(deltaContent),
+              plainText: Value(plainText),
+              syncVersion: syncVersion != null
+                  ? Value(syncVersion)
+                  : const Value.absent(),
+            ),
+          );
 
-    await _syncFts(noteId, title, plainText);
+      await _syncFts(noteId, title, plainText);
+    } catch (e) {
+      nookLog(NookLogKey.database, 'Note create failed: $e', LogLevel.error);
+      rethrow;
+    }
+
+    nookLog(NookLogKey.database, 'Note created: $noteId', LogLevel.debug);
 
     return (_db.select(_db.notes)..where((t) => t.id.equals(noteId)))
         .getSingle();
@@ -137,6 +146,7 @@ class NoteRepository {
         await _syncFts(id, note.title, plainText);
       }
     }
+    nookLog(NookLogKey.database, 'Note content saved: $id', LogLevel.debug);
   }
 
   /// Soft-deletes a note (sets deleted = true, deletedAt = now).
@@ -148,6 +158,7 @@ class NoteRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    nookLog(NookLogKey.database, 'Note soft-deleted: $id', LogLevel.debug);
   }
 
   /// Restores a soft-deleted note.
@@ -159,6 +170,7 @@ class NoteRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    nookLog(NookLogKey.database, 'Note restored: $id', LogLevel.debug);
   }
 
   /// Returns soft-deleted notes, ordered by deletedAt desc.
@@ -171,18 +183,28 @@ class NoteRepository {
 
   /// Permanently deletes a note and all associated data from the database.
   Future<void> permanentlyDelete(String id) async {
-    await _db.transaction(() async {
-      await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(id))).go();
-      await (_db.delete(_db.checklistItems)..where((t) => t.noteId.equals(id)))
-          .go();
-      await (_db.delete(_db.attachments)..where((a) => a.noteId.equals(id)))
-          .go();
-      await _db.customStatement(
-        'DELETE FROM notes_fts WHERE id = ?',
-        [id],
-      );
-      await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
-    });
+    try {
+      await _db.transaction(() async {
+        await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(id)))
+            .go();
+        await (_db.delete(_db.checklistItems)
+              ..where((t) => t.noteId.equals(id)))
+            .go();
+        await (_db.delete(_db.attachments)..where((a) => a.noteId.equals(id)))
+            .go();
+        await _db.customStatement(
+          'DELETE FROM notes_fts WHERE id = ?',
+          [id],
+        );
+        await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
+      });
+    } catch (e) {
+      nookLog(NookLogKey.database, 'Note permanent delete failed: $e',
+          LogLevel.error);
+      rethrow;
+    }
+    nookLog(
+        NookLogKey.database, 'Note permanently deleted: $id', LogLevel.debug);
   }
 
   /// Permanently deletes all soft-deleted notes and their associated data.
@@ -219,6 +241,11 @@ class NoteRepository {
             );
       }
     });
+    nookLog(
+      NookLogKey.database,
+      'Note tags updated: $noteId (${tagIds.length})',
+      LogLevel.debug,
+    );
   }
 
   /// Returns only pinned, non-deleted notes.

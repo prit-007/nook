@@ -21,6 +21,7 @@ import '../crypto/identity_store.dart';
 import '../discovery/nook_mdns_discovery.dart';
 import '../protocol/sync_bundle.dart';
 import '../protocol/sync_message.dart';
+import '../../core/providers/talker_provider.dart';
 import 'sync_transport.dart';
 
 /// libp2p protocol id for Nook sync streams.
@@ -261,6 +262,11 @@ class Libp2pSyncTransport implements SyncTransport {
       switch (response.type) {
         case SyncMessageType.pairingAccepted:
           _connectedPeerId = peerId;
+          nookLog(
+            NookLogKey.sync,
+            'Connection established with ${device.deviceName}',
+            LogLevel.info,
+          );
           _emitState(const SyncSessionState.connected());
           return true;
         case SyncMessageType.pairingRejected:

@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/providers/database_provider.dart';
+import '../core/providers/talker_provider.dart';
 import '../data/repositories/attachment_repository.dart';
 import '../data/repositories/note_repository.dart';
 import '../data/repositories/sync_log_repository.dart';
@@ -179,6 +180,11 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     // outcome treatments (declined vs. timeout vs. connection lost). Subscribe
     // once for the transport's lifetime.
     _ensureStateSubscription();
+    nookLog(
+      NookLogKey.sync,
+      'Sync transport initialized ($_localDeviceName)',
+      LogLevel.info,
+    );
   }
 
   void _ensureStateSubscription() {
@@ -191,6 +197,11 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   /// so the UI can render a distinct treatment per failure mode.
   void _onTransportState(SyncSessionState sessionState) {
     if (sessionState.error != null) {
+      nookLog(
+        NookLogKey.sync,
+        'Sync error: ${sessionState.error}',
+        LogLevel.error,
+      );
       state = state.copyWith(
         phase: SyncPhase.error,
         error: sessionState.error,
@@ -214,6 +225,11 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
     unawaited(_deviceSub?.cancel());
     _deviceSub = _transport!.deviceFoundStream.listen((device) {
+      nookLog(
+        NookLogKey.sync,
+        'Peer discovered: ${device.deviceName}',
+        LogLevel.debug,
+      );
       final existing = state.devices;
       final match = existing.indexWhere((d) => d.deviceId == device.deviceId);
       if (match == -1) {
@@ -243,6 +259,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     if (_transport == null) await initializeTransport();
 
     _stopped = false;
+    nookLog(NookLogKey.sync, 'Sync advertising started', LogLevel.info);
     state = state.copyWith(
       phase: SyncPhase.receiving,
       clearError: true,
@@ -296,6 +313,12 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   Future<void> connectToDevice(SyncDevice device, {String? pairingCode}) async {
     _ensureStateSubscription();
 
+    nookLog(
+      NookLogKey.sync,
+      'Connecting to ${device.deviceName}',
+      LogLevel.info,
+    );
+
     state = state.copyWith(
       phase: SyncPhase.connecting,
       selectedDevice: device,
@@ -309,6 +332,11 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       // The transport emits a categorized error on its session state stream;
       // only fall back to a generic message when it did not.
       if (state.phase != SyncPhase.error) {
+        nookLog(
+          NookLogKey.sync,
+          'Failed to connect to ${device.deviceName}',
+          LogLevel.error,
+        );
         state = state.copyWith(
           phase: SyncPhase.error,
           error: 'Failed to connect to ${device.deviceName}',
@@ -318,6 +346,11 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       return;
     }
 
+    nookLog(
+      NookLogKey.sync,
+      'Connection established with ${device.deviceName}',
+      LogLevel.info,
+    );
     state = state.copyWith(phase: SyncPhase.idle);
   }
 
@@ -327,6 +360,12 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       state = state.copyWith(error: 'No device connected');
       return;
     }
+
+    nookLog(
+      NookLogKey.sync,
+      'Sync started: ${noteIds.length} notes to ${state.selectedDevice!.deviceName}',
+      LogLevel.info,
+    );
 
     state = state.copyWith(
       phase: SyncPhase.sending,
@@ -436,7 +475,13 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         receivedNoteIds: ack.receivedNoteIds,
         rejectedNoteIds: ack.rejectedNoteIds,
       );
+      nookLog(
+        NookLogKey.sync,
+        'Sync complete: ${entries.length} notes sent',
+        LogLevel.info,
+      );
     } catch (e) {
+      nookLog(NookLogKey.sync, 'Send failed: $e', LogLevel.error);
       state = state.copyWith(
         phase: SyncPhase.error,
         error: 'Send failed: $e',
@@ -472,6 +517,12 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
     try {
       final bundle = SyncBundle.fromCbor(Uint8List.fromList(bytes));
+      nookLog(
+        NookLogKey.sync,
+        'Bundle received from ${bundle.senderDeviceName}: '
+        '${bundle.notes.length} notes',
+        LogLevel.debug,
+      );
 
       // Reject bundles from an incompatible protocol version rather than
       // silently misparsing them.
@@ -515,6 +566,11 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
           case MergeAction.promptUser:
             // Pause and surface conflict for user resolution
+            nookLog(
+              NookLogKey.sync,
+              'Conflict detected: ${entry.noteId}',
+              LogLevel.warning,
+            );
             conflicts.add(SyncConflict(
               incoming: entry,
               localDeviceName: _localDeviceName,
@@ -546,8 +602,18 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         );
       } else {
         state = state.copyWith(phase: SyncPhase.complete);
+        nookLog(
+          NookLogKey.sync,
+          'Sync receive complete: ${receivedIds.length} notes',
+          LogLevel.info,
+        );
       }
     } catch (e) {
+      nookLog(
+        NookLogKey.sync,
+        'Failed to process received bundle: $e',
+        LogLevel.error,
+      );
       state = state.copyWith(
         phase: SyncPhase.error,
         error: 'Failed to process received bundle: $e',
