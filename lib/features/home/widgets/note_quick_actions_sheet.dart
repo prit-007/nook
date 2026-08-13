@@ -23,6 +23,7 @@ class NoteQuickActionsSheet extends ConsumerWidget {
   static Future<void> show(BuildContext context, Note note) {
     return showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => NoteQuickActionsSheet(note: note),
@@ -591,6 +592,8 @@ class _ColorPickerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedSeed =
+        currentSeed != null ? currentSeed!.replaceFirst('#', '') : null;
     return SizedBox(
       height: 38,
       child: ListView(
@@ -598,14 +601,14 @@ class _ColorPickerRow extends StatelessWidget {
         children: [
           _ColorChoice(
             color: null,
-            isSelected: currentSeed == null || currentSeed!.isEmpty,
+            isSelected: normalizedSeed == null || normalizedSeed.isEmpty,
             onTap: () => onSelected(null),
           ),
           for (int i = 0; i < _seedColors.length; i++) ...[
             const SizedBox(width: 8),
             _ColorChoice(
               color: _seedColors[i],
-              isSelected: currentSeed ==
+              isSelected: normalizedSeed ==
                   _seedColors[i].toARGB32().toRadixString(16).substring(2),
               onTap: () {
                 final hex =

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../core/app_info.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../sync/sync_orchestrator.dart';
 import 'providers/vault_stats_provider.dart';
 
@@ -40,7 +42,12 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: [
           _Section(
             title: 'Appearance',
@@ -66,10 +73,25 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: Switch.adaptive(
                   value: gate.enabled,
                   activeThumbColor: scheme.primary,
-                  onChanged: (value) {
-                    HapticFeedback.lightImpact();
-                    ref.read(biometricGateProvider).setEnabled(value);
-                  },
+                  onChanged: (value) => unawaited(() async {
+                    unawaited(HapticFeedback.lightImpact());
+                    final gate = ref.read(biometricGateProvider);
+                    if (!value) {
+                      gate.setEnabled(false);
+                      return;
+                    }
+                    final enabled = await gate.enableWithVerification();
+                    if (!enabled && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Authentication is unavailable on this device.',
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  }()),
                 ),
               ),
               _SettingsTile(

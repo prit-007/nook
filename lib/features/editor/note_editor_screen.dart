@@ -20,6 +20,7 @@ import '../../core/theme/note_theme.dart';
 import '../../core/theme/note_theme_scope.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
+import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/doodle_storage.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/tables/notes.dart';
@@ -100,6 +101,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   StreamSubscription<void>? _transactionSubscription;
   AppDatabase? _db;
   bool _corruptedDelta = false;
+
+  /// Tracks whether the user has made real edits since the last save.
+  bool _dirty = false;
 
   @override
   void initState() {
@@ -200,6 +204,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
 
     _transactionSubscription = _editorState!.transactionStream.listen((_) {
+      _dirty = true;
       _scheduleAutosave();
     });
 
@@ -231,6 +236,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   Future<void> _save() async {
     if (_disposed || _note == null || _editorState == null) return;
+    if (!_dirty) return;
     if (_saving) {
       _saveQueued = true;
       return;
@@ -276,6 +282,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         plainText: Value(plainText),
         updatedAt: now,
       );
+
+      // Update snapshot after successful save.
+      _dirty = false;
     } finally {
       _saving = false;
       if (!_disposed && _saveQueued) {
@@ -360,7 +369,81 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     final pNode = paragraphNode();
     insertBlockNode(_editorState!, pNode);
 
+    _dirty = true;
     _scheduleAutosave();
+  }
+
+  /// Picks an image and stores it as a checklist attachment.
+  Future<void> _insertChecklistImage() async {
+    if (_note == null) return;
+    unawaited(HapticFeedback.lightImpact());
+
+    final baseDir = await getApplicationDocumentsDirectory();
+    final handler = ImagePickerHandler(
+      attachments: AttachmentRepository(_db!),
+      baseDir: baseDir,
+    );
+
+    final result = await handler.pickAndStore(noteId: _note!.id);
+    if (result == null || !mounted) return;
+
+    // Refresh the checklist editor's attachment list.
+    setState(() {});
+    _dirty = true;
+  }
+
+  /// Creates a doodle and stores it as a checklist attachment.
+  Future<void> _insertChecklistDoodle() async {
+    if (_note == null) return;
+    unawaited(HapticFeedback.lightImpact());
+
+    final attachmentId = const Uuid().v4();
+
+    // Create the attachment row for the doodle.
+    final attachmentRepo = AttachmentRepository(_db!);
+    final baseDir = await getApplicationDocumentsDirectory();
+    final doodlePath = '${baseDir.path}/$attachmentId.doodle.json';
+    await attachmentRepo.addDoodle(
+      noteId: _note!.id,
+      filePath: doodlePath,
+      id: attachmentId,
+    );
+
+    // Open the doodle canvas.
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => DoodleCanvasScreen(
+          noteId: _note!.id,
+          attachmentId: attachmentId,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    // Regenerate the thumbnail.
+    final storage = DoodleStorage(
+      attachments: attachmentRepo,
+      baseDir: baseDir,
+    );
+    final data = await storage.loadDoodle(result);
+    if (!mounted) return;
+    final noteScheme = noteSchemeFor(context, _colorSeed);
+    final thumbBytes = await DoodleThumbnailRenderer.render(
+      data.strokes,
+      background: data.background,
+      noteScheme: noteScheme,
+    );
+
+    final thumbFile = File('${baseDir.path}/${result}_thumb.png');
+    await thumbFile.writeAsBytes(thumbBytes);
+
+    // Update the attachment's thumbnail path.
+    await attachmentRepo.updateThumbnail(result, thumbFile.path);
+
+    // Refresh the checklist editor.
+    setState(() {});
+    _dirty = true;
   }
 
   /// Creates a new doodle block and opens the doodle canvas.
@@ -384,27 +467,57 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _scheduleAutosave();
   }
 
+  void _undoEditor() {
+    final state = _editorState;
+    if (state == null || !state.undoManager.undoStack.isNonEmpty) return;
+    HapticFeedback.selectionClick();
+    state.undoManager.undo();
+    _scheduleAutosave();
+    setState(() {});
+  }
+
+  void _redoEditor() {
+    final state = _editorState;
+    if (state == null || !state.undoManager.redoStack.isNonEmpty) return;
+    HapticFeedback.selectionClick();
+    state.undoManager.redo();
+    _scheduleAutosave();
+    setState(() {});
+  }
+
   /// Exports the current note as a PNG and offers save-to-gallery / share.
   Future<void> _exportNote() async {
     if (_note == null || _editorState == null || !mounted) return;
     unawaited(HapticFeedback.lightImpact());
+    await _save();
+    if (!mounted || _note == null || _editorState == null) return;
 
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final boundaryKey = GlobalKey();
+    final checklistItems = _note!.type == NoteType.checklist
+        ? await ChecklistItemRepository(_db!).getItems(_note!.id)
+        : const <ChecklistItem>[];
+    if (!mounted) return;
 
     // Build the render widget off-screen inside an Overlay.
+    // Use a Stack with overflow to allow the capture to render at intrinsic height.
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
     entry = OverlayEntry(
-      builder: (_) => Material(
-        color: Colors.transparent,
-        child: RepaintBoundary(
-          key: boundaryKey,
-          child: NoteExportCapture(
-            note: _note!,
-            editorState: _editorState!,
+      builder: (_) => Stack(
+        children: [
+          Positioned(
+            top: -10000,
+            left: -10000,
+            child: RepaintBoundary(
+              key: boundaryKey,
+              child: NoteExportCapture(
+                note: _note!,
+                editorState: _editorState!,
+                checklistItems: checklistItems,
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
     overlay.insert(entry);
@@ -417,46 +530,72 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       final boundary = boundaryKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary == null) {
-        scaffoldMessenger.showSnackBar(
+        entry.remove();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Export failed: could not capture')),
         );
         return;
       }
       final bytes = await NoteExporter.captureBoundaryToPng(boundary);
-
-      final baseDir = await getApplicationDocumentsDirectory();
-      final filePath =
-          '${baseDir.path}/${NoteExporter.generateFileName(_note!.title)}';
-      await File(filePath).writeAsBytes(bytes);
-
-      // Save to gallery
-      final saved = await NoteExporter.saveToGallery(
-        bytes,
-        name: NoteExporter.generateFileName(_note!.title),
-      );
+      entry.remove();
 
       if (!mounted) return;
-      scaffoldMessenger.hideCurrentSnackBar();
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            saved ? 'Saved to gallery' : 'Gallery permission denied',
-          ),
-          action: saved
-              ? SnackBarAction(
-                  label: 'Share',
-                  onPressed: () => NoteExporter.sharePng(filePath),
-                )
-              : null,
-        ),
-      );
+
+      // Show the preview dialog.
+      await _showExportPreview(bytes);
     } catch (e) {
+      entry.remove();
       if (!mounted) return;
-      scaffoldMessenger.showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Export failed: $e')),
       );
-    } finally {
-      entry.remove();
+    }
+  }
+
+  /// Shows a preview of the exported PNG with share and save actions.
+  Future<void> _showExportPreview(Uint8List bytes) async {
+    if (!mounted) return;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _ExportPreviewSheet(bytes: bytes, noteTitle: _title),
+    );
+
+    if (!mounted || result == null) return;
+
+    final baseDir = await getApplicationDocumentsDirectory();
+    final filePath = '${baseDir.path}/${NoteExporter.generateFileName(_title)}';
+    await File(filePath).writeAsBytes(bytes);
+
+    if (result == 'share') {
+      await NoteExporter.sharePng(filePath);
+    } else if (result == 'gallery') {
+      final saved = await NoteExporter.saveToGallery(
+        bytes,
+        name: NoteExporter.generateFileName(_title),
+      );
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              saved ? 'Saved to gallery' : 'Gallery permission denied',
+            ),
+            action: saved
+                ? SnackBarAction(
+                    label: 'Share',
+                    onPressed: () => NoteExporter.sharePng(filePath),
+                  )
+                : null,
+          ),
+        );
+      }
     }
   }
 
@@ -523,7 +662,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     // Snapshot content synchronously before EditorState is disposed.
     final note = _note;
     final db = _db;
-    if (note != null && db != null && _editorState != null) {
+    if (note != null && db != null && _editorState != null && _dirty) {
       final snapshot = _snapshotContent(note.id, db);
       _editorState?.dispose();
       super.dispose();
@@ -641,7 +780,15 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                       sliver: SliverFillRemaining(
                         hasScrollBody: true,
                         child: _note?.type == NoteType.checklist
-                            ? ChecklistEditor(noteId: _note!.id)
+                            ? ChecklistEditor(
+                                noteId: _note!.id,
+                                onInsertImage: _note != null
+                                    ? _insertChecklistImage
+                                    : null,
+                                onInsertDoodle: _note != null
+                                    ? _insertChecklistDoodle
+                                    : null,
+                              )
                             : AppFlowyEditor(
                                 editorState: _editorState!,
                                 editorStyle: EditorStyle.mobile(
@@ -694,10 +841,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                         ),
                                         keywords: ['doodle', 'draw', 'sketch'],
                                         handler: (editorState, _, __) async {
-                                          final node = doodleNode(
-                                            attachmentId: const Uuid().v4(),
-                                          );
-                                          insertBlockNode(editorState, node);
+                                          await _insertDoodle();
                                         },
                                       ),
                                     ],
@@ -742,7 +886,31 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                               onBack: () async {
                                 final router = GoRouter.of(context);
                                 unawaited(HapticFeedback.lightImpact());
-                                await _save();
+                                // Delete newly-created blank notes on exit.
+                                if (_dirty) {
+                                  final nodes =
+                                      _editorState!.document.root.children;
+                                  String plainText = '';
+                                  for (final node in nodes) {
+                                    if (node.delta != null) {
+                                      for (final op in node.delta!.toList()) {
+                                        if (op is TextInsert) {
+                                          plainText += op.text;
+                                        }
+                                      }
+                                      plainText += '\n';
+                                    }
+                                  }
+                                  plainText = plainText.trim();
+                                  if (plainText.isEmpty &&
+                                      _title.isEmpty &&
+                                      widget.noteId == null) {
+                                    await NoteRepository(_db!)
+                                        .permanentlyDelete(_note!.id);
+                                  } else {
+                                    await _save();
+                                  }
+                                }
                                 if (mounted) router.pop();
                               },
                               onInsertImage: _insertImage,
@@ -750,6 +918,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                               onTogglePin: _togglePin,
                               onExport: _exportNote,
                               onMoreOptions: _showNoteOptions,
+                              canUndo: _editorState!
+                                  .undoManager.undoStack.isNonEmpty,
+                              canRedo: _editorState!
+                                  .undoManager.redoStack.isNonEmpty,
+                              onUndo: _undoEditor,
+                              onRedo: _redoEditor,
                             ),
                           ),
                         ),
@@ -785,10 +959,74 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   }
 }
 
-class _FloatingFormatBar extends StatelessWidget {
+class _FloatingFormatBar extends StatefulWidget {
   const _FloatingFormatBar({required this.editorState});
 
   final EditorState editorState;
+
+  @override
+  State<_FloatingFormatBar> createState() => _FloatingFormatBarState();
+}
+
+class _FloatingFormatBarState extends State<_FloatingFormatBar> {
+  Selection? _selection;
+  Map<String, dynamic> _toggledStyle = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _selection = widget.editorState.selection;
+    _toggledStyle = Map<String, dynamic>.from(
+      widget.editorState.toggledStyle,
+    );
+    widget.editorState.selectionNotifier.addListener(_onSelectionChanged);
+    widget.editorState.toggledStyleNotifier.addListener(_onStyleChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.editorState.selectionNotifier.removeListener(_onSelectionChanged);
+    widget.editorState.toggledStyleNotifier.removeListener(_onStyleChanged);
+    super.dispose();
+  }
+
+  void _onSelectionChanged() {
+    if (!mounted) return;
+    setState(() => _selection = widget.editorState.selection);
+  }
+
+  void _onStyleChanged() {
+    if (!mounted) return;
+    setState(() {
+      _toggledStyle = Map<String, dynamic>.from(
+        widget.editorState.toggledStyle,
+      );
+    });
+  }
+
+  /// Whether [attribute] is active for the current selection.
+  bool _isActive(String attribute) {
+    final selection = _selection;
+    if (selection == null) return false;
+
+    if (selection.isCollapsed) {
+      return _toggledStyle[attribute] == true;
+    }
+
+    // For a ranged selection, check if all selected nodes have the attribute.
+    final nodes = widget.editorState.getNodesInSelection(selection);
+    if (nodes.isEmpty) return false;
+
+    for (final node in nodes) {
+      final delta = node.delta;
+      if (delta == null) continue;
+      final attributes = delta.everyAttributes(
+        (attr) => attr[attribute] == true,
+      );
+      if (attributes != true) return false;
+    }
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -813,25 +1051,28 @@ class _FloatingFormatBar extends StatelessWidget {
                   _FormatAction(
                     icon: Icons.format_bold_rounded,
                     tooltip: 'Bold',
+                    isActive: _isActive('bold'),
                     onTap: () {
                       HapticFeedback.selectionClick();
-                      editorState.toggleAttribute('bold');
+                      widget.editorState.toggleAttribute('bold');
                     },
                   ),
                   _FormatAction(
                     icon: Icons.format_italic_rounded,
                     tooltip: 'Italic',
+                    isActive: _isActive('italic'),
                     onTap: () {
                       HapticFeedback.selectionClick();
-                      editorState.toggleAttribute('italic');
+                      widget.editorState.toggleAttribute('italic');
                     },
                   ),
                   _FormatAction(
                     icon: Icons.format_strikethrough_rounded,
                     tooltip: 'Strikethrough',
+                    isActive: _isActive('strikethrough'),
                     onTap: () {
                       HapticFeedback.selectionClick();
-                      editorState.toggleAttribute('strikethrough');
+                      widget.editorState.toggleAttribute('strikethrough');
                     },
                   ),
                   Padding(
@@ -848,7 +1089,7 @@ class _FloatingFormatBar extends StatelessWidget {
                     onTap: () {
                       HapticFeedback.lightImpact();
                       insertBlockNode(
-                        editorState,
+                        widget.editorState,
                         bulletedListNode(),
                       );
                     },
@@ -859,7 +1100,7 @@ class _FloatingFormatBar extends StatelessWidget {
                     onTap: () {
                       HapticFeedback.lightImpact();
                       insertBlockNode(
-                        editorState,
+                        widget.editorState,
                         todoListNode(checked: false),
                       );
                     },
@@ -879,11 +1120,13 @@ class _FormatAction extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.tooltip,
+    this.isActive = false,
   });
 
   final IconData icon;
   final VoidCallback onTap;
   final String? tooltip;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
@@ -899,7 +1142,9 @@ class _FormatAction extends StatelessWidget {
           child: Icon(
             icon,
             size: 22,
-            color: scheme.onSurface.withValues(alpha: 0.8),
+            color: isActive
+                ? scheme.primary
+                : scheme.onSurface.withValues(alpha: 0.8),
           ),
         ),
       ),
@@ -921,6 +1166,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
     required this.onTogglePin,
     required this.onExport,
     required this.onMoreOptions,
+    required this.canUndo,
+    required this.canRedo,
+    required this.onUndo,
+    required this.onRedo,
   });
 
   final ColorScheme noteScheme;
@@ -935,6 +1184,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
   final VoidCallback onTogglePin;
   final VoidCallback onExport;
   final VoidCallback onMoreOptions;
+  final bool canUndo;
+  final bool canRedo;
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
 
   @override
   Widget build(BuildContext context) {
@@ -980,7 +1233,17 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                 ],
               ),
             ),
-            if (isNarrow)
+            if (isNarrow) ...[
+              IconButton(
+                tooltip: 'Undo',
+                onPressed: canUndo ? onUndo : null,
+                icon: const Icon(Icons.undo_rounded),
+              ),
+              IconButton(
+                tooltip: 'Redo',
+                onPressed: canRedo ? onRedo : null,
+                icon: const Icon(Icons.redo_rounded),
+              ),
               PopupMenuButton<String>(
                 icon: Icon(
                   Icons.more_horiz_rounded,
@@ -1065,7 +1328,17 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                   ),
                 ],
               )
-            else ...[
+            ] else ...[
+              IconButton(
+                tooltip: 'Undo',
+                onPressed: canUndo ? onUndo : null,
+                icon: const Icon(Icons.undo_rounded),
+              ),
+              IconButton(
+                tooltip: 'Redo',
+                onPressed: canRedo ? onRedo : null,
+                icon: const Icon(Icons.redo_rounded),
+              ),
               IconButton(
                 tooltip: 'Insert image',
                 icon: Icon(
@@ -1122,10 +1395,12 @@ class NoteExportCapture extends StatelessWidget {
     super.key,
     required this.note,
     required this.editorState,
+    this.checklistItems = const [],
   });
 
   final Note note;
   final EditorState editorState;
+  final List<ChecklistItem> checklistItems;
 
   ColorScheme _noteScheme(BuildContext context) =>
       noteSchemeFor(context, note.colorSeed);
@@ -1213,6 +1488,22 @@ class NoteExportCapture extends StatelessWidget {
                   );
                 }
               }
+              if (type == DoodleBlockKeys.type) {
+                final path =
+                    node.attributes[DoodleBlockKeys.thumbnailPath] as String?;
+                if (path != null &&
+                    path.isNotEmpty &&
+                    File(path).existsSync()) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(File(path), width: 300),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }
               final delta = node.delta;
               if (delta != null && delta.isNotEmpty) {
                 String text = '';
@@ -1235,6 +1526,40 @@ class NoteExportCapture extends StatelessWidget {
               }
               return const SizedBox.shrink();
             }),
+            if (checklistItems.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ...checklistItems.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        item.checked
+                            ? Icons.check_circle
+                            : Icons.circle_outlined,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          item.itemText,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: scheme.onSurfaceVariant,
+                            height: 1.5,
+                            decoration: item.checked
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 32),
             Divider(color: scheme.outlineVariant.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
@@ -1269,4 +1594,93 @@ class _PersistSnapshot {
   final String deltaJson;
   final String plainText;
   final AppDatabase db;
+}
+
+/// Bottom sheet showing a preview of the exported PNG with share/save actions.
+class _ExportPreviewSheet extends StatelessWidget {
+  const _ExportPreviewSheet({required this.bytes, required this.noteTitle});
+
+  final Uint8List bytes;
+  final String noteTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: scheme.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Export Preview',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 400),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: SingleChildScrollView(
+                child: Image.memory(
+                  bytes,
+                  fit: BoxFit.fitWidth,
+                  width: double.infinity,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'share'),
+                  icon: const Icon(Icons.ios_share_rounded, size: 18),
+                  label: const Text('Share'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.pop(context, 'gallery'),
+                  icon: const Icon(Icons.save_alt_rounded, size: 18),
+                  label: const Text('Save to Gallery'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
 }

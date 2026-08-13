@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,6 +64,21 @@ class BiometricGate extends ChangeNotifier {
       _lastBackgroundedAt = null;
     }
     notifyListeners();
+  }
+
+  /// Enables the lock only after the platform can complete an authentication.
+  /// This prevents Windows machines without Windows Hello from trapping users
+  /// behind a lock they cannot satisfy.
+  Future<bool> enableWithVerification() async {
+    if (_enabled) return true;
+    final ok = await _authenticator();
+    if (!ok) return false;
+    _enabled = true;
+    _state = AppLockState.unlocked;
+    _hasAuthenticated = true;
+    await _save();
+    notifyListeners();
+    return true;
   }
 
   void setAutoLockDuration(AutoLockDuration value) {
@@ -180,11 +195,26 @@ extension _AutoLockDurationExt on AutoLockDuration {
 
 Future<bool> _defaultAuthenticator() {
   final auth = LocalAuthentication();
-  return auth.authenticate(
-    localizedReason: 'Unlock your vault',
-    biometricOnly: true,
-    persistAcrossBackgrounding: true,
-  );
+  final isWindows = defaultTargetPlatform == TargetPlatform.windows;
+  return () async {
+    try {
+      if (!await auth.isDeviceSupported()) return false;
+      if (!isWindows && (await auth.getAvailableBiometrics()).isEmpty) {
+        return false;
+      }
+      return auth.authenticate(
+        localizedReason: isWindows
+            ? 'Use Windows Hello to unlock your vault'
+            : 'Unlock your vault',
+        // Windows Hello may be configured with a PIN, so biometricOnly would
+        // incorrectly reject a valid Windows Hello credential.
+        biometricOnly: !isWindows,
+        persistAcrossBackgrounding: true,
+      );
+    } catch (_) {
+      return false;
+    }
+  }();
 }
 
 final biometricGateProvider = ChangeNotifierProvider<BiometricGate>((ref) {

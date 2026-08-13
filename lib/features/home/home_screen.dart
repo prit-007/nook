@@ -10,6 +10,7 @@ import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/selection_providers.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/widgets/parallax_card.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import 'providers/notes_list_provider.dart';
@@ -81,7 +82,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // The shell already offsets the body by the full dock height (72 + 24 +
     // bottom inset), so the FAB only needs a small gap above the body's bottom
     // edge — no need to re-add the dock height here.
-    final safeBottom = MediaQuery.paddingOf(context).bottom + 16;
+    final safeBottom = DockSafeArea.bottomOf(context) + 16;
 
     return Scaffold(
       backgroundColor: scheme.surface,

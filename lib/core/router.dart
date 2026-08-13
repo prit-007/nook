@@ -4,10 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/home/home_screen.dart';
 import '../../features/home/search_screen.dart';
-import '../../features/notebooks/notebooks_screen.dart';
 import '../../features/notebooks/notebook_detail_screen.dart';
-import '../../features/tags/tags_screen.dart';
 import '../../features/tags/tag_detail_screen.dart';
+import '../../features/collections/collections_screen.dart';
 import '../../features/editor/note_editor_screen.dart';
 import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/trash/trash_screen.dart';
@@ -28,6 +27,7 @@ import '../../features/settings/settings_about_screen.dart';
 import '../../features/settings/settings_privacy_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import 'widgets/app_shell.dart';
+import 'providers/navigation_preference.dart';
 
 /// Custom page transition: fade + slight slide up for forward pushes.
 CustomTransitionPage<void> _slideUpTransition(
@@ -77,7 +77,7 @@ CustomTransitionPage<void> _fadeTransition(
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: ref.read(navigationPreferenceProvider.notifier).route,
     routes: [
       GoRoute(
         path: '/',
@@ -107,7 +107,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _fadeTransition(
               context,
               state,
-              const NotebooksScreen(),
+              const CollectionsScreen(initialTab: 0),
             ),
           ),
           GoRoute(
@@ -125,7 +125,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _fadeTransition(
               context,
               state,
-              const TagsScreen(),
+              const CollectionsScreen(initialTab: 1),
             ),
           ),
           GoRoute(

@@ -7,6 +7,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/widgets/dock_safe_area.dart';
 
 class SettingsAppearanceScreen extends ConsumerWidget {
   const SettingsAppearanceScreen({super.key});
@@ -27,7 +28,12 @@ class SettingsAppearanceScreen extends ConsumerWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: [
           const _SectionHeader(title: 'Seed Color Signature'),
           const SizedBox(height: 8),

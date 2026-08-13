@@ -9,6 +9,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/masked_reveal.dart';
 import '../../core/widgets/masked_reveal_text.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
 import '../../data/repositories/tag_repository.dart';
@@ -120,9 +121,11 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      8,
+                      20,
+                      DockSafeArea.bottomOf(context) + 72,
                     ),
                     sliver: SliverGrid(
                       gridDelegate:

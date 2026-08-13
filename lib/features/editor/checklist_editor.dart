@@ -3,17 +3,27 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart' show Value;
 
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/note_theme_scope.dart';
 import '../../data/repositories/checklist_item_repository.dart';
+import '../../data/database.dart';
+import '../../data/repositories/attachment_repository.dart';
 
 /// A standalone checklist editor for checklist-type notes.
 /// Shows a list of items with checkboxes, add item field, and delete.
 class ChecklistEditor extends ConsumerStatefulWidget {
-  const ChecklistEditor({super.key, required this.noteId});
+  const ChecklistEditor({
+    super.key,
+    required this.noteId,
+    this.onInsertImage,
+    this.onInsertDoodle,
+  });
 
   final String noteId;
+  final Future<void> Function()? onInsertImage;
+  final Future<void> Function()? onInsertDoodle;
 
   @override
   ConsumerState<ChecklistEditor> createState() => _ChecklistEditorState();
@@ -25,6 +35,9 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   List<_ChecklistItemView> _items = [];
   List<_ChecklistItemView> _archivedItems = [];
   bool _loading = true;
+  List<Attachment> _attachments = [];
+  final List<List<_ChecklistItemView>> _undoStack = [];
+  final List<List<_ChecklistItemView>> _redoStack = [];
 
   @override
   void initState() {
@@ -42,6 +55,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   Future<void> _load() async {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
+    final attachmentRepo = AttachmentRepository(db);
     final items = await repo.getItems(widget.noteId);
     if (mounted) {
       setState(() {
@@ -66,10 +80,15 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
         _loading = false;
       });
     }
+    final attachments = await attachmentRepo.getAllForNote(widget.noteId);
+    if (mounted) {
+      setState(() => _attachments = attachments);
+    }
   }
 
   Future<void> _addItem(String text) async {
     if (text.trim().isEmpty) return;
+    _recordHistory();
     unawaited(HapticFeedback.mediumImpact());
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
@@ -81,6 +100,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
 
   Future<void> _toggleItem(String id) async {
     unawaited(HapticFeedback.lightImpact());
+    _recordHistory();
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.toggleChecked(id);
@@ -89,10 +109,49 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
 
   Future<void> _deleteItem(String id) async {
     unawaited(HapticFeedback.selectionClick());
+    _recordHistory();
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.deleteItem(id);
     await _load();
+  }
+
+  List<_ChecklistItemView> get _allItems => [..._items, ..._archivedItems]
+    ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+  void _recordHistory() {
+    _undoStack.add(_allItems.map((item) => item.copy()).toList());
+    _redoStack.clear();
+  }
+
+  Future<void> _restore(List<_ChecklistItemView> snapshot) async {
+    final repo = ChecklistItemRepository(ref.read(databaseProvider));
+    await repo.replaceItems(
+      widget.noteId,
+      [
+        for (var index = 0; index < snapshot.length; index++)
+          ChecklistItemsCompanion.insert(
+            id: Value(snapshot[index].id),
+            noteId: widget.noteId,
+            itemText: snapshot[index].text,
+            checked: Value(snapshot[index].checked),
+            sortOrder: Value(index),
+          ),
+      ],
+    );
+    await _load();
+  }
+
+  Future<void> _undo() async {
+    if (_undoStack.isEmpty) return;
+    _redoStack.add(_allItems.map((item) => item.copy()).toList());
+    await _restore(_undoStack.removeLast());
+  }
+
+  Future<void> _redo() async {
+    if (_redoStack.isEmpty) return;
+    _undoStack.add(_allItems.map((item) => item.copy()).toList());
+    await _restore(_redoStack.removeLast());
   }
 
   @override
@@ -109,41 +168,53 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
       body: Column(
         children: [
           // 1. Dynamic Progress Capsule
-          if (totalCount > 0)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      '$checkedCount of $totalCount Done',
-                      style: textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    totalCount == 0
+                        ? 'No tasks yet'
+                        : '$checkedCount of $totalCount Done',
+                    style: textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: scheme.primary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: AnimatedProgressBar(
+                        value: progress,
                         color: scheme.primary,
-                        letterSpacing: 0.5,
+                        backgroundColor: scheme.surfaceContainerLow,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: AnimatedProgressBar(
-                          value: progress,
-                          color: scheme.primary,
-                          backgroundColor: scheme.surfaceContainerLow,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    tooltip: 'Undo',
+                    onPressed: _undoStack.isEmpty ? null : _undo,
+                    icon: const Icon(Icons.undo_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  IconButton(
+                    tooltip: 'Redo',
+                    onPressed: _redoStack.isEmpty ? null : _redo,
+                    icon: const Icon(Icons.redo_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
               ),
             ),
+          ),
 
           // 2. Reorderable Task List
           Expanded(
@@ -161,6 +232,14 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                       )
                     : CustomScrollView(
                         slivers: [
+                          if (_attachments.isNotEmpty)
+                            SliverToBoxAdapter(
+                              child: _ChecklistMediaStrip(
+                                attachments: _attachments,
+                                onInsertImage: widget.onInsertImage,
+                                onInsertDoodle: widget.onInsertDoodle,
+                              ),
+                            ),
                           SliverPadding(
                             padding: EdgeInsets.only(
                               top: 8,
@@ -422,6 +501,13 @@ class _ChecklistItemView {
   final String text;
   final bool checked;
   final int sortOrder;
+
+  _ChecklistItemView copy() => _ChecklistItemView(
+        id: id,
+        text: text,
+        checked: checked,
+        sortOrder: sortOrder,
+      );
 }
 
 class _ChecklistTile extends StatelessWidget {
@@ -654,6 +740,81 @@ class _SwipeToCheckBackground extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Horizontal strip showing checklist attachments with add buttons.
+class _ChecklistMediaStrip extends StatelessWidget {
+  const _ChecklistMediaStrip({
+    required this.attachments,
+    this.onInsertImage,
+    this.onInsertDoodle,
+  });
+
+  final List<dynamic> attachments;
+  final Future<void> Function()? onInsertImage;
+  final Future<void> Function()? onInsertDoodle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = NoteThemeScope.of(context);
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        itemCount: attachments.length +
+            (onInsertImage != null ? 1 : 0) +
+            (onInsertDoodle != null ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          if (index < attachments.length) {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 84,
+                height: 84,
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                child: Icon(
+                  Icons.image_outlined,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            );
+          }
+          final isImage = index == attachments.length;
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              if (isImage) {
+                onInsertImage?.call();
+              } else {
+                onInsertDoodle?.call();
+              }
+            },
+            child: Container(
+              width: 84,
+              height: 84,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                isImage
+                    ? Icons.add_photo_alternate_rounded
+                    : Icons.draw_rounded,
+                color: scheme.primary,
+                size: 24,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -12,6 +12,7 @@ import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/masked_reveal.dart';
 import '../../core/widgets/masked_reveal_text.dart';
 import '../../data/database.dart';
@@ -20,7 +21,9 @@ import 'widgets/tag_detail_pane.dart';
 
 /// Tags list screen — tactile color pills with a frosted-glass create sheet.
 class TagsScreen extends ConsumerStatefulWidget {
-  const TagsScreen({super.key});
+  const TagsScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   ConsumerState<TagsScreen> createState() => _TagsScreenState();
@@ -53,6 +56,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
@@ -303,13 +307,16 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
 
     return Scaffold(
       backgroundColor: scheme.surface,
-      appBar: AppBar(
-        title: const MaskedRevealText(
-          'Tags',
-          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
-        ),
-        backgroundColor: Colors.transparent,
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const MaskedRevealText(
+                'Tags',
+                style:
+                    TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+              ),
+              backgroundColor: Colors.transparent,
+            ),
       body: _loading
           ? Center(child: CircularProgressIndicator(color: scheme.primary))
           : isDualPane
@@ -328,7 +335,9 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               : grid,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 24),
+        padding: EdgeInsets.only(
+          bottom: DockSafeArea.bottomOf(context) + 16,
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(32),
           child: BackdropFilter(
@@ -365,7 +374,12 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: [
           Wrap(
             spacing: 12,

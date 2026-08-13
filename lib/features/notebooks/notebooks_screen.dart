@@ -12,6 +12,7 @@ import '../../core/providers/selection_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/parallax_card.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
 import 'widgets/notebook_card.dart';
@@ -19,7 +20,9 @@ import 'widgets/notebook_detail_pane.dart';
 
 /// Notebooks list screen — grid of notebook cards with CRUD.
 class NotebooksScreen extends ConsumerStatefulWidget {
-  const NotebooksScreen({super.key});
+  const NotebooksScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   ConsumerState<NotebooksScreen> createState() => _NotebooksScreenState();
@@ -55,6 +58,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
@@ -254,7 +258,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
     final grid = _notebooksGrid(scheme, isDualPane);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notebooks')),
+      appBar: widget.embedded ? null : AppBar(title: const Text('Notebooks')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : isDualPane
@@ -273,10 +277,9 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
               : grid,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
-        // The shell's body padding already clears the frosted dock on mobile,
-        // so endFloat's built-in margin is all we need; lift a bit more on
-        // wide layouts where no dock reserves space below.
-        padding: EdgeInsets.only(bottom: isDualPane ? 24 : 0),
+        padding: EdgeInsets.only(
+          bottom: DockSafeArea.bottomOf(context) + 16,
+        ),
         child: FloatingActionButton(
           onPressed: _showCreateSheet,
           tooltip: 'Create notebook',
@@ -298,7 +301,12 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: GridView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           mainAxisSpacing: 16,

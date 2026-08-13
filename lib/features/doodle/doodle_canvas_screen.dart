@@ -181,6 +181,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
     final noteScheme = noteSchemeFor(context, _noteColorSeed);
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return Container(

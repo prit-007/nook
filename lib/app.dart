@@ -37,6 +37,9 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
         gate.onAppResumed();
       case AppLifecycleState.paused:
         gate.onAppPaused();
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        gate.onAppPaused();
       default:
         break;
     }

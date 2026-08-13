@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../providers/navigation_preference.dart';
+import 'dock_safe_area.dart';
+
 /// Responsive navigation shell with magical micro-animations.
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child});
@@ -24,14 +27,19 @@ class AppShell extends StatelessWidget {
     HapticFeedback.selectionClick();
     switch (index) {
       case 0:
+        NavigationPreference.rememberPath('/home');
         context.go('/home');
       case 1:
+        NavigationPreference.rememberPath('/notebooks');
         context.go('/notebooks');
       case 2:
+        NavigationPreference.rememberPath('/tags');
         context.go('/tags');
       case 3:
+        NavigationPreference.rememberPath('/trash');
         context.go('/trash');
       case 4:
+        NavigationPreference.rememberPath('/settings');
         context.go('/settings');
     }
   }
@@ -81,13 +89,10 @@ class _MobileShell extends StatelessWidget {
 
     return Scaffold(
       extendBody: true,
-      body: Padding(
-        padding: EdgeInsets.only(bottom: dockHeight),
-        child: MediaQuery.removePadding(
-          context: context,
-          removeBottom: true,
-          child: child,
-        ),
+      backgroundColor: Colors.transparent,
+      body: DockSafeArea(
+        bottom: dockHeight,
+        child: child,
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(

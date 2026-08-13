@@ -15,20 +15,21 @@ class ChecklistItemRepository {
     required String noteId,
     required String text,
     int? sortOrder,
+    String? id,
   }) async {
-    final id = _uuid.v4();
+    final itemId = id ?? _uuid.v4();
     final order = sortOrder ?? await _nextSortOrder(noteId);
 
     await _db.into(_db.checklistItems).insert(
           ChecklistItemsCompanion.insert(
-            id: Value(id),
+            id: Value(itemId),
             noteId: noteId,
             itemText: text,
             sortOrder: Value(order),
           ),
         );
 
-    final item = await getItemById(id);
+    final item = await getItemById(itemId);
     return item!;
   }
 
@@ -71,6 +72,20 @@ class ChecklistItemRepository {
     await (_db.delete(_db.checklistItems)
           ..where((t) => t.noteId.equals(noteId)))
         .go();
+  }
+
+  Future<void> replaceItems(
+    String noteId,
+    List<ChecklistItemsCompanion> items,
+  ) async {
+    await _db.transaction(() async {
+      await (_db.delete(_db.checklistItems)
+            ..where((t) => t.noteId.equals(noteId)))
+          .go();
+      for (final item in items) {
+        await _db.into(_db.checklistItems).insert(item);
+      }
+    });
   }
 
   /// Reorders items by updating their sortOrder to match the given order.

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/masked_reveal.dart';
 import '../../core/widgets/masked_reveal_text.dart';
 import '../../core/widgets/parallax_card.dart';
@@ -81,7 +82,12 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
                   animate: false,
                 )
               : GridView.builder(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.fromLTRB(
+                    12,
+                    12,
+                    12,
+                    DockSafeArea.bottomOf(context) + 72,
+                  ),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 10,

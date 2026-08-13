@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../data/repositories/sync_log_repository.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
@@ -54,6 +55,9 @@ class SettingsSyncDevicesScreen extends ConsumerWidget {
                   ..sort((a, b) => b.lastSync.compareTo(a.lastSync));
 
                 return ListView.builder(
+                  padding: EdgeInsets.only(
+                    bottom: DockSafeArea.bottomOf(context) + 72,
+                  ),
                   itemCount: deviceList.length,
                   itemBuilder: (context, index) {
                     final device = deviceList[index];

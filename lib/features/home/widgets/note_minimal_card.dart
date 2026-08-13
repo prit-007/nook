@@ -2,24 +2,58 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
+import '../../../data/repositories/checklist_item_repository.dart';
 import '../../../data/tables/notes.dart';
 import 'note_quick_actions_sheet.dart';
 
-class NoteMinimalCard extends StatefulWidget {
+class NoteMinimalCard extends ConsumerStatefulWidget {
   const NoteMinimalCard({super.key, required this.note, this.onTap});
 
   final Note note;
   final VoidCallback? onTap;
 
   @override
-  State<NoteMinimalCard> createState() => _NoteMinimalCardState();
+  ConsumerState<NoteMinimalCard> createState() => _NoteMinimalCardState();
 }
 
-class _NoteMinimalCardState extends State<NoteMinimalCard> {
+class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
   bool _isPressed = false;
+  List<ChecklistItem> _checklistItems = [];
+  bool _loadingChecklist = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.note.type == NoteType.checklist) {
+      _loadChecklistItems();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant NoteMinimalCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.note.id != widget.note.id &&
+        widget.note.type == NoteType.checklist) {
+      _loadChecklistItems();
+    }
+  }
+
+  Future<void> _loadChecklistItems() async {
+    _loadingChecklist = true;
+    final db = ref.read(databaseProvider);
+    final items = await ChecklistItemRepository(db).getItems(widget.note.id);
+    if (mounted) {
+      setState(() {
+        _checklistItems = items;
+        _loadingChecklist = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,20 +130,39 @@ class _NoteMinimalCardState extends State<NoteMinimalCard> {
                       const SizedBox(height: 12),
                       if (widget.note.locked)
                         _lockedPreview(cardScheme)
-                      else
+                      else ...[
                         Text(
                           widget.note.title.isEmpty
-                              ? (widget.note.plainText ?? 'Untitled')
-                              : (widget.note.plainText ?? widget.note.title),
+                              ? 'Untitled'
+                              : widget.note.title,
                           style: TextStyle(
                             fontSize: 15,
                             height: 1.45,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                             color: cardScheme.onSurface,
                           ),
-                          maxLines: 6,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if (widget.note.type == NoteType.checklist) ...[
+                          const SizedBox(height: 8),
+                          _checklistPreview(cardScheme),
+                        ] else ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.note.plainText ?? '',
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.45,
+                              fontWeight: FontWeight.w400,
+                              color:
+                                  cardScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
                     ],
                   ),
                 ],
@@ -134,6 +187,114 @@ class _NoteMinimalCardState extends State<NoteMinimalCard> {
         NoteType.mixed => 'Mixed',
         NoteType.text => 'Quick Thought',
       };
+
+  Widget _checklistPreview(ColorScheme scheme) {
+    if (_loadingChecklist) {
+      return Center(
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: scheme.primary.withValues(alpha: 0.5),
+          ),
+        ),
+      );
+    }
+
+    if (_checklistItems.isEmpty) {
+      return Text(
+        'No tasks yet',
+        style: TextStyle(
+          fontSize: 15,
+          height: 1.45,
+          fontWeight: FontWeight.w500,
+          color: scheme.onSurface.withValues(alpha: 0.4),
+        ),
+      );
+    }
+
+    final checkedCount = _checklistItems.where((i) => i.checked).length;
+    final totalCount = _checklistItems.length;
+    final displayItems = _checklistItems.take(5).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Progress
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: totalCount > 0 ? checkedCount / totalCount : 0,
+                  minHeight: 4,
+                  backgroundColor: scheme.surfaceContainerHighest,
+                  color: scheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$checkedCount/$totalCount',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: scheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Items
+        for (final item in displayItems)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              children: [
+                Icon(
+                  item.checked
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked,
+                  size: 14,
+                  color: item.checked
+                      ? scheme.primary
+                      : scheme.onSurface.withValues(alpha: 0.4),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    item.itemText,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: item.checked
+                          ? scheme.onSurface.withValues(alpha: 0.35)
+                          : scheme.onSurface,
+                      decoration:
+                          item.checked ? TextDecoration.lineThrough : null,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (totalCount > 5)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '+${totalCount - 5} more',
+              style: TextStyle(
+                fontSize: 11,
+                color: scheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   Widget _lockedPreview(ColorScheme scheme) {
     return ClipRRect(
