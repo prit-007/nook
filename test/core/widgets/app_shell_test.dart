@@ -229,5 +229,18 @@ void main() {
 
       expect(find.byIcon(Icons.bolt_rounded), findsOneWidget);
     });
+
+    testWidgets('rail scrolls on short windows without overflow',
+        (tester) async {
+      await tester.pumpWidget(
+        buildShell(screenWidth: 800, screenHeight: 300),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      expect(find.text('Home'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
+    });
   });
 }

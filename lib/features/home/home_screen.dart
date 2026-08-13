@@ -78,6 +78,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
     final animate = _animationsAllowed(context);
 
+    // Dynamic offset so the FAB clears the frosted dock + safe area.
+    // 96 = dock visual height (72) + vertical padding (24).
+    final safeBottom = MediaQuery.paddingOf(context).bottom + 96;
+
     return Scaffold(
       backgroundColor: scheme.surface,
       body: Stack(
@@ -105,6 +109,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 counts: counts,
                 isWide: isWide,
                 animate: animate,
+                safeBottom: safeBottom,
               );
 
               if (isDualPane) {
@@ -125,6 +130,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
           MorphingEditorialFab(
+            mobileBottomOffset: safeBottom + 16,
             onCreateNote: (type) async {
               await HapticFeedback.mediumImpact();
               if (context.mounted) {
@@ -144,6 +150,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required Map<NoteType?, int> counts,
     required bool isWide,
     required bool animate,
+    required double safeBottom,
   }) {
     final scheme = Theme.of(context).colorScheme;
 
@@ -302,7 +309,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _buildWideGrid(filtered)
           else
             _buildNarrowStream(filtered),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          SliverToBoxAdapter(child: SizedBox(height: safeBottom + 48)),
         ],
       ),
     );

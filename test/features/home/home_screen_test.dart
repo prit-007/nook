@@ -405,4 +405,16 @@ void main() {
     );
     expect(find.text('Grocery Run'), findsOneWidget);
   });
+
+  testWidgets('FAB receives mobileBottomOffset based on screen padding',
+      (tester) async {
+    await tester.pumpWidget(buildHome(notes: []));
+    await tester.pumpAndSettle();
+
+    final fab = tester.widget<MorphingEditorialFab>(
+      find.byType(MorphingEditorialFab),
+    );
+    // Default bottom padding is 0, so safeBottom = 0 + 96 = 96, offset = 96 + 16 = 112
+    expect(fab.mobileBottomOffset, equals(112));
+  });
 }

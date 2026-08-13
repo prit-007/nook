@@ -15,7 +15,7 @@ void main() {
         ),
       ));
 
-      expect(find.byIcon(LucideIcons.penLine), findsOneWidget);
+      expect(find.byIcon(LucideIcons.penLine), findsAtLeastNWidgets(1));
       expect(find.byIcon(LucideIcons.highlighter), findsOneWidget);
       expect(find.byIcon(LucideIcons.eraser), findsOneWidget);
       expect(find.byIcon(LucideIcons.wandSparkles), findsOneWidget);
@@ -84,9 +84,62 @@ void main() {
         ),
       ));
 
-      // Should have at least the default color swatches
+      // 10 color swatches in the extended palette
       final containers = find.byType(GestureDetector);
-      expect(containers, findsAtLeastNWidgets(5));
+      expect(containers, findsAtLeastNWidgets(9));
+    });
+
+    testWidgets('renders stroke width slider', (tester) async {
+      final controller = DoodleController();
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: DoodleToolbar(controller: controller),
+        ),
+      ));
+
+      expect(find.byType(Slider), findsOneWidget);
+    });
+
+    testWidgets('slider changes controller width', (tester) async {
+      final controller = DoodleController();
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: DoodleToolbar(controller: controller),
+        ),
+      ));
+
+      expect(controller.currentWidth, equals(4.0));
+
+      final slider = find.byType(Slider);
+      await tester.drag(slider, const Offset(100, 0));
+      await tester.pumpAndSettle();
+
+      expect(controller.currentWidth, isNot(equals(4.0)));
+    });
+
+    testWidgets('tapping a color swatch updates controller color',
+        (tester) async {
+      final controller = DoodleController();
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: DoodleToolbar(controller: controller),
+        ),
+      ));
+
+      final initialColor = controller.currentColor;
+
+      // Color swatches are inside the SingleChildScrollView, unlike tool buttons
+      final colorSwatches = find.descendant(
+        of: find.byType(SingleChildScrollView),
+        matching: find.byType(GestureDetector),
+      );
+      expect(colorSwatches, findsAtLeastNWidgets(2));
+
+      // Tap the third color swatch (index 2 = Colors.redAccent)
+      await tester.tap(colorSwatches.at(2));
+      await tester.pumpAndSettle();
+
+      expect(controller.currentColor, isNot(equals(initialColor)));
     });
 
     testWidgets('shows clear button', (tester) async {

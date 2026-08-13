@@ -6,44 +6,55 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'doodle_controller.dart';
 
 class DoodleToolbar extends StatelessWidget {
-  const DoodleToolbar({super.key, required this.controller});
+  const DoodleToolbar({
+    super.key,
+    required this.controller,
+    this.noteScheme,
+  });
 
   final DoodleController controller;
+  final ColorScheme? noteScheme;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = noteScheme ?? Theme.of(context).colorScheme;
 
     final colors = [
       scheme.onSurface,
       scheme.surface,
       Colors.redAccent,
-      Colors.blueAccent,
-      Colors.greenAccent,
+      Colors.orangeAccent,
       Colors.amber,
+      Colors.greenAccent,
+      Colors.blueAccent,
+      Colors.indigoAccent,
       Colors.deepPurpleAccent,
+      Colors.pinkAccent,
     ];
 
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
         return ClipRRect(
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(36),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(32),
+                color: (noteScheme?.surfaceContainerHighest ??
+                        scheme.surfaceContainerHighest)
+                    .withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(36),
                 border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
+                  color: (noteScheme?.outlineVariant ?? scheme.outlineVariant)
+                      .withValues(alpha: 0.3),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.1),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+                    color: scheme.shadow.withValues(alpha: 0.15),
+                    blurRadius: 32,
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
@@ -129,41 +140,60 @@ class DoodleToolbar extends StatelessWidget {
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 48,
-                    child: ListView.separated(
-                      shrinkWrap: true,
+                    child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      itemCount: colors.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final color = colors[index];
-                        final isSelected = controller.currentColor == color;
-                        return Semantics(
-                          label: 'Color ${index + 1}',
-                          button: true,
-                          selected: isSelected,
-                          child: GestureDetector(
-                            onTap: () => controller.setCurrentColor(color),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOutBack,
-                              width: isSelected ? 32 : 24,
-                              height: isSelected ? 32 : 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: color,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? scheme.primary
-                                      : scheme.outlineVariant
-                                          .withValues(alpha: 0.5),
-                                  width: isSelected ? 2 : 1,
-                                ),
-                              ),
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < colors.length; i++) ...[
+                            _ColorSwatch(
+                              color: colors[i],
+                              isSelected: controller.currentColor == colors[i],
+                              onTap: () =>
+                                  controller.setCurrentColor(colors[i]),
+                            ),
+                            if (i < colors.length - 1)
+                              const SizedBox(width: 12),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.penLine,
+                        size: 14,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 2,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6,
+                            ),
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 14,
                             ),
                           ),
-                        );
-                      },
-                    ),
+                          child: Slider(
+                            value: controller.currentWidth,
+                            min: 1.0,
+                            max: 20.0,
+                            onChanged: (value) =>
+                                controller.setCurrentWidth(value),
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        LucideIcons.penLine,
+                        size: 24,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -171,6 +201,51 @@ class DoodleToolbar extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ColorSwatch extends StatelessWidget {
+  const _ColorSwatch({
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutBack,
+        width: isSelected ? 36 : 28,
+        height: isSelected ? 36 : 28,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          border: Border.all(
+            color: isSelected
+                ? scheme.primary
+                : scheme.outlineVariant.withValues(alpha: 0.5),
+            width: isSelected ? 3 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+      ),
     );
   }
 }

@@ -15,9 +15,14 @@ class MorphingEditorialFab extends StatefulWidget {
   const MorphingEditorialFab({
     super.key,
     required this.onCreateNote,
+    this.mobileBottomOffset = 130,
   });
 
   final void Function(NoteType type) onCreateNote;
+
+  /// Offset from the bottom edge on compact (mobile) screens.
+  /// Defaults to 130 which clears the frosted dock + safe area.
+  final double mobileBottomOffset;
 
   @override
   State<MorphingEditorialFab> createState() => _MorphingEditorialFabState();
@@ -45,6 +50,7 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
         reduceMotion ? Duration.zero : const Duration(milliseconds: 280);
     final closeDuration =
         reduceMotion ? Duration.zero : const Duration(milliseconds: 200);
+    final isWide = MediaQuery.sizeOf(context).width >= 840;
 
     return Stack(
       children: [
@@ -62,8 +68,8 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
             ),
           ),
         Positioned(
-          right: 16,
-          bottom: 130,
+          right: isWide ? 32 : 16,
+          bottom: isWide ? 32 : widget.mobileBottomOffset,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,

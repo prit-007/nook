@@ -340,40 +340,55 @@ class _WideShell extends StatelessWidget {
                   ),
                 ),
               ),
-              child: NavigationRail(
-                selectedIndex: selectedIndex,
-                onDestinationSelected: onTap,
-                backgroundColor: Colors.transparent,
-                indicatorColor: scheme.primary.withValues(alpha: 0.15),
-                selectedIconTheme: IconThemeData(color: scheme.primary),
-                unselectedIconTheme:
-                    IconThemeData(color: scheme.onSurfaceVariant),
-                selectedLabelTextStyle: TextStyle(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-                unselectedLabelTextStyle: TextStyle(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
-                ),
-                labelType: NavigationRailLabelType.all,
-                leading: Padding(
-                  padding: const EdgeInsets.only(bottom: 24, top: 24),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      shape: BoxShape.circle,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: IntrinsicHeight(
+                        child: NavigationRail(
+                          selectedIndex: selectedIndex,
+                          onDestinationSelected: onTap,
+                          backgroundColor: Colors.transparent,
+                          indicatorColor:
+                              scheme.primary.withValues(alpha: 0.15),
+                          selectedIconTheme:
+                              IconThemeData(color: scheme.primary),
+                          unselectedIconTheme:
+                              IconThemeData(color: scheme.onSurfaceVariant),
+                          selectedLabelTextStyle: TextStyle(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                          unselectedLabelTextStyle: TextStyle(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          labelType: NavigationRailLabelType.all,
+                          leading: Padding(
+                            padding: const EdgeInsets.only(bottom: 24, top: 24),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.bolt_rounded,
+                                size: 28,
+                                color: scheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                          destinations: _destinations,
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      Icons.bolt_rounded,
-                      size: 28,
-                      color: scheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-                destinations: _destinations,
+                  );
+                },
               ),
             ),
           ),
