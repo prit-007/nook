@@ -79,11 +79,10 @@ Future<String> _readOrCreateEncryptionKey() async {
 
 /// Opens the production encrypted database.
 ///
-/// Requires:
-/// - `sqlcipher_flutter_libs` (or the hooks-based sqlite3 + SQLCipher build)
-///   so that `PRAGMA key` is understood by the underlying SQLite binary.
-/// - `flutter_secure_storage` to persist the encryption key in the platform
-///   keystore.
+/// Requires the `sqlite3` build hook to bundle SQLCipher (see `pubspec.yaml`,
+/// `hooks.user_defines.sqlite3.source = sqlcipher`) so that `PRAGMA key` is
+/// understood by the underlying SQLite binary. `flutter_secure_storage`
+/// persists the encryption key in the platform keystore.
 ///
 /// The biometric gate (`local_auth`) should be checked by the app layer
 /// before calling this function, per ADR 0005.

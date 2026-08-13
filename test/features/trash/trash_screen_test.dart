@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
@@ -48,21 +49,21 @@ void main() {
     await tester.pumpWidget(buildTrash());
     await tester.pump();
     await tester.pump();
-    expect(find.text('Trash'), findsOneWidget);
+    expect(find.text('Archive'), findsOneWidget);
   });
 
   testWidgets('shows empty state when no deleted notes', (tester) async {
     await tester.pumpWidget(buildTrash());
     await tester.pump();
     await tester.pump();
-    expect(find.text('Trash is empty'), findsOneWidget);
+    expect(find.text('Archive is empty'), findsOneWidget);
   });
 
   testWidgets('shows empty trash icon', (tester) async {
     await tester.pumpWidget(buildTrash());
     await tester.pump();
     await tester.pump();
-    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    expect(find.byIcon(LucideIcons.trash), findsOneWidget);
   });
 
   testWidgets('displays deleted notes', (tester) async {
@@ -84,7 +85,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.text('Untitled Document'), findsOneWidget);
   });
 
   testWidgets('shows restore button for each note', (tester) async {
@@ -94,7 +95,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byIcon(Icons.restore_from_trash_outlined), findsOneWidget);
+    expect(find.byIcon(LucideIcons.undo2), findsOneWidget);
   });
 
   testWidgets('shows permanent delete button for each note', (tester) async {
@@ -104,39 +105,36 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byIcon(Icons.delete_forever_outlined), findsOneWidget);
+    expect(find.byIcon(LucideIcons.trash), findsOneWidget);
   });
 
   testWidgets('restore removes note from trash list', (tester) async {
     await insertDeletedNote(id: 'del-1', title: 'Restorable');
 
     await tester.pumpWidget(buildTrash());
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.restore_from_trash_outlined));
+    await tester.tap(find.byIcon(LucideIcons.undo2));
     await tester.pump();
     await tester.pump();
 
     expect(find.text('Restorable'), findsNothing);
-    expect(find.text('Trash is empty'), findsOneWidget);
+    expect(find.text('Archive is empty'), findsOneWidget);
   });
 
   testWidgets('permanent delete shows confirmation dialog', (tester) async {
     await insertDeletedNote(id: 'del-1', title: 'Doomed');
 
     await tester.pumpWidget(buildTrash());
-    await tester.pump();
-    await tester.pump();
-
-    await tester.tap(find.byIcon(Icons.delete_forever_outlined));
     await tester.pumpAndSettle();
 
-    expect(find.text('Permanently delete?'), findsOneWidget);
-    // Dialog content contains the title + warning
+    await tester.tap(find.byIcon(LucideIcons.trash));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Permanently Delete?'), findsOneWidget);
     expect(
         find.text(
-            '"Doomed" will be permanently deleted. This cannot be undone.'),
+            '"Doomed" will be destroyed forever. This action cannot be undone.'),
         findsOneWidget);
   });
 
@@ -144,28 +142,26 @@ void main() {
     await insertDeletedNote(id: 'del-1', title: 'Doomed');
 
     await tester.pumpWidget(buildTrash());
-    await tester.pump();
-    await tester.pump();
-
-    await tester.tap(find.byIcon(Icons.delete_forever_outlined));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Delete'));
+    await tester.tap(find.byIcon(LucideIcons.trash));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Destroy'));
     await tester.pump();
     await tester.pump();
 
     expect(find.text('Doomed'), findsNothing);
-    expect(find.text('Trash is empty'), findsOneWidget);
+    expect(find.text('Archive is empty'), findsOneWidget);
   });
 
   testWidgets('cancelling permanent delete keeps note', (tester) async {
     await insertDeletedNote(id: 'del-1', title: 'Safe');
 
     await tester.pumpWidget(buildTrash());
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.delete_forever_outlined));
+    await tester.tap(find.byIcon(LucideIcons.trash));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Cancel'));
@@ -181,7 +177,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byIcon(Icons.delete_sweep_outlined), findsOneWidget);
+    expect(find.byIcon(LucideIcons.flame), findsOneWidget);
   });
 
   testWidgets('empty trash button not shown when empty', (tester) async {
@@ -189,7 +185,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byIcon(Icons.delete_sweep_outlined), findsNothing);
+    expect(find.byIcon(LucideIcons.flame), findsNothing);
   });
 
   testWidgets('empty trash shows confirmation dialog', (tester) async {
@@ -197,13 +193,12 @@ void main() {
     await insertDeletedNote(id: 'del-2', title: 'Note B');
 
     await tester.pumpWidget(buildTrash());
-    await tester.pump();
-    await tester.pump();
-
-    await tester.tap(find.byIcon(Icons.delete_sweep_outlined));
     await tester.pumpAndSettle();
 
-    expect(find.text('Empty trash?'), findsOneWidget);
+    await tester.tap(find.byIcon(LucideIcons.flame));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Empty Archive?'), findsOneWidget);
     expect(find.textContaining('2 notes'), findsOneWidget);
   });
 
@@ -212,17 +207,16 @@ void main() {
     await insertDeletedNote(id: 'del-2', title: 'Note B');
 
     await tester.pumpWidget(buildTrash());
-    await tester.pump();
-    await tester.pump();
-
-    await tester.tap(find.byIcon(Icons.delete_sweep_outlined));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Delete all'));
+    await tester.tap(find.byIcon(LucideIcons.flame));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Empty Trash'));
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Trash is empty'), findsOneWidget);
+    expect(find.text('Archive is empty'), findsOneWidget);
   });
 
   testWidgets('shows relative time for deleted notes', (tester) async {
@@ -232,6 +226,6 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.textContaining('Deleted'), findsOneWidget);
+    expect(find.textContaining('Archived'), findsOneWidget);
   });
 }

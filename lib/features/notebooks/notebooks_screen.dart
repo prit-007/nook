@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
 import 'widgets/notebook_card.dart';
@@ -193,7 +194,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                     itemCount: _notebooks.length,
                     itemBuilder: (context, index) {
                       final nb = _notebooks[index];
-                      return GestureDetector(
+                      final card = GestureDetector(
                         onTap: () => context.push('/notebooks/${nb.id}'),
                         onLongPress: () => _showDeleteDialog(nb),
                         child: NotebookCard(
@@ -201,6 +202,8 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                           noteCount: _counts[nb.id] ?? 0,
                         ),
                       );
+                      if (MediaQuery.disableAnimationsOf(context)) return card;
+                      return ParallaxCard(child: card);
                     },
                   ),
                 ),

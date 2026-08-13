@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-12
+
+Encrypted sync, editorial motion, and multi-platform release builds.
+
+### Sync & security
+- End-to-end encryption for device-to-device sync: ECDH key exchange plus
+  AES-GCM session cipher (`cryptography`/`pointycastle`), integrated into the
+  TCP sync transport.
+- PIN pairing screens rebuilt on `pin_code_fields` — the six-digit code now
+  renders in a tactile, tap-to-copy field on both the sender and receiver.
+- **Vault encryption at rest is now real.** The `sqlite3` build hook bundles
+  the SQLCipher library, so `PRAGMA key` actually encrypts the on-disk
+  database. Previously the plain `sqlite3` build silently ignored the pragma
+  and wrote plaintext; the no-op `sqlcipher_flutter_libs`/`sqlite3_flutter_libs`
+  shims are removed. New installs start encrypted; existing pre-0.7.1 vault
+  files are not readable and should be re-imported.
+
+### Editor & UI
+- GSAP-style masked-reveal macro-typography: titles on tags, trash, and
+  notebook detail slide up from an invisible baseline mask.
+- Staggered masked entrances for tag pills, trash rows, and note grids.
+- Parallax card motion on home, tag, and notebook card grids — cards drift
+  from their grid slot as you scroll, giving the layout physical weight.
+  All animation respects the reduce-motion preference.
+
+### Tooling
+- CI publishes release artifacts per Android ABI (`--split-per-abi`), plus a
+  zipped Windows build and an unsigned iOS build, assembled into a single
+  GitHub release whose body is generated from this changelog.
+- Version bumped to 0.7.1+1.
+
 ## [0.7.0] - 2026-08-12
 
 Major reliability and correctness release: a deep bug sweep across the sync

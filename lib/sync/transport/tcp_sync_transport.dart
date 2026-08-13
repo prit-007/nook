@@ -8,11 +8,15 @@ import 'package:bonsoir/bonsoir.dart';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
+import '../crypto/sync_session_cipher.dart';
 import '../protocol/sync_bundle.dart';
 import 'sync_transport.dart';
 
 /// mDNS service type for Nook sync.
 const String kNookSyncServiceType = '_nook-sync._tcp';
+
+/// Protocol version with mandatory E2E encryption (ECDH + AES-256-GCM).
+const String kSyncProtocolVersion = '1.1';
 
 /// TCP-based sync transport using mDNS for discovery.
 ///
@@ -81,6 +85,16 @@ class TcpSyncTransport implements SyncTransport {
   /// Serializes frame writes per socket so two concurrent [socket.add] calls
   /// can never interleave length prefixes and payloads on the wire.
   final Map<Socket, _SocketWriteQueue> _writeQueues = {};
+
+  /// E2E encryption session (ECDH key exchange + AES-256-GCM).
+  ///
+  /// Null until the handshake begins; frames are plaintext only for the
+  /// identity exchange and become encrypted once both public keys are known.
+  SyncSessionCipher? _sessionCipher;
+
+  /// Pending receiver-side handshakes keyed by connection id, so crypto state
+  /// survives between the hello read and the user's pairing confirmation.
+  final Map<String, SyncSessionCipher> _pendingHandshakes = {};
 
   bool _initialized = false;
 
@@ -239,13 +253,19 @@ class TcpSyncTransport implements SyncTransport {
       _setupSocketListener(_outgoingSocket!);
       _handshaking = true;
 
+      // Begin the E2E handshake: generate an ephemeral ECDH key pair.
+      final session = SyncSessionCipher();
+      _sessionCipher = session;
+      await session.beginHandshake();
+
       // Send our identity (pairing code included when provided).
       await _writeFrame(
           _outgoingSocket!,
           utf8.encode(jsonEncode({
             'deviceId': _localDeviceId,
             'deviceName': _localDeviceName,
-            'protocolVersion': '1.0',
+            'protocolVersion': kSyncProtocolVersion,
+            'publicKey': base64Encode(session.exportPublicKey()),
             if (pairingCode != null) 'pairingCode': pairingCode,
           })));
 
@@ -254,6 +274,25 @@ class TcpSyncTransport implements SyncTransport {
       final remoteIdentity = jsonDecode(identityFrame);
 
       _connectedDeviceId = remoteIdentity['deviceId'] as String;
+
+      // Complete the key exchange using the peer's public key. The identity
+      // frame is processed by [_handleFrame], which completes the exchange as
+      // soon as the public key arrives; this is the fallback for callers that
+      // receive the identity outside the frame pump.
+      final remotePublicKey = remoteIdentity['publicKey'] as String?;
+      if (remotePublicKey == null) {
+        _handshaking = false;
+        _protoFrames.clear();
+        _emitState(const SyncSessionState.error(
+          'Peer does not support encrypted sync',
+        ));
+        await _outgoingSocket?.close();
+        _outgoingSocket = null;
+        return false;
+      }
+      if (!session.isActive) {
+        await session.completeKeyExchange(base64Decode(remotePublicKey));
+      }
 
       // If a pairing code was exchanged, wait for the receiver to confirm it
       // before proceeding.
@@ -310,6 +349,7 @@ class TcpSyncTransport implements SyncTransport {
 
     if (!approve) {
       // Reject — close the socket; the sender will surface an error.
+      _pendingHandshakes.remove(request.connectionId);
       await socket.close();
       _emitState(const SyncSessionState.idle());
       return;
@@ -319,6 +359,7 @@ class TcpSyncTransport implements SyncTransport {
     // tell the sender the pairing was confirmed.
     _incomingSocket = socket;
     _connectedDeviceId = request.remoteDeviceId;
+    _sessionCipher = _pendingHandshakes.remove(request.connectionId);
     _emitState(const SyncSessionState.connected());
     _setupSocketListener(socket);
     await _writeFrame(
@@ -510,14 +551,29 @@ class TcpSyncTransport implements SyncTransport {
           final remoteDeviceName =
               (remoteIdentity['deviceName'] as String?) ?? 'Unknown Device';
           final pairingCode = remoteIdentity['pairingCode'] as String?;
+          final remotePublicKey = remoteIdentity['publicKey'] as String?;
 
-          // Send our identity back.
+          if (remotePublicKey == null) {
+            _emitState(const SyncSessionState.error(
+              'Peer does not support encrypted sync',
+            ));
+            await socket.close();
+            return;
+          }
+
+          // Begin our E2E handshake and complete it with the peer's key.
+          final session = SyncSessionCipher();
+          await session.beginHandshake();
+          await session.completeKeyExchange(base64Decode(remotePublicKey));
+
+          // Send our identity back (with our public key).
           await _writeFrame(
               socket,
               utf8.encode(jsonEncode({
                 'deviceId': _localDeviceId,
                 'deviceName': _localDeviceName,
-                'protocolVersion': '1.0',
+                'protocolVersion': kSyncProtocolVersion,
+                'publicKey': base64Encode(session.exportPublicKey()),
               })));
 
           // Mutual pairing: when a code is exchanged, the receiver must
@@ -525,6 +581,7 @@ class TcpSyncTransport implements SyncTransport {
           if (pairingCode != null) {
             final connectionId = const Uuid().v4();
             _pendingSockets[connectionId] = socket;
+            _pendingHandshakes[connectionId] = session;
             _pairingRequestController.add(PairingRequest(
               remoteDeviceId: remoteDeviceId,
               remoteDeviceName: remoteDeviceName,
@@ -536,6 +593,7 @@ class TcpSyncTransport implements SyncTransport {
 
           _incomingSocket = socket;
           _connectedDeviceId = remoteDeviceId;
+          _sessionCipher = session;
           _emitState(const SyncSessionState.connected());
 
           _setupSocketListener(socket);
@@ -564,7 +622,7 @@ class TcpSyncTransport implements SyncTransport {
     final buffer = <int>[];
 
     _socketSubscription = socket.listen(
-      (data) {
+      (data) async {
         buffer.addAll(data);
 
         while (buffer.length >= 4) {
@@ -585,7 +643,7 @@ class TcpSyncTransport implements SyncTransport {
           final payload = buffer.sublist(4, 4 + expectedLength);
           buffer.removeRange(0, 4 + expectedLength);
 
-          _handleFrame(payload);
+          await _handleFrame(payload);
         }
       },
       onError: (error) {
@@ -599,9 +657,30 @@ class TcpSyncTransport implements SyncTransport {
     );
   }
 
-  void _handleFrame(List<int> payload) {
-    final text = utf8.decode(payload);
+  Future<void> _handleFrame(List<int> payload) async {
+    // Decrypt frames that arrive after the E2E key exchange. Frames received
+    // during the plaintext identity handshake pass through unchanged.
+    final decrypted = await _sessionCipher?.decryptFrame(payload) ?? payload;
+    final text = utf8.decode(decrypted);
     if (_handshaking) {
+      // The identity frame carries the peer's ECDH public key. Complete the
+      // key exchange immediately so that any subsequent (encrypted) frame —
+      // such as pairing_confirm — is decrypted correctly even if it arrives
+      // back-to-back in the same TCP segment.
+      final session = _sessionCipher;
+      if (session != null && !session.isActive) {
+        try {
+          final map = jsonDecode(text);
+          final publicKey = map is Map && map['publicKey'] is String
+              ? map['publicKey'] as String
+              : null;
+          if (publicKey != null) {
+            await session.completeKeyExchange(base64Decode(publicKey));
+          }
+        } on FormatException {
+          // Not a JSON frame; leave key exchange to the caller.
+        }
+      }
       // Resolve the oldest awaiting read, or buffer for a read that is about
       // to be registered.
       if (_protoWaiters.isNotEmpty) {
@@ -615,11 +694,12 @@ class TcpSyncTransport implements SyncTransport {
   }
 
   Future<void> _writeFrame(Socket socket, List<int> payload) async {
+    final encrypted = await _sessionCipher?.encryptFrame(payload) ?? payload;
     final queue = _writeQueues.putIfAbsent(
       socket,
       () => _SocketWriteQueue(),
     );
-    return queue.enqueue(socket, payload);
+    return queue.enqueue(socket, encrypted);
   }
 
   Future<List<int>> _readFrame(Socket socket) async {
@@ -682,6 +762,8 @@ class TcpSyncTransport implements SyncTransport {
       await socket.close().catchError((_) {});
     }
     _pendingSockets.clear();
+    _pendingHandshakes.clear();
+    _sessionCipher = null;
 
     await _outgoingSocket?.close();
     _outgoingSocket = null;
