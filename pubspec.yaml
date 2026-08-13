@@ -1,7 +1,7 @@
 name: nook
 description: "A private, local-first note-taking app. Your notes, your device, yours."
 publish_to: 'none'
-version: 0.7.2+1
+version: 0.7.5+1
 license: GPL-3.0
 
 # Select a SQLCipher build for the sqlite3 native-assets hook so that
@@ -53,6 +53,9 @@ dependencies:
 
   # Nearby sync
   bonsoir: ^7.1.5
+  dart_libp2p: ^1.0.3
+  dart_udx: ^2.0.3
+  mdns_dart: ^2.2.1
   crypto: ^3.0.5
   cbor: ^6.3.4
   archive: ^3.6.1

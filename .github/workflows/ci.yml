@@ -33,7 +33,9 @@ jobs:
       - name: Analyze
         run: flutter analyze
       - name: Run tests
-        run: flutter test --coverage
+        # `-x network` skips the real-mDNS integration test (needs multicast
+        # on a LAN); UDX/libp2p sync is covered hermetically over loopback.
+        run: flutter test --coverage -x network
 
   build-android:
     needs: analyze-and-test

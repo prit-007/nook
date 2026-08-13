@@ -2,7 +2,7 @@
 
 > **How to use:** Check off tasks as you complete them. Each task lists the files to create/modify and the validation command to run. Move the `[ ]` → `[x]` when done. Update the status table at the top of each phase when a phase is fully complete.
 
-**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished in **v0.6.2**. Phase 6.1 accessibility (labels, contrast, touch targets, reduce motion, screen-reader tests) and 6.2 adaptive tablet/foldable layout (home/notebooks/tags master–detail) complete. Physical-device validation and remaining Phase 5 validation steps below.
+**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. The sync transport was rebuilt on **dart_libp2p (UDX)** — stable keystore identity, own mDNS fork (`_syncnotenet._udp` with `devicename=` TXT), per-stream half-close request/response wire envelope with SHA-256 integrity, and categorized outcomes (rejected / timedOut / connectionLost / cancelled / protocol / internal) driving distinct UI treatments. The legacy TCP transport remains as a fallback. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished in **v0.6.2**. Phase 6.1 accessibility (labels, contrast, touch targets, reduce motion, screen-reader tests) and 6.2 adaptive tablet/foldable layout (home/notebooks/tags master–detail) complete. Physical-device validation and remaining Phase 5 validation steps below.
 
 ---
 
@@ -15,7 +15,7 @@
 | 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
-| 5 | Nearby Sync (transport, pairing, merge resolver) | **~60% COMPLETE** | 2026-08-11 | — |
+| 5 | Nearby Sync (transport, pairing, merge resolver) | **~80% COMPLETE** | 2026-08-11 | — |
 | 6 | Hardening for Play Store (accessibility, export, privacy) | **~30% COMPLETE** | 2026-08-13 | — |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
 
@@ -551,11 +551,21 @@
 
 - [x] Define `SyncTransport` / `SyncSession` interfaces
   - File: `lib/sync/transport/sync_transport.dart`
-- [ ] Implement chosen transport (run bake-off first)
-  - File: `lib/sync/transport/nearby_service_transport.dart` (or NSD, or P2P)
-- [ ] Test on physical devices (Pixel + Samsung + Xiaomi)
+  - Adds `initialize()` / `isInitialized` / `getCurrentDeviceId()`, `SyncDevice.multiaddresses`, and `SyncOutcomeCategory` (rejected | timedOut | connectionLost | cancelled | protocol | internal)
+- [x] Implement libp2p UDX transport (default)
+  - File: `lib/sync/transport/libp2p_sync_transport.dart`
+  - dart_libp2p + UDX + Noise + Yamux; one stream per transaction with half-close request/response (`[4B len][32B SHA-256][CBOR]` envelope)
+  - Stable identity via Ed25519 seed in keystore: `lib/sync/crypto/identity_store.dart`
+  - Wire envelope codec: `lib/sync/protocol/sync_message.dart`
+- [x] Keep TCP transport as fallback
+  - File: `lib/sync/transport/tcp_sync_transport.dart` (`useTcpFallback: true`)
+- [x] Fork mDNS discovery for Nook
+  - File: `lib/sync/discovery/nook_mdns_discovery.dart`
+  - Own `_syncnotenet._udp` service, `devicename=` TXT, split advertiseOnly/discoverOnly
 - [x] Write transport integration test
   - File: `test/sync/transport_test.dart`
+  - Loopback UDX: `test/sync/libp2p_transport_test.dart`, `test/sync/libp2p_integration_test.dart`
+- [ ] Test on physical devices (Pixel + Samsung + Xiaomi)
 
 ### 5.2 Sync Protocol
 

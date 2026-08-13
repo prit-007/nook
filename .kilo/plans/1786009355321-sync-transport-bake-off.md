@@ -1,5 +1,13 @@
 # Sync Transport Abstraction & Bake-Off Plan
 
+> **Outcome (2026-08-13):** the bake-off was resolved in favor of **libp2p over
+> UDX** — a pure-Dart libp2p stack (`dart_libp2p ^1.0.3`) with Noise encryption,
+> Yamux multiplexing, stable Ed25519-derived peer identity, and a forked mDNS
+> discovery service (`_syncnotenet._udp`). The legacy TCP transport is kept as a
+> fallback. See `docs/adr/0007-libp2p-udx-sync-transport.md` and
+> `docs/SYNC-LIBP2P-TRANSPORT.md`. None of the three candidate transports below
+> were adopted as the v1 transport.
+
 ## Goal
 Decouple the sync protocol and UI from the underlying network transport, prototype three candidate transports on physical hardware, and select the v1 implementation.
 
