@@ -33,16 +33,26 @@ void main() {
     await db.close();
   });
 
-  Widget buildEditor({String noteId = 'note-1'}) {
+  Widget buildEditor({
+    String noteId = 'note-1',
+    String title = '',
+    ValueChanged<String>? onTitleChanged,
+  }) {
     return ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
       child: MaterialApp(
         home: Scaffold(
-          body: ChecklistEditor(noteId: noteId),
+          body: ChecklistEditor(
+            noteId: noteId,
+            title: title,
+            onTitleChanged: onTitleChanged,
+          ),
         ),
       ),
     );
   }
+
+  Finder addTaskField() => find.widgetWithText(TextField, 'Add a new task...');
 
   /// Tap the morphing input circle to expand it into a full text field.
   Future<void> expandInput(WidgetTester tester) async {
@@ -63,7 +73,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await expandInput(tester);
-    expect(find.byType(TextField), findsOneWidget);
+    expect(addTaskField(), findsOneWidget);
   });
 
   testWidgets('shows hint text in add field after expanding', (tester) async {
@@ -79,11 +89,51 @@ void main() {
     await tester.pumpAndSettle();
 
     await expandInput(tester);
-    await tester.enterText(find.byType(TextField), 'Buy milk');
+    await tester.enterText(addTaskField(), 'Buy milk');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     expect(find.text('Buy milk'), findsOneWidget);
+  });
+
+  testWidgets('renders title field with the current title', (tester) async {
+    await tester.pumpWidget(buildEditor(title: 'Groceries'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Groceries'), findsOneWidget);
+  });
+
+  testWidgets('editing the title reports it through onTitleChanged',
+      (tester) async {
+    String? reported;
+    await tester.pumpWidget(
+      buildEditor(title: 'Old', onTitleChanged: (v) => reported = v),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Old'),
+      'Grocery run',
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(reported, 'Grocery run');
+  });
+
+  testWidgets('extract button pulls the first task into the title',
+      (tester) async {
+    await repo.addItem(noteId: 'note-1', text: 'Buy milk');
+
+    String? reported;
+    await tester.pumpWidget(
+      buildEditor(onTitleChanged: (v) => reported = v),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.text_fields_rounded));
+    await tester.pumpAndSettle();
+
+    expect(reported, 'Buy milk');
+    expect(find.text('Buy milk'), findsNWidgets(2));
   });
 
   testWidgets('displays existing items', (tester) async {

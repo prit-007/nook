@@ -271,4 +271,77 @@ void main() {
       });
     });
   });
+
+  group('canvas scrolling', () {
+    Widget buildCanvasScreen() {
+      return const ProviderScope(
+        child: MaterialApp(
+          home: DoodleCanvasScreen(noteId: 'note-1'),
+        ),
+      );
+    }
+
+    testWidgets('two-finger swipe down scrolls the canvas', (tester) async {
+      tester.view.physicalSize = const Size(800, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildCanvasScreen());
+      await tester.pumpAndSettle();
+
+      final scrollable = find.byType(Scrollable).first;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      // The paper is viewport height + a 160px extend affordance, so there is
+      // always scroll extent available for two-finger pans.
+      expect(position.maxScrollExtent, greaterThan(0));
+
+      final center = tester.getCenter(scrollable);
+      final finger1 =
+          await tester.startGesture(center - const Offset(40, 0), pointer: 1);
+      final finger2 =
+          await tester.startGesture(center + const Offset(40, 0), pointer: 2);
+      await tester.pump();
+
+      // Move both fingers upward to scroll DOWN the paper.
+      await finger1.moveBy(const Offset(0, -120));
+      await finger2.moveBy(const Offset(0, -120));
+      await tester.pump();
+      await finger1.up();
+      await finger2.up();
+      await tester.pumpAndSettle();
+
+      expect(position.pixels, greaterThan(0));
+      // Two-finger scrolling must not leave stray strokes on the canvas.
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('two-finger gesture does not draw a stroke', (tester) async {
+      tester.view.physicalSize = const Size(800, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildCanvasScreen());
+      await tester.pumpAndSettle();
+
+      final scrollable = find.byType(Scrollable).first;
+      final center = tester.getCenter(scrollable);
+      final finger1 =
+          await tester.startGesture(center - const Offset(40, 0), pointer: 1);
+      final finger2 =
+          await tester.startGesture(center + const Offset(40, 0), pointer: 2);
+      await tester.pump();
+
+      await finger1.moveBy(const Offset(0, -80));
+      await finger2.moveBy(const Offset(0, -80));
+      await tester.pump();
+      await finger1.up();
+      await finger2.up();
+      await tester.pumpAndSettle();
+
+      // No strokes should be committed when both fingers are down.
+      final canvas = tester.widget<DoodleCanvas>(find.byType(DoodleCanvas));
+      expect(canvas.controller.strokes, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

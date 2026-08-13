@@ -77,7 +77,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Ideas'), findsOneWidget);
-      expect(find.text('12 notes'), findsOneWidget);
+      expect(find.text('12 entries'), findsOneWidget);
     });
 
     testWidgets('uses singular note label for one note', (tester) async {
@@ -85,7 +85,7 @@ void main() {
       await tester.pumpWidget(buildCard(nb, noteCount: 1));
       await tester.pumpAndSettle();
 
-      expect(find.text('1 note'), findsOneWidget);
+      expect(find.text('1 entry'), findsOneWidget);
     });
 
     testWidgets('renders macro typography kicker', (tester) async {
@@ -94,8 +94,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final nameText = tester.widget<Text>(find.text('Ideas'));
-      expect(nameText.style?.fontSize, 34);
-      expect(nameText.style?.fontWeight, FontWeight.w900);
+      expect(nameText.style?.fontSize, 32);
+      expect(nameText.style?.fontWeight, FontWeight.w800);
       expect(find.text('NOTEBOOK'), findsOneWidget);
     });
 
@@ -116,6 +116,39 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Ideas'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('long name in narrow portrait grid never overflows',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final nb = await insertNotebook(
+        'An extremely long notebook name that wraps onto many lines',
+      );
+      await tester.pumpWidget(ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GridView.builder(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 20,
+                crossAxisSpacing: 20,
+                childAspectRatio: 0.65,
+              ),
+              itemCount: 1,
+              itemBuilder: (_, __) => NotebookCard(notebook: nb, noteCount: 0),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('An extremely long'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

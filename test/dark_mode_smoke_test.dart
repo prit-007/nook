@@ -76,7 +76,7 @@ void main() {
   testWidgets('notebooks screen renders in dark mode', (tester) async {
     await tester.pumpWidget(darkApp(const NotebooksScreen()));
     await tester.pumpAndSettle();
-    expect(find.text('Notebooks'), findsOneWidget);
+    expect(find.text('Collections'), findsOneWidget);
   });
 
   testWidgets('tags screen renders in dark mode', (tester) async {
@@ -119,6 +119,6 @@ void main() {
   testWidgets('notebooks screen renders in AMOLED dark mode', (tester) async {
     await tester.pumpWidget(amoledApp(const NotebooksScreen()));
     await tester.pumpAndSettle();
-    expect(find.text('Notebooks'), findsOneWidget);
+    expect(find.text('Collections'), findsOneWidget);
   });
 }

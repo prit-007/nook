@@ -21,12 +21,16 @@ class ChecklistEditor extends ConsumerStatefulWidget {
   const ChecklistEditor({
     super.key,
     required this.noteId,
+    this.title = '',
+    this.onTitleChanged,
     this.onInsertImage,
     this.onInsertDoodle,
     this.onOpenAttachment,
   });
 
   final String noteId;
+  final String title;
+  final ValueChanged<String>? onTitleChanged;
   final Future<void> Function()? onInsertImage;
   final Future<void> Function()? onInsertDoodle;
   final Future<void> Function(Attachment attachment)? onOpenAttachment;
@@ -38,6 +42,8 @@ class ChecklistEditor extends ConsumerStatefulWidget {
 class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   final _addController = TextEditingController();
   final _addFocusNode = FocusNode();
+  late final TextEditingController _titleController;
+  Timer? _titleDebounce;
   List<_ChecklistItemView> _items = [];
   List<_ChecklistItemView> _archivedItems = [];
   bool _loading = true;
@@ -48,14 +54,43 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   @override
   void initState() {
     super.initState();
+    _titleController = TextEditingController(text: widget.title);
     _load();
   }
 
   @override
   void dispose() {
+    _titleDebounce?.cancel();
+    _titleController.dispose();
     _addController.dispose();
     _addFocusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant ChecklistEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.title != widget.title &&
+        _titleController.text != widget.title) {
+      _titleController.text = widget.title;
+    }
+  }
+
+  void _scheduleTitleSave(String value) {
+    _titleDebounce?.cancel();
+    _titleDebounce = Timer(const Duration(milliseconds: 500), () {
+      widget.onTitleChanged?.call(value.trim());
+    });
+  }
+
+  /// Pulls the first (unchecked) task into the note title.
+  void _extractTitle() {
+    final first = _items.firstOrNull;
+    if (first == null) return;
+    unawaited(HapticFeedback.selectionClick());
+    _titleController.text = first.text;
+    _titleDebounce?.cancel();
+    widget.onTitleChanged?.call(first.text);
   }
 
   Future<void> _load() async {
@@ -100,7 +135,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final repo = ChecklistItemRepository(db);
     final wasEmpty = (await repo.getItems(widget.noteId)).isEmpty;
     await repo.addItem(noteId: widget.noteId, text: text.trim());
-    if (wasEmpty) {
+    if (wasEmpty && widget.title.isEmpty) {
       await NoteRepository(db).updateNote(widget.noteId, title: text.trim());
     }
     _addController.clear();
@@ -243,7 +278,53 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
             ),
           ),
 
-          // 2. Reorderable Task List
+          // 2. Editable Title Row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _titleController,
+                    style: textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Untitled checklist',
+                      hintStyle: textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface.withValues(alpha: 0.3),
+                      ),
+                      filled: false,
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onChanged: _scheduleTitleSave,
+                    onSubmitted: (value) {
+                      _titleDebounce?.cancel();
+                      widget.onTitleChanged?.call(value.trim());
+                    },
+                  ),
+                ),
+                if (_items.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Use first task as title',
+                    icon: Icon(
+                      Icons.text_fields_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _extractTitle,
+                  ),
+              ],
+            ),
+          ),
+
+          // 3. Reorderable Task List
           Expanded(
             child: _loading
                 ? Center(

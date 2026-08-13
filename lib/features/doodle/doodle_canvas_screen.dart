@@ -43,6 +43,7 @@ class DoodleCanvasScreen extends ConsumerStatefulWidget {
 
 class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   late final DoodleController _controller;
+  final ScrollController _scrollController = ScrollController();
 
   DoodleStorage? _storage;
 
@@ -62,7 +63,17 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Scrolls the canvas from a two-finger swipe. [deltaY] is positive when the
+  /// fingers move downward, which scrolls the paper up (towards the top).
+  void _handleTwoFingerPan(double deltaY) {
+    final position = _scrollController.position;
+    if (!position.hasContentDimensions) return;
+    final target = position.pixels - deltaY;
+    _scrollController.jumpTo(target.clamp(0.0, position.maxScrollExtent));
   }
 
   Future<DoodleStorage> _resolveStorage() async {
@@ -243,26 +254,41 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
           return Stack(
             children: [
-              // 1. Interactive Scrollable Canvas (infinite vertical scroll)
+              // 1. Interactive Scrollable Canvas (infinite vertical scroll).
+              // Scrolling is driven by two-finger pans via [DoodleCanvas];
+              // single-finger drags draw instead of scrolling. The scroll view
+              // never claims drag gestures itself, so the first finger always
+              // reaches the drawing [Listener] while a second finger can scroll.
               Positioned.fill(
                 child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
+                  controller: _scrollController,
+                  physics: const NeverScrollableScrollPhysics(),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final baseHeight = MediaQuery.sizeOf(context).height;
+                      const affordanceHeight = 160.0;
                       return SizedBox(
-                        height: baseHeight * _canvasHeightMultiplier,
+                        height: baseHeight * _canvasHeightMultiplier +
+                            affordanceHeight,
                         child: Stack(
                           children: [
-                            DoodleCanvas(
-                              controller: _controller,
-                              noteScheme: noteScheme,
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: baseHeight * _canvasHeightMultiplier,
+                              child: DoodleCanvas(
+                                controller: _controller,
+                                noteScheme: noteScheme,
+                                onTwoFingerPan: _handleTwoFingerPan,
+                              ),
                             ),
                             // Extend Paper Trigger
                             Positioned(
-                              bottom: 120,
+                              bottom: 0,
                               left: 0,
                               right: 0,
+                              height: affordanceHeight,
                               child: Center(
                                 child: AnimatedOpacity(
                                   duration: const Duration(milliseconds: 200),
@@ -275,6 +301,13 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                                       setState(() {
                                         _canvasHeightMultiplier += 0.5;
                                       });
+                                      _scrollController.animateTo(
+                                        _scrollController
+                                            .position.maxScrollExtent,
+                                        duration:
+                                            const Duration(milliseconds: 300),
+                                        curve: Curves.easeOutCubic,
+                                      );
                                     },
                                   ),
                                 ),

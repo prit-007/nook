@@ -20,7 +20,7 @@ class DoodleToolbar extends StatefulWidget {
 }
 
 class _DoodleToolbarState extends State<DoodleToolbar> {
-  bool _expanded = true;
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +44,15 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        // Collapsed: a compact pill carrying only the expand arrow so it can
+        // never obstruct the canvas while drawing.
+        if (!_expanded) {
+          return _CollapsedHandle(
+            noteScheme: noteScheme ?? scheme,
+            onTap: () => setState(() => _expanded = true),
+          );
+        }
+
         return ClipRRect(
           borderRadius: BorderRadius.circular(36),
           child: BackdropFilter(
@@ -62,164 +71,202 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: IconButton(
-                      tooltip:
-                          _expanded ? 'Collapse toolbar' : 'Expand toolbar',
+                      tooltip: 'Collapse toolbar',
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => setState(() => _expanded = !_expanded),
+                      onPressed: () => setState(() => _expanded = false),
                       icon: Icon(
-                        _expanded
-                            ? Icons.keyboard_arrow_down_rounded
-                            : Icons.keyboard_arrow_up_rounded,
+                        Icons.keyboard_arrow_down_rounded,
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ),
-                  if (!_expanded)
-                    const SizedBox(height: 2)
-                  else ...[
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Semantics(
-                          label: 'Pen tool',
-                          button: true,
-                          selected: controller.currentTool == DoodleTool.pen,
-                          child: _TactileTool(
-                            icon: LucideIcons.penLine,
-                            isSelected:
-                                controller.currentTool == DoodleTool.pen,
-                            onTap: () =>
-                                controller.setCurrentTool(DoodleTool.pen),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Semantics(
-                          label: 'Highlighter tool',
-                          button: true,
-                          selected:
-                              controller.currentTool == DoodleTool.highlighter,
-                          child: _TactileTool(
-                            icon: LucideIcons.highlighter,
-                            isSelected: controller.currentTool ==
-                                DoodleTool.highlighter,
-                            onTap: () => controller
-                                .setCurrentTool(DoodleTool.highlighter),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Semantics(
-                          label: 'Eraser tool',
-                          button: true,
-                          selected: controller.currentTool == DoodleTool.eraser,
-                          child: _TactileTool(
-                            icon: LucideIcons.eraser,
-                            isSelected:
-                                controller.currentTool == DoodleTool.eraser,
-                            onTap: () =>
-                                controller.setCurrentTool(DoodleTool.eraser),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Container(
-                            width: 1,
-                            height: 24,
-                            color: scheme.outlineVariant,
-                          ),
-                        ),
-                        Semantics(
-                          label: 'Shape assist',
-                          button: true,
-                          selected: controller.shapeAssistEnabled,
-                          child: _TactileTool(
-                            icon: LucideIcons.wandSparkles,
-                            isSelected: controller.shapeAssistEnabled,
-                            onTap: () => controller.toggleShapeAssist(),
-                            activeColor: scheme.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Semantics(
-                          label: 'Clear all strokes',
-                          button: true,
-                          child: IconButton(
-                            icon: Icon(
-                              LucideIcons.trash2,
-                              color: scheme.error,
-                            ),
-                            onPressed: controller.strokes.isNotEmpty
-                                ? controller.clear
-                                : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 48,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          children: [
-                            for (var i = 0; i < colors.length; i++) ...[
-                              _ColorSwatch(
-                                color: colors[i],
-                                isSelected:
-                                    controller.currentColor == colors[i],
-                                onTap: () =>
-                                    controller.setCurrentColor(colors[i]),
-                              ),
-                              if (i < colors.length - 1)
-                                const SizedBox(width: 12),
-                            ],
-                          ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Semantics(
+                        label: 'Pen tool',
+                        button: true,
+                        selected: controller.currentTool == DoodleTool.pen,
+                        child: _TactileTool(
+                          icon: LucideIcons.penLine,
+                          isSelected: controller.currentTool == DoodleTool.pen,
+                          onTap: () =>
+                              controller.setCurrentTool(DoodleTool.pen),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          LucideIcons.penLine,
-                          size: 14,
-                          color: scheme.onSurfaceVariant,
+                      const SizedBox(width: 8),
+                      Semantics(
+                        label: 'Highlighter tool',
+                        button: true,
+                        selected:
+                            controller.currentTool == DoodleTool.highlighter,
+                        child: _TactileTool(
+                          icon: LucideIcons.highlighter,
+                          isSelected:
+                              controller.currentTool == DoodleTool.highlighter,
+                          onTap: () =>
+                              controller.setCurrentTool(DoodleTool.highlighter),
                         ),
-                        Expanded(
-                          child: SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              trackHeight: 2,
-                              thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 6,
-                              ),
-                              overlayShape: const RoundSliderOverlayShape(
-                                overlayRadius: 14,
-                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      Semantics(
+                        label: 'Eraser tool',
+                        button: true,
+                        selected: controller.currentTool == DoodleTool.eraser,
+                        child: _TactileTool(
+                          icon: LucideIcons.eraser,
+                          isSelected:
+                              controller.currentTool == DoodleTool.eraser,
+                          onTap: () =>
+                              controller.setCurrentTool(DoodleTool.eraser),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Container(
+                          width: 1,
+                          height: 24,
+                          color: scheme.outlineVariant,
+                        ),
+                      ),
+                      Semantics(
+                        label: 'Shape assist',
+                        button: true,
+                        selected: controller.shapeAssistEnabled,
+                        child: _TactileTool(
+                          icon: LucideIcons.wandSparkles,
+                          isSelected: controller.shapeAssistEnabled,
+                          onTap: () => controller.toggleShapeAssist(),
+                          activeColor: scheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Semantics(
+                        label: 'Clear all strokes',
+                        button: true,
+                        child: IconButton(
+                          icon: Icon(
+                            LucideIcons.trash2,
+                            color: scheme.error,
+                          ),
+                          onPressed: controller.strokes.isNotEmpty
+                              ? controller.clear
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 48,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < colors.length; i++) ...[
+                            _ColorSwatch(
+                              color: colors[i],
+                              isSelected: controller.currentColor == colors[i],
+                              onTap: () =>
+                                  controller.setCurrentColor(colors[i]),
                             ),
-                            child: Slider(
-                              value: controller.currentWidth,
-                              min: 1.0,
-                              max: 20.0,
-                              onChanged: (value) =>
-                                  controller.setCurrentWidth(value),
+                            if (i < colors.length - 1)
+                              const SizedBox(width: 12),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.penLine,
+                        size: 14,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 2,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6,
+                            ),
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 14,
                             ),
                           ),
+                          child: Slider(
+                            value: controller.currentWidth,
+                            min: 1.0,
+                            max: 20.0,
+                            onChanged: (value) =>
+                                controller.setCurrentWidth(value),
+                          ),
                         ),
-                        Icon(
-                          LucideIcons.penLine,
-                          size: 24,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      Icon(
+                        LucideIcons.penLine,
+                        size: 24,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+/// Compact floating handle shown while the toolbar is collapsed. It is a tiny
+/// frosted circle carrying only the expand arrow, so it can never cover the
+/// canvas drawing surface.
+class _CollapsedHandle extends StatelessWidget {
+  const _CollapsedHandle({required this.noteScheme, required this.onTap});
+
+  final ColorScheme noteScheme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Expand toolbar',
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: noteScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: noteScheme.outlineVariant.withValues(alpha: 0.25),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.keyboard_arrow_up_rounded,
+              size: 22,
+              color: noteScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

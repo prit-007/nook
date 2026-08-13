@@ -74,19 +74,22 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(32),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(28),
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerHighest
-                          .withValues(alpha: 0.85),
+                          .withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(32),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.2),
+                        width: 0.5,
+                      ),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Drag handle
                         Center(
                           child: Container(
                             width: 36,
@@ -98,47 +101,58 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        const Text(
+                        const SizedBox(height: 24),
+                        Text(
                           'New Tag',
                           style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
+                            fontFamily: 'Playfair Display',
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: -0.5,
+                            color: scheme.onSurface,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
                         TextField(
                           controller: nameController,
                           autofocus: true,
-                          style: const TextStyle(
+                          style: TextStyle(
+                            fontFamily: 'Inter',
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
+                            color: scheme.onSurface,
                           ),
                           decoration: InputDecoration(
                             hintText: 'e.g. Ideas, Journal, Work',
+                            hintStyle: TextStyle(
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.5),
+                            ),
                             filled: true,
-                            fillColor: scheme.surface.withValues(alpha: 0.5),
+                            fillColor: scheme.surface.withValues(alpha: 0.6),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
                             ),
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 16,
+                              horizontal: 20,
+                              vertical: 18,
                             ),
                           ),
                         ),
                         const SizedBox(height: 24),
-                        const Text(
+                        Text(
                           'COLOR THEME',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontFamily: 'Inter',
+                            fontSize: 10,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
+                            letterSpacing: 2.0,
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.7),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
                         Wrap(
                           spacing: 12,
                           runSpacing: 12,
@@ -150,29 +164,31 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                                   setModalState(() => selectedColor = seed);
                                 },
                                 child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  width: 44,
-                                  height: 44,
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeOutBack,
+                                  width: 42,
+                                  height: 42,
                                   decoration: BoxDecoration(
                                     color: seed,
                                     shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected(seed)
-                                          ? scheme.onSurface
-                                          : Colors.transparent,
-                                      width: isSelected(seed) ? 3 : 0,
-                                    ),
                                     boxShadow: isSelected(seed)
                                         ? [
                                             BoxShadow(
                                               color:
-                                                  seed.withValues(alpha: 0.4),
-                                              blurRadius: 12,
+                                                  seed.withValues(alpha: 0.5),
+                                              blurRadius: 10,
                                               offset: const Offset(0, 4),
                                             ),
                                           ]
                                         : null,
                                   ),
+                                  child: isSelected(seed)
+                                      ? const Icon(
+                                          Icons.check_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        )
+                                      : null,
                                 ),
                               ),
                           ],
@@ -181,32 +197,36 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
                                 onPressed: () => Navigator.pop(ctx),
-                                child: const Text(
+                                child: Text(
                                   'Cancel',
-                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: FilledButton(
                                 style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
+                                  backgroundColor: selectedColor,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
+                                  elevation: 0,
                                 ),
                                 onPressed: () async {
                                   if (nameController.text.trim().isEmpty) {
@@ -224,9 +244,10 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                                   await _load();
                                 },
                                 child: const Text(
-                                  'Save Tag',
+                                  'Create Tag',
                                   style: TextStyle(
-                                    fontWeight: FontWeight.w800,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
@@ -254,26 +275,30 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
       builder: (ctx) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
-          backgroundColor: scheme.surfaceContainerHigh,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: const Text(
+          backgroundColor: scheme.surfaceContainerHigh.withValues(alpha: 0.9),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(
             'Delete Tag',
-            style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+            style: TextStyle(
+              fontFamily: 'Playfair Display',
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
+            ),
           ),
           content: Text(
             'Are you sure you want to delete the "${tag.name}" tag? Notes with '
             'this tag will not be deleted.',
-            style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: scheme.onSurfaceVariant,
+              height: 1.5,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -287,10 +312,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                 if (ctx.mounted) Navigator.pop(ctx);
                 await _load();
               },
-              child: const Text(
-                'Delete',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+              child: const Text('Delete'),
             ),
           ],
         ),
@@ -310,12 +332,18 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
       appBar: widget.embedded
           ? null
           : AppBar(
-              title: const MaskedRevealText(
+              title: MaskedRevealText(
                 'Tags',
-                style:
-                    TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                style: TextStyle(
+                  fontFamily: 'Playfair Display',
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: scheme.onSurface,
+                ),
               ),
               backgroundColor: Colors.transparent,
+              centerTitle: false,
             ),
       body: _loading
           ? Center(child: CircularProgressIndicator(color: scheme.primary))
@@ -327,13 +355,13 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                     VerticalDivider(
                       width: 1,
                       thickness: 1,
-                      color: scheme.outlineVariant.withValues(alpha: 0.2),
+                      color: scheme.outlineVariant.withValues(alpha: 0.15),
                     ),
                     const Flexible(flex: 2, child: TagDetailPane()),
                   ],
                 )
               : grid,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
         padding: EdgeInsets.only(
           bottom: DockSafeArea.bottomOf(context) + 16,
@@ -343,13 +371,19 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: FloatingActionButton.extended(
-              backgroundColor: scheme.primary.withValues(alpha: 0.9),
-              foregroundColor: scheme.onPrimary,
+              // Unique hero tag: TagsScreen stays alive next to NotebooksScreen
+              // inside the CollectionsScreen IndexedStack.
+              heroTag: 'fab-tags',
+              backgroundColor: scheme.primaryContainer.withValues(alpha: 0.8),
+              foregroundColor: scheme.onPrimaryContainer,
               elevation: 0,
               icon: const Icon(LucideIcons.plus),
               label: const Text(
                 'New Tag',
-                style: TextStyle(fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               onPressed: _showCreateSheet,
             ),
@@ -370,6 +404,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     }
     return RefreshIndicator(
       onRefresh: _load,
+      color: scheme.primary,
       child: ListView(
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
@@ -378,7 +413,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
           20,
           16,
           20,
-          DockSafeArea.bottomOf(context) + 72,
+          DockSafeArea.bottomOf(context) + 80,
         ),
         children: [
           Wrap(
@@ -391,7 +426,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               );
               return MaskedReveal(
                 delay: Duration(
-                  milliseconds: 150 + (index * 60).clamp(0, 600),
+                  milliseconds: 150 + (index * 40).clamp(0, 600),
                 ),
                 child: _TagPill(
                   tag: tag,
@@ -415,7 +450,6 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   }
 }
 
-/// Formats a [Color] as the app's stored `#RRGGBB` seed string.
 String _hexFromColor(Color color) =>
     '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
 
@@ -450,12 +484,16 @@ class _TagPillState extends State<_TagPill> {
       child: AnimatedScale(
         scale: _isPressed ? 0.95 : 1.0,
         duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutBack,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: widget.color.withValues(alpha: 0.15),
+            color: widget.color.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: widget.color.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: widget.color.withValues(alpha: 0.25),
+              width: 1,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -465,9 +503,11 @@ class _TagPillState extends State<_TagPill> {
               Text(
                 widget.tag.name,
                 style: TextStyle(
+                  fontFamily: 'Inter',
                   color: widget.color,
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],

@@ -428,6 +428,15 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     );
   }
 
+  /// Persists an edited checklist title and keeps the app bar in sync.
+  Future<void> _updateChecklistTitle(String title) async {
+    if (_note == null) return;
+    if (_title != title) {
+      setState(() => _title = title);
+    }
+    await NoteRepository(_db!).updateNote(_note!.id, title: title);
+  }
+
   /// Creates a doodle and stores it as a checklist attachment.
   Future<void> _insertChecklistDoodle() async {
     if (_note == null) return;
@@ -820,6 +829,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                         child: _note?.type == NoteType.checklist
                             ? ChecklistEditor(
                                 noteId: _note!.id,
+                                title: _title,
+                                onTitleChanged: _updateChecklistTitle,
                                 onInsertImage: _note != null
                                     ? _insertChecklistImage
                                     : null,

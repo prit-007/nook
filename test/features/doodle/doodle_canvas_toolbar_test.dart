@@ -7,6 +7,56 @@ import 'package:nook/features/doodle/doodle_toolbar.dart';
 
 void main() {
   group('DoodleToolbar', () {
+    /// The toolbar starts collapsed (only the expand handle). This helper
+    /// expands it so tool assertions can inspect the full surface.
+    Future<void> expandToolbar(WidgetTester tester) async {
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('starts collapsed with only the expand handle', (tester) async {
+      final controller = DoodleController();
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: DoodleToolbar(controller: controller),
+        ),
+      ));
+
+      expect(find.byIcon(Icons.keyboard_arrow_up_rounded), findsOneWidget);
+      expect(find.byIcon(LucideIcons.penLine), findsNothing);
+      expect(find.byIcon(LucideIcons.eraser), findsNothing);
+    });
+
+    testWidgets('tapping the handle expands the toolbar', (tester) async {
+      final controller = DoodleController();
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: DoodleToolbar(controller: controller),
+        ),
+      ));
+
+      await expandToolbar(tester);
+
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+      expect(find.byIcon(LucideIcons.penLine), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('collapsed handle never overflows a phone width',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = DoodleController();
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: DoodleToolbar(controller: controller),
+        ),
+      ));
+
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('renders all tool buttons', (tester) async {
       final controller = DoodleController();
       await tester.pumpWidget(MaterialApp(
@@ -14,6 +64,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       expect(find.byIcon(LucideIcons.penLine), findsAtLeastNWidgets(1));
       expect(find.byIcon(LucideIcons.highlighter), findsOneWidget);
@@ -28,6 +79,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       expect(controller.currentTool, equals(DoodleTool.pen));
     });
@@ -39,6 +91,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       await tester.tap(find.byIcon(LucideIcons.eraser));
       await tester.pumpAndSettle();
@@ -53,6 +106,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       await tester.tap(find.byIcon(LucideIcons.highlighter));
       await tester.pumpAndSettle();
@@ -67,6 +121,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       expect(controller.shapeAssistEnabled, isTrue);
 
@@ -83,6 +138,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       // 10 color swatches in the extended palette
       final containers = find.byType(GestureDetector);
@@ -96,6 +152,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       expect(find.byType(Slider), findsOneWidget);
     });
@@ -107,6 +164,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       expect(controller.currentWidth, equals(4.0));
 
@@ -125,6 +183,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       final initialColor = controller.currentColor;
 
@@ -149,6 +208,7 @@ void main() {
           body: DoodleToolbar(controller: controller),
         ),
       ));
+      await expandToolbar(tester);
 
       expect(find.byIcon(LucideIcons.trash2), findsOneWidget);
     });

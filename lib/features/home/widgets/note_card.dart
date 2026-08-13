@@ -12,10 +12,17 @@ import 'package:nook/data/tables/notes.dart';
 import 'note_quick_actions_sheet.dart';
 
 class NoteCard extends ConsumerStatefulWidget {
-  const NoteCard({super.key, required this.note, this.onTap});
+  const NoteCard({super.key, required this.note, this.onTap, this.heroTag});
 
   final Note note;
   final VoidCallback? onTap;
+
+  /// Hero tag used for route transitions. Defaults to `note-<id>`.
+  ///
+  /// Pass a scoped value (e.g. `nb-<notebookId>-note-<id>`) when the same note
+  /// may appear in multiple master-detail panes at once, so no two [Hero]s
+  /// share a tag within the same subtree.
+  final String? heroTag;
 
   @override
   ConsumerState<NoteCard> createState() => _NoteCardState();
@@ -76,7 +83,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOutCubic,
         child: Hero(
-          tag: 'note-${widget.note.id}',
+          tag: widget.heroTag ?? 'note-${widget.note.id}',
           child: Material(
             color: Colors.transparent,
             child: Container(
@@ -257,8 +264,12 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     final totalCount = _checklistItems.length;
     final displayItems = _checklistItems.take(4).toList();
 
+    // The card grid gives a bounded height; wrap the item list in a
+    // non-interactive scroll view so a long checklist ellipsizes instead of
+    // overflowing the card's bottom edge (RenderFlex overflow).
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         // Progress indicator
         Row(
@@ -286,51 +297,65 @@ class _NoteCardState extends ConsumerState<NoteCard> {
           ],
         ),
         const SizedBox(height: 8),
-        // First few items
-        for (final item in displayItems)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
+        // First few items, clipped to the card's bounded preview area so a
+        // long checklist never overflows the bottom edge.
+        Flexible(
+          fit: FlexFit.loose,
+          child: SingleChildScrollView(
+            physics: const NeverScrollableScrollPhysics(),
+            clipBehavior: Clip.hardEdge,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  item.checked
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked,
-                  size: 12,
-                  color: item.checked
-                      ? scheme.primary
-                      : scheme.onSurface.withValues(alpha: 0.4),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    item.itemText,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: item.checked
-                          ? scheme.onSurface.withValues(alpha: 0.35)
-                          : scheme.onSurface.withValues(alpha: 0.7),
-                      decoration:
-                          item.checked ? TextDecoration.lineThrough : null,
+                for (final item in displayItems)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Icon(
+                          item.checked
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked,
+                          size: 12,
+                          color: item.checked
+                              ? scheme.primary
+                              : scheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            item.itemText,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: item.checked
+                                  ? scheme.onSurface.withValues(alpha: 0.35)
+                                  : scheme.onSurface.withValues(alpha: 0.7),
+                              decoration: item.checked
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
+                if (totalCount > 4)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '+${totalCount - 4} more',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: scheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-        if (totalCount > 4)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              '+${totalCount - 4} more',
-              style: TextStyle(
-                fontSize: 10,
-                color: scheme.onSurface.withValues(alpha: 0.4),
-              ),
-            ),
-          ),
+        ),
       ],
     );
   }

@@ -64,14 +64,18 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
     return Scaffold(
       backgroundColor: scheme.surface,
       body: _loading
-          ? Center(child: CircularProgressIndicator(color: scheme.primary))
+          ? Center(
+              child: CircularProgressIndicator(
+                color: _tagColor ?? scheme.primary,
+              ),
+            )
           : CustomScrollView(
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
               slivers: [
                 SliverAppBar.large(
-                  expandedHeight: 140.0,
+                  expandedHeight: 150.0,
                   backgroundColor: scheme.surface,
                   surfaceTintColor: Colors.transparent,
                   leading: IconButton(
@@ -94,14 +98,16 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                           Icon(
                             LucideIcons.tag,
                             color: _tagColor,
-                            size: 20,
+                            size: 22,
                           ),
                         if (_tagColor != null) const SizedBox(width: 8),
                         MaskedRevealText(
                           _tagName.isEmpty ? 'Tag' : _tagName,
                           style: TextStyle(
-                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Playfair Display',
+                            fontWeight: FontWeight.w800,
                             letterSpacing: -0.5,
+                            fontSize: 28, // Macro typography
                             color: _tagColor ?? scheme.onSurface,
                           ),
                         ),
@@ -122,18 +128,18 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                 else
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(
-                      20,
+                      16,
                       8,
-                      20,
+                      16,
                       DockSafeArea.bottomOf(context) + 72,
                     ),
                     sliver: SliverGrid(
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 0.75,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: 0.78, // Matching elegant layout
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
@@ -148,7 +154,7 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                           return ParallaxCard(
                             child: MaskedReveal(
                               delay: Duration(
-                                milliseconds: (index * 70).clamp(0, 500),
+                                milliseconds: (index * 60).clamp(0, 450),
                               ),
                               child: card,
                             ),

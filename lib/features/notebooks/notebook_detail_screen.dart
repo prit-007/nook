@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/dock_safe_area.dart';
+import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/masked_reveal.dart';
 import '../../core/widgets/masked_reveal_text.dart';
 import '../../core/widgets/parallax_card.dart';
@@ -14,7 +14,6 @@ import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
 import '../home/widgets/note_card.dart';
 
-/// Shows notes filtered by notebook.
 class NotebookDetailScreen extends ConsumerStatefulWidget {
   const NotebookDetailScreen({super.key, required this.notebookId});
 
@@ -63,36 +62,43 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final seedColor = NookColors.parseHex(_notebookColor);
+    final scheme = Theme.of(context).colorScheme;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Scaffold(
       appBar: AppBar(
         title: MaskedRevealText(
           _notebookName.isEmpty ? 'Notebook' : _notebookName,
+          style: TextStyle(
+            fontFamily: 'Playfair Display',
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurface,
+          ),
         ),
         iconTheme: IconThemeData(color: seedColor),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: seedColor))
           : _notes.isEmpty
               ? const EmptyState(
                   icon: Icons.notes_outlined,
-                  title: 'No notes in this notebook',
-                  subtitle: 'Create a note and assign it to this notebook',
+                  title: 'No notes in this collection',
+                  subtitle: 'Create a note and assign it here.',
                   animate: false,
                 )
               : GridView.builder(
                   padding: EdgeInsets.fromLTRB(
-                    12,
-                    12,
-                    12,
+                    16,
+                    16,
+                    16,
                     DockSafeArea.bottomOf(context) + 72,
                   ),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 0.75,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 0.78,
                   ),
                   itemCount: _notes.length,
                   itemBuilder: (context, index) {
@@ -104,7 +110,7 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
                     return ParallaxCard(
                       child: MaskedReveal(
                         delay: Duration(
-                          milliseconds: (index * 70).clamp(0, 500),
+                          milliseconds: (index * 60).clamp(0, 450),
                         ),
                         child: card,
                       ),

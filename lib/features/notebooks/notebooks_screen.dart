@@ -10,9 +10,9 @@ import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/parallax_card.dart';
-import '../../core/widgets/dock_safe_area.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
 import 'widgets/notebook_card.dart';
@@ -75,19 +75,22 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(32),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(28),
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerHighest
-                          .withValues(alpha: 0.85),
+                          .withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(32),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.2),
+                        width: 0.5,
+                      ),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Drag handle
                         Center(
                           child: Container(
                             width: 36,
@@ -99,47 +102,58 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Create Notebook',
+                        const SizedBox(height: 24),
+                        Text(
+                          'New Collection',
                           style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
+                            fontFamily: 'Playfair Display',
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: -0.5,
+                            color: scheme.onSurface,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
                         TextField(
                           controller: nameController,
                           autofocus: true,
-                          style: const TextStyle(
+                          style: TextStyle(
+                            fontFamily: 'Inter',
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
+                            color: scheme.onSurface,
                           ),
                           decoration: InputDecoration(
-                            hintText: 'e.g. Work, Personal',
+                            hintText: 'e.g. Architectural Studies, Journal',
+                            hintStyle: TextStyle(
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.5),
+                            ),
                             filled: true,
-                            fillColor: scheme.surface.withValues(alpha: 0.5),
+                            fillColor: scheme.surface.withValues(alpha: 0.6),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
                             ),
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 16,
+                              horizontal: 20,
+                              vertical: 18,
                             ),
                           ),
                         ),
                         const SizedBox(height: 24),
-                        const Text(
-                          'COLOR THEME',
+                        Text(
+                          'ACCENT PALETTE',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontFamily: 'Inter',
+                            fontSize: 10,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
+                            letterSpacing: 2.0,
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.7),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
                         Wrap(
                           spacing: 12,
                           runSpacing: 12,
@@ -159,32 +173,36 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
                                 onPressed: () => Navigator.pop(ctx),
-                                child: const Text(
+                                child: Text(
                                   'Cancel',
-                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: FilledButton(
                                 style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
+                                  backgroundColor: selectedColor,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
+                                  elevation: 0,
                                 ),
                                 onPressed: () async {
                                   if (nameController.text.trim().isEmpty) {
@@ -202,9 +220,10 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                                   await _load();
                                 },
                                 child: const Text(
-                                  'Save',
+                                  'Create',
                                   style: TextStyle(
-                                    fontWeight: FontWeight.w800,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
@@ -224,12 +243,26 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   }
 
   void _showDeleteDialog(Notebook notebook) {
+    final scheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Notebook'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Delete Notebook',
+          style: TextStyle(
+            fontFamily: 'Playfair Display',
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurface,
+          ),
+        ),
         content: Text(
-          'Delete "${notebook.name}"? Notes inside will not be deleted.',
+          'Are you sure you want to delete "${notebook.name}"? Notes inside '
+          'will remain safely intact.',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: scheme.onSurfaceVariant,
+          ),
         ),
         actions: [
           TextButton(
@@ -237,6 +270,10 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: scheme.error,
+              foregroundColor: scheme.onError,
+            ),
             onPressed: () async {
               final repo = NotebookRepository(ref.read(databaseProvider));
               await repo.deleteNotebook(notebook.id);
@@ -258,9 +295,23 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
     final grid = _notebooksGrid(scheme, isDualPane);
 
     return Scaffold(
-      appBar: widget.embedded ? null : AppBar(title: const Text('Notebooks')),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: Text(
+                'Collections',
+                style: TextStyle(
+                  fontFamily: 'Playfair Display',
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: scheme.onSurface,
+                ),
+              ),
+              centerTitle: false,
+            ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: scheme.primary))
           : isDualPane
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -269,7 +320,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                     VerticalDivider(
                       width: 1,
                       thickness: 1,
-                      color: scheme.outlineVariant.withValues(alpha: 0.2),
+                      color: scheme.outlineVariant.withValues(alpha: 0.15),
                     ),
                     const Flexible(flex: 2, child: NotebookDetailPane()),
                   ],
@@ -280,10 +331,21 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
         padding: EdgeInsets.only(
           bottom: DockSafeArea.bottomOf(context) + 16,
         ),
-        child: FloatingActionButton(
+        child: FloatingActionButton.extended(
+          // Unique hero tag: both NotebooksScreen and TagsScreen stay alive in
+          // the CollectionsScreen IndexedStack, so sharing the default FAB hero
+          // tag would throw "multiple heroes with the same tag" every build.
+          heroTag: 'fab-notebooks',
           onPressed: _showCreateSheet,
           tooltip: 'Create notebook',
-          child: const Icon(Icons.add),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text(
+            'New',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
       ),
     );
@@ -293,25 +355,26 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
     if (_notebooks.isEmpty) {
       return const EmptyState(
         icon: Icons.book_outlined,
-        title: 'No notebooks',
-        subtitle: 'Tap + to create one',
+        title: 'No collections yet',
+        subtitle: 'Tap + New to create your first notebook.',
         animate: false,
       );
     }
     return RefreshIndicator(
       onRefresh: _load,
+      color: scheme.primary,
       child: GridView.builder(
         padding: EdgeInsets.fromLTRB(
+          20,
           16,
-          16,
-          16,
-          DockSafeArea.bottomOf(context) + 72,
+          20,
+          DockSafeArea.bottomOf(context) + 80,
         ),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 0.62,
+          mainAxisSpacing: 20,
+          crossAxisSpacing: 20,
+          childAspectRatio: 0.65, // Elegant portrait aspect ratio
         ),
         itemCount: _notebooks.length,
         itemBuilder: (context, index) {
@@ -338,11 +401,9 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   }
 }
 
-/// Formats a [Color] as the app's stored `#RRGGBB` seed string.
 String _hexFromColor(Color color) =>
     '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
 
-/// Tappable color swatch used by the notebook create sheet.
 class _SeedColorDot extends StatelessWidget {
   const _SeedColorDot({
     required this.color,
@@ -356,30 +417,33 @@ class _SeedColorDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 44,
-        height: 44,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutBack,
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
-          border: Border.all(
-            color: isSelected ? scheme.onSurface : Colors.transparent,
-            width: isSelected ? 3 : 0,
-          ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: color.withValues(alpha: 0.4),
-                    blurRadius: 12,
+                    color: color.withValues(alpha: 0.5),
+                    blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
                 ]
               : null,
         ),
+        child: isSelected
+            ? const Icon(
+                Icons.check_rounded,
+                color: Colors.white,
+                size: 20,
+              )
+            : null,
       ),
     );
   }
