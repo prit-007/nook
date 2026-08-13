@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-13
+
+Tablet layouts, accessibility pass, and a resilient release pipeline.
+
+### Tablet & foldable
+- Adaptive single-pane to dual-pane master–detail layouts for home, notebooks,
+  and tags. On larger screens (tablets, foldables) selecting a note, notebook,
+  or tag fills a preview pane instead of pushing a new screen — instant
+  preview with no navigation depth.
+- New preview panes: note preview, notebook detail, and tag detail. Compact
+  (phone) layouts still navigate the classic way.
+
+### Accessibility
+- Semantic labels, button roles, and hints added across home, notebooks, tags,
+  search, sync, and the editor — every interactive element is announced by
+  TalkBack/VoiceOver.
+- WCAG AA contrast: the color picker and swatches pick white or near-black
+  foreground from relative luminance instead of hardcoded white.
+- Touch targets audited against the Material 48x48dp minimum.
+- The reduce-motion preference is honored by masked reveals, the editorial
+  FAB, and card entrance animations.
+
+### Tooling
+- The release step is now resilient: Android APKs always ship on a tag even if
+  the Windows or iOS build is flaky — only artifacts from successful builds
+  are published. APKs stay as direct per-ABI downloads, no zip wrapper.
+- Version bumped to 0.7.2+1.
+
 ## [0.7.1] - 2026-08-12
 
 Encrypted sync, editorial motion, and multi-platform release builds.
