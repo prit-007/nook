@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
+import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/sync_ui/sync_history_screen.dart';
 import 'package:nook/features/sync_ui/sync_pairing_screen.dart';
 import 'package:nook/features/sync_ui/sync_receive_screen.dart';
@@ -13,6 +15,7 @@ import 'package:nook/features/sync_ui/sync_screen.dart';
 import 'package:nook/features/sync_ui/sync_send_screen.dart';
 import 'package:nook/features/sync_ui/sync_transfer_screen.dart';
 import 'package:nook/features/sync_ui/widgets/conflict_card.dart';
+import 'package:nook/sync/crypto/identity_store.dart';
 import 'package:nook/sync/sync_orchestrator.dart';
 import 'package:nook/sync/transport/sync_transport.dart';
 
@@ -31,6 +34,30 @@ Widget wrapInApp(Widget child, {AppDatabase? db}) {
   );
 }
 
+/// Wraps a screen with an orchestrator pinned to [state] (outcome tests).
+Widget _wrapWithOrchestrator(SyncOrchestratorState state, {AppDatabase? db}) {
+  final testDb = db ?? createTestDb();
+  return ProviderScope(
+    overrides: [
+      databaseProvider.overrideWithValue(testDb),
+      syncOrchestratorProvider.overrideWith(
+        () => _FixedStateOrchestrator(state),
+      ),
+    ],
+    child: const MaterialApp(home: SyncTransferScreen(sessionId: 'session-1')),
+  );
+}
+
+/// An orchestrator that always reports a fixed state.
+class _FixedStateOrchestrator extends SyncOrchestrator {
+  _FixedStateOrchestrator(this._fixedState);
+
+  final SyncOrchestratorState _fixedState;
+
+  @override
+  SyncOrchestratorState build() => _fixedState;
+}
+
 /// A stub orchestrator that does nothing (for widget tests).
 class _StubSyncOrchestrator extends SyncOrchestrator {
   @override
@@ -38,7 +65,11 @@ class _StubSyncOrchestrator extends SyncOrchestrator {
 
   @override
   Future<void> initializeTransport(
-      {SyncTransport? testTransport, String? localDeviceName}) async {}
+      {SyncTransport? testTransport,
+      String? localDeviceName,
+      bool useTcpFallback = false,
+      IdentityStore? identityStore,
+      String? listenAddress}) async {}
 
   @override
   Future<void> startDiscovery() async {}
@@ -175,6 +206,42 @@ void main() {
 
       expect(find.byIcon(LucideIcons.search), findsOneWidget);
     });
+
+    testWidgets('note list tiles keep ink splashes visible', (tester) async {
+      // The note list lives inside a colored scroll region. Regression guard:
+      // the region must be a Material (not a ColoredBox) so ListTiles can paint
+      // their ink/selection highlights — otherwise Flutter throws the
+      // "ListTile background color or ink splashes may be invisible" assertion.
+      for (var i = 0; i < 4; i++) {
+        await db.into(db.notes).insert(
+              NotesCompanion.insert(
+                id: Value('sync-note-$i'),
+                type: NoteType.text,
+                title: Value('Sync Note $i'),
+                deviceOriginId: 'device-1',
+              ),
+            );
+      }
+
+      final errors = <FlutterErrorDetails>[];
+      final oldHandler = FlutterError.onError;
+      FlutterError.onError = (details) {
+        errors.add(details);
+        oldHandler?.call(details);
+      };
+      addTearDown(() => FlutterError.onError = oldHandler);
+
+      await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final inkErrors = errors.where((e) => e.toString().contains(
+            'ListTile background color or ink splashes may be invisible',
+          ));
+      expect(inkErrors, isEmpty);
+      expect(find.text('Sync Note 0'), findsOneWidget);
+    });
   });
 
   group('SyncReceiveScreen', () {
@@ -243,6 +310,99 @@ void main() {
       await tester.pump();
 
       expect(find.text('Establishing Link...'), findsOneWidget);
+    });
+  });
+
+  group('SyncTransferScreen outcomes', () {
+    testWidgets('rejected shows Transfer Declined, dismiss only',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrapWithOrchestrator(
+          const SyncOrchestratorState(
+            phase: SyncPhase.error,
+            error: 'Pairing rejected',
+            outcome: SyncOutcomeCategory.rejected,
+          ),
+          db: db,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Transfer Declined'), findsOneWidget);
+      expect(find.text('Pairing rejected'), findsOneWidget);
+      expect(find.text('Dismiss'), findsOneWidget);
+      expect(find.text('Try Again'), findsNothing);
+    });
+
+    testWidgets('timedOut shows Transfer Timed Out with a retry',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrapWithOrchestrator(
+          const SyncOrchestratorState(
+            phase: SyncPhase.error,
+            error: 'Timed out waiting for ack',
+            outcome: SyncOutcomeCategory.timedOut,
+          ),
+          db: db,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Transfer Timed Out'), findsOneWidget);
+      expect(find.text('Try Again'), findsOneWidget);
+      expect(find.text('Dismiss'), findsOneWidget);
+    });
+
+    testWidgets('connectionLost shows Connection Lost with a retry',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrapWithOrchestrator(
+          const SyncOrchestratorState(
+            phase: SyncPhase.error,
+            error: 'Connection lost',
+            outcome: SyncOutcomeCategory.connectionLost,
+          ),
+          db: db,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Connection Lost'), findsOneWidget);
+      expect(find.text('Try Again'), findsOneWidget);
+    });
+
+    testWidgets('internal keeps the generic Transfer Failed', (tester) async {
+      await tester.pumpWidget(
+        _wrapWithOrchestrator(
+          const SyncOrchestratorState(
+            phase: SyncPhase.error,
+            error: 'Send failed',
+            outcome: SyncOutcomeCategory.internal,
+          ),
+          db: db,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Transfer Failed'), findsOneWidget);
+      expect(find.text('Try Again'), findsNothing);
+    });
+
+    testWidgets('cancelled shows Transfer Cancelled', (tester) async {
+      await tester.pumpWidget(
+        _wrapWithOrchestrator(
+          const SyncOrchestratorState(
+            phase: SyncPhase.error,
+            error: 'Cancelled',
+            outcome: SyncOutcomeCategory.cancelled,
+          ),
+          db: db,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Transfer Cancelled'), findsOneWidget);
+      expect(find.text('Try Again'), findsNothing);
     });
   });
 

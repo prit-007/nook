@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-08-13
+
+The sync transport is rebuilt on **libp2p over UDX** — a server-less, account-free
+peer-to-peer link with Noise encryption and Yamux multiplexing. The legacy TCP
+transport stays behind a fallback flag.
+
+### Sync — libp2p UDX transport (default)
+- Default transport is now `dart_libp2p` over UDX (UDP-based reliable transport):
+  Noise encryption + Yamux stream multiplexing, loopback-testable in CI.
+  (`lib/sync/transport/libp2p_sync_transport.dart`)
+- **Stable device identity.** A 32-byte Ed25519 seed is sealed in the platform
+  keystore on first run and derived into a permanent libp2p peer id afterwards —
+  no more random UUID per launch. (`lib/sync/crypto/identity_store.dart`)
+- New wire envelope: `[4-byte big-endian length][32-byte SHA-256][CBOR]` with the
+  checksum verified *before* deserialization, and one `SyncMessage`
+  (`pairingRequest/pairingAccepted/pairingRejected/dataBundle/ack`) per stream
+  using half-close request/response. (`lib/sync/protocol/sync_message.dart`)
+- Nook's own mDNS fork (`_syncnotenet._udp`) advertises a `devicename=` TXT
+  record so peer names need no extra round-trip, and splits advertise/discover
+  modes to match the one-directional sync flow.
+  (`lib/sync/discovery/nook_mdns_discovery.dart`)
+- **Distinct failure outcomes.** Rejections, timeouts, connection losses,
+  cancellations, and protocol errors are categorized and drive separate UI
+  treatments — a declined transfer shows an amber "Transfer Declined" instead of
+  a generic red error; timeouts and dropped links offer a retry.
+- The legacy `TcpSyncTransport` remains available via `useTcpFallback: true`.
+
+### Testing & tooling
+- Loopback UDX integration tests run between two in-process libp2p hosts with no
+  multicast (`test/sync/libp2p_transport_test.dart`,
+  `test/sync/libp2p_integration_test.dart`). The real-mDNS round trip is tagged
+  `network` and skipped in CI.
+- CI now runs `flutter test --coverage -x network`.
+- Added Android (INTERNET, network state, Wi-Fi multicast, NEARBY_WIFI_DEVICES),
+  iOS (NSLocalNetworkUsageDescription + NSBonjourServices), and macOS
+  (network.client/server) permissions for discovery + transfer.
+- Version bumped to 0.7.5+1.
+
 ## [0.7.2] - 2026-08-13
 
 Tablet layouts, accessibility pass, and a resilient release pipeline.
@@ -164,7 +202,11 @@ Editor UX upgrades, shape assist, checklist polish, and the CI release pipeline.
 - CI: GitHub Actions release pipeline with `softprops/action-gh-release`,
   tag-triggered APK builds, and auto-generated release notes.
 
-[Unreleased]: https://github.com/anomalyco/nook/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/anomalyco/nook/compare/v0.7.5...HEAD
+[0.7.5]: https://github.com/anomalyco/nook/compare/v0.7.2...v0.7.5
+[0.7.2]: https://github.com/anomalyco/nook/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/anomalyco/nook/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/anomalyco/nook/releases/tag/v0.7.0
 [0.6.2]: https://github.com/anomalyco/nook/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/anomalyco/nook/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/anomalyco/nook/releases/tag/v0.6.0

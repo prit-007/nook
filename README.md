@@ -57,9 +57,11 @@ Three clauses, three promises:
 
 ## Status
 
-🚧 **Pre-alpha — v0.6.2** — Phases 0–4 complete (foundation, core notes,
-checklists + doodles, theming, security). Phase 5 (nearby sync) is implemented
-and covered by loopback transport + orchestrator tests; physical-device
+🚧 **Pre-alpha — v0.7.5** — Phases 0–4 complete (foundation, core notes,
+checklists + doodles, theming, security). Phase 5 (nearby sync) is implemented:
+the transport was rebuilt on **libp2p over UDX** with a stable keystore identity,
+an own mDNS discovery fork, and categorized failure outcomes. Legacy TCP remains
+as a fallback. Loopback transport + orchestrator tests are green; physical-device
 validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
 
 ## Features
@@ -74,7 +76,7 @@ validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION
 | **Theming** | Material You 3 dynamic color + per-note color overrides, light/dark |
 | **Security** | SQLCipher encryption, biometric gate, per-note lock, screenshot blocking |
 | **Trash** | Soft-delete with 30-day auto-expiry |
-| **Sync** | Bonsoir/TCP device-to-device sync: discovery, pairing, transfer, conflict resolution, history |
+| **Sync** | libp2p over UDX device-to-device sync: discovery, pairing, transfer, conflict resolution, history |
 | **Export** | `.nook` bundle export via `archive` |
 | **CI** | GitHub Actions: format, analyze, test, APK build + GitHub releases |
 
@@ -84,8 +86,8 @@ validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION
   (`flutter_secure_storage`). The key is never hardcoded and never sent anywhere.
 - **Biometric gate.** The database is opened only after fingerprint/Face unlock.
 - **Peer-to-peer sync.** A short pairing code is verified *on both devices*
-  before any note crosses the wire. Transfers are chunked, SHA-256 checksummed,
-  and acked.
+  before any note crosses the wire. Transfers are framed with a SHA-256 checksum
+  verified before deserialization, over a Noise-encrypted libp2p link.
 - **No analytics. No crash reporters. No ads.** Nook phones nothing home.
 
 ## Getting started as a user
@@ -129,7 +131,7 @@ lib/
 ├── core/       app shell, router, theme, providers, platform bridges
 ├── data/       Drift schema + repositories (notes, tags, attachments, sync log)
 ├── features/   feature UIs: home, editor, doodle, sync_ui, security, settings…
-├── sync/       protocol (CBOR bundle), merge resolver, orchestrator, transports
+├── sync/       libp2p/UDX transport, mDNS discovery, protocol, orchestrator
 └── main.dart   entry point
 ```
 
@@ -139,9 +141,11 @@ A full walkthrough of every layer and the sync wire protocol lives in
 ### Test
 
 ```bash
-flutter test                       # everything
-flutter test test/sync             # sync protocol, resolver, orchestrator, transports
-flutter test test/sync/tcp_transport_integration_test.dart   # real loopback TCP
+flutter test                              # everything (CI skips the `network` tag)
+flutter test -x network                   # hermetic suite, no multicast
+flutter test test/sync                    # sync protocol, resolver, orchestrator, transports
+flutter test test/sync/libp2p_transport_test.dart   # loopback UDX transport (no mDNS)
+flutter test test/sync/tcp_transport_integration_test.dart   # legacy loopback TCP
 ```
 
 ## Tech stack
@@ -153,7 +157,7 @@ flutter test test/sync/tcp_transport_integration_test.dart   # real loopback TCP
 | Storage | Drift + SQLCipher | type-safe relational ORM, encrypted at rest |
 | Editor | AppFlowy Editor | block node-tree document model |
 | Doodle | `perfect_freehand` | smooth freehand strokes |
-| Discovery/sync | Bonsoir (mDNS) + raw TCP | zero-server, LAN-only transfer |
+| Discovery/sync | libp2p over UDX (`dart_libp2p`) + own `_syncnotenet._udp` mDNS fork | zero-server, LAN-only, Noise-encrypted transfer |
 | Serialization | CBOR + SHA-256 | compact, portable, checksummed |
 | Security | `local_auth`, `flutter_secure_storage` | biometric gate + keystore keys |
 | Icons | Lucide | consistent editorial iconography |
@@ -166,6 +170,7 @@ Everything lives in `docs/` and `ADR`/decision records in `docs/adr/`.
 | Doc | What it is |
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | **Start here.** Current codebase map: layers, sync protocol, editor patches |
+| [`docs/SYNC-LIBP2P-TRANSPORT.md`](docs/SYNC-LIBP2P-TRANSPORT.md) | The libp2p/UDX sync transport: wire envelope, lifecycle, discovery, identity, outcomes |
 | [`docs/notes-app-masterplan.md`](docs/notes-app-masterplan.md) | Product vision, positioning, roadmap |
 | [`docs/notes-app-detailed-plan.md`](docs/notes-app-detailed-plan.md) | Schema, architecture, protocol races, testing strategy |
 | [`docs/notes-app-part3-editor-routes-libraries.md`](docs/notes-app-part3-editor-routes-libraries.md) | Editor internals + full route map |

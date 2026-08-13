@@ -9,6 +9,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../features/security/pin_entry_screen.dart';
 
 class SettingsSecurityScreen extends ConsumerWidget {
@@ -32,7 +33,12 @@ class SettingsSecurityScreen extends ConsumerWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: [
           _buildGlassCard(
             scheme,
@@ -55,10 +61,25 @@ class SettingsSecurityScreen extends ConsumerWidget {
               ),
               value: gate.enabled,
               activeThumbColor: scheme.primary,
-              onChanged: (value) {
-                HapticFeedback.lightImpact();
-                ref.read(biometricGateProvider).setEnabled(value);
-              },
+              onChanged: (value) => unawaited(() async {
+                unawaited(HapticFeedback.lightImpact());
+                final gate = ref.read(biometricGateProvider);
+                if (!value) {
+                  gate.setEnabled(false);
+                  return;
+                }
+                final enabled = await gate.enableWithVerification();
+                if (!enabled && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Authentication is unavailable on this device.',
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }()),
             ),
           ),
           const SizedBox(height: 16),

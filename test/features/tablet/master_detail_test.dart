@@ -1,14 +1,16 @@
-import 'package:drift/drift.dart' hide Column;
+import 'package:drift/drift.dart' hide Column, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nook/core/providers/database_provider.dart';
+import 'package:nook/core/providers/selection_providers.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/notebook_repository.dart';
 import 'package:nook/data/repositories/tag_repository.dart';
 import 'package:nook/data/tables/notes.dart';
+import 'package:nook/features/collections/collections_screen.dart';
 import 'package:nook/features/home/home_screen.dart';
 import 'package:nook/features/home/providers/notes_list_provider.dart';
 import 'package:nook/features/home/widgets/note_preview_pane.dart';
@@ -187,7 +189,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(NotebookDetailPane), findsOneWidget);
-      expect(find.text('Select a notebook'), findsOneWidget);
+      expect(find.text('Select a collection'), findsOneWidget);
     });
 
     testWidgets('tapping a notebook shows its notes without navigating',
@@ -271,6 +273,103 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byType(TagDetailPane), findsNothing);
+    });
+  });
+
+  group('Collections dual-pane hero isolation', () {
+    testWidgets('same note in notebook and tag panes does not collide heroes',
+        (tester) async {
+      setViewSize(tester, _tabletSize);
+
+      final nbRepo = NotebookRepository(db);
+      final nb = await nbRepo.createNotebook(
+        name: 'Work',
+        colorSeed: '#FF5722',
+      );
+      final tagRepo = TagRepository(db);
+      final tag = await tagRepo.createTag(
+        name: 'Ideas',
+        colorSeed: '#2196F3',
+      );
+      // A single note belongs to both the notebook and the tag, so it would be
+      // rendered in BOTH panes at once (they stay alive in the
+      // CollectionsScreen IndexedStack). Previously both NoteCards shared the
+      // default `note-<id>` hero tag and threw "multiple heroes that share the
+      // same tag within a subtree" on every build.
+      final note = await insertNote('Shared Note', notebookId: nb.id);
+      await tagRepo.assignTagToNote(note.id, tag.id);
+
+      final router = GoRouter(
+        initialLocation: '/notebooks',
+        routes: [
+          GoRoute(
+            path: '/notebooks',
+            builder: (_, __) => const CollectionsScreen(initialTab: 0),
+          ),
+          GoRoute(
+            path: '/tags',
+            builder: (_, __) => const CollectionsScreen(initialTab: 1),
+          ),
+          GoRoute(path: '/note/:id', builder: (_, __) => const _NavStub()),
+          GoRoute(path: '/tags/:id', builder: (_, __) => const _NavStub()),
+          GoRoute(path: '/notebooks/:id', builder: (_, __) => const _NavStub()),
+        ],
+      );
+      await tester.pumpWidget(wrapWithRouter(router));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Select the notebook in the left pane, then select the tag on the Tags
+      // tab. Both detail panes stay alive in the CollectionsScreen IndexedStack
+      // and render the shared note — the bug this test guards against is two
+      // NoteCards sharing the same Hero tag within that subtree.
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CollectionsScreen)),
+      );
+      container.read(selectedNotebookIdProvider.notifier).state = nb.id;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.text('Tags'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      container.read(selectedTagIdProvider.notifier).state = tag.id;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.takeException(), isNull);
+      // The shared note is rendered by the tag detail pane (notebook tab stays
+      // alive underneath in the IndexedStack but is offstage).
+      expect(find.text('Shared Note'), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('dual pane renders unique FAB hero tags', (tester) async {
+      setViewSize(tester, _tabletSize);
+      final router = GoRouter(
+        initialLocation: '/notebooks',
+        routes: [
+          GoRoute(
+            path: '/notebooks',
+            builder: (_, __) => const CollectionsScreen(initialTab: 0),
+          ),
+          GoRoute(
+            path: '/tags',
+            builder: (_, __) => const CollectionsScreen(initialTab: 1),
+          ),
+          GoRoute(path: '/notebooks/:id', builder: (_, __) => const _NavStub()),
+          GoRoute(path: '/tags/:id', builder: (_, __) => const _NavStub()),
+        ],
+      );
+      await tester.pumpWidget(wrapWithRouter(router));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final fabHeroes =
+          tester.widgetList<Hero>(find.byType(Hero)).map((h) => h.tag).toList();
+      expect(fabHeroes, contains('fab-notebooks'));
+      expect(tester.takeException(), isNull);
     });
   });
 }

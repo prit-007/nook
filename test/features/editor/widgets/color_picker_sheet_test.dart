@@ -76,6 +76,10 @@ void main() {
     await tester.tap(swatches.at(1));
     await tester.pumpAndSettle();
 
+    // Tap Done to confirm
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
     expect(result, isNotNull);
     expect(result, isNotEmpty);
     // Should be a hex string (6 chars)
@@ -109,6 +113,10 @@ void main() {
     // First circle is the "none" option
     final swatches = find.byType(AnimatedContainer);
     await tester.tap(swatches.first);
+    await tester.pumpAndSettle();
+
+    // Tap Done to confirm
+    await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
 
     expect(result, equals(''));

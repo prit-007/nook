@@ -14,6 +14,8 @@ class DoodleCanvas extends StatefulWidget {
     super.key,
     required this.controller,
     this.boundaryKey,
+    this.noteScheme,
+    this.onTwoFingerPan,
   });
 
   final DoodleController controller;
@@ -21,11 +23,22 @@ class DoodleCanvas extends StatefulWidget {
   /// Key for the internal [RepaintBoundary] (used for thumbnail capture).
   final GlobalKey? boundaryKey;
 
+  /// Optional note-specific color scheme for themed grid lines and background.
+  final ColorScheme? noteScheme;
+
+  /// Called when the user pans with two or more pointers (used to scroll the
+  /// infinite canvas). [deltaY] is positive when the fingers move downward.
+  final ValueChanged<double>? onTwoFingerPan;
+
   @override
   State<DoodleCanvas> createState() => _DoodleCanvasState();
 }
 
 class _DoodleCanvasState extends State<DoodleCanvas> {
+  final Map<int, Offset> _activePointers = {};
+  Offset _lastFocalDelta = Offset.zero;
+  bool _multiTouch = false;
+
   @override
   void initState() {
     super.initState();
@@ -51,10 +64,65 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
     setState(() {});
   }
 
+  Offset _focalPoint() {
+    final points = _activePointers.values.toList();
+    if (points.isEmpty) return Offset.zero;
+    return points.reduce((a, b) => a + b) / points.length.toDouble();
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _activePointers[event.pointer] = event.localPosition;
+    if (_activePointers.length >= 2) {
+      _multiTouch = true;
+      widget.controller.cancelStroke();
+      _lastFocalDelta = _focalPoint();
+      return;
+    }
+    _lastFocalDelta = event.localPosition;
+    widget.controller.startStroke(
+      event.localPosition,
+      pressure: event.pressure,
+    );
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (!_activePointers.containsKey(event.pointer)) return;
+    _activePointers[event.pointer] = event.localPosition;
+    if (_multiTouch) {
+      final focal = _focalPoint();
+      final delta = focal - _lastFocalDelta;
+      _lastFocalDelta = focal;
+      widget.controller.cancelStroke();
+      widget.onTwoFingerPan?.call(delta.dy);
+      return;
+    }
+    widget.controller.continueStroke(
+      event.localPosition,
+      pressure: event.pressure,
+    );
+  }
+
+  void _handlePointerEnd(int pointer) {
+    _activePointers.remove(pointer);
+    if (_multiTouch) {
+      if (_activePointers.length < 2) {
+        _multiTouch = false;
+        _lastFocalDelta = Offset.zero;
+      }
+      return;
+    }
+    widget.controller.endStroke();
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final noteScheme = widget.noteScheme;
     final background = widget.controller.background;
+    final baseGridColor = noteScheme?.outlineVariant ?? scheme.outlineVariant;
+    final gridColor = baseGridColor.computeLuminance() < 0.2
+        ? Colors.white.withValues(alpha: 0.2)
+        : baseGridColor.withValues(alpha: 0.3);
 
     return RepaintBoundary(
       key: widget.boundaryKey,
@@ -62,20 +130,14 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
         key: ValueKey('doodle-bg-${background.name}'),
         painter: _BackgroundPainter(
           background: background,
-          color: scheme.outlineVariant.withValues(alpha: 0.3),
+          color: gridColor,
         ),
         child: Listener(
           behavior: HitTestBehavior.opaque,
-          onPointerDown: (event) => widget.controller.startStroke(
-            event.localPosition,
-            pressure: event.pressure,
-          ),
-          onPointerMove: (event) => widget.controller.continueStroke(
-            event.localPosition,
-            pressure: event.pressure,
-          ),
-          onPointerUp: (_) => widget.controller.endStroke(),
-          onPointerCancel: (_) => widget.controller.endStroke(),
+          onPointerDown: _handlePointerDown,
+          onPointerMove: _handlePointerMove,
+          onPointerUp: (event) => _handlePointerEnd(event.pointer),
+          onPointerCancel: (event) => _handlePointerEnd(event.pointer),
           child: CustomPaint(
             painter: _StrokePainter(
               strokes: widget.controller.strokes,

@@ -10,6 +10,7 @@ import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/selection_providers.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/widgets/parallax_card.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import 'providers/notes_list_provider.dart';
@@ -78,6 +79,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
     final animate = _animationsAllowed(context);
 
+    // The shell already offsets the body by the full dock height (72 + 24 +
+    // bottom inset), so the FAB only needs a small gap above the body's bottom
+    // edge — no need to re-add the dock height here.
+    final safeBottom = DockSafeArea.bottomOf(context) + 16;
+
     return Scaffold(
       backgroundColor: scheme.surface,
       body: Stack(
@@ -105,6 +111,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 counts: counts,
                 isWide: isWide,
                 animate: animate,
+                safeBottom: safeBottom,
               );
 
               if (isDualPane) {
@@ -125,6 +132,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
           MorphingEditorialFab(
+            mobileBottomOffset: safeBottom,
             onCreateNote: (type) async {
               await HapticFeedback.mediumImpact();
               if (context.mounted) {
@@ -144,15 +152,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required Map<NoteType?, int> counts,
     required bool isWide,
     required bool animate,
+    required double safeBottom,
   }) {
     final scheme = Theme.of(context).colorScheme;
 
     Widget greeting = Text(
       _timeGreeting,
       style: TextStyle(
-        fontSize: isWide ? 22 : 26,
+        fontFamily: 'Playfair Display',
+        fontSize: isWide ? 28 : 24,
         fontWeight: FontWeight.w900,
-        letterSpacing: -0.8,
+        letterSpacing: -1.2,
+        height: 1.1,
         color: scheme.onSurface,
       ),
     );
@@ -195,9 +206,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.25),
-                  ),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -302,7 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _buildWideGrid(filtered)
           else
             _buildNarrowStream(filtered),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          SliverToBoxAdapter(child: SizedBox(height: safeBottom + 72)),
         ],
       ),
     );
@@ -310,7 +318,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildNarrowStream(List<Note> filtered) {
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       sliver: SliverList.builder(
         itemCount: filtered.length,
         itemBuilder: (context, index) {
@@ -345,7 +353,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             Expanded(
               child: Column(
                 children: [
@@ -364,7 +372,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Widget card;
     if (note.pinned) {
       card = NoteBannerCard(note: note, onTap: () => _openNote(note.id));
-    } else if (note.type == NoteType.doodle) {
+    } else if (note.type == NoteType.doodle || note.type == NoteType.mixed) {
       card = NoteDoodleCard(note: note, onTap: () => _openNote(note.id));
     } else {
       card = NoteMinimalCard(note: note, onTap: () => _openNote(note.id));

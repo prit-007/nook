@@ -470,6 +470,17 @@ Build a dedicated `NoteRenderWidget` (separate from the interactive editor widge
 
 ## 9. Nearby Sync — Full Protocol Spec
 
+> **Implemented as of Phase 5 (libp2p UDX):** the production transport is
+> `dart_libp2p` over UDX (Noise + Yamux), not `nearby_service`. The wire
+> envelope is `[4B big-endian length][32B SHA-256][CBOR SyncMessage]` — one
+> `SyncMessage` (`pairingRequest/pairingAccepted/pairingRejected/dataBundle/ack`)
+> per stream with half-close request/response. `SyncBundle`/`SyncNoteEntry`
+> (below) remain the CBOR payload carried inside `dataBundle`. Device identity
+> is a persistent Ed25519-derived peer id (`lib/sync/crypto/identity_store.dart`);
+> discovery uses the `_syncnotenet._udp` mDNS fork
+> (`lib/sync/discovery/nook_mdns_discovery.dart`). See AGENTS.md
+> "Sync architecture (libp2p transport)" and `lib/sync/transport/libp2p_sync_transport.dart`.
+
 ### 8.1 Roles & State Machine
 ```
 IDLE → ADVERTISING (receiver) / DISCOVERING (sender)
@@ -596,7 +607,7 @@ SyncScreen
 | Data layer | Unit tests against an in-memory Drift `NativeDatabase.memory()` — test every DAO method, migration, and FTS query |
 | Merge resolver | Table-driven unit tests covering every branch in §8.4 explicitly (new note, older incoming, same-lineage newer, true conflict) |
 | Widgets | `flutter_test` golden tests for NoteCard in each color seed / locked / pinned state — catches theming regressions visually |
-| Sync integration | Two-emulator integration test harness (Android emulators *can* talk to each other over a virtual network for Nearby Connections testing — verify this early, it's a known rough edge) |
+| Sync integration | Loopback UDX tests between two in-process libp2p hosts (no multicast, CI-safe) — `test/sync/libp2p_transport_test.dart` + `libp2p_integration_test.dart`, hosts built via `test/sync/libp2p_test_host.dart`. Real-mDNS round trip is tagged `network` and skipped in CI. Two-emulator harness (Android emulators talking over the virtual network) remains for device-level validation |
 | Crash/perf | Manual soak test: create 500+ notes with mixed types, verify grid scroll stays 60fps and search stays instant — Drift + FTS5 should handle this fine, but verify on a real low-end device, not just your dev phone |
 
 ---

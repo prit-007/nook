@@ -1,10 +1,16 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
+import '../../core/theme/design_tokens.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
@@ -14,7 +20,9 @@ import 'widgets/notebook_detail_pane.dart';
 
 /// Notebooks list screen — grid of notebook cards with CRUD.
 class NotebooksScreen extends ConsumerStatefulWidget {
-  const NotebooksScreen({super.key});
+  const NotebooksScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   ConsumerState<NotebooksScreen> createState() => _NotebooksScreenState();
@@ -44,112 +52,217 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   }
 
   void _showCreateSheet() {
+    HapticFeedback.mediumImpact();
     final nameController = TextEditingController();
-    String selectedColor = '#FF5722';
+    Color selectedColor = NookColors.defaultSeed;
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          MediaQuery.of(ctx).viewInsets.bottom + 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Create Notebook',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                hintText: 'e.g. Work, Personal',
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final scheme = Theme.of(context).colorScheme;
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(ctx).viewInsets.bottom + 16,
               ),
-              autofocus: true,
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: [
-                '#FF5722',
-                '#2196F3',
-                '#4CAF50',
-                '#9C27B0',
-                '#FF9800',
-                '#E91E63',
-              ].map((c) {
-                final color = Color(
-                  int.parse('FF${c.replaceFirst('#', '')}', radix: 16),
-                );
-                return Semantics(
-                  label: 'Color option',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: () => setState(() => selectedColor = c),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: selectedColor == c
-                              ? Theme.of(ctx).colorScheme.onSurface
-                              : Colors.transparent,
-                          width: 3,
-                        ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest
+                          .withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.2),
+                        width: 0.5,
                       ),
                     ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'New Collection',
+                          style: TextStyle(
+                            fontFamily: 'Playfair Display',
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        TextField(
+                          controller: nameController,
+                          autofocus: true,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: scheme.onSurface,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'e.g. Architectural Studies, Journal',
+                            hintStyle: TextStyle(
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.5),
+                            ),
+                            filled: true,
+                            fillColor: scheme.surface.withValues(alpha: 0.6),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 18,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'ACCENT PALETTE',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2.0,
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            for (final seed in NookColors.seeds)
+                              _SeedColorDot(
+                                color: seed,
+                                isSelected: seed == selectedColor,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setModalState(() => selectedColor = seed);
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                onPressed: () => Navigator.pop(ctx),
+                                child: Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: selectedColor,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                onPressed: () async {
+                                  if (nameController.text.trim().isEmpty) {
+                                    return;
+                                  }
+                                  unawaited(HapticFeedback.lightImpact());
+                                  final repo = NotebookRepository(
+                                    ref.read(databaseProvider),
+                                  );
+                                  await repo.createNotebook(
+                                    name: nameController.text.trim(),
+                                    colorSeed: _hexFromColor(selectedColor),
+                                  );
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  await _load();
+                                },
+                                child: const Text(
+                                  'Create',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
                 ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: () async {
-                    if (nameController.text.trim().isEmpty) return;
-                    final repo = NotebookRepository(
-                      ref.read(databaseProvider),
-                    );
-                    await repo.createNotebook(
-                      name: nameController.text.trim(),
-                      colorSeed: selectedColor,
-                    );
-                    if (ctx.mounted) Navigator.pop(ctx);
-                    await _load();
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
   void _showDeleteDialog(Notebook notebook) {
+    final scheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Notebook'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Delete Notebook',
+          style: TextStyle(
+            fontFamily: 'Playfair Display',
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurface,
+          ),
+        ),
         content: Text(
-          'Delete "${notebook.name}"? Notes inside will not be deleted.',
+          'Are you sure you want to delete "${notebook.name}"? Notes inside '
+          'will remain safely intact.',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: scheme.onSurfaceVariant,
+          ),
         ),
         actions: [
           TextButton(
@@ -157,6 +270,10 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: scheme.error,
+              foregroundColor: scheme.onError,
+            ),
             onPressed: () async {
               final repo = NotebookRepository(ref.read(databaseProvider));
               await repo.deleteNotebook(notebook.id);
@@ -178,9 +295,23 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
     final grid = _notebooksGrid(scheme, isDualPane);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notebooks')),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: Text(
+                'Collections',
+                style: TextStyle(
+                  fontFamily: 'Playfair Display',
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: scheme.onSurface,
+                ),
+              ),
+              centerTitle: false,
+            ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: scheme.primary))
           : isDualPane
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -189,7 +320,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                     VerticalDivider(
                       width: 1,
                       thickness: 1,
-                      color: scheme.outlineVariant.withValues(alpha: 0.2),
+                      color: scheme.outlineVariant.withValues(alpha: 0.15),
                     ),
                     const Flexible(flex: 2, child: NotebookDetailPane()),
                   ],
@@ -197,11 +328,24 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
               : grid,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 114),
-        child: FloatingActionButton(
+        padding: EdgeInsets.only(
+          bottom: DockSafeArea.bottomOf(context) + 16,
+        ),
+        child: FloatingActionButton.extended(
+          // Unique hero tag: both NotebooksScreen and TagsScreen stay alive in
+          // the CollectionsScreen IndexedStack, so sharing the default FAB hero
+          // tag would throw "multiple heroes with the same tag" every build.
+          heroTag: 'fab-notebooks',
           onPressed: _showCreateSheet,
           tooltip: 'Create notebook',
-          child: const Icon(Icons.add),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text(
+            'New',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
       ),
     );
@@ -211,20 +355,26 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
     if (_notebooks.isEmpty) {
       return const EmptyState(
         icon: Icons.book_outlined,
-        title: 'No notebooks',
-        subtitle: 'Tap + to create one',
+        title: 'No collections yet',
+        subtitle: 'Tap + New to create your first notebook.',
         animate: false,
       );
     }
     return RefreshIndicator(
       onRefresh: _load,
+      color: scheme.primary,
       child: GridView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          DockSafeArea.bottomOf(context) + 80,
+        ),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 0.62,
+          mainAxisSpacing: 20,
+          crossAxisSpacing: 20,
+          childAspectRatio: 0.65, // Elegant portrait aspect ratio
         ),
         itemCount: _notebooks.length,
         itemBuilder: (context, index) {
@@ -246,6 +396,54 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
           if (MediaQuery.disableAnimationsOf(context)) return card;
           return ParallaxCard(child: card);
         },
+      ),
+    );
+  }
+}
+
+String _hexFromColor(Color color) =>
+    '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
+
+class _SeedColorDot extends StatelessWidget {
+  const _SeedColorDot({
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutBack,
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.5),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: isSelected
+            ? const Icon(
+                Icons.check_rounded,
+                color: Colors.white,
+                size: 20,
+              )
+            : null,
       ),
     );
   }

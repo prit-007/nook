@@ -4,17 +4,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/design_tokens.dart';
 
-/// Persists: manual seed index, dark/light/system mode, reduce-motion flag.
+/// Persists: manual seed index, dark/light/system mode, reduce-motion flag,
+/// and AMOLED true-black dark-mode flag.
 class ThemePreference extends ChangeNotifier {
   ThemePreference({
     this.seedIndex = 0,
     this.themeMode = ThemeMode.system,
     this.reduceMotion = false,
+    this.amoledDark = false,
   });
 
   int seedIndex;
   ThemeMode themeMode;
   bool reduceMotion;
+  bool amoledDark;
 
   Color get seedColor => NookColors.seeds[seedIndex];
 
@@ -36,11 +39,18 @@ class ThemePreference extends ChangeNotifier {
     _save();
   }
 
+  void setAmoledDark(bool value) {
+    amoledDark = value;
+    notifyListeners();
+    _save();
+  }
+
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('seed_index', seedIndex);
     await prefs.setInt('theme_mode', themeMode.index);
     await prefs.setBool('reduce_motion', reduceMotion);
+    await prefs.setBool('amoled_dark', amoledDark);
   }
 
   static Future<ThemePreference> load() async {
@@ -51,6 +61,7 @@ class ThemePreference extends ChangeNotifier {
       themeMode:
           ThemeMode.values[modeIndex.clamp(0, ThemeMode.values.length - 1)],
       reduceMotion: prefs.getBool('reduce_motion') ?? false,
+      amoledDark: prefs.getBool('amoled_dark') ?? false,
     );
   }
 }

@@ -8,6 +8,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/note_repository.dart';
@@ -145,7 +146,12 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: [
           const _SectionHeader(title: 'Vault Usage'),
           const SizedBox(height: 8),

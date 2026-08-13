@@ -24,6 +24,7 @@ import 'core/providers/database_provider.dart';
 import 'core/providers/pin_provider.dart';
 import 'core/providers/screenshot_blocker_provider.dart';
 import 'core/providers/theme_provider.dart';
+import 'core/providers/navigation_preference.dart';
 import 'data/database.dart';
 
 void main() async {
@@ -34,12 +35,14 @@ void main() async {
     BiometricGate.load(),
     ScreenshotBlocker.load(),
     PinProvider.load(),
+    NavigationPreference.load(),
   ]);
 
   final themePref = results[0] as ThemePreference;
   final biometricGate = results[1] as BiometricGate;
   final screenshotBlocker = results[2] as ScreenshotBlocker;
   final pinProv = results[3] as PinProvider;
+  final navigationPreference = results[4] as NavigationPreference;
 
   // Apply screenshot blocker flag on startup if persisted.
   await screenshotBlocker.applyPersisted();
@@ -60,6 +63,8 @@ void main() async {
         biometricGateProvider.overrideWith((ref) => biometricGate),
         screenshotBlockerProvider.overrideWith((ref) => screenshotBlocker),
         pinProvider.overrideWith((ref) => pinProv),
+        navigationPreferenceProvider
+            .overrideWith((ref) => navigationPreference),
         databaseProvider.overrideWith((ref) => db),
       ],
       child: const NookApp(),

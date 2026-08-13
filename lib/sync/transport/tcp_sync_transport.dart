@@ -119,6 +119,7 @@ class TcpSyncTransport implements SyncTransport {
   // Lifecycle
   // ---------------------------------------------------------------------------
 
+  @override
   Future<void> initialize() async {
     if (_initialized) return;
     _localDeviceId = const Uuid().v4();
@@ -126,7 +127,11 @@ class TcpSyncTransport implements SyncTransport {
     _initialized = true;
   }
 
+  @override
+  bool get isInitialized => _initialized;
+
   /// Returns the current device info.
+  @override
   Future<String?> getCurrentDeviceId() async {
     await initialize();
     return _localDeviceId;
@@ -302,7 +307,10 @@ class TcpSyncTransport implements SyncTransport {
         if (confirm['type'] != 'pairing_confirm') {
           _handshaking = false;
           _protoFrames.clear();
-          _emitState(const SyncSessionState.error('Pairing rejected'));
+          _emitState(const SyncSessionState.error(
+            'Pairing rejected',
+            outcome: SyncOutcomeCategory.rejected,
+          ));
           await _outgoingSocket?.close();
           _outgoingSocket = null;
           return false;
@@ -317,7 +325,10 @@ class TcpSyncTransport implements SyncTransport {
     } on TimeoutException {
       _handshaking = false;
       _protoFrames.clear();
-      _emitState(const SyncSessionState.error('Pairing timed out'));
+      _emitState(const SyncSessionState.error(
+        'Pairing timed out',
+        outcome: SyncOutcomeCategory.timedOut,
+      ));
       await _outgoingSocket?.close();
       _outgoingSocket = null;
       return false;
@@ -427,15 +438,20 @@ class TcpSyncTransport implements SyncTransport {
               : const SyncAck(receivedNoteIds: [], rejectedNoteIds: []);
         } on TimeoutException {
           if (attempt == 1) {
-            _emitState(
-                const SyncSessionState.error('Timed out waiting for ack'));
+            _emitState(const SyncSessionState.error(
+              'Timed out waiting for ack',
+              outcome: SyncOutcomeCategory.timedOut,
+            ));
             return null;
           }
           // First timeout — retry the whole bundle once.
         }
       }
 
-      _emitState(const SyncSessionState.error('Timed out waiting for ack'));
+      _emitState(const SyncSessionState.error(
+        'Timed out waiting for ack',
+        outcome: SyncOutcomeCategory.timedOut,
+      ));
       return null;
     } catch (e) {
       _emitState(SyncSessionState.error('Send failed: $e'));
@@ -500,7 +516,10 @@ class TcpSyncTransport implements SyncTransport {
 
     final checksum = sha256.convert(bytes).toString();
     if (_incomingChecksum != null && checksum != _incomingChecksum) {
-      _emitState(const SyncSessionState.error('Checksum mismatch'));
+      _emitState(const SyncSessionState.error(
+        'Checksum mismatch',
+        outcome: SyncOutcomeCategory.protocol,
+      ));
       _resetIncomingBuffer();
       return;
     }
@@ -632,7 +651,9 @@ class TcpSyncTransport implements SyncTransport {
 
           if (expectedLength > maxFrameSize) {
             _emitState(SyncSessionState.error(
-                'Frame too large ($expectedLength bytes)'));
+              'Frame too large ($expectedLength bytes)',
+              outcome: SyncOutcomeCategory.protocol,
+            ));
             _resetIncomingBuffer();
             buffer.clear();
             return;
@@ -651,7 +672,10 @@ class TcpSyncTransport implements SyncTransport {
       },
       onDone: () {
         if (_connectedDeviceId != null) {
-          _emitState(const SyncSessionState.error('Connection lost'));
+          _emitState(const SyncSessionState.error(
+            'Connection lost',
+            outcome: SyncOutcomeCategory.connectionLost,
+          ));
         }
       },
     );

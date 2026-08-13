@@ -1,7 +1,7 @@
 name: nook
 description: "A private, local-first note-taking app. Your notes, your device, yours."
 publish_to: 'none'
-version: 0.7.2+1
+version: 0.7.5+1
 license: GPL-3.0
 
 # Select a SQLCipher build for the sqlite3 native-assets hook so that
@@ -33,6 +33,7 @@ dependencies:
 
   # Theming
   palette_generator: ^0.3.3
+  google_fonts: ^6.2.1
 
   # Editor
   appflowy_editor: ^6.2.0
@@ -52,6 +53,9 @@ dependencies:
 
   # Nearby sync
   bonsoir: ^7.1.5
+  dart_libp2p: ^1.0.3
+  dart_udx: ^2.0.3
+  mdns_dart: ^2.2.1
   crypto: ^3.0.5
   cbor: ^6.3.4
   archive: ^3.6.1
@@ -85,6 +89,27 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 flutter:
   uses-material-design: true
+  fonts:
+    - family: Playfair Display
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlayfairDisplay-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlayfairDisplay-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlayfairDisplay-ExtraBold.ttf
+          weight: 800
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
   # assets:
   #   - assets/illustrations/
   #   - assets/icons/

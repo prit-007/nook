@@ -10,6 +10,7 @@ class SyncDevice {
     required this.isOnline,
     this.hostAddress,
     this.port,
+    this.multiaddresses,
   });
 
   final String deviceId;
@@ -17,6 +18,10 @@ class SyncDevice {
   final bool isOnline;
   final String? hostAddress;
   final int? port;
+
+  /// libp2p multiaddrs (e.g. `/ip4/192.168.1.50/udp/4001/udx`) advertised by
+  /// the peer. Null for transports that only expose [hostAddress]/[port].
+  final List<String>? multiaddresses;
 
   @override
   bool operator ==(Object other) =>
@@ -49,16 +54,63 @@ class PairingRequest {
 
 /// State machine for a sync session.
 class SyncSessionState {
-  const SyncSessionState.idle() : error = null;
-  const SyncSessionState.advertising() : error = null;
-  const SyncSessionState.discovering() : error = null;
-  const SyncSessionState.connecting() : error = null;
-  const SyncSessionState.connected() : error = null;
-  const SyncSessionState.transferring() : error = null;
-  const SyncSessionState.complete() : error = null;
-  const SyncSessionState.error(String this.error);
+  const SyncSessionState.idle()
+      : error = null,
+        outcome = null;
+  const SyncSessionState.advertising()
+      : error = null,
+        outcome = null;
+  const SyncSessionState.discovering()
+      : error = null,
+        outcome = null;
+  const SyncSessionState.connecting()
+      : error = null,
+        outcome = null;
+  const SyncSessionState.connected()
+      : error = null,
+        outcome = null;
+  const SyncSessionState.transferring()
+      : error = null,
+        outcome = null;
+  const SyncSessionState.complete()
+      : error = null,
+        outcome = null;
+  const SyncSessionState.error(
+    String this.error, {
+    this.outcome = SyncOutcomeCategory.internal,
+  });
 
   final String? error;
+
+  /// Category of the failure, when [error] is non-null. Lets callers
+  /// distinguish a declined transfer from a timeout or a protocol violation
+  /// instead of guessing from the message string.
+  final SyncOutcomeCategory? outcome;
+}
+
+/// Categories a failed sync session/operation can be bucketed into.
+///
+/// Drives distinct UI treatments (declined vs. timeout vs. connection lost vs.
+/// protocol error) so a user is never shown an ambiguous red error for a
+/// deliberate rejection.
+enum SyncOutcomeCategory {
+  /// The remote device deliberately declined the pairing/transfer.
+  rejected,
+
+  /// The peer never answered before the deadline elapsed.
+  timedOut,
+
+  /// The underlying connection dropped mid-transfer.
+  connectionLost,
+
+  /// The local user cancelled the operation.
+  cancelled,
+
+  /// The peer violated the wire protocol or sent corrupt data.
+  protocol,
+
+  /// Anything else — surfaced as the generic failure state.
+  internal,
 }
 
 /// Abstract interface for a sync transport (e.g., Nearby Connections, NSD).
@@ -70,6 +122,15 @@ abstract class SyncTransport {
   Stream<List<int>> get bytesReceivedStream;
   Stream<double> get progressStream;
   Stream<PairingRequest> get pairingRequestStream;
+
+  /// Prepares the transport (identity, listeners) for use. Idempotent.
+  Future<void> initialize();
+
+  /// Whether [initialize] has completed at least once.
+  bool get isInitialized;
+
+  /// Stable identifier for this device, stable across restarts.
+  Future<String?> getCurrentDeviceId();
 
   Future<void> startAdvertising();
   Future<void> stopAdvertising();
@@ -103,12 +164,29 @@ class MockSyncTransport implements SyncTransport {
   bool isDiscovering = false;
   bool connectToDeviceResult = true;
   SyncSessionState sessionState = const SyncSessionState.idle();
+  bool _isInitialized = false;
+  String? deviceId;
 
   Future<void> Function(List<int> data)? onSend;
   SyncAck? sendResult = const SyncAck(receivedNoteIds: [], rejectedNoteIds: []);
   String? lastPairingCode;
   PairingRequest? lastRespondedPairing;
   bool? lastPairingApproved;
+
+  @override
+  Future<void> initialize() async {
+    _isInitialized = true;
+    deviceId ??= 'mock-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  @override
+  bool get isInitialized => _isInitialized;
+
+  @override
+  Future<String?> getCurrentDeviceId() async {
+    await initialize();
+    return deviceId;
+  }
 
   @override
   Stream<SyncDevice> get deviceFoundStream => _deviceFoundController.stream;

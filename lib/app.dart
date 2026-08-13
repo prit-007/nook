@@ -37,6 +37,9 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
         gate.onAppResumed();
       case AppLifecycleState.paused:
         gate.onAppPaused();
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        gate.onAppPaused();
       default:
         break;
     }
@@ -51,8 +54,12 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
     return MaterialApp.router(
       title: 'Nook',
       theme: buildLightTheme(seed),
-      darkTheme: buildDarkTheme(seed),
+      darkTheme: buildDarkTheme(seed, amoled: themePref.amoledDark),
       themeMode: themePref.themeMode,
+      // Flutter can interpolate text shadows through a negative radius while
+      // a ColorScheme is replaced. There are no useful animated theme values
+      // in Nook, so rebuild the theme atomically instead.
+      themeAnimationDuration: Duration.zero,
       routerConfig: router,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

@@ -38,7 +38,7 @@ Your gap: **nobody has combined** (a) Material You 3 dynamic, per-note theming, 
 | Doodle / drawing canvas | Build custom on `CustomPainter` + `Path`, or fork ideas from **Saber** (FOSS, GPL-3, Flutter) which already solved pressure/stylus input, infinite canvas, and image export | Don't reinvent stroke smoothing — study Saber's renderer |
 | Note → image export | `RepaintBoundary` + `dart:ui` `toImage()` → save via `gal` or `image_gallery_saver_plus` | Native "snapshot this note" feature |
 | Biometric lock | **`local_auth`** (official Flutter plugin) | Face/fingerprint gate on app open and/or per-note |
-| Local device-to-device sync | **`nearby_service`** (actively maintained, wraps Android Wi-Fi Direct / Nearby Connections and Apple Multipeer Connectivity) for the transport layer, with your own sync protocol on top | This is the "Quick Share for notes" feature — see §6 |
+| Local device-to-device sync | **`dart_libp2p` over UDX** (UDP-based reliable transport, Noise encryption + Yamux multiplexing) with your own sync protocol on top. No server, no account. Legacy TCP transport kept as a fallback | This is the "Quick Share for notes" feature — see §6. *Implemented in 0.7.5* (`lib/sync/transport/libp2p_sync_transport.dart`) |
 | State management | **Riverpod** | Pairs cleanly with Drift's reactive streams |
 | Navigation | **go_router** | Standard, FOSS, good deep-link support for widget/share-intent entry points |
 | CI/CD & release | GitHub Actions → Play Store (Fastlane optional) | Needed for "rock solid" repeatable releases |
@@ -137,7 +137,7 @@ Don't skip these — a biometric lock screen with a nice illustration and a soft
 
 This is your hardest engineering problem, so plan it deliberately:
 
-1. **Transport:** `nearby_service` gives you Wi-Fi Direct/Nearby Connections on Android and Multipeer on iOS-if-you-go-there-later. Note its current limitation: Android↔iOS cross-platform pairing isn't supported by that package — for a first release targeting Play Store/Android this is fine; keep it in mind if you ever add iOS.
+1. **Transport:** `dart_libp2p` over UDX — a custom UDP-based reliable transport with Noise encryption and Yamux stream multiplexing. Every Nook install derives a permanent libp2p peer id from an Ed25519 seed sealed in the platform keystore, so identity needs no server or account. Discovery is Nook's own mDNS fork (`_syncnotenet._udp`, with a `devicename=` TXT record and split advertise/discover modes). The legacy TCP transport (`TcpSyncTransport`) remains behind `useTcpFallback: true`. Note the known edge: mDNS reliability on some Android stacks is unproven (pure Dart cannot hold a MulticastLock) and should be validated on physical devices.
 2. **Discovery UX:** always explicit, user-initiated on both ends (advertise + browse), never background-silent — this matters for Play Store review and for user trust (your whole pitch is "you're in control").
 3. **Payload:** serialize selected note(s) + attachments as a signed, versioned JSON/CBOR bundle + binary blobs, sent over the established socket in chunks with a progress callback.
 4. **Conflict resolution:** last-write-wins is the *simplest* to ship v1, but expose a merge/duplicate-detection UI as described above so users never lose data silently.
@@ -190,7 +190,7 @@ notes_app/
   lib/
     core/            (theming, constants, extensions, design tokens)
     data/            (drift tables, daos, repositories)
-    sync/            (nearby_service wrapper, protocol, conflict resolver)
+    sync/            (libp2p UDX transport wrapper, protocol, conflict resolver)
     features/
       home/
       editor/

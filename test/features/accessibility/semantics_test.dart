@@ -9,6 +9,7 @@ import 'package:nook/data/repositories/tag_repository.dart';
 import 'package:nook/features/editor/widgets/color_picker_sheet.dart';
 import 'package:nook/features/sync_ui/sync_screen.dart';
 import 'package:nook/features/tags/tag_detail_screen.dart';
+import 'package:nook/sync/crypto/identity_store.dart';
 import 'package:nook/sync/sync_orchestrator.dart';
 import 'package:nook/sync/transport/sync_transport.dart';
 
@@ -19,7 +20,11 @@ class _StubSyncOrchestrator extends SyncOrchestrator {
 
   @override
   Future<void> initializeTransport(
-      {SyncTransport? testTransport, String? localDeviceName}) async {}
+      {SyncTransport? testTransport,
+      String? localDeviceName,
+      bool useTcpFallback = false,
+      IdentityStore? identityStore,
+      String? listenAddress}) async {}
 
   @override
   Future<void> startDiscovery() async {}

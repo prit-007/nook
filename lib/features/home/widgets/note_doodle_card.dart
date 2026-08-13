@@ -1,38 +1,67 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/design_tokens.dart';
+import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
+import '../../../data/repositories/attachment_repository.dart';
+import '../../../data/tables/attachments.dart';
+import '../../../data/tables/notes.dart';
 import 'note_quick_actions_sheet.dart';
 
 /// Split-view card for doodle notes with theme awareness and gesture feedback.
-class NoteDoodleCard extends StatefulWidget {
+class NoteDoodleCard extends ConsumerStatefulWidget {
   const NoteDoodleCard({super.key, required this.note, this.onTap});
 
   final Note note;
   final VoidCallback? onTap;
 
   @override
-  State<NoteDoodleCard> createState() => _NoteDoodleCardState();
+  ConsumerState<NoteDoodleCard> createState() => _NoteDoodleCardState();
 }
 
-class _NoteDoodleCardState extends State<NoteDoodleCard> {
+class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
   bool _isPressed = false;
+  String? _thumbnailPath;
 
-  ColorScheme _cardScheme(BuildContext context) {
-    if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
-      final seed = NookColors.parseHex(widget.note.colorSeed);
-      return ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: Theme.of(context).brightness,
-      );
+  bool get _hasColor =>
+      widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(covariant NoteDoodleCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.note.id != widget.note.id) {
+      _loadThumbnail();
     }
-    return Theme.of(context).colorScheme;
+  }
+
+  Future<void> _loadThumbnail() async {
+    final db = ref.read(databaseProvider);
+    final attachments =
+        await AttachmentRepository(db).getAllForNote(widget.note.id);
+    if (!mounted) return;
+    final doodleAttachment = attachments
+        .where((a) => a.type == AttachmentType.doodleLayer)
+        .firstOrNull;
+    if (mounted) {
+      setState(() {
+        _thumbnailPath = doodleAttachment?.thumbnailPath;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final cardScheme = _cardScheme(context);
+    final cardScheme = noteSchemeFor(context, widget.note.colorSeed);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
@@ -55,15 +84,13 @@ class _NoteDoodleCardState extends State<NoteDoodleCard> {
               height: 140,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: cardScheme.surfaceContainerLow,
+                color: _hasColor
+                    ? Color.alphaBlend(
+                        cardScheme.primaryContainer.withValues(alpha: 0.08),
+                        cardScheme.surfaceContainerLow,
+                      )
+                    : cardScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: cardScheme.primary.withValues(alpha: 0.12),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: Row(
@@ -85,7 +112,9 @@ class _NoteDoodleCardState extends State<NoteDoodleCard> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'Doodle',
+                                widget.note.type == NoteType.mixed
+                                    ? 'Mixed note'
+                                    : 'Doodle',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
@@ -122,27 +151,46 @@ class _NoteDoodleCardState extends State<NoteDoodleCard> {
                   ),
                   Expanded(
                     flex: 2,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: cardScheme.primaryContainer,
-                        borderRadius: const BorderRadius.horizontal(
-                          right: Radius.circular(24),
-                        ),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.gesture_rounded,
-                          size: 40,
-                          color: cardScheme.onPrimaryContainer
-                              .withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ),
+                    child: _buildThumbnail(cardScheme),
                   ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(ColorScheme cardScheme) {
+    if (_thumbnailPath != null && File(_thumbnailPath!).existsSync()) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.horizontal(
+          right: Radius.circular(24),
+        ),
+        child: Image.file(
+          File(_thumbnailPath!),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fallbackIcon(cardScheme),
+        ),
+      );
+    }
+    return _fallbackIcon(cardScheme);
+  }
+
+  Widget _fallbackIcon(ColorScheme cardScheme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cardScheme.primaryContainer,
+        borderRadius: const BorderRadius.horizontal(
+          right: Radius.circular(24),
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.gesture_rounded,
+          size: 40,
+          color: cardScheme.onPrimaryContainer.withValues(alpha: 0.7),
         ),
       ),
     );

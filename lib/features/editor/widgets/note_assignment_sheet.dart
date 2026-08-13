@@ -28,6 +28,7 @@ class NoteAssignmentSheet extends ConsumerStatefulWidget {
   }) {
     return showModalBottomSheet<AssignmentResult>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

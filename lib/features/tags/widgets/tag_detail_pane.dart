@@ -25,12 +25,12 @@ class TagDetailPane extends ConsumerWidget {
 
     if (tagId == null) {
       return ColoredBox(
-        color: scheme.surfaceContainerLowest,
+        color: scheme.surface,
         child: const Center(
           child: EmptyState(
             icon: LucideIcons.tags,
             title: 'Select a tag',
-            subtitle: 'Choose a tag to browse its notes.',
+            subtitle: 'Choose a tag from the left pane to view notes.',
             animate: false,
           ),
         ),
@@ -90,42 +90,50 @@ class _TagNotesPaneState extends ConsumerState<_TagNotesPane> {
     final accent = _tagColor ?? scheme.primary;
 
     return ColoredBox(
-      color: scheme.surfaceContainerLowest,
+      color: scheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
             child: Row(
               children: [
-                Icon(LucideIcons.tag, size: 18, color: accent),
-                const SizedBox(width: 8),
+                Icon(LucideIcons.tag, size: 20, color: accent),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     _tagName.isEmpty ? 'Tag' : _tagName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Playfair Display',
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
                       color: accent,
                     ),
                   ),
                 ),
                 Text(
-                  '${_notes.length} note${_notes.length == 1 ? '' : 's'}',
+                  '${_notes.length} ${_notes.length == 1 ? 'note' : 'notes'}',
                   style: TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: 13,
-                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
                 ),
               ],
             ),
           ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: scheme.outlineVariant.withValues(alpha: 0.15),
+          ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: accent))
                 : _notes.isEmpty
                     ? const EmptyState(
                         icon: LucideIcons.fileText,
@@ -134,17 +142,21 @@ class _TagNotesPaneState extends ConsumerState<_TagNotesPane> {
                         animate: false,
                       )
                     : GridView.builder(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 14,
                           childAspectRatio: 0.8,
                         ),
                         itemCount: _notes.length,
                         itemBuilder: (context, index) => NoteCard(
                           note: _notes[index],
+                          // Scope the hero tag per pane so the same note
+                          // rendered in the NotebookDetailPane (kept alive in
+                          // the CollectionsScreen IndexedStack) never collides.
+                          heroTag: 'tag-${widget.tagId}-${_notes[index].id}',
                           onTap: () =>
                               context.push('/note/${_notes[index].id}'),
                         ),

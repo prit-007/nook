@@ -8,6 +8,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/masked_reveal.dart';
 import '../../core/widgets/masked_reveal_text.dart';
 import '../../data/repositories/note_repository.dart';
@@ -195,7 +196,12 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                 )
               : ListView.builder(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    16,
+                    20,
+                    DockSafeArea.bottomOf(context) + 72,
+                  ),
                   itemCount: _notes.length,
                   itemBuilder: (context, index) {
                     final note = _notes[index];
@@ -268,7 +274,9 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _notes.isNotEmpty
           ? Padding(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: EdgeInsets.only(
+                bottom: DockSafeArea.bottomOf(context) + 16,
+              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(32),
                 child: BackdropFilter(

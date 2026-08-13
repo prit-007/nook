@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
+import '../../core/widgets/dock_safe_area.dart';
+
 /// In-app privacy policy. Honest, no-cloud copy: every permission the app may
 /// touch is declared up front so the Play Store data-safety form can simply
 /// mirror this screen.
@@ -23,7 +25,12 @@ class SettingsPrivacyScreen extends StatelessWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: const [
           _SectionHeader(title: 'Local-first'),
           SizedBox(height: 8),

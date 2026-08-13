@@ -44,6 +44,7 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
   }) {
     return showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -67,15 +68,19 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
 
 class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   String? _selectedNotebookId;
+  String? _selectedColorSeed;
   List<String> _selectedTagIds = [];
   List<Notebook> _notebooks = [];
   List<Tag> _tags = [];
   bool _loading = true;
+  late bool _isLocked;
 
   @override
   void initState() {
     super.initState();
     _selectedNotebookId = widget.currentNotebookId;
+    _selectedColorSeed = widget.currentColorSeed;
+    _isLocked = widget.currentlyLocked;
     _load();
   }
 
@@ -118,8 +123,8 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final currentColor =
-        widget.currentColorSeed != null && widget.currentColorSeed!.isNotEmpty
-            ? NookColors.parseHex(widget.currentColorSeed)
+        _selectedColorSeed != null && _selectedColorSeed!.isNotEmpty
+            ? NookColors.parseHex(_selectedColorSeed)
             : null;
 
     return DraggableScrollableSheet(
@@ -165,18 +170,23 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                         _ColorDot(
                           color: null,
                           isSelected: currentColor == null,
-                          onTap: () => widget.onColorChanged?.call(''),
+                          onTap: () {
+                            setState(() => _selectedColorSeed = '');
+                            widget.onColorChanged?.call('');
+                          },
                         ),
                         for (int i = 0; i < NookColors.seeds.length; i++)
                           _ColorDot(
                             color: NookColors.seeds[i],
                             isSelected: currentColor == NookColors.seeds[i],
-                            onTap: () => widget.onColorChanged?.call(
-                              NookColors.seeds[i]
+                            onTap: () {
+                              final seed = NookColors.seeds[i]
                                   .toARGB32()
                                   .toRadixString(16)
-                                  .substring(2),
-                            ),
+                                  .substring(2);
+                              setState(() => _selectedColorSeed = seed);
+                              widget.onColorChanged?.call(seed);
+                            },
                           ),
                       ],
                     ),
@@ -261,15 +271,18 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                         ),
                       ),
                       secondary: Icon(
-                        widget.currentlyLocked
+                        _isLocked
                             ? Icons.lock_rounded
                             : Icons.lock_open_rounded,
-                        color: widget.currentlyLocked
+                        color: _isLocked
                             ? scheme.primary
                             : scheme.onSurfaceVariant,
                       ),
-                      value: widget.currentlyLocked,
-                      onChanged: (v) => widget.onLockedChanged?.call(v),
+                      value: _isLocked,
+                      onChanged: (v) {
+                        setState(() => _isLocked = v);
+                        widget.onLockedChanged?.call(v);
+                      },
                     ),
 
                     const SizedBox(height: 24),

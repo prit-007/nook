@@ -1,38 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/design_tokens.dart';
+import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
+import '../../../data/repositories/checklist_item_repository.dart';
 import '../../../data/tables/notes.dart';
 import 'note_quick_actions_sheet.dart';
 
-class NoteBannerCard extends StatefulWidget {
+class NoteBannerCard extends ConsumerStatefulWidget {
   const NoteBannerCard({super.key, required this.note, this.onTap});
 
   final Note note;
   final VoidCallback? onTap;
 
   @override
-  State<NoteBannerCard> createState() => _NoteBannerCardState();
+  ConsumerState<NoteBannerCard> createState() => _NoteBannerCardState();
 }
 
-class _NoteBannerCardState extends State<NoteBannerCard> {
+class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
   bool _isPressed = false;
+  List<ChecklistItem> _items = [];
 
-  ColorScheme _bannerScheme(BuildContext context) {
-    if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
-      final seed = NookColors.parseHex(widget.note.colorSeed);
-      return ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: Theme.of(context).brightness,
-      );
-    }
-    return Theme.of(context).colorScheme;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.note.type == NoteType.checklist) _loadChecklist();
+  }
+
+  Future<void> _loadChecklist() async {
+    final items = await ChecklistItemRepository(ref.read(databaseProvider))
+        .getItems(widget.note.id);
+    if (mounted) setState(() => _items = items);
   }
 
   @override
   Widget build(BuildContext context) {
-    final bannerScheme = _bannerScheme(context);
+    final bannerScheme = noteSchemeFor(context, widget.note.colorSeed);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
@@ -57,14 +62,6 @@ class _NoteBannerCardState extends State<NoteBannerCard> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
                 color: bannerScheme.primaryContainer,
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        bannerScheme.primaryContainer.withValues(alpha: 0.45),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: Stack(
@@ -122,7 +119,25 @@ class _NoteBannerCardState extends State<NoteBannerCard> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (widget.note.plainText != null &&
+                          if (widget.note.type == NoteType.checklist &&
+                              _items.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _items
+                                  .take(3)
+                                  .map((item) =>
+                                      '${item.checked ? '✓' : '○'} ${item.itemText}')
+                                  .join('\n'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.35,
+                                color: bannerScheme.onPrimaryContainer
+                                    .withValues(alpha: 0.75),
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ] else if (widget.note.plainText != null &&
                               widget.note.plainText!.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Text(

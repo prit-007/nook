@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../providers/navigation_preference.dart';
+import 'dock_safe_area.dart';
+
 /// Responsive navigation shell with magical micro-animations.
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child});
@@ -24,14 +27,19 @@ class AppShell extends StatelessWidget {
     HapticFeedback.selectionClick();
     switch (index) {
       case 0:
+        NavigationPreference.rememberPath('/home');
         context.go('/home');
       case 1:
+        NavigationPreference.rememberPath('/notebooks');
         context.go('/notebooks');
       case 2:
+        NavigationPreference.rememberPath('/tags');
         context.go('/tags');
       case 3:
+        NavigationPreference.rememberPath('/trash');
         context.go('/trash');
       case 4:
+        NavigationPreference.rememberPath('/settings');
         context.go('/settings');
     }
   }
@@ -81,13 +89,10 @@ class _MobileShell extends StatelessWidget {
 
     return Scaffold(
       extendBody: true,
-      body: Padding(
-        padding: EdgeInsets.only(bottom: dockHeight),
-        child: MediaQuery.removePadding(
-          context: context,
-          removeBottom: true,
-          child: child,
-        ),
+      backgroundColor: Colors.transparent,
+      body: DockSafeArea(
+        bottom: dockHeight,
+        child: child,
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -100,16 +105,20 @@ class _MobileShell extends StatelessWidget {
                 height: 72,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
+                  // Tint the dock with the screen surface itself so it melts
+                  // into every screen's background (light, dark, AMOLED)
+                  // instead of reading as a mismatched gray band; the blur
+                  // still frosts whatever scrolls beneath.
+                  color: scheme.surface.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(36),
                   border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.25),
+                    color: scheme.outlineVariant.withValues(alpha: 0.15),
                     width: 1,
                   ),
                   boxShadow: [
                     // Ambient Glow
                     BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.08),
+                      color: scheme.primary.withValues(alpha: 0.06),
                       blurRadius: 32,
                       offset: const Offset(0, 12),
                     ),
@@ -340,40 +349,55 @@ class _WideShell extends StatelessWidget {
                   ),
                 ),
               ),
-              child: NavigationRail(
-                selectedIndex: selectedIndex,
-                onDestinationSelected: onTap,
-                backgroundColor: Colors.transparent,
-                indicatorColor: scheme.primary.withValues(alpha: 0.15),
-                selectedIconTheme: IconThemeData(color: scheme.primary),
-                unselectedIconTheme:
-                    IconThemeData(color: scheme.onSurfaceVariant),
-                selectedLabelTextStyle: TextStyle(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-                unselectedLabelTextStyle: TextStyle(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
-                ),
-                labelType: NavigationRailLabelType.all,
-                leading: Padding(
-                  padding: const EdgeInsets.only(bottom: 24, top: 24),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      shape: BoxShape.circle,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: IntrinsicHeight(
+                        child: NavigationRail(
+                          selectedIndex: selectedIndex,
+                          onDestinationSelected: onTap,
+                          backgroundColor: Colors.transparent,
+                          indicatorColor:
+                              scheme.primary.withValues(alpha: 0.15),
+                          selectedIconTheme:
+                              IconThemeData(color: scheme.primary),
+                          unselectedIconTheme:
+                              IconThemeData(color: scheme.onSurfaceVariant),
+                          selectedLabelTextStyle: TextStyle(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                          unselectedLabelTextStyle: TextStyle(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          labelType: NavigationRailLabelType.all,
+                          leading: Padding(
+                            padding: const EdgeInsets.only(bottom: 24, top: 24),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.bolt_rounded,
+                                size: 28,
+                                color: scheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                          destinations: _destinations,
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      Icons.bolt_rounded,
-                      size: 28,
-                      color: scheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-                destinations: _destinations,
+                  );
+                },
               ),
             ),
           ),

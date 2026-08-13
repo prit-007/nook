@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +31,7 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
   late final Animation<double> _pulse;
 
   bool _hasUnlocked = false;
+  String? _error;
 
   @override
   void initState() {
@@ -63,7 +65,11 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
     HapticFeedback.mediumImpact();
     final gate = ref.read(biometricGateProvider);
     final ok = await gate.unlock();
-    if (!ok || !mounted) return;
+    if (!ok || !mounted) {
+      if (mounted) setState(() => _error = 'Authentication was not completed.');
+      return;
+    }
+    setState(() => _error = null);
     setState(() => _hasUnlocked = true);
     await _focusController.forward();
   }
@@ -88,7 +94,7 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
             child: Container(
               width: double.infinity,
               height: double.infinity,
-              color: scheme.surface.withValues(alpha: 0.45),
+              color: scheme.surface.withValues(alpha: 0.72),
               child: SafeArea(
                 child: Center(
                   child: FittedBox(
@@ -98,6 +104,7 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
                       onTap: _unlock,
                       seed: seedColor,
                       pulse: _pulse,
+                      error: _error,
                     ),
                   ),
                 ),
@@ -116,12 +123,14 @@ class _FrostedShieldButton extends StatelessWidget {
     required this.onTap,
     required this.seed,
     required this.pulse,
+    this.error,
   });
 
   final bool enabled;
   final VoidCallback onTap;
   final Color seed;
   final Animation<double> pulse;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
@@ -192,13 +201,33 @@ class _FrostedShieldButton extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Touch the fingerprint to authenticate',
+              defaultTargetPlatform == TargetPlatform.windows
+                  ? 'Use Windows Hello to continue'
+                  : 'Touch the fingerprint to continue',
               style: TextStyle(
                 fontSize: 13,
                 color: scheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 24),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: error == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        error!,
+                        key: ValueKey(error),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: scheme.error,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+            ),
             // PIN fallback
             Consumer(
               builder: (context, ref, _) {

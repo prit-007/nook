@@ -4,6 +4,8 @@ import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/note_theme_scope.dart';
+
 /// Block keys for the doodle custom node.
 class DoodleBlockKeys {
   const DoodleBlockKeys._();
@@ -114,7 +116,7 @@ class _DoodleBlockComponentWidgetState extends State<DoodleBlockComponentWidget>
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = NoteThemeScope.of(context);
     final thumbnailPath =
         node.attributes[DoodleBlockKeys.thumbnailPath] as String? ?? '';
     final aspectRatio =

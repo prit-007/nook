@@ -89,7 +89,7 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'new-tag');
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.tap(find.text('Save Tag'));
+    await tester.tap(find.text('Create Tag'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
