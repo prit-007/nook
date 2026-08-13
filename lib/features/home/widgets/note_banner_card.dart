@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/theme/design_tokens.dart';
+import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
 import '../../../data/tables/notes.dart';
 import 'note_quick_actions_sheet.dart';
@@ -19,20 +19,9 @@ class NoteBannerCard extends StatefulWidget {
 class _NoteBannerCardState extends State<NoteBannerCard> {
   bool _isPressed = false;
 
-  ColorScheme _bannerScheme(BuildContext context) {
-    if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
-      final seed = NookColors.parseHex(widget.note.colorSeed);
-      return ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: Theme.of(context).brightness,
-      );
-    }
-    return Theme.of(context).colorScheme;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final bannerScheme = _bannerScheme(context);
+    final bannerScheme = noteSchemeFor(context, widget.note.colorSeed);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),

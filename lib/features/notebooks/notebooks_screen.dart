@@ -197,7 +197,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
               : grid,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 114),
+        padding: EdgeInsets.only(bottom: isDualPane ? 24 : 114),
         child: FloatingActionButton(
           onPressed: _showCreateSheet,
           tooltip: 'Create notebook',

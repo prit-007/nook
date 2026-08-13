@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/theme/design_tokens.dart';
+import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
 import 'note_quick_actions_sheet.dart';
 
@@ -19,20 +19,12 @@ class NoteDoodleCard extends StatefulWidget {
 class _NoteDoodleCardState extends State<NoteDoodleCard> {
   bool _isPressed = false;
 
-  ColorScheme _cardScheme(BuildContext context) {
-    if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
-      final seed = NookColors.parseHex(widget.note.colorSeed);
-      return ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: Theme.of(context).brightness,
-      );
-    }
-    return Theme.of(context).colorScheme;
-  }
+  bool get _hasColor =>
+      widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
-    final cardScheme = _cardScheme(context);
+    final cardScheme = noteSchemeFor(context, widget.note.colorSeed);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
@@ -55,7 +47,18 @@ class _NoteDoodleCardState extends State<NoteDoodleCard> {
               height: 140,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: cardScheme.surfaceContainerLow,
+                color: _hasColor
+                    ? Color.alphaBlend(
+                        cardScheme.primaryContainer.withValues(alpha: 0.08),
+                        cardScheme.surfaceContainerLow,
+                      )
+                    : cardScheme.surfaceContainerLow,
+                border: _hasColor
+                    ? Border.all(
+                        color: cardScheme.primary.withValues(alpha: 0.12),
+                        width: 1,
+                      )
+                    : null,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(

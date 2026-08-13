@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:nook/core/theme/design_tokens.dart';
+import 'package:nook/core/theme/note_theme.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
 
@@ -21,20 +21,12 @@ class NoteCard extends StatefulWidget {
 class _NoteCardState extends State<NoteCard> {
   bool _isPressed = false;
 
-  ColorScheme _cardScheme(BuildContext context) {
-    if (widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty) {
-      final seed = NookColors.parseHex(widget.note.colorSeed);
-      return ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: Theme.of(context).brightness,
-      );
-    }
-    return Theme.of(context).colorScheme;
-  }
+  bool get _hasColor =>
+      widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
-    final cardScheme = _cardScheme(context);
+    final cardScheme = noteSchemeFor(context, widget.note.colorSeed);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
@@ -57,6 +49,12 @@ class _NoteCardState extends State<NoteCard> {
               decoration: BoxDecoration(
                 color: cardScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(20),
+                border: _hasColor
+                    ? Border.all(
+                        color: cardScheme.primary.withValues(alpha: 0.12),
+                        width: 1,
+                      )
+                    : null,
                 boxShadow: [
                   BoxShadow(
                     color: cardScheme.shadow.withValues(alpha: 0.08),
@@ -68,33 +66,43 @@ class _NoteCardState extends State<NoteCard> {
               clipBehavior: Clip.antiAlias,
               child: Stack(
                 children: [
+                  if (_hasColor)
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color:
+                            cardScheme.primaryContainer.withValues(alpha: 0.08),
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            _typeIcon(cardScheme),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                widget.note.title.isNotEmpty
-                                    ? widget.note.title
-                                    : 'Untitled',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  color: widget.note.locked
-                                      ? cardScheme.onSurface
-                                          .withValues(alpha: 0.3)
-                                      : cardScheme.onSurface,
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: Row(
+                            children: [
+                              _typeIcon(cardScheme),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  widget.note.title.isNotEmpty
+                                      ? widget.note.title
+                                      : 'Untitled',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: widget.note.locked
+                                        ? cardScheme.onSurface
+                                            .withValues(alpha: 0.3)
+                                        : cardScheme.onSurface,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Expanded(

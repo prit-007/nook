@@ -14,12 +14,16 @@ class DoodleCanvas extends StatefulWidget {
     super.key,
     required this.controller,
     this.boundaryKey,
+    this.noteScheme,
   });
 
   final DoodleController controller;
 
   /// Key for the internal [RepaintBoundary] (used for thumbnail capture).
   final GlobalKey? boundaryKey;
+
+  /// Optional note-specific color scheme for themed grid lines and background.
+  final ColorScheme? noteScheme;
 
   @override
   State<DoodleCanvas> createState() => _DoodleCanvasState();
@@ -54,6 +58,7 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final noteScheme = widget.noteScheme;
     final background = widget.controller.background;
 
     return RepaintBoundary(
@@ -62,7 +67,8 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
         key: ValueKey('doodle-bg-${background.name}'),
         painter: _BackgroundPainter(
           background: background,
-          color: scheme.outlineVariant.withValues(alpha: 0.3),
+          color: (noteScheme?.outlineVariant ?? scheme.outlineVariant)
+              .withValues(alpha: 0.3),
         ),
         child: Listener(
           behavior: HitTestBehavior.opaque,

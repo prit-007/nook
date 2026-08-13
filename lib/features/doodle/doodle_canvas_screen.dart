@@ -6,7 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/repositories/attachment_repository.dart';
 import 'package:nook/data/repositories/doodle_storage.dart';
+import 'package:nook/data/repositories/note_repository.dart';
 import 'package:path_provider/path_provider.dart';
+
+import 'package:nook/core/theme/note_theme.dart';
+import 'package:nook/core/theme/design_tokens.dart';
 
 import 'doodle_controller.dart';
 import 'doodle_canvas.dart';
@@ -42,13 +46,16 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
   DoodleStorage? _storage;
 
+  /// The note's color seed loaded from the database.
+  String? _noteColorSeed;
+
   /// Track canvas height for "extend paper" feature.
   double _canvasHeightMultiplier = 1.0;
 
   @override
   void initState() {
     super.initState();
-    _controller = DoodleController();
+    _controller = DoodleController(defaultColor: Colors.black);
     _init();
   }
 
@@ -73,13 +80,33 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   void _init() {
     _resolveStorage().then((storage) {
       final attachmentId = widget.attachmentId;
-      if (attachmentId == null) return Future.value(const DoodleData());
-      return storage.loadDoodle(attachmentId);
-    }).then((data) {
+      return Future.wait([
+        if (attachmentId != null)
+          storage.loadDoodle(attachmentId)
+        else
+          Future.value(const DoodleData()),
+        _loadNoteColorSeed(),
+      ]);
+    }).then((results) {
       if (!mounted) return;
+      final data = results[0] as DoodleData;
       _controller.replaceStrokes(data.strokes);
       _controller.setBackground(data.background);
+      _updateNoteColorSeed();
     });
+  }
+
+  Future<void> _loadNoteColorSeed() async {
+    final db = ref.read(databaseProvider);
+    final note = await NoteRepository(db).getNoteById(widget.noteId);
+    if (!mounted) return;
+    _noteColorSeed = note?.colorSeed;
+  }
+
+  void _updateNoteColorSeed() {
+    final scheme = noteSchemeFor(context, _noteColorSeed);
+    _controller.setCurrentColor(scheme.primary);
+    setState(() {});
   }
 
   Future<void> _handleDone() async {
@@ -131,9 +158,15 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
     DoodleBackground background,
   ) async {
     try {
+      final noteScheme = _noteColorSeed != null && _noteColorSeed!.isNotEmpty
+          ? ColorScheme.fromSeed(
+              seedColor: NookColors.parseHex(_noteColorSeed),
+            )
+          : null;
       final thumbBytes = await DoodleThumbnailRenderer.render(
         strokes,
         background: background,
+        noteScheme: noteScheme,
       );
       final thumbFile =
           await File('${storage.baseDir.path}/${attachmentId}_thumb.png')
@@ -145,15 +178,15 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   }
 
   void _showBackgroundSheet(BuildContext context) {
+    final noteScheme = noteSchemeFor(context, _noteColorSeed);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        final scheme = Theme.of(context).colorScheme;
         return Container(
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh,
+            color: noteScheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(24),
           ),
           child: SafeArea(
@@ -178,7 +211,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       trailing: option == _controller.background
                           ? Icon(Icons.check_circle_rounded,
-                              color: scheme.primary)
+                              color: noteScheme.primary)
                           : null,
                       onTap: () {
                         _controller.setBackground(option);
@@ -198,9 +231,10 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final noteScheme = noteSchemeFor(context, _noteColorSeed);
 
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: noteScheme.surface,
       body: ListenableBuilder(
         listenable: _controller,
         builder: (context, _) {
@@ -219,7 +253,10 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                         height: baseHeight * _canvasHeightMultiplier,
                         child: Stack(
                           children: [
-                            DoodleCanvas(controller: _controller),
+                            DoodleCanvas(
+                              controller: _controller,
+                              noteScheme: noteScheme,
+                            ),
                             // Extend Paper Trigger
                             Positioned(
                               bottom: 120,
@@ -317,7 +354,10 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: DoodleToolbar(controller: _controller),
+                  child: DoodleToolbar(
+                    controller: _controller,
+                    noteScheme: noteScheme,
+                  ),
                 ),
               ),
             ],

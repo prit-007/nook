@@ -16,7 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/providers/database_provider.dart';
-import '../../core/theme/design_tokens.dart';
+import '../../core/theme/note_theme.dart';
 import '../../core/theme/note_theme_scope.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
@@ -452,9 +452,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       baseDir: baseDir,
     );
     final data = await storage.loadDoodle(result);
+    final noteScheme = noteSchemeFor(context, _colorSeed);
     final thumbBytes = await DoodleThumbnailRenderer.render(
       data.strokes,
       background: data.background,
+      noteScheme: noteScheme,
     );
 
     final thumbFile = File('${baseDir.path}/${result}_thumb.png');
@@ -563,179 +565,187 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       );
     }
 
-    final noteScheme = _colorSeed != null && _colorSeed!.isNotEmpty
-        ? ColorScheme.fromSeed(
-            seedColor: NookColors.parseHex(_colorSeed),
-          )
-        : Theme.of(context).colorScheme;
+    final noteScheme = noteSchemeFor(context, _colorSeed);
 
     final dynamicTextTheme =
         NoteThemeScope.buildDynamicTextTheme(context, noteScheme);
 
-    return NoteThemeScope(
-      colorScheme: noteScheme,
-      textTheme: dynamicTextTheme,
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: noteScheme.surfaceContainerLowest,
-        body: Stack(
-          children: [
-            if (widget.noteId != null)
-              Positioned.fill(
-                child: Hero(
-                  tag: 'note-${widget.noteId}',
-                  child: ColoredBox(color: noteScheme.surfaceContainerLowest),
-                ),
-              ),
-            CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    top: topPadding + 90,
-                    bottom: keyboardHeight + 120,
-                  ),
-                  sliver: SliverFillRemaining(
-                    hasScrollBody: true,
-                    child: AppFlowyEditor(
-                      editorState: _editorState!,
-                      editorStyle: EditorStyle.mobile(
-                        cursorColor: noteScheme.primary,
-                        selectionColor:
-                            noteScheme.primary.withValues(alpha: 0.2),
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        textStyleConfiguration: TextStyleConfiguration(
-                          text: dynamicTextTheme.bodyLarge!.copyWith(
-                            color: noteScheme.onSurface,
-                            height: 1.65,
-                          ),
-                        ),
+    // Build the Hero outside NoteThemeScope to avoid _dependents.isEmpty
+    // assertion during route pop Hero flights. The Hero's child is a plain
+    // ColoredBox using a captured Color — no inherited deps needed.
+    final heroChild = widget.noteId != null
+        ? Positioned.fill(
+            child: Hero(
+              tag: 'note-${widget.noteId}',
+              child: ColoredBox(color: noteScheme.surfaceContainerLowest),
+            ),
+          )
+        : const SizedBox.shrink();
+
+    return Stack(
+      children: [
+        heroChild,
+        NoteThemeScope(
+          colorScheme: noteScheme,
+          textTheme: dynamicTextTheme,
+          child: Scaffold(
+            resizeToAvoidBottomInset: false,
+            backgroundColor: noteScheme.surfaceContainerLowest,
+            body: Stack(
+              children: [
+                CustomScrollView(
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.only(
+                        top: topPadding + 90,
+                        bottom: keyboardHeight + 120,
                       ),
-                      autoFocus: true,
-                      blockComponentBuilders: {
-                        ...standardBlockComponentBuilderMap,
-                        TodoListBlockKeys.type: NookTodoListBlock.builder(),
-                        DoodleBlockKeys.type: DoodleBlockComponentBuilder(
-                          configuration: BlockComponentConfiguration(
-                            padding: (_) =>
-                                const EdgeInsets.symmetric(vertical: 24),
-                          ),
-                          onTap: (node, editorState) {
-                            HapticFeedback.lightImpact();
-                            _openDoodleCanvas(node, editorState);
-                          },
-                        ),
-                        ImageBlockKeys.type: NookImageBlockComponentBuilder(),
-                      },
-                      characterShortcutEvents: [
-                        ...standardCharacterShortcutEvents,
-                        customSlashCommand(
-                          [
-                            ...standardSelectionMenuItems,
-                            SelectionMenuItem(
-                              getName: () => 'Doodle',
-                              icon: (editorState, isSelected, style) =>
-                                  SelectionMenuIconWidget(
-                                name: 'draw',
-                                isSelected: isSelected,
-                                style: style,
+                      sliver: SliverFillRemaining(
+                        hasScrollBody: true,
+                        child: AppFlowyEditor(
+                          editorState: _editorState!,
+                          editorStyle: EditorStyle.mobile(
+                            cursorColor: noteScheme.primary,
+                            selectionColor:
+                                noteScheme.primary.withValues(alpha: 0.2),
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            textStyleConfiguration: TextStyleConfiguration(
+                              text: dynamicTextTheme.bodyLarge!.copyWith(
+                                color: noteScheme.onSurface,
+                                height: 1.65,
                               ),
-                              keywords: ['doodle', 'draw', 'sketch'],
-                              handler: (editorState, _, __) async {
-                                final node = doodleNode(
-                                  attachmentId: const Uuid().v4(),
-                                );
-                                insertNodeAfterSelection(editorState, node);
+                            ),
+                          ),
+                          autoFocus: true,
+                          blockComponentBuilders: {
+                            ...standardBlockComponentBuilderMap,
+                            TodoListBlockKeys.type: NookTodoListBlock.builder(),
+                            DoodleBlockKeys.type: DoodleBlockComponentBuilder(
+                              configuration: BlockComponentConfiguration(
+                                padding: (_) =>
+                                    const EdgeInsets.symmetric(vertical: 24),
+                              ),
+                              onTap: (node, editorState) {
+                                HapticFeedback.lightImpact();
+                                _openDoodleCanvas(node, editorState);
                               },
+                            ),
+                            ImageBlockKeys.type:
+                                NookImageBlockComponentBuilder(),
+                          },
+                          characterShortcutEvents: [
+                            ...standardCharacterShortcutEvents,
+                            customSlashCommand(
+                              [
+                                ...standardSelectionMenuItems,
+                                SelectionMenuItem(
+                                  getName: () => 'Doodle',
+                                  icon: (editorState, isSelected, style) =>
+                                      SelectionMenuIconWidget(
+                                    name: 'draw',
+                                    isSelected: isSelected,
+                                    style: style,
+                                  ),
+                                  keywords: ['doodle', 'draw', 'sketch'],
+                                  handler: (editorState, _, __) async {
+                                    final node = doodleNode(
+                                      attachmentId: const Uuid().v4(),
+                                    );
+                                    insertNodeAfterSelection(editorState, node);
+                                  },
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                // 2. Auto-Hiding Glass App Bar (Zen Mode)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOutBack,
+                  top: isKeyboardVisible ? -100 : topPadding + 12,
+                  left: 20,
+                  right: 20,
+                  child: RepaintBoundary(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 250),
+                      opacity: isKeyboardVisible ? 0.0 : 1.0,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(32),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                          child: Container(
+                            height: 60,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: noteScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(32),
+                              border: Border.all(
+                                color: noteScheme.outlineVariant
+                                    .withValues(alpha: 0.25),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      noteScheme.shadow.withValues(alpha: 0.05),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: _ResponsiveEditorAppBar(
+                              noteScheme: noteScheme,
+                              dynamicTextTheme: dynamicTextTheme,
+                              title: _title,
+                              saving: _saving,
+                              pinned: _pinned,
+                              note: _note,
+                              onBack: () async {
+                                final router = GoRouter.of(context);
+                                unawaited(HapticFeedback.lightImpact());
+                                await _save();
+                                if (mounted) router.pop();
+                              },
+                              onInsertImage: _insertImage,
+                              onInsertDoodle: _insertDoodle,
+                              onTogglePin: _togglePin,
+                              onExport: _exportNote,
+                              onMoreOptions: _showNoteOptions,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 3. Floating Formatting Pill (Anchors to keyboard)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutCubic,
+                  bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: RepaintBoundary(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 300),
+                        opacity: isKeyboardVisible ? 1.0 : 0.0,
+                        child: _FloatingFormatBar(editorState: _editorState!),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-
-            // 2. Auto-Hiding Glass App Bar (Zen Mode)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutBack,
-              top: isKeyboardVisible ? -100 : topPadding + 12,
-              left: 20,
-              right: 20,
-              child: RepaintBoundary(
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
-                  opacity: isKeyboardVisible ? 0.0 : 1.0,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(32),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                      child: Container(
-                        height: 60,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: noteScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(32),
-                          border: Border.all(
-                            color: noteScheme.outlineVariant
-                                .withValues(alpha: 0.25),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: noteScheme.shadow.withValues(alpha: 0.05),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: _ResponsiveEditorAppBar(
-                          noteScheme: noteScheme,
-                          dynamicTextTheme: dynamicTextTheme,
-                          title: _title,
-                          saving: _saving,
-                          pinned: _pinned,
-                          note: _note,
-                          onBack: () async {
-                            final router = GoRouter.of(context);
-                            unawaited(HapticFeedback.lightImpact());
-                            await _save();
-                            if (mounted) router.pop();
-                          },
-                          onInsertImage: _insertImage,
-                          onInsertDoodle: _insertDoodle,
-                          onTogglePin: _togglePin,
-                          onExport: _exportNote,
-                          onMoreOptions: _showNoteOptions,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // 3. Floating Formatting Pill (Anchors to keyboard)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeOutCubic,
-              bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: RepaintBoundary(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 300),
-                    opacity: isKeyboardVisible ? 1.0 : 0.0,
-                    child: _FloatingFormatBar(editorState: _editorState!),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -1092,18 +1102,12 @@ class NoteExportCapture extends StatelessWidget {
   final Note note;
   final EditorState editorState;
 
-  ColorScheme _noteScheme() {
-    if (note.colorSeed != null && note.colorSeed!.isNotEmpty) {
-      return ColorScheme.fromSeed(
-        seedColor: NookColors.parseHex(note.colorSeed),
-      );
-    }
-    return const ColorScheme.light();
-  }
+  ColorScheme _noteScheme(BuildContext context) =>
+      noteSchemeFor(context, note.colorSeed);
 
   @override
   Widget build(BuildContext context) {
-    final scheme = _noteScheme();
+    final scheme = _noteScheme(context);
     final nodes = editorState.document.root.children;
 
     return Material(
