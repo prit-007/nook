@@ -7,13 +7,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
+import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/selection_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/masked_reveal.dart';
 import '../../core/widgets/masked_reveal_text.dart';
 import '../../data/database.dart';
 import '../../data/repositories/tag_repository.dart';
+import 'widgets/tag_detail_pane.dart';
 
 /// Tags list screen — tactile color pills with a frosted-glass create sheet.
 class TagsScreen extends ConsumerStatefulWidget {
@@ -294,6 +297,9 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
+
+    final grid = _tagsGrid(scheme, isDualPane);
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -306,48 +312,20 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
       ),
       body: _loading
           ? Center(child: CircularProgressIndicator(color: scheme.primary))
-          : _tags.isEmpty
-              ? const EmptyState(
-                  icon: LucideIcons.tags,
-                  title: 'No tags yet',
-                  subtitle: 'Organize your vault by creating tags',
-                  animate: true,
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    physics: const BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics(),
+          : isDualPane
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Flexible(flex: 3, child: grid),
+                    VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: scheme.outlineVariant.withValues(alpha: 0.2),
                     ),
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-                    children: [
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 16,
-                        children: _tags.indexed.map((entry) {
-                          final (index, tag) = entry;
-                          final tagColor = NookColors.parseHex(
-                            tag.colorSeed,
-                          );
-                          return MaskedReveal(
-                            delay: Duration(
-                              milliseconds: 150 + (index * 60).clamp(0, 600),
-                            ),
-                            child: _TagPill(
-                              tag: tag,
-                              color: tagColor,
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                context.push('/tags/${tag.id}');
-                              },
-                              onLongPress: () => _showDeleteDialog(tag),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
+                    const Flexible(flex: 2, child: TagDetailPane()),
+                  ],
+                )
+              : grid,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 24),
@@ -368,6 +346,56 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _tagsGrid(ColorScheme scheme, bool isDualPane) {
+    if (_tags.isEmpty) {
+      return const EmptyState(
+        icon: LucideIcons.tags,
+        title: 'No tags yet',
+        subtitle: 'Organize your vault by creating tags',
+        animate: true,
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 16,
+            children: _tags.indexed.map((entry) {
+              final (index, tag) = entry;
+              final tagColor = NookColors.parseHex(
+                tag.colorSeed,
+              );
+              return MaskedReveal(
+                delay: Duration(
+                  milliseconds: 150 + (index * 60).clamp(0, 600),
+                ),
+                child: _TagPill(
+                  tag: tag,
+                  color: tagColor,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    if (isDualPane) {
+                      ref.read(selectedTagIdProvider.notifier).state = tag.id;
+                      return;
+                    }
+                    context.push('/tags/${tag.id}');
+                  },
+                  onLongPress: () => _showDeleteDialog(tag),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

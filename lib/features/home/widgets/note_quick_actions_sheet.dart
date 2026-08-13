@@ -8,6 +8,7 @@ import 'package:local_auth/local_auth.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
@@ -642,6 +643,7 @@ class _ColorChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final swatch = color;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -658,7 +660,10 @@ class _ColorChoice extends StatelessWidget {
         ),
         child: isSelected
             ? Icon(Icons.check,
-                size: 16, color: color != null ? Colors.white : scheme.primary)
+                size: 16,
+                color: swatch != null
+                    ? NookSemantics.contrastForeground(swatch)
+                    : scheme.primary)
             : null,
       ),
     );

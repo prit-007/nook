@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/design_tokens.dart';
+import '../../../core/widgets/semantics.dart';
 
 /// Bottom sheet for picking a note's seed color.
 /// Returns the selected hex string on pop, or null if cancelled.
@@ -115,7 +116,12 @@ class ColorPickerSheet extends StatelessWidget {
                           : null,
                     ),
                     child: currentColor == NookColors.seeds[i]
-                        ? const Icon(Icons.check, color: Colors.white, size: 20)
+                        ? Icon(
+                            Icons.check,
+                            color: NookSemantics.contrastForeground(
+                                NookColors.seeds[i]),
+                            size: 20,
+                          )
                         : null,
                   ),
                 ),

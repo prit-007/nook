@@ -40,6 +40,11 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final openDuration =
+        reduceMotion ? Duration.zero : const Duration(milliseconds: 280);
+    final closeDuration =
+        reduceMotion ? Duration.zero : const Duration(milliseconds: 200);
 
     return Stack(
       children: [
@@ -65,12 +70,12 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
             children: [
               AnimatedScale(
                 scale: _isOpen ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 280),
+                duration: openDuration,
                 curve: Curves.easeOutBack,
                 alignment: Alignment.bottomRight,
                 child: AnimatedOpacity(
                   opacity: _isOpen ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
+                  duration: closeDuration,
                   child: _isOpen
                       ? Padding(
                           padding: const EdgeInsets.only(bottom: 16),
@@ -113,7 +118,9 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
                 ),
                 icon: AnimatedRotation(
                   turns: _isOpen ? 0.125 : 0.0,
-                  duration: const Duration(milliseconds: 250),
+                  duration: reduceMotion
+                      ? Duration.zero
+                      : const Duration(milliseconds: 250),
                   child: Icon(
                     _isOpen ? Icons.add_rounded : Icons.create_rounded,
                   ),
