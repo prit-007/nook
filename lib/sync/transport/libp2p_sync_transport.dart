@@ -447,10 +447,22 @@ class Libp2pSyncTransport implements SyncTransport {
           await stream.close();
       }
     } on TimeoutException {
+      nookLog(
+          NookLogKey.sync, 'Incoming stream read timed out', LogLevel.warning);
       await stream.close().catchError((_) {});
     } on YamuxStreamTimeoutException {
+      nookLog(
+        NookLogKey.sync,
+        'Incoming stream read timed out (yamux)',
+        LogLevel.warning,
+      );
       await stream.close().catchError((_) {});
-    } catch (_) {
+    } catch (e) {
+      nookLog(
+        NookLogKey.sync,
+        'Incoming stream error: $e',
+        LogLevel.error,
+      );
       await stream.close().catchError((_) {});
     }
   }

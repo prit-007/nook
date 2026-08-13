@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/providers/biometric_provider.dart';
+import 'core/providers/talker_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router.dart';
 import 'features/security/frosted_shield.dart';
@@ -31,6 +32,7 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    talker.debug('App lifecycle → $state');
     final gate = ref.read(biometricGateProvider);
     switch (state) {
       case AppLifecycleState.resumed:

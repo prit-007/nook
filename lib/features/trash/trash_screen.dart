@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/talker_provider.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/masked_reveal.dart';
@@ -51,6 +52,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
   Future<void> _restore(String id) async {
     unawaited(HapticFeedback.mediumImpact());
+    nookLog(
+        NookLogKey.database, 'Note restored from archive: $id', LogLevel.info);
     final db = ref.read(databaseProvider);
     final repo = NoteRepository(db);
     await repo.restore(id);
@@ -103,6 +106,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     );
 
     if (confirmed == true) {
+      nookLog(
+        NookLogKey.database,
+        'Note destroyed forever: $id',
+        LogLevel.warning,
+      );
       final repo = NoteRepository(ref.read(databaseProvider));
       await repo.permanentlyDelete(id);
       await _load();
@@ -166,6 +174,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     );
 
     if (confirmed == true) {
+      nookLog(
+        NookLogKey.database,
+        'Archive emptied (${_notes.length} notes destroyed)',
+        LogLevel.warning,
+      );
       final repo = NoteRepository(ref.read(databaseProvider));
       await repo.permanentlyDeleteAllDeleted();
       if (mounted) await _load();

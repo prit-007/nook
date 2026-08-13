@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nook/core/providers/database_provider.dart';
+import 'package:nook/core/providers/talker_provider.dart';
 import 'package:nook/data/repositories/attachment_repository.dart';
 import 'package:nook/data/repositories/doodle_storage.dart';
 import 'package:nook/data/repositories/note_repository.dart';
@@ -145,6 +146,11 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
         attachmentId: attachmentId,
       );
     } catch (_) {
+      nookLog(
+        NookLogKey.editor,
+        'Doodle save failed for ${widget.noteId}',
+        LogLevel.error,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

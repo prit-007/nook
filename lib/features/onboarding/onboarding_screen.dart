@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/design_tokens.dart';
 
@@ -40,6 +41,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   void _finish() {
     ref.read(themePreferenceProvider).setSeedIndex(_selectedSeedIndex);
+    talker.info('Onboarding completed (seed $_selectedSeedIndex)');
     context.go('/home');
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/talker_provider.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../data/database.dart';
 import '../../data/repositories/note_repository.dart';
@@ -29,6 +30,11 @@ class _LockedNotesScreenState extends ConsumerState<LockedNotesScreen> {
   Future<void> _load() async {
     final db = ref.read(databaseProvider);
     final notes = await NoteRepository(db).getLockedNotes();
+    nookLog(
+      NookLogKey.security,
+      'Locked notes viewed: ${notes.length}',
+      LogLevel.info,
+    );
     if (mounted) {
       setState(() {
         _notes = notes;

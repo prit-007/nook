@@ -87,6 +87,11 @@ class BiometricGate extends ChangeNotifier {
 
   void setAutoLockDuration(AutoLockDuration value) {
     _autoLockDuration = value;
+    nookLog(
+      NookLogKey.security,
+      'Auto-lock duration set to ${value.name}',
+      LogLevel.info,
+    );
     notifyListeners();
     _save();
   }

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'talker_provider.dart';
+
 class NavigationPreference extends StateNotifier<String> {
   NavigationPreference([super.initial = 'home']);
 
@@ -19,6 +21,7 @@ class NavigationPreference extends StateNotifier<String> {
     final entry = routes.entries.where((entry) => entry.value == path);
     if (entry.isEmpty) return;
     state = entry.first.key;
+    talker.debug('Top-level tab changed to ${entry.first.key}');
     await rememberPath(path);
   }
 

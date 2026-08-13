@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/providers/talker_provider.dart';
 import 'tables/notebooks.dart';
 import 'tables/notes.dart';
 import 'tables/checklist_items.dart';
@@ -66,14 +67,24 @@ Future<String> _readOrCreateEncryptionKey() async {
   try {
     final existing = await _secureStorage.read(key: _keyStorageKey);
     if (existing != null && existing.isNotEmpty) {
+      nookLog(
+        NookLogKey.security,
+        'DB encryption key read from keystore',
+        LogLevel.debug,
+      );
       return existing;
     }
   } on Exception {
-    // Fall through to generate a new key on read failure.
+    nookLog(
+      NookLogKey.security,
+      'DB encryption key read failed; generating a new one',
+      LogLevel.warning,
+    );
   }
 
   final key = _generateRandomKey(32);
   await _secureStorage.write(key: _keyStorageKey, value: key);
+  nookLog(NookLogKey.security, 'DB encryption key generated', LogLevel.info);
   return key;
 }
 
@@ -89,6 +100,11 @@ Future<String> _readOrCreateEncryptionKey() async {
 Future<AppDatabase> openEncryptedDatabase() async {
   final dir = await getApplicationDocumentsDirectory();
   final dbFile = File(p.join(dir.path, 'notes.db'));
+  nookLog(
+    NookLogKey.database,
+    'Opening encrypted DB at ${dbFile.path}',
+    LogLevel.info,
+  );
 
   final key = await _readOrCreateEncryptionKey();
 

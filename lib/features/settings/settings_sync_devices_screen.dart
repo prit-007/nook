@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/talker_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../data/repositories/sync_log_repository.dart';
 import '../../sync/sync_orchestrator.dart';
@@ -24,6 +25,11 @@ class SettingsSyncDevicesScreen extends ConsumerWidget {
             _ConnectedDeviceCard(
               device: syncState.selectedDevice!,
               onDisconnect: () {
+                nookLog(
+                  NookLogKey.sync,
+                  'Disconnected from ${syncState.selectedDevice!.deviceName}',
+                  LogLevel.info,
+                );
                 ref.read(syncOrchestratorProvider.notifier).stop();
               },
             ),
