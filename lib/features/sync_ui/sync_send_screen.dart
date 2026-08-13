@@ -153,7 +153,12 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(32),
               ),
-              child: Container(
+              child: Material(
+                // Use a Material (not a ColoredBox) so the ListTiles below can
+                // paint their ink ripples and selection highlight on an opaque
+                // ancestor; a plain Container would hide them and trigger the
+                // "ListTile background color or ink splashes may be invisible"
+                // debug assertion.
                 color: scheme.surfaceContainerLowest,
                 child: Column(
                   children: [

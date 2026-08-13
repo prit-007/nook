@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
+import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/sync_ui/sync_history_screen.dart';
 import 'package:nook/features/sync_ui/sync_pairing_screen.dart';
 import 'package:nook/features/sync_ui/sync_receive_screen.dart';
@@ -174,6 +176,42 @@ void main() {
       await tester.pump();
 
       expect(find.byIcon(LucideIcons.search), findsOneWidget);
+    });
+
+    testWidgets('note list tiles keep ink splashes visible', (tester) async {
+      // The note list lives inside a colored scroll region. Regression guard:
+      // the region must be a Material (not a ColoredBox) so ListTiles can paint
+      // their ink/selection highlights — otherwise Flutter throws the
+      // "ListTile background color or ink splashes may be invisible" assertion.
+      for (var i = 0; i < 4; i++) {
+        await db.into(db.notes).insert(
+              NotesCompanion.insert(
+                id: Value('sync-note-$i'),
+                type: NoteType.text,
+                title: Value('Sync Note $i'),
+                deviceOriginId: 'device-1',
+              ),
+            );
+      }
+
+      final errors = <FlutterErrorDetails>[];
+      final oldHandler = FlutterError.onError;
+      FlutterError.onError = (details) {
+        errors.add(details);
+        oldHandler?.call(details);
+      };
+      addTearDown(() => FlutterError.onError = oldHandler);
+
+      await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final inkErrors = errors.where((e) => e.toString().contains(
+            'ListTile background color or ink splashes may be invisible',
+          ));
+      expect(inkErrors, isEmpty);
+      expect(find.text('Sync Note 0'), findsOneWidget);
     });
   });
 
