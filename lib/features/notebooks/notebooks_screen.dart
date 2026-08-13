@@ -1,10 +1,15 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
@@ -44,101 +49,172 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   }
 
   void _showCreateSheet() {
+    HapticFeedback.mediumImpact();
     final nameController = TextEditingController();
-    String selectedColor = '#FF5722';
+    Color selectedColor = NookColors.defaultSeed;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          MediaQuery.of(ctx).viewInsets.bottom + 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Create Notebook',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                hintText: 'e.g. Work, Personal',
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final scheme = Theme.of(context).colorScheme;
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(ctx).viewInsets.bottom + 16,
               ),
-              autofocus: true,
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: [
-                '#FF5722',
-                '#2196F3',
-                '#4CAF50',
-                '#9C27B0',
-                '#FF9800',
-                '#E91E63',
-              ].map((c) {
-                final color = Color(
-                  int.parse('FF${c.replaceFirst('#', '')}', radix: 16),
-                );
-                return Semantics(
-                  label: 'Color option',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: () => setState(() => selectedColor = c),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: selectedColor == c
-                              ? Theme.of(ctx).colorScheme.onSurface
-                              : Colors.transparent,
-                          width: 3,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest
+                          .withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(32),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Drag handle
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Create Notebook',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: nameController,
+                          autofocus: true,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'e.g. Work, Personal',
+                            filled: true,
+                            fillColor: scheme.surface.withValues(alpha: 0.5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'COLOR THEME',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            for (final seed in NookColors.seeds)
+                              _SeedColorDot(
+                                color: seed,
+                                isSelected: seed == selectedColor,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setModalState(() => selectedColor = seed);
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                onPressed: () async {
+                                  if (nameController.text.trim().isEmpty) {
+                                    return;
+                                  }
+                                  unawaited(HapticFeedback.lightImpact());
+                                  final repo = NotebookRepository(
+                                    ref.read(databaseProvider),
+                                  );
+                                  await repo.createNotebook(
+                                    name: nameController.text.trim(),
+                                    colorSeed: _hexFromColor(selectedColor),
+                                  );
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  await _load();
+                                },
+                                child: const Text(
+                                  'Save',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
                 ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: () async {
-                    if (nameController.text.trim().isEmpty) return;
-                    final repo = NotebookRepository(
-                      ref.read(databaseProvider),
-                    );
-                    await repo.createNotebook(
-                      name: nameController.text.trim(),
-                      colorSeed: selectedColor,
-                    );
-                    if (ctx.mounted) Navigator.pop(ctx);
-                    await _load();
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -197,7 +273,10 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
               : grid,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: isDualPane ? 24 : 114),
+        // The shell's body padding already clears the frosted dock on mobile,
+        // so endFloat's built-in margin is all we need; lift a bit more on
+        // wide layouts where no dock reserves space below.
+        padding: EdgeInsets.only(bottom: isDualPane ? 24 : 0),
         child: FloatingActionButton(
           onPressed: _showCreateSheet,
           tooltip: 'Create notebook',
@@ -246,6 +325,53 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
           if (MediaQuery.disableAnimationsOf(context)) return card;
           return ParallaxCard(child: card);
         },
+      ),
+    );
+  }
+}
+
+/// Formats a [Color] as the app's stored `#RRGGBB` seed string.
+String _hexFromColor(Color color) =>
+    '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
+
+/// Tappable color swatch used by the notebook create sheet.
+class _SeedColorDot extends StatelessWidget {
+  const _SeedColorDot({
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isSelected ? scheme.onSurface : Colors.transparent,
+            width: isSelected ? 3 : 0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
       ),
     );
   }

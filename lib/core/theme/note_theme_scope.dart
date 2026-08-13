@@ -39,52 +39,52 @@ class NoteThemeScope extends InheritedWidget {
     if (isWarm) {
       return base.copyWith(
         displayLarge: base.displayLarge?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w400,
           color: scheme.onSurface,
         ),
         displayMedium: base.displayMedium?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w400,
           color: scheme.onSurface,
         ),
         displaySmall: base.displaySmall?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w400,
           color: scheme.onSurface,
         ),
         headlineLarge: base.headlineLarge?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w800,
           letterSpacing: -0.8,
           color: scheme.onSurface,
         ),
         headlineMedium: base.headlineMedium?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
           color: scheme.onSurface,
         ),
         headlineSmall: base.headlineSmall?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w700,
           letterSpacing: -0.3,
           color: scheme.onSurface,
         ),
         titleLarge: base.titleLarge?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w700,
           letterSpacing: -0.4,
           color: scheme.onSurface,
         ),
         titleMedium: base.titleMedium?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w600,
           letterSpacing: -0.2,
           color: scheme.onSurface,
         ),
         titleSmall: base.titleSmall?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
           color: scheme.onSurface,
@@ -108,13 +108,13 @@ class NoteThemeScope extends InheritedWidget {
           color: scheme.onSurface,
         ),
         labelLarge: base.labelLarge?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w700,
           letterSpacing: 0.3,
           color: scheme.primary,
         ),
         labelMedium: base.labelMedium?.copyWith(
-          fontFamily: 'Serif',
+          fontFamily: 'Playfair Display',
           fontWeight: FontWeight.w600,
           letterSpacing: 0.2,
           color: scheme.primary,

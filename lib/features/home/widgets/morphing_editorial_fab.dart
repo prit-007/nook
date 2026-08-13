@@ -21,7 +21,11 @@ class MorphingEditorialFab extends StatefulWidget {
   final void Function(NoteType type) onCreateNote;
 
   /// Offset from the bottom edge on compact (mobile) screens.
-  /// Defaults to 130 which clears the frosted dock + safe area.
+  ///
+  /// When the FAB lives inside the AppShell mobile dock the shell already
+  /// offsets the body by the full dock height, so callers only need a small
+  /// gap above the body's bottom edge (e.g. 16). The default of 130 is kept
+  /// for standalone use outside the shell.
   final double mobileBottomOffset;
 
   @override

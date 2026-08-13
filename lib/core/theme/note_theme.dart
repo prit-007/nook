@@ -6,14 +6,30 @@ import 'note_theme_scope.dart';
 /// Builds a brightness-aware [ColorScheme] for a note's color seed.
 ///
 /// Falls back to the ambient [Theme] scheme when [colorSeed] is null or empty.
+///
+/// Neutral surface roles (surface, surfaceContainer*, etc.) are inherited from
+/// the ambient scheme so app-wide surface overrides — like AMOLED true-black
+/// dark mode — propagate to notes and doodles while the note's seed identity
+/// (primary/secondary/tertiary/containers) stays intact.
 ColorScheme noteSchemeFor(BuildContext context, String? colorSeed) {
+  final ambient = Theme.of(context).colorScheme;
   if (colorSeed == null || colorSeed.isEmpty) {
-    return Theme.of(context).colorScheme;
+    return ambient;
   }
   final seed = NookColors.parseHex(colorSeed);
-  return ColorScheme.fromSeed(
+  final noteScheme = ColorScheme.fromSeed(
     seedColor: seed,
-    brightness: Theme.of(context).brightness,
+    brightness: ambient.brightness,
+  );
+  return noteScheme.copyWith(
+    surface: ambient.surface,
+    surfaceDim: ambient.surfaceDim,
+    surfaceBright: ambient.surfaceBright,
+    surfaceContainerLowest: ambient.surfaceContainerLowest,
+    surfaceContainerLow: ambient.surfaceContainerLow,
+    surfaceContainer: ambient.surfaceContainer,
+    surfaceContainerHigh: ambient.surfaceContainerHigh,
+    surfaceContainerHighest: ambient.surfaceContainerHighest,
   );
 }
 

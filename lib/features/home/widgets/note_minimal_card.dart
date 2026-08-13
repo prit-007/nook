@@ -50,19 +50,6 @@ class _NoteMinimalCardState extends State<NoteMinimalCard> {
               decoration: BoxDecoration(
                 color: cardScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(26),
-                border: hasColorSeed
-                    ? Border.all(
-                        color: cardScheme.primary.withValues(alpha: 0.12),
-                        width: 1,
-                      )
-                    : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: cardScheme.primary.withValues(alpha: 0.15),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
               ),
               child: Stack(
                 children: [

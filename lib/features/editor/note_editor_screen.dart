@@ -31,6 +31,42 @@ import 'widgets/custom_todo_list_block.dart';
 import 'widgets/image_picker_handler.dart';
 import 'widgets/note_options_sheet.dart';
 import 'widgets/zoomable_image_block.dart';
+import 'checklist_editor.dart';
+
+/// Inserts [node] into the editor document.
+///
+/// Uses the current collapsed selection when available; otherwise appends
+/// after the last block.  Returns the live in-tree [Node] so callers can
+/// reference it for later [Transaction.updateNode] calls.
+Node insertBlockNode(EditorState editorState, Node node) {
+  final selection = editorState.selection;
+  Path? insertPath;
+
+  if (selection != null && selection.isCollapsed) {
+    final success = insertNodeAfterSelection(editorState, node);
+    if (success) {
+      // insertNodeAfterSelection deep-copies; re-fetch the live node.
+      final pos = editorState.selection?.end.path;
+      if (pos != null) {
+        final live = editorState.getNodeAtPath(pos);
+        if (live != null) return live;
+      }
+    }
+  }
+
+  // No valid selection — append after the last block.
+  final root = editorState.document.root;
+  final last = root.children.lastOrNull;
+  insertPath = last == null ? const [0] : last.path.next;
+
+  final transaction = editorState.transaction;
+  transaction
+    ..insertNode(insertPath, node)
+    ..afterSelection = Selection.collapsed(Position(path: insertPath));
+  editorState.apply(transaction);
+
+  return editorState.getNodeAtPath(insertPath) ?? node;
+}
 
 class NoteEditorScreen extends ConsumerStatefulWidget {
   const NoteEditorScreen({
@@ -316,13 +352,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     final result = await handler.pickAndStore(noteId: _note!.id);
     if (result == null || !mounted) return;
 
-    // Insert an image node at the current cursor position.
+    // Insert an image node at the current cursor position (or after last block).
     final node = imageNode(url: result.filePath);
-    insertNodeAfterSelection(_editorState!, node);
+    insertBlockNode(_editorState!, node);
 
     // Force an empty paragraph after the image so the user can keep typing.
     final pNode = paragraphNode();
-    insertNodeAfterSelection(_editorState!, pNode);
+    insertBlockNode(_editorState!, pNode);
 
     _scheduleAutosave();
   }
@@ -334,16 +370,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     final attachmentId = const Uuid().v4();
 
-    // Insert a placeholder doodle node at the current cursor position.
+    // Insert a placeholder doodle node (uses insertBlockNode for reliable placement).
     final node = doodleNode(attachmentId: attachmentId);
-    insertNodeAfterSelection(_editorState!, node);
+    final liveNode = insertBlockNode(_editorState!, node);
 
     // Force an empty paragraph after the doodle so the user can keep typing.
     final pNode = paragraphNode();
-    insertNodeAfterSelection(_editorState!, pNode);
+    insertBlockNode(_editorState!, pNode);
 
-    // Open the canvas for the new doodle.
-    await _openDoodleCanvas(node, _editorState!);
+    // Open the canvas for the new doodle — use the live in-tree node so
+    // _openDoodleCanvas's updateNode targets the correct path.
+    await _openDoodleCanvas(liveNode, _editorState!);
     _scheduleAutosave();
   }
 
@@ -452,6 +489,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       baseDir: baseDir,
     );
     final data = await storage.loadDoodle(result);
+    if (!mounted) return;
     final noteScheme = noteSchemeFor(context, _colorSeed);
     final thumbBytes = await DoodleThumbnailRenderer.render(
       data.strokes,
@@ -602,62 +640,70 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                       ),
                       sliver: SliverFillRemaining(
                         hasScrollBody: true,
-                        child: AppFlowyEditor(
-                          editorState: _editorState!,
-                          editorStyle: EditorStyle.mobile(
-                            cursorColor: noteScheme.primary,
-                            selectionColor:
-                                noteScheme.primary.withValues(alpha: 0.2),
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            textStyleConfiguration: TextStyleConfiguration(
-                              text: dynamicTextTheme.bodyLarge!.copyWith(
-                                color: noteScheme.onSurface,
-                                height: 1.65,
-                              ),
-                            ),
-                          ),
-                          autoFocus: true,
-                          blockComponentBuilders: {
-                            ...standardBlockComponentBuilderMap,
-                            TodoListBlockKeys.type: NookTodoListBlock.builder(),
-                            DoodleBlockKeys.type: DoodleBlockComponentBuilder(
-                              configuration: BlockComponentConfiguration(
-                                padding: (_) =>
-                                    const EdgeInsets.symmetric(vertical: 24),
-                              ),
-                              onTap: (node, editorState) {
-                                HapticFeedback.lightImpact();
-                                _openDoodleCanvas(node, editorState);
-                              },
-                            ),
-                            ImageBlockKeys.type:
-                                NookImageBlockComponentBuilder(),
-                          },
-                          characterShortcutEvents: [
-                            ...standardCharacterShortcutEvents,
-                            customSlashCommand(
-                              [
-                                ...standardSelectionMenuItems,
-                                SelectionMenuItem(
-                                  getName: () => 'Doodle',
-                                  icon: (editorState, isSelected, style) =>
-                                      SelectionMenuIconWidget(
-                                    name: 'draw',
-                                    isSelected: isSelected,
-                                    style: style,
+                        child: _note?.type == NoteType.checklist
+                            ? ChecklistEditor(noteId: _note!.id)
+                            : AppFlowyEditor(
+                                editorState: _editorState!,
+                                editorStyle: EditorStyle.mobile(
+                                  cursorColor: noteScheme.primary,
+                                  selectionColor:
+                                      noteScheme.primary.withValues(alpha: 0.2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24),
+                                  textStyleConfiguration:
+                                      TextStyleConfiguration(
+                                    text: dynamicTextTheme.bodyLarge!.copyWith(
+                                      color: noteScheme.onSurface,
+                                      height: 1.65,
+                                    ),
                                   ),
-                                  keywords: ['doodle', 'draw', 'sketch'],
-                                  handler: (editorState, _, __) async {
-                                    final node = doodleNode(
-                                      attachmentId: const Uuid().v4(),
-                                    );
-                                    insertNodeAfterSelection(editorState, node);
-                                  },
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
+                                autoFocus: true,
+                                blockComponentBuilders: {
+                                  ...standardBlockComponentBuilderMap,
+                                  TodoListBlockKeys.type:
+                                      NookTodoListBlock.builder(),
+                                  DoodleBlockKeys.type:
+                                      DoodleBlockComponentBuilder(
+                                    configuration: BlockComponentConfiguration(
+                                      padding: (_) =>
+                                          const EdgeInsets.symmetric(
+                                              vertical: 24),
+                                    ),
+                                    onTap: (node, editorState) {
+                                      HapticFeedback.lightImpact();
+                                      _openDoodleCanvas(node, editorState);
+                                    },
+                                  ),
+                                  ImageBlockKeys.type:
+                                      NookImageBlockComponentBuilder(),
+                                },
+                                characterShortcutEvents: [
+                                  ...standardCharacterShortcutEvents,
+                                  customSlashCommand(
+                                    [
+                                      ...standardSelectionMenuItems,
+                                      SelectionMenuItem(
+                                        getName: () => 'Doodle',
+                                        icon:
+                                            (editorState, isSelected, style) =>
+                                                SelectionMenuIconWidget(
+                                          name: 'draw',
+                                          isSelected: isSelected,
+                                          style: style,
+                                        ),
+                                        keywords: ['doodle', 'draw', 'sketch'],
+                                        handler: (editorState, _, __) async {
+                                          final node = doodleNode(
+                                            attachmentId: const Uuid().v4(),
+                                          );
+                                          insertBlockNode(editorState, node);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
                   ],
@@ -685,18 +731,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                               color: noteScheme.surfaceContainerHighest
                                   .withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(32),
-                              border: Border.all(
-                                color: noteScheme.outlineVariant
-                                    .withValues(alpha: 0.25),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      noteScheme.shadow.withValues(alpha: 0.05),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
                             ),
                             child: _ResponsiveEditorAppBar(
                               noteScheme: noteScheme,
@@ -725,22 +759,23 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 ),
 
                 // 3. Floating Formatting Pill (Anchors to keyboard)
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeOutCubic,
-                  bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: RepaintBoundary(
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 300),
-                        opacity: isKeyboardVisible ? 1.0 : 0.0,
-                        child: _FloatingFormatBar(editorState: _editorState!),
+                if (_note?.type != NoteType.checklist)
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOutCubic,
+                    bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: RepaintBoundary(
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 300),
+                          opacity: isKeyboardVisible ? 1.0 : 0.0,
+                          child: _FloatingFormatBar(editorState: _editorState!),
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -771,16 +806,6 @@ class _FloatingFormatBar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -822,7 +847,7 @@ class _FloatingFormatBar extends StatelessWidget {
                     tooltip: 'Bullet list',
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      insertNodeAfterSelection(
+                      insertBlockNode(
                         editorState,
                         bulletedListNode(),
                       );
@@ -833,7 +858,7 @@ class _FloatingFormatBar extends StatelessWidget {
                     tooltip: 'Checklist',
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      insertNodeAfterSelection(
+                      insertBlockNode(
                         editorState,
                         todoListNode(checked: false),
                       );
@@ -1113,8 +1138,8 @@ class NoteExportCapture extends StatelessWidget {
     return Material(
       color: scheme.surface,
       child: Container(
-        width: 400,
-        padding: const EdgeInsets.all(32),
+        width: 460,
+        padding: const EdgeInsets.fromLTRB(72, 56, 72, 64),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -1130,11 +1155,13 @@ class NoteExportCapture extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               note.title.isNotEmpty ? note.title : 'Untitled',
-              style: TextStyle(
+              style: const TextStyle(
+                fontFamily: 'Playfair Display',
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: scheme.onSurface,
                 height: 1.2,
+              ).copyWith(
+                color: scheme.onSurface,
               ),
             ),
             const SizedBox(height: 20),
@@ -1209,12 +1236,15 @@ class NoteExportCapture extends StatelessWidget {
               return const SizedBox.shrink();
             }),
             const SizedBox(height: 32),
+            Divider(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
             Text(
-              'nook',
+              'nook. / 2026',
               style: TextStyle(
+                fontFamily: 'Playfair Display',
                 fontSize: 10,
                 color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
-                letterSpacing: 1.5,
+                letterSpacing: 2.0,
               ),
             ),
           ],

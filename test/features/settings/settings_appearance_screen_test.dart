@@ -44,16 +44,30 @@ void main() {
   testWidgets('shows reduce motion toggle', (tester) async {
     await tester.pumpWidget(buildScreen());
     expect(find.text('REDUCE MOTION'), findsOneWidget);
-    expect(find.byType(Switch), findsOneWidget);
+    expect(
+      find.widgetWithText(SwitchListTile, 'Reduce motion'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('toggling reduce motion flips and persists the preference',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     final preference = await ThemePreference.load();
+
+    // Taller viewport so the reduce-motion switch is tappable.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(buildScreen(preference: preference));
 
-    final switchFinder = find.byType(Switch);
+    final reduceTile = find.widgetWithText(SwitchListTile, 'Reduce motion');
+    final switchFinder = find.descendant(
+      of: reduceTile,
+      matching: find.byType(Switch),
+    );
     expect(tester.widget<Switch>(switchFinder).value, isFalse);
 
     await tester.tap(switchFinder);
@@ -64,5 +78,51 @@ void main() {
 
     final reloaded = await ThemePreference.load();
     expect(reloaded.reduceMotion, isTrue);
+  });
+
+  testWidgets('shows AMOLED toggle section', (tester) async {
+    // Taller viewport so the AMOLED section is laid out.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(buildScreen());
+    expect(find.text('TRUE BLACK (AMOLED)'), findsOneWidget);
+    expect(find.text('True black (AMOLED)'), findsOneWidget);
+  });
+
+  testWidgets('toggling AMOLED flips and persists the preference',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preference = await ThemePreference.load();
+
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(buildScreen(preference: preference));
+
+    final amoledTile = find.widgetWithText(
+      SwitchListTile,
+      'True black (AMOLED)',
+    );
+    expect(amoledTile, findsOneWidget);
+
+    final switchWidget = find.descendant(
+      of: amoledTile,
+      matching: find.byType(Switch),
+    );
+    expect(tester.widget<Switch>(switchWidget).value, isFalse);
+
+    await tester.tap(switchWidget);
+    await tester.pumpAndSettle();
+
+    expect(preference.amoledDark, isTrue);
+    expect(tester.widget<Switch>(switchWidget).value, isTrue);
+
+    final reloaded = await ThemePreference.load();
+    expect(reloaded.amoledDark, isTrue);
   });
 }

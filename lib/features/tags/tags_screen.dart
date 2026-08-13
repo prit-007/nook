@@ -49,7 +49,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   void _showCreateSheet() {
     HapticFeedback.mediumImpact();
     final nameController = TextEditingController();
-    String selectedColor = '#2196F3';
+    Color selectedColor = NookColors.defaultSeed;
 
     showModalBottomSheet(
       context: context,
@@ -58,6 +58,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           final scheme = Theme.of(context).colorScheme;
+          bool isSelected(Color seed) => seed == selectedColor;
           return SafeArea(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
@@ -76,14 +77,24 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                       color: scheme.surfaceContainerHighest
                           .withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(32),
-                      border: Border.all(
-                        color: scheme.outlineVariant.withValues(alpha: 0.25),
-                      ),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Drag handle
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
                         const Text(
                           'New Tag',
                           style: TextStyle(
@@ -128,50 +139,39 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                           spacing: 12,
                           runSpacing: 12,
                           children: [
-                            '#2196F3',
-                            '#4CAF50',
-                            '#FF9800',
-                            '#E91E63',
-                            '#9C27B0',
-                            '#00BCD4',
-                            '#607D8B',
-                            '#795548',
-                          ].map((c) {
-                            final color = NookColors.parseHex(c);
-                            final isSelected = selectedColor == c;
-                            return GestureDetector(
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                setModalState(() => selectedColor = c);
-                              },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? scheme.onSurface
-                                        : Colors.transparent,
-                                    width: isSelected ? 3 : 0,
-                                  ),
-                                  boxShadow: isSelected
-                                      ? [
-                                          BoxShadow(
-                                            color: color.withValues(
-                                              alpha: 0.4,
+                            for (final seed in NookColors.seeds)
+                              GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setModalState(() => selectedColor = seed);
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: seed,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected(seed)
+                                          ? scheme.onSurface
+                                          : Colors.transparent,
+                                      width: isSelected(seed) ? 3 : 0,
+                                    ),
+                                    boxShadow: isSelected(seed)
+                                        ? [
+                                            BoxShadow(
+                                              color:
+                                                  seed.withValues(alpha: 0.4),
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 4),
                                             ),
-                                            blurRadius: 12,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ]
-                                      : null,
+                                          ]
+                                        : null,
+                                  ),
                                 ),
                               ),
-                            );
-                          }).toList(),
+                          ],
                         ),
                         const SizedBox(height: 32),
                         Row(
@@ -214,7 +214,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                                   );
                                   await repo.createTag(
                                     name: nameController.text.trim(),
-                                    colorSeed: selectedColor,
+                                    colorSeed: _hexFromColor(selectedColor),
                                   );
                                   if (ctx.mounted) Navigator.pop(ctx);
                                   await _load();
@@ -400,6 +400,10 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     );
   }
 }
+
+/// Formats a [Color] as the app's stored `#RRGGBB` seed string.
+String _hexFromColor(Color color) =>
+    '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
 
 class _TagPill extends StatefulWidget {
   const _TagPill({

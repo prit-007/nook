@@ -100,16 +100,20 @@ class _MobileShell extends StatelessWidget {
                 height: 72,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
+                  // Tint the dock with the screen surface itself so it melts
+                  // into every screen's background (light, dark, AMOLED)
+                  // instead of reading as a mismatched gray band; the blur
+                  // still frosts whatever scrolls beneath.
+                  color: scheme.surface.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(36),
                   border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.25),
+                    color: scheme.outlineVariant.withValues(alpha: 0.15),
                     width: 1,
                   ),
                   boxShadow: [
                     // Ambient Glow
                     BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.08),
+                      color: scheme.primary.withValues(alpha: 0.06),
                       blurRadius: 32,
                       offset: const Offset(0, 12),
                     ),

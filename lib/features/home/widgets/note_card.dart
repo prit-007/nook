@@ -49,19 +49,6 @@ class _NoteCardState extends State<NoteCard> {
               decoration: BoxDecoration(
                 color: cardScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(20),
-                border: _hasColor
-                    ? Border.all(
-                        color: cardScheme.primary.withValues(alpha: 0.12),
-                        width: 1,
-                      )
-                    : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: cardScheme.shadow.withValues(alpha: 0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: Stack(

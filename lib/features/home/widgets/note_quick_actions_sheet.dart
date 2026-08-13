@@ -184,120 +184,126 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
           else
             Flexible(
               child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Quick actions ──
-                    _ActionButton(
-                      icon: _currentNote.pinned
-                          ? Icons.push_pin_rounded
-                          : Icons.push_pin_outlined,
-                      label: _currentNote.pinned ? 'Unpin Note' : 'Pin Note',
-                      color: _currentNote.pinned
-                          ? scheme.primary
-                          : scheme.onSurface,
-                      onTap: () async {
-                        await HapticFeedback.lightImpact();
-                        await _noteRepo.updateNote(
-                          _currentNote.id,
-                          pinned: !_currentNote.pinned,
-                        );
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
-                    _ActionButton(
-                      icon: _currentNote.locked
-                          ? Icons.lock_open_rounded
-                          : Icons.lock_outline_rounded,
-                      label: _currentNote.locked
-                          ? 'Unlock Note'
-                          : 'Lock with Biometrics',
-                      color: scheme.onSurface,
-                      onTap: () async {
-                        if (!_currentNote.locked) {
-                          final auth = LocalAuthentication();
-                          try {
-                            final ok = await auth.authenticate(
-                              localizedReason: 'Authenticate to lock this note',
-                              biometricOnly: true,
-                              persistAcrossBackgrounding: true,
-                            );
-                            if (!ok) return;
-                          } catch (_) {
-                            return;
+                // Provide a Material ancestor between the frosted DecoratedBox
+                // and the ListTiles so ink splashes stay visible.
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Quick actions ──
+                      _ActionButton(
+                        icon: _currentNote.pinned
+                            ? Icons.push_pin_rounded
+                            : Icons.push_pin_outlined,
+                        label: _currentNote.pinned ? 'Unpin Note' : 'Pin Note',
+                        color: _currentNote.pinned
+                            ? scheme.primary
+                            : scheme.onSurface,
+                        onTap: () async {
+                          await HapticFeedback.lightImpact();
+                          await _noteRepo.updateNote(
+                            _currentNote.id,
+                            pinned: !_currentNote.pinned,
+                          );
+                          if (context.mounted) {
+                            Navigator.pop(context);
                           }
-                        }
-                        await HapticFeedback.lightImpact();
-                        await _noteRepo.updateNote(
-                          _currentNote.id,
-                          locked: !_currentNote.locked,
-                        );
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
+                        },
+                      ),
+                      _ActionButton(
+                        icon: _currentNote.locked
+                            ? Icons.lock_open_rounded
+                            : Icons.lock_outline_rounded,
+                        label: _currentNote.locked
+                            ? 'Unlock Note'
+                            : 'Lock with Biometrics',
+                        color: scheme.onSurface,
+                        onTap: () async {
+                          if (!_currentNote.locked) {
+                            final auth = LocalAuthentication();
+                            try {
+                              final ok = await auth.authenticate(
+                                localizedReason:
+                                    'Authenticate to lock this note',
+                                biometricOnly: true,
+                                persistAcrossBackgrounding: true,
+                              );
+                              if (!ok) return;
+                            } catch (_) {
+                              return;
+                            }
+                          }
+                          await HapticFeedback.lightImpact();
+                          await _noteRepo.updateNote(
+                            _currentNote.id,
+                            locked: !_currentNote.locked,
+                          );
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
 
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 12),
 
-                    // ── Color Theme ──
-                    const _SectionHeader(label: 'Color Theme'),
-                    const SizedBox(height: 8),
-                    _ColorPickerRow(
-                      currentSeed: _currentNote.colorSeed,
-                      onSelected: (hex) async {
-                        await _noteRepo.updateNote(
-                          _currentNote.id,
-                          colorSeed: hex,
-                        );
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // ── Move to Notebook ──
-                    const _SectionHeader(label: 'Move to Notebook'),
-                    const SizedBox(height: 8),
-                    _NotebookPicker(
-                      notebooks: _allNotebooks,
-                      currentNotebookId: _currentNote.notebookId,
-                      onSelected: _assignNotebook,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // ── Tags ──
-                    if (_allTags.isNotEmpty) ...[
-                      const _SectionHeader(label: 'Tags'),
+                      // ── Color Theme ──
+                      const _SectionHeader(label: 'Color Theme'),
                       const SizedBox(height: 8),
-                      _TagChips(
-                        allTags: _allTags,
-                        noteTags: _noteTags,
-                        onToggle: _toggleTag,
+                      _ColorPickerRow(
+                        currentSeed: _currentNote.colorSeed,
+                        onSelected: (hex) async {
+                          await _noteRepo.updateNote(
+                            _currentNote.id,
+                            colorSeed: hex,
+                          );
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // ── Move to Notebook ──
+                      const _SectionHeader(label: 'Move to Notebook'),
+                      const SizedBox(height: 8),
+                      _NotebookPicker(
+                        notebooks: _allNotebooks,
+                        currentNotebookId: _currentNote.notebookId,
+                        onSelected: _assignNotebook,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // ── Tags ──
+                      if (_allTags.isNotEmpty) ...[
+                        const _SectionHeader(label: 'Tags'),
+                        const SizedBox(height: 8),
+                        _TagChips(
+                          allTags: _allTags,
+                          noteTags: _noteTags,
+                          onToggle: _toggleTag,
+                        ),
+                      ],
+
+                      const Divider(height: 24),
+
+                      // ── Delete ──
+                      _ActionButton(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Move to Trash',
+                        color: scheme.error,
+                        onTap: () async {
+                          await HapticFeedback.mediumImpact();
+                          await _noteRepo.softDelete(_currentNote.id);
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
                       ),
                     ],
-
-                    const Divider(height: 24),
-
-                    // ── Delete ──
-                    _ActionButton(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Move to Trash',
-                      color: scheme.error,
-                      onTap: () async {
-                        await HapticFeedback.mediumImpact();
-                        await _noteRepo.softDelete(_currentNote.id);
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

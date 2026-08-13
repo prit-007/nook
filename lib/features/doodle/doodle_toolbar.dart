@@ -46,17 +46,6 @@ class DoodleToolbar extends StatelessWidget {
                         scheme.surfaceContainerHighest)
                     .withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(36),
-                border: Border.all(
-                  color: (noteScheme?.outlineVariant ?? scheme.outlineVariant)
-                      .withValues(alpha: 0.3),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.15),
-                    blurRadius: 32,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,

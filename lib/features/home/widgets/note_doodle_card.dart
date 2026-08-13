@@ -53,20 +53,7 @@ class _NoteDoodleCardState extends State<NoteDoodleCard> {
                         cardScheme.surfaceContainerLow,
                       )
                     : cardScheme.surfaceContainerLow,
-                border: _hasColor
-                    ? Border.all(
-                        color: cardScheme.primary.withValues(alpha: 0.12),
-                        width: 1,
-                      )
-                    : null,
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: cardScheme.primary.withValues(alpha: 0.12),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: Row(

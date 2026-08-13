@@ -60,9 +60,6 @@ class SettingsAppearanceScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.3),
-                  ),
                 ),
                 child: Column(
                   children: [
@@ -81,6 +78,46 @@ class SettingsAppearanceScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 36),
+          const _SectionHeader(title: 'True Black (AMOLED)'),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: SwitchListTile.adaptive(
+                  title: const Text(
+                    'True black (AMOLED)',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Pure black surfaces in dark mode so OLED pixels turn '
+                    'off. Seed colors stay intact.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  secondary: Icon(
+                    LucideIcons.moon,
+                    color: scheme.primary,
+                    size: 28,
+                  ),
+                  value: pref.amoledDark,
+                  activeThumbColor: scheme.primary,
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    pref.setAmoledDark(value);
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 36),
           const _SectionHeader(title: 'Reduce Motion'),
           const SizedBox(height: 8),
           ClipRRect(
@@ -89,9 +126,6 @@ class SettingsAppearanceScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
-                ),
               ),
               child: Material(
                 color: Colors.transparent,

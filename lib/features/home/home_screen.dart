@@ -78,9 +78,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
     final animate = _animationsAllowed(context);
 
-    // Dynamic offset so the FAB clears the frosted dock + safe area.
-    // 96 = dock visual height (72) + vertical padding (24).
-    final safeBottom = MediaQuery.paddingOf(context).bottom + 96;
+    // The shell already offsets the body by the full dock height (72 + 24 +
+    // bottom inset), so the FAB only needs a small gap above the body's bottom
+    // edge — no need to re-add the dock height here.
+    final safeBottom = MediaQuery.paddingOf(context).bottom + 16;
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -130,7 +131,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
           MorphingEditorialFab(
-            mobileBottomOffset: safeBottom + 16,
+            mobileBottomOffset: safeBottom,
             onCreateNote: (type) async {
               await HapticFeedback.mediumImpact();
               if (context.mounted) {
@@ -157,9 +158,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Widget greeting = Text(
       _timeGreeting,
       style: TextStyle(
-        fontSize: isWide ? 22 : 26,
+        fontFamily: 'Playfair Display',
+        fontSize: isWide ? 28 : 24,
         fontWeight: FontWeight.w900,
-        letterSpacing: -0.8,
+        letterSpacing: -1.2,
+        height: 1.1,
         color: scheme.onSurface,
       ),
     );
@@ -202,9 +205,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.25),
-                  ),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -309,7 +309,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _buildWideGrid(filtered)
           else
             _buildNarrowStream(filtered),
-          SliverToBoxAdapter(child: SizedBox(height: safeBottom + 48)),
+          SliverToBoxAdapter(child: SizedBox(height: safeBottom + 72)),
         ],
       ),
     );
@@ -317,7 +317,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildNarrowStream(List<Note> filtered) {
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       sliver: SliverList.builder(
         itemCount: filtered.length,
         itemBuilder: (context, index) {
@@ -352,7 +352,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             Expanded(
               child: Column(
                 children: [

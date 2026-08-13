@@ -51,7 +51,7 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
     return MaterialApp.router(
       title: 'Nook',
       theme: buildLightTheme(seed),
-      darkTheme: buildDarkTheme(seed),
+      darkTheme: buildDarkTheme(seed, amoled: themePref.amoledDark),
       themeMode: themePref.themeMode,
       routerConfig: router,
       localizationsDelegates: const [

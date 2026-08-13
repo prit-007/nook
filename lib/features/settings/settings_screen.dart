@@ -226,9 +226,6 @@ class _Section extends StatelessWidget {
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
-                ),
               ),
               child: Column(children: children),
             ),
@@ -271,9 +268,6 @@ class _SettingsTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.5),
-                  ),
                 ),
                 child: Icon(icon, size: 20, color: scheme.onSurface),
               ),

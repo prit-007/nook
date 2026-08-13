@@ -44,6 +44,13 @@ void main() {
     );
   }
 
+  /// Tap the morphing input circle to expand it into a full text field.
+  Future<void> expandInput(WidgetTester tester) async {
+    // The collapsed circle shows an add icon.
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('renders empty state when no items', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
@@ -51,17 +58,19 @@ void main() {
     expect(find.text('A fresh start.'), findsOneWidget);
   });
 
-  testWidgets('shows add item text field', (tester) async {
+  testWidgets('shows add item text field after expanding', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
+    await expandInput(tester);
     expect(find.byType(TextField), findsOneWidget);
   });
 
-  testWidgets('shows hint text in add field', (tester) async {
+  testWidgets('shows hint text in add field after expanding', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
+    await expandInput(tester);
     expect(find.text('Add a new task...'), findsOneWidget);
   });
 
@@ -69,6 +78,7 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
+    await expandInput(tester);
     await tester.enterText(find.byType(TextField), 'Buy milk');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
@@ -216,7 +226,7 @@ void main() {
       expect(items.first.checked, isTrue);
     });
 
-    testWidgets('swiping a checked item unchecks it', (tester) async {
+    testWidgets('tapping checked item in archive unchecks it', (tester) async {
       await repo.addItem(noteId: 'note-1', text: 'Uncheck me');
       final items = await repo.getItems('note-1');
       await repo.toggleChecked(items[0].id);
@@ -224,7 +234,17 @@ void main() {
       await tester.pumpWidget(buildEditor());
       await tester.pumpAndSettle();
 
-      await tester.drag(find.text('Uncheck me'), const Offset(400, 0));
+      // Checked items appear in the archived section under COMPLETED.
+      // Tap the checkbox circle to uncheck.
+      final rowFinder = find.ancestor(
+        of: find.text('Uncheck me'),
+        matching: find.byType(Row),
+      );
+      final circleToggle = find.descendant(
+        of: rowFinder.first,
+        matching: find.byType(GestureDetector),
+      );
+      await tester.tap(circleToggle.first);
       await tester.pumpAndSettle();
 
       final updatedItems = await repo.getItems('note-1');

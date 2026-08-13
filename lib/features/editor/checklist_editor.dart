@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -24,6 +23,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   final _addController = TextEditingController();
   final _addFocusNode = FocusNode();
   List<_ChecklistItemView> _items = [];
+  List<_ChecklistItemView> _archivedItems = [];
   bool _loading = true;
 
   @override
@@ -46,6 +46,16 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     if (mounted) {
       setState(() {
         _items = items
+            .where((i) => !i.checked)
+            .map((i) => _ChecklistItemView(
+                  id: i.id,
+                  text: i.itemText,
+                  checked: i.checked,
+                  sortOrder: i.sortOrder,
+                ))
+            .toList();
+        _archivedItems = items
+            .where((i) => i.checked)
             .map((i) => _ChecklistItemView(
                   id: i.id,
                   text: i.itemText,
@@ -85,25 +95,12 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     await _load();
   }
 
-  Future<void> _reorder(int oldIndex, int newIndex) async {
-    unawaited(HapticFeedback.selectionClick());
-    final db = ref.read(databaseProvider);
-    final repo = ChecklistItemRepository(db);
-
-    final ids = _items.map((i) => i.id).toList();
-    final moved = ids.removeAt(oldIndex);
-    ids.insert(newIndex, moved);
-
-    await repo.reorderItems(widget.noteId, ids);
-    await _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     final scheme = NoteThemeScope.of(context);
     final textTheme = NoteThemeScope.textThemeOf(context);
-    final checkedCount = _items.where((i) => i.checked).length;
-    final totalCount = _items.length;
+    final checkedCount = _archivedItems.length;
+    final totalCount = _items.length + _archivedItems.length;
     final progress = totalCount > 0 ? checkedCount / totalCount : 0.0;
     final viewInsets = MediaQuery.viewInsetsOf(context);
 
@@ -121,9 +118,6 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.3),
-                  ),
                 ),
                 child: Row(
                   children: [
@@ -156,7 +150,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
             child: _loading
                 ? Center(
                     child: CircularProgressIndicator(color: scheme.primary))
-                : _items.isEmpty
+                : _items.isEmpty && _archivedItems.isEmpty
                     ? Center(
                         child: Text(
                           'A fresh start.',
@@ -165,93 +159,225 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                           ),
                         ),
                       )
-                    : ReorderableListView.builder(
-                        padding: EdgeInsets.only(
-                          top: 8,
-                          left: 20,
-                          right: 20,
-                          bottom: viewInsets.bottom + 100,
-                        ),
-                        itemCount: _items.length,
-                        onReorderItem: _reorder,
-                        proxyDecorator: (child, index, animation) =>
-                            Material(color: Colors.transparent, child: child),
-                        itemBuilder: (context, index) {
-                          final item = _items[index];
-                          return _SwipeableTile(
-                            key: ValueKey(item.id),
-                            onSwipe: () => _toggleItem(item.id),
-                            background: _SwipeToCheckBackground(
-                              alignment: Alignment.centerRight,
-                              isChecked: item.checked,
+                    : CustomScrollView(
+                        slivers: [
+                          SliverPadding(
+                            padding: EdgeInsets.only(
+                              top: 8,
+                              left: 20,
+                              right: 20,
+                              bottom: viewInsets.bottom + 100,
                             ),
-                            child: _ChecklistTile(
-                              key: ValueKey(item.id),
-                              index: index,
-                              id: item.id,
-                              text: item.text,
-                              checked: item.checked,
-                              onToggle: () => _toggleItem(item.id),
-                              onDelete: () => _deleteItem(item.id),
+                            sliver: SliverList(
+                              delegate: SliverChildListDelegate([
+                                // Active items
+                                for (var index = 0;
+                                    index < _items.length;
+                                    index++)
+                                  _SwipeableTile(
+                                    key: ValueKey(_items[index].id),
+                                    onSwipe: () =>
+                                        _toggleItem(_items[index].id),
+                                    background: const _SwipeToCheckBackground(
+                                      alignment: Alignment.centerRight,
+                                      isChecked: false,
+                                    ),
+                                    child: _ChecklistTile(
+                                      key: ValueKey(_items[index].id),
+                                      index: index,
+                                      id: _items[index].id,
+                                      text: _items[index].text,
+                                      checked: false,
+                                      onToggle: () =>
+                                          _toggleItem(_items[index].id),
+                                      onDelete: () =>
+                                          _deleteItem(_items[index].id),
+                                    ),
+                                  ),
+
+                                // Completed divider + archived items
+                                if (_archivedItems.isNotEmpty) ...[
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(4, 24, 4, 12),
+                                    child: Text(
+                                      'COMPLETED',
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1.5,
+                                        color: scheme.onSurfaceVariant
+                                            .withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                  ),
+                                  for (var index = 0;
+                                      index < _archivedItems.length;
+                                      index++)
+                                    _ChecklistTile(
+                                      key: ValueKey(_archivedItems[index].id),
+                                      index: index,
+                                      id: _archivedItems[index].id,
+                                      text: _archivedItems[index].text,
+                                      checked: true,
+                                      onToggle: () =>
+                                          _toggleItem(_archivedItems[index].id),
+                                      onDelete: () =>
+                                          _deleteItem(_archivedItems[index].id),
+                                    ),
+                                ],
+                              ]),
                             ),
-                          );
-                        },
+                          ),
+                        ],
                       ),
           ),
         ],
       ),
-      // 3. Floating Input Pill
+      // 3. Morphing Input Pill
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
+      floatingActionButton: _MorphingInputPill(
+        addController: _addController,
+        addFocusNode: _addFocusNode,
+        onAdd: _addItem,
+      ),
+    );
+  }
+}
+
+/// Morphing input pill: starts as a circular FAB, expands to full input on tap.
+class _MorphingInputPill extends StatefulWidget {
+  const _MorphingInputPill({
+    required this.addController,
+    required this.addFocusNode,
+    required this.onAdd,
+  });
+
+  final TextEditingController addController;
+  final FocusNode addFocusNode;
+  final Future<void> Function(String) onAdd;
+
+  @override
+  State<_MorphingInputPill> createState() => _MorphingInputPillState();
+}
+
+class _MorphingInputPillState extends State<_MorphingInputPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _expandAnim;
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _expandAnim = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutBack,
+    );
+
+    widget.addFocusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    widget.addFocusNode.removeListener(_onFocusChange);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (widget.addFocusNode.hasFocus && !_expanded) {
+      _expand();
+    } else if (!widget.addFocusNode.hasFocus &&
+        widget.addController.text.isEmpty &&
+        _expanded) {
+      _collapse();
+    }
+  }
+
+  void _expand() {
+    setState(() => _expanded = true);
+    _controller.forward();
+  }
+
+  void _collapse() {
+    _controller.reverse().then((_) {
+      if (mounted) setState(() => _expanded = false);
+    });
+  }
+
+  void _handleSubmit(String value) {
+    widget.onAdd(value);
+    if (_expanded) _collapse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = NoteThemeScope.of(context);
+    final textTheme = NoteThemeScope.textThemeOf(context);
+
+    return AnimatedBuilder(
+      animation: _expandAnim,
+      builder: (context, child) {
+        final t = _expandAnim.value;
+        final maxPillWidth = MediaQuery.sizeOf(context).width - 40;
+        final pillWidth = 56.0 + (maxPillWidth - 56) * t;
+        final pillHeight = 56.0;
+        final isCircle = t < 0.05;
+
+        return GestureDetector(
+          onTap: _expanded ? null : _expand,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 20),
+            width: pillWidth,
+            height: pillHeight,
+            padding: EdgeInsets.symmetric(horizontal: 8 + 12 * t),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(isCircle ? 28 : 32),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _expanded ? Icons.close_rounded : Icons.add_rounded,
+                  color: scheme.primary,
+                  size: 24,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.add_rounded, color: scheme.primary, size: 24),
-                  const SizedBox(width: 12),
+                if (t > 0.1) ...[
+                  const SizedBox(width: 4),
                   Expanded(
-                    child: TextField(
-                      controller: _addController,
-                      focusNode: _addFocusNode,
-                      style: textTheme.bodyLarge
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        hintText: 'Add a new task...',
-                        hintStyle: textTheme.bodyLarge?.copyWith(
-                          color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    child: Opacity(
+                      opacity: t.clamp(0.0, 1.0),
+                      child: TextField(
+                        controller: widget.addController,
+                        focusNode: widget.addFocusNode,
+                        style: textTheme.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                        textInputAction: TextInputAction.done,
+                        decoration: InputDecoration(
+                          hintText: 'Add a new task...',
+                          hintStyle: textTheme.bodyLarge?.copyWith(
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
                         ),
-                        border: InputBorder.none,
-                        isDense: true,
+                        onSubmitted: _handleSubmit,
                       ),
-                      onSubmitted: _addItem,
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -329,9 +455,6 @@ class _ChecklistTile extends StatelessWidget {
             ? scheme.surfaceContainerLow.withValues(alpha: 0.4)
             : scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: checked ? 0.1 : 0.3),
-        ),
       ),
       child: Row(
         children: [
@@ -408,6 +531,7 @@ class _ChecklistTile extends StatelessWidget {
   }
 }
 
+/// Swipeable tile with horizontal squish feedback.
 class _SwipeableTile extends StatefulWidget {
   const _SwipeableTile({
     super.key,
@@ -424,29 +548,67 @@ class _SwipeableTile extends StatefulWidget {
   State<_SwipeableTile> createState() => _SwipeableTileState();
 }
 
-class _SwipeableTileState extends State<_SwipeableTile> {
+class _SwipeableTileState extends State<_SwipeableTile>
+    with SingleTickerProviderStateMixin {
   double _dragExtent = 0;
+  late final AnimationController _snapController;
+  double _snapTarget = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    )..addListener(() {
+        if (_snapController.isCompleted || _snapController.isDismissed) return;
+        setState(() {
+          _dragExtent = _dragExtent + (_snapTarget - _dragExtent) * 0.15;
+        });
+      });
+  }
+
+  @override
+  void dispose() {
+    _snapController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final clamped = _dragExtent.clamp(-120.0, 120.0);
+    final squishFactor = (clamped.abs() / 120.0) * 0.05;
+    final iconScale = 1.0 + (clamped.abs() / 120.0) * 0.4;
+
     return Stack(
       children: [
-        if (_dragExtent.abs() > 10) widget.background,
+        if (_dragExtent.abs() > 10)
+          Transform.scale(
+            scale: iconScale,
+            child: widget.background,
+          ),
         Transform.translate(
           offset: Offset(clamped, 0),
-          child: GestureDetector(
-            onHorizontalDragUpdate: (details) {
-              setState(() => _dragExtent += details.delta.dx);
-            },
-            onHorizontalDragEnd: (details) {
-              final velocity = details.primaryVelocity ?? 0;
-              if (_dragExtent.abs() > 80 || velocity.abs() > 400) {
-                widget.onSwipe();
-              }
-              setState(() => _dragExtent = 0);
-            },
-            child: widget.child,
+          child: Transform.scale(
+            scaleX: 1.0 - squishFactor,
+            scaleY: 1.0,
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                _snapController.stop();
+                setState(() => _dragExtent += details.delta.dx);
+              },
+              onHorizontalDragEnd: (details) {
+                final velocity = details.primaryVelocity ?? 0;
+                if (_dragExtent.abs() > 80 || velocity.abs() > 400) {
+                  widget.onSwipe();
+                  setState(() => _dragExtent = 0);
+                } else {
+                  _snapTarget = 0;
+                  _snapController.forward(from: 0);
+                }
+              },
+              child: widget.child,
+            ),
           ),
         ),
       ],

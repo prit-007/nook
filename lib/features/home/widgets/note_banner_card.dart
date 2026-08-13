@@ -46,14 +46,6 @@ class _NoteBannerCardState extends State<NoteBannerCard> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
                 color: bannerScheme.primaryContainer,
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        bannerScheme.primaryContainer.withValues(alpha: 0.45),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: Stack(
