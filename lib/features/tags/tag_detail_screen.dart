@@ -78,6 +78,7 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                       LucideIcons.arrowLeft,
                       color: scheme.onSurface,
                     ),
+                    tooltip: 'Go back',
                     onPressed: () => context.pop(),
                   ),
                   flexibleSpace: FlexibleSpaceBar(

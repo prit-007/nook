@@ -85,6 +85,10 @@ class _MaskedRevealState extends State<MaskedReveal>
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      // Reduce-motion: render the final state immediately, no reveal.
+      return widget.child;
+    }
     Widget child = SlideTransition(
       position: _slide,
       child: widget.child,

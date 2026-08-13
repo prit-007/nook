@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
@@ -299,6 +300,7 @@ class _ColorDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final swatch = color;
     return GestureDetector(
       onTap: onTap,
       child: Semantics(
@@ -311,7 +313,7 @@ class _ColorDot extends StatelessWidget {
           height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: color ?? scheme.surfaceContainerHighest,
+            color: swatch ?? scheme.surfaceContainerHighest,
             border: Border.all(
               color: isSelected
                   ? scheme.onSurface
@@ -323,8 +325,8 @@ class _ColorDot extends StatelessWidget {
               ? Icon(
                   color != null ? Icons.check : Icons.close,
                   size: 18,
-                  color: color != null
-                      ? Colors.white
+                  color: swatch != null
+                      ? NookSemantics.contrastForeground(swatch)
                       : scheme.onSurface.withValues(alpha: 0.5),
                 )
               : null,

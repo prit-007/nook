@@ -410,27 +410,33 @@ class _DeviceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.smartphone, color: scheme.primary, size: 20),
-            const SizedBox(width: 10),
-            Text(
-              device.deviceName,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+    return Semantics(
+      label: 'Send to ${device.deviceName}',
+      hint: 'Connect and send notes to this device',
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.3),
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(LucideIcons.smartphone, color: scheme.primary, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                device.deviceName,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+            ],
+          ),
         ),
       ),
     );

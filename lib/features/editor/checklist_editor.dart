@@ -393,6 +393,7 @@ class _ChecklistTile extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.close_rounded,
                 size: 20, color: scheme.onSurface.withValues(alpha: 0.3)),
+            tooltip: 'Delete item',
             onPressed: onDelete,
             visualDensity: VisualDensity.compact,
           ),

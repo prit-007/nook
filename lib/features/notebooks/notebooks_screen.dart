@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/selection_providers.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
 import 'widgets/notebook_card.dart';
+import 'widgets/notebook_detail_pane.dart';
 
 /// Notebooks list screen — grid of notebook cards with CRUD.
 class NotebooksScreen extends ConsumerStatefulWidget {
@@ -169,51 +172,80 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
+
+    final grid = _notebooksGrid(scheme, isDualPane);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Notebooks')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _notebooks.isEmpty
-              ? const EmptyState(
-                  icon: Icons.book_outlined,
-                  title: 'No notebooks',
-                  subtitle: 'Tap + to create one',
-                  animate: false,
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      childAspectRatio: 0.62,
+          : isDualPane
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Flexible(flex: 3, child: grid),
+                    VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: scheme.outlineVariant.withValues(alpha: 0.2),
                     ),
-                    itemCount: _notebooks.length,
-                    itemBuilder: (context, index) {
-                      final nb = _notebooks[index];
-                      final card = GestureDetector(
-                        onTap: () => context.push('/notebooks/${nb.id}'),
-                        onLongPress: () => _showDeleteDialog(nb),
-                        child: NotebookCard(
-                          notebook: nb,
-                          noteCount: _counts[nb.id] ?? 0,
-                        ),
-                      );
-                      if (MediaQuery.disableAnimationsOf(context)) return card;
-                      return ParallaxCard(child: card);
-                    },
-                  ),
-                ),
+                    const Flexible(flex: 2, child: NotebookDetailPane()),
+                  ],
+                )
+              : grid,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 114),
         child: FloatingActionButton(
           onPressed: _showCreateSheet,
+          tooltip: 'Create notebook',
           child: const Icon(Icons.add),
         ),
+      ),
+    );
+  }
+
+  Widget _notebooksGrid(ColorScheme scheme, bool isDualPane) {
+    if (_notebooks.isEmpty) {
+      return const EmptyState(
+        icon: Icons.book_outlined,
+        title: 'No notebooks',
+        subtitle: 'Tap + to create one',
+        animate: false,
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 0.62,
+        ),
+        itemCount: _notebooks.length,
+        itemBuilder: (context, index) {
+          final nb = _notebooks[index];
+          final card = GestureDetector(
+            onTap: () {
+              if (isDualPane) {
+                ref.read(selectedNotebookIdProvider.notifier).state = nb.id;
+                return;
+              }
+              context.push('/notebooks/${nb.id}');
+            },
+            onLongPress: () => _showDeleteDialog(nb),
+            child: NotebookCard(
+              notebook: nb,
+              noteCount: _counts[nb.id] ?? 0,
+            ),
+          );
+          if (MediaQuery.disableAnimationsOf(context)) return card;
+          return ParallaxCard(child: card);
+        },
       ),
     );
   }
