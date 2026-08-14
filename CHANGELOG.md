@@ -33,6 +33,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `AppInfo.version` mismatch: the in-app constant was stale at `0.7.1`
   while `pubspec.yaml` read `0.7.7+1`. Both are now `0.7.8+1`.
 
+### App icon & branding — all platforms
+- Launcher icons generated with `flutter_launcher_icons ^0.14.4`
+  (config at the bottom of `pubspec.yaml`). Sources live in `assets/icons/`:
+  `favicon_fg.png` (transparent foreground) + `favicon_full.png` (full logo).
+- Android adaptive icon: transparent foreground over a `#FBFBFB` background
+  (color resource in `android/app/src/main/res/values/colors.xml`), safe-zone
+  inset for launcher shape masking, plus regenerated legacy `mipmap-*` icons.
+- iOS, macOS (`AppIcon.appiconset`), and Windows (`app_icon.ico`, 256px)
+  app icons regenerated from the same art.
+- **Linux window icon**: `linux/runner/icon.png` is bundled into
+  `bundle/data/` by the install rule in `linux/CMakeLists.txt` and applied in
+  `linux/runner/my_application.cc` via `gtk_window_set_icon_from_file`
+  (resolved off `fl_dart_project_get_assets_path`). The runner previously set
+  no window icon.
+
+### Windows installer — Inno Setup
+- New `tool/build_installer.dart` (pure `dart:io`, no new deps): reads the
+  version from `pubspec.yaml`, writes `build/installers/nook_setup_<ver>.iss`,
+  and compiles it with the Inno Setup compiler (`iscc`; `--dry-run` validates
+  ISS generation on any host, `--iscc <path>` points at the compiler).
+- Installer features: stable `AppId` (clean upgrades), `PrivilegesRequired=lowest`
+  + `DefaultDirName={localappdata}\nook` (**no admin**), `WizardStyle=modern`,
+  LZMA2 solid compression, 64-bit install, GPL license page, Start Menu folder
+  + **opt-in** desktop shortcut, launch-after-install.
+- CI (`build-windows` job) installs Inno Setup via Chocolatey, runs the
+  installer build, and ships `nook_setup_*.exe` in the Windows artifact;
+  tag releases now attach the `.exe` alongside the zip and APKs.
+- Note: `flutter build windows` + `iscc` only run on a Windows host; the script
+  fails fast with a clear message otherwise.
+
 ## [0.7.7] - 2026-08-13
 
 ### Developer tooling — in-app log viewer

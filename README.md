@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/icons/favicon_full.png" alt="Nook — your notes. your device. yours." width="128" height="128" />
+
 # 🕊️ Nook
 
 > **Your notes. Your device. Yours.**
@@ -57,12 +59,14 @@ Three clauses, three promises:
 
 ## Status
 
-🚧 **Pre-alpha — v0.7.5** — Phases 0–4 complete (foundation, core notes,
+🚧 **Pre-alpha — v0.7.8** — Phases 0–4 complete (foundation, core notes,
 checklists + doodles, theming, security). Phase 5 (nearby sync) is implemented:
 the transport was rebuilt on **libp2p over UDX** with a stable keystore identity,
 an own mDNS discovery fork, and categorized failure outcomes. Legacy TCP remains
 as a fallback. Loopback transport + orchestrator tests are green; physical-device
-validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
+validation remains. v0.7.8 adds the full launcher-icon/branding pass (adaptive
+Android icons + Linux window icon) and a polished **Inno Setup Windows installer**
+built by CI. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
 
 ## Features
 
@@ -78,7 +82,8 @@ validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION
 | **Trash** | Soft-delete with 30-day auto-expiry |
 | **Sync** | libp2p over UDX device-to-device sync: discovery, pairing, transfer, conflict resolution, history |
 | **Export** | `.nook` bundle export via `archive` |
-| **CI** | GitHub Actions: format, analyze, test, APK build + GitHub releases |
+| **Branding** | Adaptive launcher icons on all platforms (`flutter_launcher_icons`), Linux window icon |
+| **CI** | GitHub Actions: format, analyze, test, APK build, Inno Setup Windows installer + GitHub releases |
 
 ## Privacy & security model
 
@@ -96,6 +101,9 @@ validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION
 
 - Flutter **3.44.x** (stable channel) and Dart `>=3.6.0 <4.0.0`
 - A device or emulator (Android, iOS, macOS, Linux, Windows, or Web)
+- Linux desktop builds need the system package `libsecret-1-dev`
+  (`sudo apt-get install -y libsecret-1-dev`); the Windows installer build
+  needs the [Inno Setup compiler](https://jrsoftware.org/isdl.php) on PATH.
 
 ### Run it
 
@@ -120,6 +128,19 @@ flutter run
 flutter build apk --release
 # artifact: build/app/outputs/flutter-apk/app-release.apk
 ```
+
+### Build the Windows installer
+
+```bash
+flutter build windows --release   # Windows host (Inno Setup required)
+dart run tool/build_installer.dart
+# artifact: build/installers/nook_setup_<version>.exe
+```
+
+`tool/build_installer.dart` generates an Inno Setup script and compiles it with
+`iscc` into a modern wizard that installs under `{localappdata}` (no admin
+required), with a Start Menu entry and an opt-in desktop shortcut. See
+[`docs/adr/0010-windows-installer.md`](docs/adr/0010-windows-installer.md).
 
 ## Developing Nook
 

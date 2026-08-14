@@ -259,7 +259,9 @@ AES-GCM-encrypted after the ECDH handshake).
 | Real devices | real-mDNS round trip tagged `network` (skipped in CI); two-emulator harness | `test/sync/nook_mdns_discovery_test.dart`, detailed plan §11 |
 
 CI (`github/workflows/ci.yml`): `format → analyze → test --coverage -x network`,
-then an APK build + tag-triggered GitHub release.
+then an APK build + tag-triggered GitHub release. The `build-windows` job also
+installs Inno Setup via Chocolatey and produces a setup wizard
+(`nook_setup_<ver>.exe`) that is attached to tag releases.
 
 ## 8. Common changes & where to make them
 
@@ -272,5 +274,21 @@ then an APK build + tag-triggered GitHub release.
 | Add a sync screen/route | `core/router.dart` + `features/sync_ui/` |
 | New attachment type | `tables/attachments.dart` + `SyncAttachment` mapping + restore path |
 | Change editor behavior | `features/editor/` (blocks, autosave, toolbar) |
+| Change the app icon/branding | `assets/icons/*` → `dart run flutter_launcher_icons`; Linux: re-copy `linux/runner/icon.png` (keep CMake install + C++ path in sync) |
+| Change the Windows installer | `tool/build_installer.dart` (ISS generation) + `iscc` compile; see `docs/adr/0010-windows-installer.md` |
+
+## 9. Branding & distribution
+
+- **Launcher icons** (`flutter_launcher_icons ^0.14.4`): sources in
+  `assets/icons/` (`favicon_fg.png` transparent foreground, `favicon_full.png`
+  full logo). Android adaptive icon = foreground over `#FBFBFB`
+  (`android/app/src/main/res/values/colors.xml`), legacy mipmaps, plus
+  iOS/macOS/Windows icons — see `docs/adr/0009-app-launcher-icons-and-linux-window-icon.md`.
+- **Linux window icon**: `linux/runner/icon.png` → `bundle/data/icon.png` via
+  `linux/CMakeLists.txt`, applied in `linux/runner/my_application.cc`.
+- **Windows installer**: `tool/build_installer.dart` (pure Dart) generates a
+  no-admin, modern Inno Setup wizard and compiles it with `iscc` —
+  see `docs/adr/0010-windows-installer.md`.
+- Linux desktop builds require the system package `libsecret-1-dev`.
 | Security/scanner UI | `core/providers/*_provider.dart` + `features/security/` |
 | CI / release | `.github/workflows/ci.yml` |

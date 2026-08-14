@@ -2,7 +2,7 @@
 
 > **How to use:** Check off tasks as you complete them. Each task lists the files to create/modify and the validation command to run. Move the `[ ]` → `[x]` when done. Update the status table at the top of each phase when a phase is fully complete.
 
-**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. The sync transport was rebuilt on **dart_libp2p (UDX)** — stable keystore identity, own mDNS fork (`_syncnotenet._udp` with `devicename=` TXT), per-stream half-close request/response wire envelope with SHA-256 integrity, and categorized outcomes (rejected / timedOut / connectionLost / cancelled / protocol / internal) driving distinct UI treatments. The legacy TCP transport remains as a fallback. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished in **v0.6.2**. Phase 6.1 accessibility (labels, contrast, touch targets, reduce motion, screen-reader tests) and 6.2 adaptive tablet/foldable layout (home/notebooks/tags master–detail) complete. Physical-device validation and remaining Phase 5 validation steps below.
+**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. The sync transport was rebuilt on **dart_libp2p (UDX)** — stable keystore identity, own mDNS fork (`_syncnotenet._udp` with `devicename=` TXT), per-stream half-close request/response wire envelope with SHA-256 integrity, and categorized outcomes (rejected / timedOut / connectionLost / cancelled / protocol / internal) driving distinct UI treatments. The legacy TCP transport remains as a fallback. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished in **v0.6.2**. Phase 6.1 accessibility (labels, contrast, touch targets, reduce motion, screen-reader tests) and 6.2 adaptive tablet/foldable layout (home/notebooks/tags master–detail) complete. **v0.7.8** added Phase 6.6 branding & distribution: all-platform launcher icons (adaptive Android over `#FBFBFB`, iOS/macOS/Windows), a Linux window icon, and an Inno Setup Windows installer driven by `tool/build_installer.dart` + CI. Physical-device validation and remaining Phase 5 validation steps below.
 
 ---
 
@@ -16,7 +16,7 @@
 | 3 | Theming & Polish (dynamic color, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
 | 5 | Nearby Sync (transport, pairing, merge resolver) | **~80% COMPLETE** | 2026-08-11 | — |
-| 6 | Hardening for Play Store (accessibility, export, privacy) | **~30% COMPLETE** | 2026-08-13 | — |
+| 6 | Hardening for Play Store (accessibility, export, privacy) | **~40% COMPLETE** | 2026-08-13 | — |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
 
 ---
@@ -679,6 +679,14 @@
 - [ ] Runtime permission rationale dialogs (nearby Wi-Fi, biometric, storage)
 - [ ] Store listing assets (screenshots, feature graphic, description)
 
+### 6.6 Branding & Distribution
+
+- [x] All-platform launcher icons via `flutter_launcher_icons ^0.14.4` (config block at the bottom of `pubspec.yaml`): Android adaptive icon (transparent `assets/icons/favicon_fg.png` foreground over `#FBFBFB` from `android/app/src/main/res/values/colors.xml`, safe-zone inset) + regenerated legacy mipmaps; iOS/macOS `AppIcon.appiconset`; Windows `app_icon.ico`
+- [x] Linux window icon: `linux/runner/icon.png` installed to `bundle/data/icon.png` by `linux/CMakeLists.txt`; applied via `gtk_window_set_icon_from_file` in `linux/runner/my_application.cc`
+- [x] Windows installer: `tool/build_installer.dart` writes `build/installers/nook_setup_<ver>.iss` and compiles with `iscc` (`--dry-run` validates on any host; `--iscc` overrides the compiler path). Installs to `{localappdata}\nook`, `PrivilegesRequired=lowest`, modern wizard, LZMA2, Start Menu + opt-in desktop shortcut
+- [x] CI `build-windows` installs Inno Setup via Chocolatey, builds the installer, uploads `nook_setup_*.exe`; tag releases attach it
+- [x] README + CHANGELOG + ADRs (`0009` icons, `0010` installer) updated
+
 ### Phase 6 Validation
 
 - [ ] TalkBack navigates all key flows without errors
@@ -898,6 +906,25 @@ test/features/tablet/master_detail_test.dart
 test/features/accessibility/semantics_test.dart
 test/features/accessibility/accessibility_smoke_test.dart
 test/core/widgets/masked_reveal_test.dart
+```
+
+### Phase 6.6 Files
+```
+assets/icons/favicon_fg.png
+assets/icons/favicon_full.png
+android/app/src/main/res/values/colors.xml
+android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+android/app/src/main/res/drawable-*/ic_launcher_foreground.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/
+macos/Runner/Assets.xcassets/AppIcon.appiconset/
+windows/runner/resources/app_icon.ico
+linux/runner/icon.png
+linux/CMakeLists.txt
+linux/runner/my_application.cc
+tool/build_installer.dart
+.github/workflows/ci.yml
+docs/adr/0009-app-launcher-icons-and-linux-window-icon.md
+docs/adr/0010-windows-installer.md
 ```
 
 ---

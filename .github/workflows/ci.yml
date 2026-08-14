@@ -108,6 +108,16 @@ jobs:
         shell: bash
         run: flutter build windows --release
 
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer (Inno Setup)
+        shell: powershell
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          dart run tool/build_installer.dart --iscc $iscc
+
       - name: Package Windows build
         shell: powershell
         run: |
@@ -117,7 +127,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nook-windows
-          path: build/nook-windows-v${{ env.APP_VERSION }}.zip
+          path: |
+            build/nook-windows-v${{ env.APP_VERSION }}.zip
+            build/installers/nook_setup_*.exe
           if-no-files-found: error
 
   build-ios:
@@ -214,5 +226,6 @@ jobs:
           files: |
             release/apks/*.apk
             release/windows/*.zip
+            release/windows/*.exe
             release/ios/*.zip
           name: Release ${{ github.ref_name }}

@@ -82,7 +82,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           onChanged: _search,
         ),
         leading: IconButton(
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 24),
+          icon: const HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowLeft01, size: 24),
           tooltip: 'Go back',
           onPressed: () => context.pop(),
         ),
