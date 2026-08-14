@@ -9,6 +9,7 @@ import 'package:drift/drift.dart' show Value;
 
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/note_theme_scope.dart';
+import '../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
@@ -23,6 +24,7 @@ class ChecklistEditor extends ConsumerStatefulWidget {
     super.key,
     required this.noteId,
     this.title = '',
+    this.initialAttachments = const [],
     this.onTitleChanged,
     this.onInsertImage,
     this.onInsertDoodle,
@@ -32,6 +34,7 @@ class ChecklistEditor extends ConsumerStatefulWidget {
 
   final String noteId;
   final String title;
+  final List<Attachment> initialAttachments;
   final ValueChanged<String>? onTitleChanged;
   final Future<void> Function()? onInsertImage;
   final Future<void> Function()? onInsertDoodle;
@@ -58,6 +61,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.title);
+    _attachments = List.of(widget.initialAttachments);
     _load();
   }
 
@@ -76,6 +80,10 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     if (oldWidget.title != widget.title &&
         _titleController.text != widget.title) {
       _titleController.text = widget.title;
+    }
+    // Sync attachments from parent when they change (instant refresh).
+    if (oldWidget.initialAttachments != widget.initialAttachments) {
+      _attachments = List.of(widget.initialAttachments);
     }
   }
 
@@ -173,6 +181,20 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   }
 
   Future<void> _deleteItem(String id) async {
+    final item = [..._items, ..._archivedItems].firstWhere(
+      (i) => i.id == id,
+      orElse: () =>
+          _ChecklistItemView(id: id, text: '', checked: false, sortOrder: 0),
+    );
+    final confirmed = await showConfirmDeleteDialog(
+      context,
+      title: 'Delete task?',
+      message: item.text.isNotEmpty
+          ? '"${item.text}" will be moved to trash.'
+          : 'This task will be moved to trash.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
     unawaited(HapticFeedback.selectionClick());
     _recordHistory();
     final db = ref.read(databaseProvider);

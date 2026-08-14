@@ -225,13 +225,19 @@ void main() {
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);
   });
 
-  testWidgets('tapping delete icon removes item', (tester) async {
+  testWidgets('tapping delete icon removes item after confirmation',
+      (tester) async {
     await repo.addItem(noteId: 'note-1', text: 'Delete me');
 
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+
+    // Confirmation dialog should appear — tap the Delete button.
+    expect(find.text('Delete task?'), findsOneWidget);
+    await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
     expect(find.text('Delete me'), findsNothing);

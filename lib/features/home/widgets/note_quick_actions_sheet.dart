@@ -8,6 +8,7 @@ import 'package:local_auth/local_auth.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/note_repository.dart';
@@ -296,6 +297,17 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
                         label: 'Move to Trash',
                         color: scheme.error,
                         onTap: () async {
+                          final title = _currentNote.title.isNotEmpty
+                              ? _currentNote.title
+                              : 'Untitled';
+                          final confirmed = await showConfirmDeleteDialog(
+                            context,
+                            title: 'Move to Trash?',
+                            message:
+                                '"$title" will be moved to trash. You can restore it from the archive.',
+                            confirmLabel: 'Move to Trash',
+                          );
+                          if (!confirmed) return;
                           await HapticFeedback.mediumImpact();
                           await _noteRepo.softDelete(_currentNote.id);
                           if (context.mounted) {

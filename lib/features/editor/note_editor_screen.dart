@@ -20,6 +20,7 @@ import '../../core/providers/database_provider.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/theme/note_theme.dart';
 import '../../core/theme/note_theme_scope.dart';
+import '../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/checklist_item_repository.dart';
@@ -104,6 +105,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   StreamSubscription<void>? _transactionSubscription;
   AppDatabase? _db;
   bool _corruptedDelta = false;
+  List<Attachment> _checklistAttachments = [];
 
   /// Tracks whether the user has made real edits since the last save.
   bool _dirty = false;
@@ -210,6 +212,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       _dirty = true;
       _scheduleAutosave();
     });
+
+    // Pre-load attachments for checklist notes so the media strip renders instantly.
+    if (_note?.type == NoteType.checklist) {
+      _checklistAttachments =
+          await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    }
 
     setState(() => _loading = false);
     if (widget.noteId == null && _note?.type == NoteType.doodle) {
@@ -402,8 +410,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     final result = await handler.pickAndStore(noteId: _note!.id);
     if (result == null || !mounted) return;
 
-    // Refresh the checklist editor's attachment list.
-    setState(() {});
+    // Reload attachments so the media strip updates instantly.
+    final attachments =
+        await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    setState(() => _checklistAttachments = attachments);
     _dirty = true;
   }
 
@@ -497,8 +507,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     // Update the attachment's thumbnail path.
     await attachmentRepo.updateThumbnail(result, thumbFile.path);
 
-    // Refresh the checklist editor.
-    setState(() {});
+    // Reload attachments so the media strip updates instantly.
+    final attachments =
+        await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    setState(() => _checklistAttachments = attachments);
     _dirty = true;
   }
 
@@ -526,7 +538,18 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   /// Removes a doodle or image block from the document and deletes the
   /// associated attachment row + files from disk.
   Future<void> _deleteMediaBlock(Node node, EditorState editorState) async {
-    if (_db == null || _note == null) return;
+    if (_db == null || _note == null || !mounted) return;
+
+    final mediaType = node.type == DoodleBlockKeys.type ? 'doodle' : 'image';
+    final confirmed = await showConfirmDeleteDialog(
+      context,
+      title: 'Delete $mediaType?',
+      message:
+          'This $mediaType will be moved to trash and can be restored later.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
+
     unawaited(HapticFeedback.lightImpact());
 
     final repo = AttachmentRepository(_db!);
@@ -578,11 +601,26 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   /// Deletes an attachment from a checklist note.
   Future<void> _deleteChecklistAttachment(Attachment attachment) async {
-    if (_db == null) return;
+    if (_db == null || !mounted) return;
+
+    final mediaType =
+        attachment.type == AttachmentType.doodleLayer ? 'doodle' : 'image';
+    final confirmed = await showConfirmDeleteDialog(
+      context,
+      title: 'Delete $mediaType?',
+      message:
+          'This $mediaType will be moved to trash and can be restored later.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
+
     unawaited(HapticFeedback.lightImpact());
     final repo = AttachmentRepository(_db!);
     await repo.deleteAttachmentWithFiles(attachment);
-    setState(() {});
+    // Reload attachments so the media strip updates instantly.
+    final attachments =
+        await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    setState(() => _checklistAttachments = attachments);
   }
 
   /// Returns the editor widget appropriate for the current platform.
@@ -1031,6 +1069,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                             ? ChecklistEditor(
                                 noteId: _note!.id,
                                 title: _title,
+                                initialAttachments: _checklistAttachments,
                                 onTitleChanged: _updateChecklistTitle,
                                 onInsertImage: _note != null
                                     ? _insertChecklistImage
