@@ -1,17 +1,18 @@
-import 'dart:ui';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
 import '../../core/providers/talker_provider.dart';
-import '../../core/providers/theme_provider.dart';
 import 'pin_entry_screen.dart';
 
-/// Biometric lock screen per prompt #10.
-/// Soft gradient background, frosted illustration, fingerprint icon with pulse,
-/// "Unlock to see your notes", "Use PIN instead".
+/// Editorial biometric lock screen.
+/// Uses `SliverFillRemaining` so the layout is unbreakable on any
+/// aspect ratio — desktop, tablet, landscape, or tiny phone.
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({super.key});
 
@@ -28,7 +29,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     setState(() => _authenticating = true);
     final gate = ref.read(biometricGateProvider);
     final ok = await gate.unlock();
+
     if (ok && mounted) {
+      unawaited(HapticFeedback.lightImpact());
       Navigator.of(context).pop(true);
     } else if (mounted) {
       setState(() => _authenticating = false);
@@ -38,149 +41,118 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final seedColor = ref.watch(themePreferenceProvider).seedColor;
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              seedColor.withValues(alpha: 0.3),
-              scheme.surface,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 32),
-                child: Text(
-                  'nook',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onSurface.withValues(alpha: 0.7),
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ),
-              const Spacer(flex: 3),
-              GestureDetector(
-                onTap: _unlockWithBiometric,
-                behavior: HitTestBehavior.opaque,
-                child: Semantics(
-                  label: 'Authenticate with biometrics to unlock',
-                  button: true,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(100),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        width: 200,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: scheme.surface.withValues(alpha: 0.6),
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Icon(
-                              Icons.note_alt_outlined,
-                              size: 80,
-                              color: seedColor.withValues(alpha: 0.15),
-                            ),
-                            Container(
-                              width: 96,
-                              height: 96,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: scheme.surface,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: seedColor.withValues(alpha: 0.15),
-                                    blurRadius: 24,
-                                    spreadRadius: 4,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.fingerprint,
-                                size: 48,
-                                color: seedColor,
-                              ),
-                            ),
-                            ...List.generate(3, (i) {
-                              return Container(
-                                width: 96.0 + (i + 1) * 24,
-                                height: 96.0 + (i + 1) * 24,
+      backgroundColor: scheme.surface,
+      body: CustomScrollView(
+        physics: const ClampingScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: SafeArea(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: Column(
+                  children: [
+                    // Editorial App Identity
+                    const Text(
+                      'nook.',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.0,
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    // Constrained Identity Block
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: Column(
+                        children: [
+                          GestureDetector(
+                            onTap: _unlockWithBiometric,
+                            child: Semantics(
+                              label: 'Authenticate with biometrics',
+                              button: true,
+                              child: Container(
+                                padding: const EdgeInsets.all(48),
                                 decoration: BoxDecoration(
+                                  color: scheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.3),
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: scheme.outlineVariant.withValues(
-                                      alpha: 0.15 - i * 0.04,
-                                    ),
-                                    width: 1.5,
+                                    color: scheme.outlineVariant
+                                        .withValues(alpha: 0.3),
                                   ),
                                 ),
+                                child: Icon(
+                                  LucideIcons.fingerprint,
+                                  size: 80,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 48),
+                          const Text(
+                            'Secure Vault',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Authentication required to view notes.',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final pinProv = ref.watch(pinProvider);
+                              if (!pinProv.enabled) {
+                                return const SizedBox.shrink();
+                              }
+                              return TextButton.icon(
+                                onPressed: () async {
+                                  final result =
+                                      await Navigator.of(context).push<bool>(
+                                    MaterialPageRoute(
+                                      builder: (_) => const PinEntryScreen(),
+                                    ),
+                                  );
+                                  if (result == true && context.mounted) {
+                                    Navigator.of(context).pop(true);
+                                  }
+                                },
+                                icon: const Icon(LucideIcons.keyRound),
+                                label: const Text(
+                                  'Use PIN instead',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: scheme.onSurfaceVariant,
+                                ),
                               );
-                            }),
-                          ],
-                        ),
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                  ),
+                    const Spacer(),
+                  ],
                 ),
               ),
-              const Spacer(flex: 2),
-              Text(
-                'Unlock to see your notes',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Biometric authentication required',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: scheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Consumer(
-                builder: (context, ref, _) {
-                  final pinProv = ref.watch(pinProvider);
-                  if (!pinProv.enabled) return const SizedBox.shrink();
-                  return TextButton(
-                    onPressed: () async {
-                      final result = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => const PinEntryScreen(),
-                        ),
-                      );
-                      if (result == true && context.mounted) {
-                        Navigator.of(context).pop(true);
-                      }
-                    },
-                    child: Text(
-                      'Use PIN instead',
-                      style: TextStyle(
-                        color: scheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const Spacer(flex: 2),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

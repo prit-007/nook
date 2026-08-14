@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:nook/features/security/lock_screen.dart';
 
 void main() {
@@ -10,19 +11,22 @@ void main() {
     );
   }
 
-  testWidgets('renders unlock text', (tester) async {
+  testWidgets('renders vault title', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('Unlock to see your notes'), findsOneWidget);
+    expect(find.text('Secure Vault'), findsOneWidget);
   });
 
-  testWidgets('renders biometric hint', (tester) async {
+  testWidgets('renders auth subtitle', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('Biometric authentication required'), findsOneWidget);
+    expect(
+      find.text('Authentication required to view notes.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders fingerprint icon', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.byIcon(Icons.fingerprint), findsOneWidget);
+    expect(find.byIcon(LucideIcons.fingerprint), findsOneWidget);
   });
 
   testWidgets('renders PIN fallback when PIN enabled', (tester) async {
@@ -33,13 +37,16 @@ void main() {
 
   testWidgets('renders app name', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('nook'), findsOneWidget);
+    expect(find.text('nook.'), findsOneWidget);
   });
 
   testWidgets('fingerprint icon is tappable', (tester) async {
     await tester.pumpWidget(buildScreen());
-    await tester.tap(find.byIcon(Icons.fingerprint));
+    await tester.tap(
+      find.byIcon(LucideIcons.fingerprint),
+      warnIfMissed: false,
+    );
     await tester.pump();
-    expect(find.byIcon(Icons.fingerprint), findsOneWidget);
+    expect(find.byIcon(LucideIcons.fingerprint), findsOneWidget);
   });
 }

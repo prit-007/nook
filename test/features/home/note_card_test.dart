@@ -186,8 +186,7 @@ void main() {
               ),
             );
         await db.into(db.noteTags).insert(
-              NoteTagsCompanion.insert(
-                  noteId: 'note-meta', tagId: 'tag-$i'),
+              NoteTagsCompanion.insert(noteId: 'note-meta', tagId: 'tag-$i'),
             );
       }
 
@@ -243,8 +242,7 @@ void main() {
               ),
             );
         await db.into(db.noteTags).insert(
-              NoteTagsCompanion.insert(
-                  noteId: 'note-tags-only', tagId: 't$i'),
+              NoteTagsCompanion.insert(noteId: 'note-tags-only', tagId: 't$i'),
             );
       }
 
@@ -314,8 +312,7 @@ void main() {
       expect(find.byIcon(Icons.folder_outlined), findsNothing);
     });
 
-    testWidgets(
-        'notebook with long name and many tags does not overflow',
+    testWidgets('notebook with long name and many tags does not overflow',
         (tester) async {
       tester.view.physicalSize = const Size(300, 600);
       tester.view.devicePixelRatio = 1.0;
@@ -348,8 +345,7 @@ void main() {
               ),
             );
         await db.into(db.noteTags).insert(
-              NoteTagsCompanion.insert(
-                  noteId: 'note-long-meta', tagId: 'lt$i'),
+              NoteTagsCompanion.insert(noteId: 'note-long-meta', tagId: 'lt$i'),
             );
       }
 

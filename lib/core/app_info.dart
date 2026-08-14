@@ -6,7 +6,7 @@
 class AppInfo {
   AppInfo._();
 
-  static const String version = '0.7.1';
+  static const String version = '0.7.8';
   static const String buildNumber = '1';
   static const String versionLabel = '$version+$buildNumber';
 }

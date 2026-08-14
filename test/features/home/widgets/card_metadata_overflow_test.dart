@@ -70,7 +70,8 @@ void main() {
 
   /// Wraps [child] in the minimum tree needed for a note card to render
   /// inside a bounded [SizedBox], with the real database wired up.
-  Widget wrapForOverflow(Widget child, {double width = 280, double height = 400}) {
+  Widget wrapForOverflow(Widget child,
+      {double width = 280, double height = 400}) {
     return ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
       child: MaterialApp(
@@ -110,7 +111,8 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      await createNotebook('nb-2', 'Very Long Notebook Name That Should Ellipsize');
+      await createNotebook(
+          'nb-2', 'Very Long Notebook Name That Should Ellipsize');
       final note = await createNote(
         id: 'n2',
         title: 'Dense Note',

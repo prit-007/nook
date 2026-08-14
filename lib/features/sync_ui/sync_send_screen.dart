@@ -211,9 +211,9 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                           child: Row(
                             children: [
                               Checkbox(
-                                value: _selectedNoteIds.length ==
-                                        notes.length &&
-                                    notes.isNotEmpty,
+                                value:
+                                    _selectedNoteIds.length == notes.length &&
+                                        notes.isNotEmpty,
                                 tristate: true,
                                 activeColor: scheme.primary,
                                 shape: RoundedRectangleBorder(

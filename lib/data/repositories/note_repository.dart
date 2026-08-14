@@ -193,7 +193,8 @@ class NoteRepository {
     try {
       final attachmentRepo = AttachmentRepository(_db);
       // Delete on-disk files for all attachments first.
-      final attachments = await attachmentRepo.getAllForNoteIncludingDeleted(id);
+      final attachments =
+          await attachmentRepo.getAllForNoteIncludingDeleted(id);
       for (final att in attachments) {
         await attachmentRepo.deleteFilesForAttachment(att);
       }

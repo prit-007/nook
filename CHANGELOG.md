@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-08-14
+
+### About screen — editorial "About Us" page
+- `SettingsAboutScreen` rewritten as a full editorial "About Us" page with
+  luxury editorial copy: vision statement, zero-telemetry philosophy, flow
+  design principles, and developer's paradise credits.
+- Glassmorphic section cards, Playfair Display serif headers, Inter body
+  text, and frosted pill badges for license/technology tags.
+- Fixed `AppInfo.version` mismatch: the in-app constant was stale at `0.7.1`
+  while `pubspec.yaml` read `0.7.7+1`. Both are now `0.7.8+1`.
+
 ## [0.7.7] - 2026-08-13
 
 ### Developer tooling — in-app log viewer
@@ -246,7 +257,9 @@ Editor UX upgrades, shape assist, checklist polish, and the CI release pipeline.
 - CI: GitHub Actions release pipeline with `softprops/action-gh-release`,
   tag-triggered APK builds, and auto-generated release notes.
 
-[Unreleased]: https://github.com/anomalyco/nook/compare/v0.7.5...HEAD
+[Unreleased]: https://github.com/anomalyco/nook/compare/v0.7.8...HEAD
+[0.7.8]: https://github.com/anomalyco/nook/compare/v0.7.7...v0.7.8
+[0.7.7]: https://github.com/anomalyco/nook/compare/v0.7.5...v0.7.7
 [0.7.5]: https://github.com/anomalyco/nook/compare/v0.7.2...v0.7.5
 [0.7.2]: https://github.com/anomalyco/nook/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/anomalyco/nook/compare/v0.7.0...v0.7.1

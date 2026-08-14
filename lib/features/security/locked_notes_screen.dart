@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/talker_provider.dart';
@@ -8,8 +10,8 @@ import '../../core/widgets/empty_state.dart';
 import '../../data/database.dart';
 import '../../data/repositories/note_repository.dart';
 
-/// Screen showing only locked notes — requires biometric re-prompt
-/// to view individual notes.
+/// Elegant gallery of locked notes using a `SliverAppBar` with
+/// macro-typography, matching the rest of the app's editorial layout.
 class LockedNotesScreen extends ConsumerStatefulWidget {
   const LockedNotesScreen({super.key});
 
@@ -45,45 +47,123 @@ class _LockedNotesScreenState extends ConsumerState<LockedNotesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Locked Notes')),
+      backgroundColor: scheme.surface,
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _notes.isEmpty
-              ? const EmptyState(
-                  icon: Icons.lock_outline_rounded,
-                  title: 'No locked notes',
-                  subtitle: 'Lock notes from the editor options menu',
-                  animate: false,
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _notes.length,
-                  itemBuilder: (context, index) {
-                    final note = _notes[index];
-                    return ListTile(
-                      leading: Icon(
-                        Icons.lock_rounded,
-                        color: Theme.of(context).colorScheme.primary,
+          ? Center(child: CircularProgressIndicator(color: scheme.primary))
+          : CustomScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              slivers: [
+                SliverAppBar.large(
+                  expandedHeight: 140.0,
+                  backgroundColor: scheme.surface,
+                  surfaceTintColor: Colors.transparent,
+                  leading: IconButton(
+                    icon: Icon(LucideIcons.arrowLeft, color: scheme.onSurface),
+                    onPressed: () => context.pop(),
+                  ),
+                  flexibleSpace: const FlexibleSpaceBar(
+                    titlePadding: EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    title: Text(
+                      'Secured Notes',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
                       ),
-                      title: Text(
-                        note.title.isNotEmpty ? note.title : 'Untitled',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        'Locked',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      onTap: () {
-                        context.push('/note/${note.id}');
-                      },
-                    );
-                  },
+                    ),
+                  ),
                 ),
+                if (_notes.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: EmptyState(
+                      icon: LucideIcons.lockKeyhole,
+                      title: 'No secured notes',
+                      subtitle: 'Lock notes from the editor options menu',
+                      animate: true,
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    sliver: SliverList.builder(
+                      itemCount: _notes.length,
+                      itemBuilder: (context, index) {
+                        final note = _notes[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: scheme.surfaceContainerHighest
+                                .withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color:
+                                  scheme.outlineVariant.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
+                            ),
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHigh,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                LucideIcons.lockKeyhole,
+                                color: scheme.primary,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              note.title.isNotEmpty
+                                  ? note.title
+                                  : 'Untitled Document',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              'Biometric access required',
+                              style: TextStyle(
+                                color: scheme.onSurfaceVariant,
+                                fontSize: 13,
+                              ),
+                            ),
+                            trailing: Icon(
+                              LucideIcons.chevronRight,
+                              size: 18,
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.5),
+                            ),
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              context.push('/note/${note.id}');
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 64)),
+              ],
+            ),
     );
   }
 }

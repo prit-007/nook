@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:nook/core/providers/biometric_provider.dart';
 import 'package:nook/features/security/frosted_shield.dart';
 
@@ -21,25 +22,25 @@ void main() {
     final gate = BiometricGate(authenticator: () async => true);
     await tester.pumpWidget(buildShield(gate));
 
-    expect(find.byIcon(Icons.fingerprint), findsNothing);
+    expect(find.byIcon(LucideIcons.shield), findsNothing);
   });
 
   testWidgets('renders nothing when lock disabled', (tester) async {
     final gate = BiometricGate(authenticator: () async => true);
     await tester.pumpWidget(buildShield(gate));
 
-    expect(find.byIcon(Icons.fingerprint), findsNothing);
+    expect(find.byIcon(LucideIcons.shield), findsNothing);
   });
 
-  testWidgets('shows blur shield and fingerprint when locked', (tester) async {
+  testWidgets('shows blur shield when locked', (tester) async {
     final gate = BiometricGate(authenticator: () async => true)
       ..setEnabled(true);
     await tester.pumpWidget(buildShield(gate));
     await tester.pump();
 
     expect(find.byType(FrostedShield), findsOneWidget);
-    expect(find.byIcon(Icons.fingerprint), findsOneWidget);
-    expect(find.text('Unlock to see your notes'), findsOneWidget);
+    expect(find.byIcon(LucideIcons.shield), findsOneWidget);
+    expect(find.text('Vault Locked'), findsOneWidget);
     expect(find.byType(BackdropFilter), findsWidgets);
   });
 
@@ -49,14 +50,17 @@ void main() {
     await tester.pumpWidget(buildShield(gate));
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.fingerprint));
-    // Blur animates 40 -> 0 over 400ms.
-    for (var i = 0; i < 8; i++) {
+    await tester.tap(
+      find.byIcon(LucideIcons.shield),
+      warnIfMissed: false,
+    );
+    // Blur animates 40 -> 0 over 500ms.
+    for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 60));
     }
 
     expect(gate.isLocked, isFalse);
-    expect(find.byIcon(Icons.fingerprint), findsNothing);
+    expect(find.byIcon(LucideIcons.shield), findsNothing);
     expect(find.byType(BackdropFilter), findsNothing);
   });
 
@@ -66,7 +70,10 @@ void main() {
     await tester.pumpWidget(buildShield(gate));
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.fingerprint));
+    await tester.tap(
+      find.byIcon(LucideIcons.shield),
+      warnIfMissed: false,
+    );
     await tester.pump();
 
     expect(gate.isLocked, isTrue);

@@ -224,8 +224,7 @@ void main() {
     });
 
     test('excludes soft-deleted from getByFilePath', () async {
-      final id = await repo.addImage(
-          noteId: 'note-1', filePath: '/p/1.jpg');
+      final id = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
       await repo.softDelete(id);
 
       final result = await repo.getByFilePath('/p/1.jpg');
