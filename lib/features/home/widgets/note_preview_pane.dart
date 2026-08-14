@@ -279,7 +279,7 @@ class _PreviewHeader extends StatelessWidget {
               HapticFeedback.lightImpact();
               context.push('/note/$noteId');
             },
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedExpand, size: 18),
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedExpand, size: 18),
             label: const Text('Open'),
           ),
         ],

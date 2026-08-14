@@ -30,6 +30,14 @@ flutter test --coverage -x network
 - Includes `flutter_lints/flutter.yaml` plus custom rules in `analysis_options.yaml`.
 - Single quotes preferred; `avoid_print: true`; generated files excluded.
 
+## Icons
+- **Hugeicons** (`hugeicons ^1.1.7`): 5,100+ stroke-rounded icons, the sole icon library.
+- All widgets use `HugeIcon(icon: HugeIcons.strokeRoundedXxx, size: N)`. `HugeIcon` has a `const` constructor — use `const` where possible.
+- `HugeIcon.icon` is `List<List<dynamic>>` (not `IconData`). `empty_state.dart`'s `icon` field is `List<List<dynamic>>` accordingly.
+- In tests, `find.byIcon(...)` does NOT work. Use: `find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedXxx)`.
+- No `lucide_flutter`, no `Icons.xxx`, no `cupertino_icons` — those dependencies are removed.
+- `appflowy_editor`'s `AFMobileIcons` are NOT replaced (different package).
+
 ## Platform
 Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` defaults to the host platform.
 - Wide (tablet/desktop/web) shell pins the left `NavigationRail` at 80px (`lib/core/widgets/app_shell.dart`).

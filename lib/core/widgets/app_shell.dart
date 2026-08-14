@@ -299,7 +299,7 @@ class _WideShell extends StatelessWidget {
   final ValueChanged<int> onTap;
   final Widget child;
 
-  static final _destinations = [
+  static const _destinations = [
     NavigationRailDestination(
       icon: HugeIcon(icon: HugeIcons.strokeRoundedHome01, size: 24),
       selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedHome02, size: 24),

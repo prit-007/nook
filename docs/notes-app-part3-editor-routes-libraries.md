@@ -160,12 +160,12 @@ class _DoodleCanvasScreenState extends State<DoodleCanvasScreen> {
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.close),
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 24),
             onPressed: () => Navigator.of(context).pop(), // discard
           ),
           actions: [
-            IconButton(icon: const Icon(Icons.undo), onPressed: controller.undo),
-            IconButton(icon: const Icon(Icons.redo), onPressed: controller.redo),
+            IconButton(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUndo02, size: 24), onPressed: controller.undo),
+            IconButton(icon: const HugeIcon(icon: HugeIcons.strokeRoundedRedo02, size: 24), onPressed: controller.redo),
             TextButton(onPressed: _save, child: const Text('Done')),
           ],
         ),
@@ -192,7 +192,7 @@ final slashMenuItems = <SelectionMenuItem>[
   SelectionMenuItem(
     name: 'Checklist',
     icon: (_, isSelected, style) => _MenuIcon(
-      icon: Icons.checklist_rounded,
+      icon: HugeIcons.strokeRoundedCheckList,
       selected: isSelected,
     ),
     keywords: ['todo', 'checklist', 'task', 'check'],
@@ -203,7 +203,7 @@ final slashMenuItems = <SelectionMenuItem>[
   SelectionMenuItem(
     name: 'Doodle',
     icon: (_, isSelected, style) => _MenuIcon(
-      icon: Icons.draw_rounded,
+      icon: HugeIcons.strokeRoundedDrawingMode,
       selected: isSelected,
     ),
     keywords: ['doodle', 'draw', 'sketch', 'canvas'],
@@ -218,7 +218,7 @@ final slashMenuItems = <SelectionMenuItem>[
   ),
   SelectionMenuItem(
     name: 'Image',
-    icon: (_, isSelected, style) => _MenuIcon(icon: Icons.image_rounded, selected: isSelected),
+    icon: (_, isSelected, style) => _MenuIcon(icon: HugeIcons.strokeRoundedImage01, selected: isSelected),
     keywords: ['image', 'photo', 'picture'],
     handler: (editorState, menuService, context) async {
       final picked = await ImagePicker().pickImage(source: ImageSource.gallery);

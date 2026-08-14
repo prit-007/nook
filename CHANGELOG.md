@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.8] - 2026-08-14
 
+### Icon system — Hugeicons stroke-rounded migration
+- Replaced **all** Material Icons (`Icons.xxx`) and Lucide Icons
+  (`LucideIcons.xxx`) with `HugeIcons` stroke-rounded variants
+  (`hugeicons ^1.1.7`) across the entire codebase (50+ lib files, 20+ test
+  files).
+- Removed `lucide_flutter` and unused `cupertino_icons` dependencies.
+- Design language: stroke-rounded for inactive states, solid/duotone for
+  active states; rounded shape language for editorial luxury aesthetic.
+- `empty_state.dart` icon field widened from `IconData` to
+  `List<List<dynamic>>` to accept HugeIcon data; all call sites updated.
+- Test files migrated from `find.byIcon(...)` to
+  `find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.xxx)`.
+- All `prefer_const_constructors` lint issues resolved; `flutter analyze`
+  reports zero issues.
+
 ### About screen — editorial "About Us" page
 - `SettingsAboutScreen` rewritten as a full editorial "About Us" page with
   luxury editorial copy: vision statement, zero-telemetry philosophy, flow

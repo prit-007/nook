@@ -39,14 +39,14 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
               segments: [
                 ButtonSegment(
                     value: 0,
-                    label: Text('Notebooks'),
+                    label: const Text('Notebooks'),
                     icon: HugeIcon(
                         icon: HugeIcons.strokeRoundedBook01,
                         size: 20,
                         color: scheme.onSurface)),
                 ButtonSegment(
                     value: 1,
-                    label: Text('Tags'),
+                    label: const Text('Tags'),
                     icon: HugeIcon(
                         icon: HugeIcons.strokeRoundedTag01,
                         size: 20,

@@ -82,13 +82,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           onChanged: _search,
         ),
         leading: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 24),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 24),
           tooltip: 'Go back',
           onPressed: () => context.pop(),
         ),
       ),
       body: _query.trim().isEmpty
-          ? EmptyState(
+          ? const EmptyState(
               icon: HugeIcons.strokeRoundedSearch01,
               title: 'Search notes',
               subtitle: 'Type to find your notes',

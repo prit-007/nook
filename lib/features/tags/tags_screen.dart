@@ -183,7 +183,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                                         : null,
                                   ),
                                   child: isSelected(seed)
-                                      ? HugeIcon(
+                                      ? const HugeIcon(
                                           icon: HugeIcons
                                               .strokeRoundedCheckmarkCircle01,
                                           color: Colors.white,

@@ -162,7 +162,7 @@ flutter test test/sync/tcp_transport_integration_test.dart   # legacy loopback T
 | Discovery/sync | libp2p over UDX (`dart_libp2p`) + own `_syncnotenet._udp` mDNS fork | zero-server, LAN-only, Noise-encrypted transfer |
 | Serialization | CBOR + SHA-256 | compact, portable, checksummed |
 | Security | `local_auth`, `flutter_secure_storage` | biometric gate + keystore keys |
-| Icons | Lucide | consistent editorial iconography |
+| Icons | Hugeicons (stroke-rounded) | luxury editorial iconography, 5,100+ free icons |
 | License | GPL-3.0 | freedom from downstream enclosure |
 
 ## Documentation

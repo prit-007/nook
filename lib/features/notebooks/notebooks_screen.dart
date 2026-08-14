@@ -487,7 +487,7 @@ class _SeedColorDot extends StatelessWidget {
               : null,
         ),
         child: isSelected
-            ? HugeIcon(
+            ? const HugeIcon(
                 icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                 color: Colors.white,
                 size: 20,
