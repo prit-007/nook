@@ -9,10 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.9] - 2026-08-14
 
+### Version single source of truth
+- Added `package_info_plus`; app version now loads at runtime from the built
+  binary (generated from `version:` in `pubspec.yaml`), so there is exactly
+  one place to bump it. `AppInfo` became a `FutureProvider`; the Settings
+  "Version" tile and About "EDITION" line read from it automatically.
+- Updated `settings_screen_test.dart` to mock `PackageInfo`.
+
 ### Bug fixes
 - Fixed a 4px `RenderFlex` overflow in the editor's auto-hiding glass app bar
-  on narrow (landscape-phone) widths: the notebook/tag metadata subtitle no
-  longer renders in narrow mode.
+  on narrow (landscape-phone) widths. Date and notebook/tag metadata are now
+  merged into a single ellipsized subtitle line (`Aug 14, 2026 · Notebook |
+  #tag`), so metadata renders on narrow screens too without overflowing.
 
 ### Logs screen polish
 - Rewrote the diagnostic logs tour overlay: walkthrough cards are constrained
