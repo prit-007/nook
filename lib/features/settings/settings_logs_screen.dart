@@ -55,7 +55,8 @@ class _SettingsLogsScreenState extends ConsumerState<SettingsLogsScreen> {
               theme: TalkerScreenTheme(
                 backgroundColor: scheme.surface,
                 textColor: scheme.onSurface,
-                cardColor: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                cardColor:
+                    scheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 logColors: _logColors(scheme),
               ),
               isLogOrderReversed: true,
@@ -269,7 +270,8 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420), // Prevents ultra-wide stretching
+                constraints: const BoxConstraints(
+                    maxWidth: 420), // Prevents ultra-wide stretching
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 400),
                   switchInCurve: Curves.easeOutCubic,
@@ -455,7 +457,8 @@ class _Legend extends StatelessWidget {
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+              border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
