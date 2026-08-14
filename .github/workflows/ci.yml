@@ -297,10 +297,10 @@ jobs:
           allowUpdates: true
           update_release_body: true
           files: |
-            release/apks/*.apk
-            release/windows/*.zip
-            release/windows/*.exe
-            release/ios/*.zip
-            release/macos/*.zip
-            release/linux/*.tar.gz
+            release/apks/**/*.apk
+            release/windows/**/*.zip
+            release/windows/**/*.exe
+            release/ios/**/*.zip
+            release/macos/**/*.zip
+            release/linux/**/*.tar.gz
           name: Release ${{ github.ref_name }}
