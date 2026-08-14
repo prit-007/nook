@@ -81,6 +81,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.5.5
   lucide_flutter: ^1.28.0
+  hugeicons: ^1.1.7
 dev_dependencies:
   flutter_test:
     sdk: flutter

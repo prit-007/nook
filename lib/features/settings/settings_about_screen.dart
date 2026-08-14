@@ -1,15 +1,14 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_info.dart';
 
-/// Full editorial "About Us" screen.
+/// Full editorial "About Us" screen for nook.
 ///
-/// Uses `SingleChildScrollView` with the app's serif/sans-serif contrast:
-/// Playfair Display for the "nook." title and section headers, Inter for body.
-/// Every surface is frosted glass to maintain the luxury editorial feel.
+/// Employs deep glassmorphism, macro-typography, and high-contrast
+/// spacing to deliver a premium, editorial reading experience.
 class SettingsAboutScreen extends StatelessWidget {
   const SettingsAboutScreen({super.key});
 
@@ -21,179 +20,181 @@ class SettingsAboutScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: const Text(
-          'About',
-          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+        title: Text(
+          'Manifesto',
+          style: text.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.5,
+          ),
         ),
         centerTitle: false,
         backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 64),
         children: [
-          // ── Header ──────────────────────────────────────────
-          const SizedBox(height: 24),
+          // ── The Brand Hero ──────────────────────────────────────────
+          const SizedBox(height: 32),
           Center(
             child: Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.2),
+                  width: 1,
+                ),
               ),
-              child: Icon(
-                LucideIcons.bookOpen,
-                size: 48,
+              child: HugeIcon(
+                icon: HugeIcons.strokeRoundedBookOpen01,
                 color: scheme.onSurface,
+                size: 56,
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 32),
           Text(
             'nook.',
             textAlign: TextAlign.center,
             style: text.displayLarge?.copyWith(
-              fontSize: 56,
-              letterSpacing: -2.5,
-              height: 1.0,
+              fontSize: 72,
+              fontWeight: FontWeight.w400,
+              letterSpacing: -4.0,
+              height: 0.9,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(
-            'VERSION ${AppInfo.version}',
+            'EDITION ${AppInfo.version}',
             textAlign: TextAlign.center,
             style: text.labelSmall?.copyWith(
               color: scheme.primary,
-              letterSpacing: 2.5,
+              letterSpacing: 4.0,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
           Text(
             'The private, editorial space for your mind.',
             textAlign: TextAlign.center,
             style: text.titleMedium?.copyWith(
               color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
+              letterSpacing: -0.3,
             ),
           ),
 
-          // ── Vision ──────────────────────────────────────────
-          const SizedBox(height: 48),
-          _SectionHeader(scheme: scheme, text: text, title: 'Our Vision'),
-          const SizedBox(height: 12),
+          // ── The Philosophy ──────────────────────────────────────────
+          const SizedBox(height: 64),
+          _SectionHeader(scheme: scheme, text: text, title: 'The Philosophy'),
+          const SizedBox(height: 16),
           _GlassCard(
             scheme: scheme,
             child: Text(
-              'Nook was born from a singular, uncompromising vision: your thoughts '
-              'belong to you, and the tools you use to capture them should feel '
-              'like a masterpiece.',
+              'Born from a singular, uncompromising vision: your thoughts '
+              'are your own. The canvas you use to capture them should not '
+              'just function\u2014it should inspire. Every interaction is crafted '
+              'to feel like a digital masterpiece.',
               style: text.bodyLarge?.copyWith(
                 color: scheme.onSurface,
-                height: 1.7,
+                height: 1.8,
+                letterSpacing: -0.2,
               ),
             ),
           ),
 
-          // ── Zero Telemetry ──────────────────────────────────
-          const SizedBox(height: 32),
-          _SectionHeader(
-              scheme: scheme,
-              text: text,
-              title: 'Zero Telemetry. Absolute Ownership.'),
-          const SizedBox(height: 12),
-          _GlassCard(
-            scheme: scheme,
-            child: Text(
-              'Your data is yours. Nook operates on a strictly local-first '
-              'architecture. There are no cloud servers scraping your ideas, no '
-              'analytics tracking your habits, and no required accounts. '
-              'Everything you write, sketch, or plan lives encrypted on your '
-              'device.\n\n'
-              'When you need to share or backup your vault, Nook\'s proprietary '
-              'peer-to-peer sync engine uses your local network to beam data '
-              'directly to your other devices\u2014bypassing the public internet '
-              'entirely.',
-              style: text.bodyLarge?.copyWith(
-                color: scheme.onSurface,
-                height: 1.7,
-              ),
-            ),
-          ),
-
-          // ── Designed for Flow ───────────────────────────────
-          const SizedBox(height: 32),
-          _SectionHeader(
-              scheme: scheme, text: text, title: 'Designed for Flow'),
-          const SizedBox(height: 12),
-          _GlassCard(
-            scheme: scheme,
-            child: Text(
-              'Every pixel of Nook is crafted to get out of your way. From the '
-              'fluid glassmorphic canvases to the dynamic, macro-typographic '
-              'layouts that adapt to your chosen color signature, the interface '
-              'is designed to make capturing ideas a tactile, delightful '
-              'experience.\n\n'
-              'Whether you are sketching a concept, tracking a project, or '
-              'drafting a late-night thought, Nook provides the quiet, luxurious '
-              'whitespace you need to focus.',
-              style: text.bodyLarge?.copyWith(
-                color: scheme.onSurface,
-                height: 1.7,
-              ),
-            ),
-          ),
-
-          // ── Crafted by ──────────────────────────────────────
-          const SizedBox(height: 32),
-          _SectionHeader(
-              scheme: scheme,
-              text: text,
-              title: 'Crafted by Developer\'s Paradise'),
-          const SizedBox(height: 12),
-          _GlassCard(
-            scheme: scheme,
-            child: Text(
-              'Engineered with precision in Rajkot, Gujarat by Prit Vasani.\n'
-              'Built on a foundation of open-source technologies, driven by a '
-              'passion for uncompromised privacy and luxury design.',
-              style: text.bodyLarge?.copyWith(
-                color: scheme.onSurface,
-                height: 1.7,
-              ),
-            ),
-          ),
-
-          // ── License & Technologies ──────────────────────────
+          // ── Absolute Sovereignty ──────────────────────────────────
           const SizedBox(height: 40),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          _SectionHeader(
+            scheme: scheme,
+            text: text,
+            title: 'Absolute Sovereignty',
+          ),
+          const SizedBox(height: 16),
+          _GlassCard(
+            scheme: scheme,
+            child: Text(
+              'A strictly local-first architecture. No cloud servers scraping '
+              'your ideas. No analytics tracking your habits. Everything you '
+              'write or sketch lives encrypted, exclusively on your device.\n\n'
+              'When syncing is required, our proprietary peer-to-peer engine '
+              'bypasses the public internet entirely, bridging your devices '
+              'through your own local network.',
+              style: text.bodyLarge?.copyWith(
+                color: scheme.onSurface,
+                height: 1.8,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+
+          // ── The Art of Focus ───────────────────────────────
+          const SizedBox(height: 40),
+          _SectionHeader(
+            scheme: scheme,
+            text: text,
+            title: 'The Art of Focus',
+          ),
+          const SizedBox(height: 16),
+          _GlassCard(
+            scheme: scheme,
+            child: Text(
+              'Designed to disappear. Through fluid glassmorphic layers and '
+              'dynamic, macro-typographic layouts, the interface adapts to '
+              'your rhythm. It provides the quiet, luxurious whitespace '
+              'necessary to transform fragmented thoughts into clarity.',
+              style: text.bodyLarge?.copyWith(
+                color: scheme.onSurface,
+                height: 1.8,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+
+          // ── Provenance ──────────────────────────────────────
+          const SizedBox(height: 40),
+          _SectionHeader(scheme: scheme, text: text, title: 'Provenance'),
+          const SizedBox(height: 16),
+          _GlassCard(
+            scheme: scheme,
+            child: Text(
+              'Engineered with absolute precision in Rajkot, Gujarat by '
+              'Prit Vasani. Crafted by Developer\'s Paradise on a foundation '
+              'of open-source technologies, driven by a relentless pursuit '
+              'of uncompromised privacy and luxury design.',
+              style: text.bodyLarge?.copyWith(
+                color: scheme.onSurface,
+                height: 1.8,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+
+          // ── Architecture & Licensing ──────────────────────────
+          const SizedBox(height: 56),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
             children: [
               _Badge(scheme: scheme, label: 'GPL-3.0 License'),
-              const SizedBox(width: 8),
               _Badge(scheme: scheme, label: 'Flutter'),
-              const SizedBox(width: 8),
               _Badge(scheme: scheme, label: 'SQLite'),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
               _Badge(scheme: scheme, label: 'libp2p'),
-              const SizedBox(width: 8),
               _Badge(scheme: scheme, label: 'Perfect Freehand'),
             ],
           ),
-
-          const SizedBox(height: 56),
         ],
       ),
     );
   }
 }
 
-// ── Internal widgets ─────────────────────────────────────────────────────────
+// ── Internal Widgets ─────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
@@ -207,11 +208,15 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: text.headlineSmall?.copyWith(
-        color: scheme.onSurface,
-        fontSize: 20,
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: text.titleSmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.5,
+        ),
       ),
     );
   }
@@ -225,18 +230,26 @@ class _GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(20),
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.3),
+              color: scheme.outlineVariant.withValues(alpha: 0.4),
+              width: 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: scheme.shadow.withValues(alpha: 0.05),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: child,
         ),
@@ -253,10 +266,11 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
         border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.5),
+          color: scheme.outlineVariant.withValues(alpha: 0.4),
         ),
         borderRadius: BorderRadius.circular(100),
       ),
@@ -264,6 +278,7 @@ class _Badge extends StatelessWidget {
         label,
         style: TextStyle(
           fontSize: 12,
+          letterSpacing: 0.5,
           fontWeight: FontWeight.w600,
           color: scheme.onSurfaceVariant,
         ),
