@@ -12,6 +12,8 @@ class Attachments extends Table {
   TextColumn get filePath => text()();
   TextColumn get thumbnailPath => text().nullable()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

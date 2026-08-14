@@ -68,9 +68,11 @@ class AttachmentRepository {
   }
 
   /// Returns the attachment whose full-size file path matches [filePath], or null.
+  /// Excludes soft-deleted attachments.
   Future<Attachment?> getByFilePath(String filePath) {
     return (_db.select(_db.attachments)
-          ..where((a) => a.filePath.equals(filePath)))
+          ..where(
+              (a) => a.filePath.equals(filePath) & a.deleted.equals(false)))
         .getSingleOrNull();
   }
 
@@ -93,20 +95,22 @@ class AttachmentRepository {
     await deleteImage(attachment.id);
   }
 
-  /// Returns all attachments (images + doodle layers) for a note, ordered by sortOrder.
+  /// Returns all active (non-deleted) attachments for a note, ordered by sortOrder.
   Future<List<Attachment>> getAllForNote(String noteId) {
     return (_db.select(_db.attachments)
-          ..where((a) => a.noteId.equals(noteId))
+          ..where((a) =>
+              a.noteId.equals(noteId) & a.deleted.equals(false))
           ..orderBy([(a) => OrderingTerm.asc(a.sortOrder)]))
         .get();
   }
 
-  /// Returns all image attachments for a note, ordered by sortOrder.
+  /// Returns all active (non-deleted) image attachments for a note, ordered by sortOrder.
   Future<List<Attachment>> getImagesForNote(String noteId) {
     return (_db.select(_db.attachments)
           ..where((a) =>
               a.noteId.equals(noteId) &
-              a.type.equalsValue(AttachmentType.image))
+              a.type.equalsValue(AttachmentType.image) &
+              a.deleted.equals(false))
           ..orderBy([(a) => OrderingTerm.asc(a.sortOrder)]))
         .get();
   }
@@ -117,10 +121,93 @@ class AttachmentRepository {
         .getSingleOrNull();
   }
 
-  /// Deletes an attachment by id.
+  /// Deletes an attachment by id (hard delete).
   Future<void> deleteImage(String id) async {
     await (_db.delete(_db.attachments)..where((a) => a.id.equals(id))).go();
     nookLog(NookLogKey.database, 'Attachment deleted: $id', LogLevel.debug);
+  }
+
+  /// Soft-deletes an attachment (sets deleted = true, deletedAt = now).
+  Future<void> softDelete(String id) async {
+    await (_db.update(_db.attachments)..where((a) => a.id.equals(id))).write(
+      AttachmentsCompanion(
+        deleted: const Value(true),
+        deletedAt: Value(DateTime.now()),
+      ),
+    );
+    nookLog(
+        NookLogKey.database, 'Attachment soft-deleted: $id', LogLevel.debug);
+  }
+
+  /// Restores a soft-deleted attachment (sets deleted = false, deletedAt = null).
+  Future<void> restore(String id) async {
+    await (_db.update(_db.attachments)..where((a) => a.id.equals(id))).write(
+      const AttachmentsCompanion(
+        deleted: Value(false),
+        deletedAt: Value(null),
+      ),
+    );
+    nookLog(NookLogKey.database, 'Attachment restored: $id', LogLevel.debug);
+  }
+
+  /// Permanently deletes an attachment: removes files from disk, then
+  /// hard-deletes the DB row.
+  Future<void> permanentlyDelete(String id) async {
+    final attachment = await getById(id);
+    if (attachment != null) {
+      await deleteFilesForAttachment(attachment);
+    }
+    await deleteImage(id);
+  }
+
+  /// Permanently deletes an attachment by its Attachment object: removes
+  /// files from disk, then hard-deletes the DB row.
+  Future<void> permanentlyDeleteWithFiles(Attachment attachment) async {
+    await deleteFilesForAttachment(attachment);
+    await deleteImage(attachment.id);
+  }
+
+  /// Returns all soft-deleted attachments for a note.
+  Future<List<Attachment>> getDeletedForNote(String noteId) {
+    return (_db.select(_db.attachments)
+          ..where((a) =>
+              a.noteId.equals(noteId) & a.deleted.equals(true))
+          ..orderBy([(a) => OrderingTerm.asc(a.sortOrder)]))
+        .get();
+  }
+
+  /// Returns all attachments (including deleted) for a note.
+  Future<List<Attachment>> getAllForNoteIncludingDeleted(String noteId) {
+    return (_db.select(_db.attachments)
+          ..where((a) => a.noteId.equals(noteId))
+          ..orderBy([(a) => OrderingTerm.asc(a.sortOrder)]))
+        .get();
+  }
+
+  /// Soft-deletes all attachments for a note.
+  Future<void> softDeleteAllForNote(String noteId) async {
+    await (_db.update(_db.attachments)
+          ..where((a) =>
+              a.noteId.equals(noteId) & a.deleted.equals(false)))
+        .write(AttachmentsCompanion(
+          deleted: const Value(true),
+          deletedAt: Value(DateTime.now()),
+        ));
+    nookLog(NookLogKey.database,
+        'All attachments soft-deleted for note: $noteId', LogLevel.debug);
+  }
+
+  /// Restores all soft-deleted attachments for a note.
+  Future<void> restoreAllForNote(String noteId) async {
+    await (_db.update(_db.attachments)
+          ..where((a) =>
+              a.noteId.equals(noteId) & a.deleted.equals(true)))
+        .write(const AttachmentsCompanion(
+          deleted: Value(false),
+          deletedAt: Value(null),
+        ));
+    nookLog(NookLogKey.database,
+        'All attachments restored for note: $noteId', LogLevel.debug);
   }
 
   /// Deletes all attachments (images + doodle layers) for a note.
@@ -144,5 +231,23 @@ class AttachmentRepository {
             .write(AttachmentsCompanion(sortOrder: Value(i)));
       }
     });
+  }
+
+  /// Deletes the on-disk files (full-size + thumbnail) for an attachment.
+  Future<void> deleteFilesForAttachment(Attachment attachment) async {
+    final paths = <String>[
+      if (attachment.filePath.isNotEmpty) attachment.filePath,
+      if (attachment.thumbnailPath != null &&
+          attachment.thumbnailPath!.isNotEmpty)
+        attachment.thumbnailPath!,
+    ];
+    for (final path in paths) {
+      try {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      } catch (_) {
+        // Best-effort — file may already be gone.
+      }
+    }
   }
 }

@@ -6,7 +6,10 @@ import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/checklist_item_repository.dart';
+import '../../../data/repositories/notebook_repository.dart';
+import '../../../data/repositories/tag_repository.dart';
 import '../../../data/tables/notes.dart';
+import 'card_tag_pill.dart';
 import 'note_quick_actions_sheet.dart';
 
 class NoteBannerCard extends ConsumerStatefulWidget {
@@ -22,17 +25,46 @@ class NoteBannerCard extends ConsumerStatefulWidget {
 class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
   bool _isPressed = false;
   List<ChecklistItem> _items = [];
+  List<Tag> _tags = [];
+  String? _notebookName;
 
   @override
   void initState() {
     super.initState();
     if (widget.note.type == NoteType.checklist) _loadChecklist();
+    _loadMetadata();
+  }
+
+  @override
+  void didUpdateWidget(covariant NoteBannerCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.note.id != widget.note.id) {
+      if (widget.note.type == NoteType.checklist) _loadChecklist();
+      _loadMetadata();
+    }
   }
 
   Future<void> _loadChecklist() async {
     final items = await ChecklistItemRepository(ref.read(databaseProvider))
         .getItems(widget.note.id);
     if (mounted) setState(() => _items = items);
+  }
+
+  Future<void> _loadMetadata() async {
+    final db = ref.read(databaseProvider);
+    final tags = await TagRepository(db).getTagsForNote(widget.note.id);
+    String? nbName;
+    if (widget.note.notebookId != null) {
+      final nb =
+          await NotebookRepository(db).getNotebookById(widget.note.notebookId!);
+      nbName = nb?.name;
+    }
+    if (mounted) {
+      setState(() {
+        _tags = tags;
+        _notebookName = nbName;
+      });
+    }
   }
 
   @override
@@ -151,6 +183,10 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
+                          if (_tags.isNotEmpty || _notebookName != null) ...[
+                            const SizedBox(height: 8),
+                            _metadataRow(bannerScheme),
+                          ],
                         ],
                       ),
                     ),
@@ -181,4 +217,47 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
         NoteType.mixed => 'Mixed',
         NoteType.text => 'Note',
       };
+
+  Widget _metadataRow(ColorScheme scheme) {
+    return Row(
+      children: [
+        if (_notebookName != null) ...[
+          Icon(
+            Icons.folder_outlined,
+            size: 10,
+            color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+          ),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(
+              _notebookName!,
+              style: TextStyle(
+                fontSize: 10,
+                color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+        if (_tags.isNotEmpty) ...[
+          if (_notebookName != null) const SizedBox(width: 6),
+          Flexible(
+            child: Wrap(
+              spacing: 3,
+              runSpacing: 2,
+              children: [
+                ..._tags.take(2).map((tag) => CardTagPill(
+                      label: tag.name,
+                      colorSeed: tag.colorSeed,
+                    )),
+                if (_tags.length > 2)
+                  CardTagOverflowPill(count: _tags.length - 2),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }

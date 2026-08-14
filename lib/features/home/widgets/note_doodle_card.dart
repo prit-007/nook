@@ -8,8 +8,11 @@ import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/attachment_repository.dart';
+import '../../../data/repositories/notebook_repository.dart';
+import '../../../data/repositories/tag_repository.dart';
 import '../../../data/tables/attachments.dart';
 import '../../../data/tables/notes.dart';
+import 'card_tag_pill.dart';
 import 'note_quick_actions_sheet.dart';
 
 /// Split-view card for doodle notes with theme awareness and gesture feedback.
@@ -26,6 +29,8 @@ class NoteDoodleCard extends ConsumerStatefulWidget {
 class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
   bool _isPressed = false;
   String? _thumbnailPath;
+  List<Tag> _tags = [];
+  String? _notebookName;
 
   bool get _hasColor =>
       widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty;
@@ -34,6 +39,7 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
   void initState() {
     super.initState();
     _loadThumbnail();
+    _loadMetadata();
   }
 
   @override
@@ -41,6 +47,7 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.note.id != widget.note.id) {
       _loadThumbnail();
+      _loadMetadata();
     }
   }
 
@@ -55,6 +62,23 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
     if (mounted) {
       setState(() {
         _thumbnailPath = doodleAttachment?.thumbnailPath;
+      });
+    }
+  }
+
+  Future<void> _loadMetadata() async {
+    final db = ref.read(databaseProvider);
+    final tags = await TagRepository(db).getTagsForNote(widget.note.id);
+    String? nbName;
+    if (widget.note.notebookId != null) {
+      final nb =
+          await NotebookRepository(db).getNotebookById(widget.note.notebookId!);
+      nbName = nb?.name;
+    }
+    if (mounted) {
+      setState(() {
+        _tags = tags;
+        _notebookName = nbName;
       });
     }
   }
@@ -125,17 +149,19 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            widget.note.title.isEmpty
-                                ? 'Untitled doodle'
-                                : widget.note.title,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: cardScheme.onSurface,
+                          Flexible(
+                            child: Text(
+                              widget.note.title.isEmpty
+                                  ? 'Untitled doodle'
+                                  : widget.note.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: cardScheme.onSurface,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                           if (widget.note.pinned) ...[
                             const SizedBox(height: 6),
@@ -144,6 +170,10 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
                               size: 14,
                               color: cardScheme.primary,
                             ),
+                          ],
+                          if (_tags.isNotEmpty || _notebookName != null) ...[
+                            const SizedBox(height: 6),
+                            _metadataRow(cardScheme),
                           ],
                         ],
                       ),
@@ -193,6 +223,49 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
           color: cardScheme.onPrimaryContainer.withValues(alpha: 0.7),
         ),
       ),
+    );
+  }
+
+  Widget _metadataRow(ColorScheme scheme) {
+    return Row(
+      children: [
+        if (_notebookName != null) ...[
+          Icon(
+            Icons.folder_outlined,
+            size: 10,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(
+              _notebookName!,
+              style: TextStyle(
+                fontSize: 10,
+                color: scheme.onSurfaceVariant,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+        if (_tags.isNotEmpty) ...[
+          if (_notebookName != null) const SizedBox(width: 6),
+          Flexible(
+            child: Wrap(
+              spacing: 3,
+              runSpacing: 2,
+              children: [
+                ..._tags.take(2).map((tag) => CardTagPill(
+                      label: tag.name,
+                      colorSeed: tag.colorSeed,
+                    )),
+                if (_tags.length > 2)
+                  CardTagOverflowPill(count: _tags.length - 2),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

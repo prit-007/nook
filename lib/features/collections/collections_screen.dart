@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/providers/navigation_preference.dart';
-
 import '../notebooks/notebooks_screen.dart';
 import '../tags/tags_screen.dart';
 
@@ -52,7 +50,6 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                 final tab = value.first;
                 setState(() => _selectedTab = tab);
                 final route = tab == 0 ? '/notebooks' : '/tags';
-                NavigationPreference.rememberPath(route);
                 context.go(route);
               },
               style: ButtonStyle(

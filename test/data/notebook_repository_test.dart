@@ -147,5 +147,72 @@ void main() {
       final count = await repo.countNotesInNotebook(nb.id);
       expect(count, 2);
     });
+
+    test('deleteNotebookAndNotes soft-deletes notes and removes notebook',
+        () async {
+      final nb = await repo.createNotebook(
+        name: 'Delete With Notes',
+        colorSeed: '#ABC',
+      );
+
+      // Insert notes into the notebook
+      await db.into(db.notes).insert(
+            NotesCompanion.insert(
+              title: const Value('Note 1'),
+              type: NoteType.text,
+              deviceOriginId: 'local',
+              notebookId: Value(nb.id),
+            ),
+          );
+      await db.into(db.notes).insert(
+            NotesCompanion.insert(
+              title: const Value('Note 2'),
+              type: NoteType.text,
+              deviceOriginId: 'local',
+              notebookId: Value(nb.id),
+            ),
+          );
+
+      await repo.deleteNotebookAndNotes(nb.id);
+
+      // Notebook should be deleted
+      final found = await repo.getNotebookById(nb.id);
+      expect(found, isNull);
+
+      // Notes should be soft-deleted (still in DB but marked deleted)
+      final deletedNotes = await (db.select(db.notes)
+            ..where((t) => t.deleted.equals(true)))
+          .get();
+      expect(deletedNotes, hasLength(2));
+    });
+
+    test('deleteNotebook only unlinks notes', () async {
+      final nb = await repo.createNotebook(
+        name: 'Unlink Only',
+        colorSeed: '#DEF',
+      );
+
+      await db.into(db.notes).insert(
+            NotesCompanion.insert(
+              title: const Value('Note 1'),
+              type: NoteType.text,
+              deviceOriginId: 'local',
+              notebookId: Value(nb.id),
+            ),
+          );
+
+      await repo.deleteNotebook(nb.id);
+
+      // Notebook should be deleted
+      final found = await repo.getNotebookById(nb.id);
+      expect(found, isNull);
+
+      // Note should still be active (not soft-deleted)
+      final activeNotes = await (db.select(db.notes)
+            ..where((t) => t.deleted.equals(false)))
+          .get();
+      expect(activeNotes, hasLength(1));
+      expect(activeNotes.first.notebookId, isNull);
+    });
   });
 }

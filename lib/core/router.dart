@@ -121,6 +121,14 @@ CustomTransitionPage<void> _fadeTransition(
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: ref.read(navigationPreferenceProvider.notifier).route,
+    redirect: (context, state) {
+      // Auto-persist every navigated route so the app can restore it on
+      // cold start.  Only top-level and first-level sub-routes are saved;
+      // deep links like /note/:id are intentionally skipped so the app
+      // opens to the containing section, not a possibly-stale note.
+      NavigationPreference.rememberPath(state.matchedLocation);
+      return null; // no redirect, just persist.
+    },
     routes: [
       GoRoute(
         path: '/',

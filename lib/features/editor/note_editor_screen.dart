@@ -26,6 +26,8 @@ import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/doodle_storage.dart';
 import '../../data/repositories/note_repository.dart';
+import '../../data/repositories/notebook_repository.dart';
+import '../../data/repositories/tag_repository.dart';
 import '../../data/tables/notes.dart';
 import '../../data/tables/attachments.dart';
 import '../../features/doodle/doodle_canvas_screen.dart';
@@ -101,6 +103,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   bool _disposed = false;
   String? _colorSeed;
   String? _notebookId;
+  String? _notebookName;
+  List<String> _tagNames = [];
   Timer? _autosaveTimer;
   StreamSubscription<void>? _transactionSubscription;
   AppDatabase? _db;
@@ -217,6 +221,19 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     if (_note?.type == NoteType.checklist) {
       _checklistAttachments =
           await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    }
+
+    // Load metadata (notebook name + tags) for the app bar subtitle.
+    if (_note != null) {
+      final tagRepo = TagRepository(_db!);
+      final tags = await tagRepo.getTagsForNote(_note!.id);
+      _tagNames = tags.map((t) => t.name).toList();
+
+      if (_note!.notebookId != null) {
+        final nbRepo = NotebookRepository(_db!);
+        final nb = await nbRepo.getNotebookById(_note!.notebookId!);
+        _notebookName = nb?.name;
+      }
     }
 
     setState(() => _loading = false);
@@ -1123,6 +1140,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                               saving: _saving,
                               pinned: _pinned,
                               note: _note,
+                              notebookName: _notebookName,
+                              tagNames: _tagNames,
                               onBack: () async {
                                 final router = GoRouter.of(context);
                                 unawaited(HapticFeedback.lightImpact());
@@ -1201,6 +1220,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
     required this.canRedo,
     required this.onUndo,
     required this.onRedo,
+    this.notebookName,
+    this.tagNames = const [],
   });
 
   final ColorScheme noteScheme;
@@ -1219,6 +1240,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
   final bool canRedo;
   final VoidCallback onUndo;
   final VoidCallback onRedo;
+  final String? notebookName;
+  final List<String> tagNames;
 
   @override
   Widget build(BuildContext context) {
@@ -1261,6 +1284,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                       color: noteScheme.onSurfaceVariant,
                     ),
                   ),
+                  if (notebookName != null || tagNames.isNotEmpty)
+                    _buildMetadataSubtitle(),
                 ],
               ),
             ),
@@ -1416,6 +1441,32 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildMetadataSubtitle() {
+    final parts = <String>[];
+    if (notebookName != null) {
+      parts.add(notebookName!);
+    }
+    if (tagNames.isNotEmpty) {
+      parts.addAll(tagNames.take(3).map((t) => '#$t'));
+      if (tagNames.length > 3) {
+        parts.add('+${tagNames.length - 3}');
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text(
+        parts.join(' | '),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: noteScheme.onSurfaceVariant.withValues(alpha: 0.7),
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }

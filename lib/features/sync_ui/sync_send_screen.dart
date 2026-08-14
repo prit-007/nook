@@ -24,6 +24,7 @@ class SyncSendScreen extends ConsumerStatefulWidget {
 class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     with SingleTickerProviderStateMixin {
   final Set<String> _selectedNoteIds = {};
+  bool _selectAll = true;
   String _searchQuery = '';
   Future<List<Note>>? _notesFuture;
 
@@ -49,6 +50,14 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     final db = ref.read(databaseProvider);
     setState(() {
       _notesFuture = _fetchNotes(db);
+    });
+    // Select all notes by default when they load.
+    _notesFuture?.then((notes) {
+      if (_selectAll && mounted) {
+        setState(() {
+          _selectedNoteIds.addAll(notes.map((n) => n.id));
+        });
+      }
     });
   }
 
@@ -163,7 +172,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                       child: TextField(
                         decoration: InputDecoration(
                           hintText: 'Search your vault...',
@@ -189,6 +198,61 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                           _refreshNotes();
                         },
                       ),
+                    ),
+                    FutureBuilder<List<Note>>(
+                      future: _notesFuture,
+                      builder: (context, snapshot) {
+                        final notes = snapshot.data ?? [];
+                        if (notes.isEmpty) return const SizedBox.shrink();
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 8),
+                          child: Row(
+                            children: [
+                              Checkbox(
+                                value: _selectedNoteIds.length ==
+                                        notes.length &&
+                                    notes.isNotEmpty,
+                                tristate: true,
+                                activeColor: scheme.primary,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                onChanged: (value) {
+                                  HapticFeedback.selectionClick();
+                                  setState(() {
+                                    _selectAll = value ?? true;
+                                    if (_selectAll) {
+                                      _selectedNoteIds
+                                          .addAll(notes.map((n) => n.id));
+                                    } else {
+                                      _selectedNoteIds.clear();
+                                    }
+                                  });
+                                },
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Select All',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.onSurface,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '${_selectedNoteIds.length} selected',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     Expanded(
                       child: FutureBuilder<List<Note>>(

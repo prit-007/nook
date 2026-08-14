@@ -7,6 +7,7 @@ import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/checklist_item_repository.dart';
 import 'package:nook/data/tables/notes.dart';
+import 'package:nook/features/home/widgets/card_tag_pill.dart';
 import 'package:nook/features/home/widgets/note_card.dart';
 
 void main() {
@@ -145,6 +146,235 @@ void main() {
       final card = tester.widget<NoteCard>(find.byType(NoteCard));
       // Verify widget exists (rounded corners are in the internal Container)
       expect(card, isNotNull);
+    });
+  });
+
+  group('NoteCard metadata row', () {
+    testWidgets('shows notebook name and tags without overflow',
+        (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // Create notebook
+      await db.into(db.notebooks).insert(
+            NotebooksCompanion.insert(
+              id: const Value('nb-meta'),
+              name: 'My Notebook',
+              colorSeed: '#6750A4',
+            ),
+          );
+
+      // Create note with notebook
+      await db.into(db.notes).insert(
+            NotesCompanion.insert(
+              id: const Value('note-meta'),
+              type: NoteType.text,
+              title: const Value('Tagged Note'),
+              notebookId: const Value('nb-meta'),
+              deviceOriginId: 'device-1',
+            ),
+          );
+
+      // Create 3 tags
+      for (var i = 0; i < 3; i++) {
+        await db.into(db.tags).insert(
+              TagsCompanion.insert(
+                id: Value('tag-$i'),
+                name: 'tag$i',
+                colorSeed: '#FF000$i',
+              ),
+            );
+        await db.into(db.noteTags).insert(
+              NoteTagsCompanion.insert(
+                  noteId: 'note-meta', tagId: 'tag-$i'),
+            );
+      }
+
+      final note = await (db.select(db.notes)
+            ..where((t) => t.id.equals('note-meta')))
+          .getSingle();
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 200,
+              child: NoteCard(note: note),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // No overflow
+      expect(tester.takeException(), isNull);
+      // Notebook name shown
+      expect(find.text('My Notebook'), findsOneWidget);
+      // First 2 tags shown
+      expect(find.byType(CardTagPill), findsNWidgets(2));
+      // Overflow pill shown (+1)
+      expect(find.byType(CardTagOverflowPill), findsOneWidget);
+      expect(find.text('+1'), findsOneWidget);
+    });
+
+    testWidgets('shows only tag pills when no notebook', (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await db.into(db.notes).insert(
+            NotesCompanion.insert(
+              id: const Value('note-tags-only'),
+              type: NoteType.text,
+              title: const Value('Tags Only'),
+              deviceOriginId: 'device-1',
+            ),
+          );
+
+      for (var i = 0; i < 5; i++) {
+        await db.into(db.tags).insert(
+              TagsCompanion.insert(
+                id: Value('t$i'),
+                name: 'work$i',
+                colorSeed: '#AAAA0$i',
+              ),
+            );
+        await db.into(db.noteTags).insert(
+              NoteTagsCompanion.insert(
+                  noteId: 'note-tags-only', tagId: 't$i'),
+            );
+      }
+
+      final note = await (db.select(db.notes)
+            ..where((t) => t.id.equals('note-tags-only')))
+          .getSingle();
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 200,
+              child: NoteCard(note: note),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      // 2 visible tags + overflow pill
+      expect(find.byType(CardTagPill), findsNWidgets(2));
+      expect(find.byType(CardTagOverflowPill), findsOneWidget);
+      expect(find.text('+3'), findsOneWidget);
+      // No folder icon (no notebook)
+      expect(find.byIcon(Icons.folder_outlined), findsNothing);
+    });
+
+    testWidgets('shows no metadata row when no tags and no notebook',
+        (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await db.into(db.notes).insert(
+            NotesCompanion.insert(
+              id: const Value('note-clean'),
+              type: NoteType.text,
+              title: const Value('Clean Note'),
+              deviceOriginId: 'device-1',
+            ),
+          );
+
+      final note = await (db.select(db.notes)
+            ..where((t) => t.id.equals('note-clean')))
+          .getSingle();
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 200,
+              child: NoteCard(note: note),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(CardTagPill), findsNothing);
+      expect(find.byType(CardTagOverflowPill), findsNothing);
+      expect(find.byIcon(Icons.folder_outlined), findsNothing);
+    });
+
+    testWidgets(
+        'notebook with long name and many tags does not overflow',
+        (tester) async {
+      tester.view.physicalSize = const Size(300, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await db.into(db.notebooks).insert(
+            NotebooksCompanion.insert(
+              id: const Value('nb-long'),
+              name: 'A Very Long Notebook Name That Wraps',
+              colorSeed: '#006A6A',
+            ),
+          );
+
+      await db.into(db.notes).insert(
+            NotesCompanion.insert(
+              id: const Value('note-long-meta'),
+              type: NoteType.text,
+              title: const Value('Note'),
+              notebookId: const Value('nb-long'),
+              deviceOriginId: 'device-1',
+            ),
+          );
+
+      for (var i = 0; i < 4; i++) {
+        await db.into(db.tags).insert(
+              TagsCompanion.insert(
+                id: Value('lt$i'),
+                name: 'longtag$i',
+                colorSeed: '#00AAAA$i',
+              ),
+            );
+        await db.into(db.noteTags).insert(
+              NoteTagsCompanion.insert(
+                  noteId: 'note-long-meta', tagId: 'lt$i'),
+            );
+      }
+
+      final note = await (db.select(db.notes)
+            ..where((t) => t.id.equals('note-long-meta')))
+          .getSingle();
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 300,
+              height: 200,
+              child: NoteCard(note: note),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('A Very Long Notebook Name That Wraps'), findsOneWidget);
+      expect(find.byType(CardTagOverflowPill), findsOneWidget);
+      expect(find.text('+2'), findsOneWidget);
     });
   });
 
