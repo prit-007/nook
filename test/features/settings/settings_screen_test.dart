@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/features/settings/settings_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
   Widget buildScreen() {
@@ -10,6 +11,17 @@ void main() {
       child: MaterialApp(home: SettingsScreen()),
     );
   }
+
+  setUp(() {
+    PackageInfo.setMockInitialValues(
+      appName: 'nook',
+      packageName: 'nook',
+      version: '0.7.9',
+      buildNumber: '2',
+      buildSignature: '',
+      installerStore: null,
+    );
+  });
 
   testWidgets('renders AppBar with title', (tester) async {
     await tester.pumpWidget(buildScreen());
@@ -91,7 +103,7 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.scrollUntilVisible(find.text('Version'), 100);
     expect(find.text('Version'), findsOneWidget);
-    expect(find.text('0.7.8'), findsOneWidget);
+    expect(find.text('0.7.9'), findsOneWidget);
   });
 
   testWidgets('renders two switches', (tester) async {

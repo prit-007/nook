@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_info.dart';
@@ -9,13 +10,17 @@ import '../../core/app_info.dart';
 ///
 /// Employs deep glassmorphism, macro-typography, and high-contrast
 /// spacing to deliver a premium, editorial reading experience.
-class SettingsAboutScreen extends StatelessWidget {
+class SettingsAboutScreen extends ConsumerWidget {
   const SettingsAboutScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final version = ref.watch(appInfoProvider).maybeWhen(
+          data: (info) => info.version,
+          orElse: () => '\u2014',
+        );
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -69,7 +74,7 @@ class SettingsAboutScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'EDITION ${AppInfo.version}',
+            'EDITION $version',
             textAlign: TextAlign.center,
             style: text.labelSmall?.copyWith(
               color: scheme.primary,

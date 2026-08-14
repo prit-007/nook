@@ -7,15 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../core/providers/talker_provider.dart';
-import '../../core/widgets/dock_safe_area.dart';
 
 /// In-app log viewer powered by talker_flutter's [TalkerScreen].
-///
-/// Colors are mapped to the app's theme (error/warning/info/debug/verbose) plus
-/// custom domain keys (sync, database, editor, security), newest first and
-/// expanded by default. A help button in the app bar triggers a built-in
-/// walkthrough tour overlay — talker has no tutorial of its own, so this is a
-/// pure-Flutter overlay stacked on top of the screen.
 class SettingsLogsScreen extends ConsumerStatefulWidget {
   const SettingsLogsScreen({super.key});
 
@@ -31,8 +24,6 @@ class _SettingsLogsScreenState extends ConsumerState<SettingsLogsScreen> {
   @override
   void initState() {
     super.initState();
-    // Show the walkthrough on first visit only; afterwards it stays hidden
-    // unless the user taps the help icon in the app bar.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final prefs = await SharedPreferences.getInstance();
       final seen = prefs.getBool(_helpSeenKey) ?? false;
@@ -50,47 +41,47 @@ class _SettingsLogsScreenState extends ConsumerState<SettingsLogsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: scheme.surface,
       body: Stack(
         children: [
+          // The core developer tool
           Positioned.fill(
             child: TalkerScreen(
               talker: talker,
-              appBarTitle: 'App Logs',
-              // No appBarLeading → TalkerScreen shows the default back button.
-              // The help affordance is the floating frosted chip below.
+              appBarTitle: 'Diagnostic Logs',
               theme: TalkerScreenTheme(
                 backgroundColor: scheme.surface,
                 textColor: scheme.onSurface,
-                // Slightly elevated than the surface so cards read as cards.
-                cardColor: scheme.surfaceContainerHighest,
+                cardColor: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 logColors: _logColors(scheme),
               ),
               isLogOrderReversed: true,
               isLogsExpanded: true,
             ),
           ),
-          if (_showHelp) _LogsHelpOverlay(onDone: _closeHelp),
+
+          // Sleek Help Affordance (Top Right)
           Positioned(
-            right: 20,
-            bottom: DockSafeArea.bottomOf(context) + 24,
-            child: _HelpFloatingButton(
+            top: MediaQuery.paddingOf(context).top + 8,
+            right: 16,
+            child: _HelpFloatingPill(
               onPressed: () => setState(() => _showHelp = true),
             ),
           ),
+
+          // The Walkthrough Overlay
+          if (_showHelp) _LogsHelpOverlay(onDone: _closeHelp),
         ],
       ),
     );
   }
 }
 
-/// Frosted-glass floating chip that re-opens the walkthrough tour.
-class _HelpFloatingButton extends StatelessWidget {
-  const _HelpFloatingButton({required this.onPressed});
+class _HelpFloatingPill extends StatelessWidget {
+  const _HelpFloatingPill({required this.onPressed});
 
   final VoidCallback onPressed;
 
@@ -99,26 +90,42 @@ class _HelpFloatingButton extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Semantics(
-      label: 'Log help',
+      label: 'Log documentation',
       button: true,
       child: GestureDetector(
         onTap: onPressed,
-        child: ClipOval(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
-              width: 48,
-              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                shape: BoxShape.circle,
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: scheme.outlineVariant.withValues(alpha: 0.4),
                 ),
               ),
-              child: HugeIcon(
-                  icon: HugeIcons.strokeRoundedHelpCircle,
-                  color: scheme.onSurface),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  HugeIcon(
+                    icon: HugeIcons.strokeRoundedBookOpen01,
+                    color: scheme.primary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Guide',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -127,32 +134,21 @@ class _HelpFloatingButton extends StatelessWidget {
   }
 }
 
-/// Maps every log type (base + custom domain keys) to a theme-aware color for
-/// [TalkerScreenTheme.logColors].
 Map<String, Color> _logColors(ColorScheme scheme) => {
       TalkerKey.error: scheme.error,
       TalkerKey.critical: scheme.error,
       TalkerKey.exception: scheme.error,
-      TalkerKey.warning: const Color(0xFFEF6C00),
+      TalkerKey.warning: const Color(0xFFE67E22), // Muted Orange
       TalkerKey.info: scheme.primary,
       TalkerKey.debug: scheme.onSurfaceVariant,
-      TalkerKey.verbose: scheme.onSurfaceVariant.withValues(alpha: 0.6),
-      NookLogKey.sync: const Color(0xFF6D5BFF),
-      NookLogKey.database: const Color(0xFF14B8A6),
-      NookLogKey.editor: const Color(0xFFFFB300),
-      NookLogKey.security: const Color(0xFFF43F5E),
+      TalkerKey.verbose: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+      NookLogKey.sync: const Color(0xFF8E44AD), // Muted Purple
+      NookLogKey.database: const Color(0xFF16A085), // Teal
+      NookLogKey.editor: const Color(0xFFF39C12), // Amber
+      NookLogKey.security: const Color(0xFFD81B60), // Rose
     };
 
-Color _onColor(Color bg) =>
-    ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
-        ? Colors.white
-        : Colors.black87;
-
 typedef _LegendEntry = ({String label, Color color});
-
-// ---------------------------------------------------------------------------
-// Help / walkthrough tour
-// ---------------------------------------------------------------------------
 
 class _TourStep {
   const _TourStep({
@@ -165,12 +161,11 @@ class _TourStep {
 
   final String title;
   final String description;
-  final dynamic icon;
+  final List<List<dynamic>> icon;
   final Color color;
   final List<_LegendEntry>? legend;
 }
 
-/// Full-screen walkthrough overlay stacked above the [TalkerScreen].
 class _LogsHelpOverlay extends StatefulWidget {
   const _LogsHelpOverlay({required this.onDone});
 
@@ -185,56 +180,48 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
 
   List<_TourStep> _steps(ColorScheme scheme) => [
         _TourStep(
-          title: 'What are logs?',
+          title: 'System Diagnostics',
           description:
-              'Every action Nook takes — saving, syncing, locking, errors — '
-              'is recorded here so you can see exactly what happened and when.',
+              'Every action—saving, syncing, locking, and unexpected errors—is recorded in real-time. This provides absolute transparency into your vault.',
           icon: HugeIcons.strokeRoundedScroll,
           color: scheme.primary,
         ),
         _TourStep(
-          title: 'Filter by type',
+          title: 'Domain Filtering',
           description:
-              'The chips in the app bar filter the list. Toggle any type on '
-              'or off to focus on sync, database, editor or security events.',
+              'Use the chips in the top bar to filter the data stream. Isolate specific events like peer-to-peer sync or biometric security checks.',
           icon: HugeIcons.strokeRoundedSlidersHorizontal,
           color: scheme.primary,
         ),
         _TourStep(
-          title: 'Search logs',
+          title: 'Global Search',
           description:
-              'Type in the search field to instantly find a note, device or '
-              'error message across every entry.',
+              'Instantly locate a specific note ID, connected device name, or error code across the entire historical log.',
           icon: HugeIcons.strokeRoundedSearch01,
           color: scheme.primary,
         ),
         _TourStep(
-          title: 'Actions menu',
+          title: 'Data Control',
           description:
-              'Open the menu in the app bar for the full toolset — copy an '
-              'entry, share the whole report, or clear the log history.',
-          icon: HugeIcons.strokeRoundedMore01,
+              'The actions menu allows you to copy a specific entry to your clipboard, export the entire report, or securely clear the log history.',
+          icon: HugeIcons.strokeRoundedMoreHorizontal,
           color: scheme.primary,
         ),
         _TourStep(
-          title: 'Color legend',
-          description: 'Each log type has its own color, from errors to the '
-              'sync, database, editor and security domains.',
-          icon: HugeIcons.strokeRoundedSwatch,
+          title: 'Color Syntax',
+          description:
+              'Each system domain is color-coded for rapid visual scanning across the diagnostic feed.',
+          icon: HugeIcons.strokeRoundedPaintBoard,
           color: scheme.primary,
           legend: [
             (label: 'Error', color: scheme.error),
-            (label: 'Warning', color: const Color(0xFFEF6C00)),
+            (label: 'Warning', color: const Color(0xFFE67E22)),
             (label: 'Info', color: scheme.primary),
             (label: 'Debug', color: scheme.onSurfaceVariant),
-            (
-              label: 'Verbose',
-              color: scheme.onSurfaceVariant.withValues(alpha: 0.6)
-            ),
-            (label: 'Sync', color: const Color(0xFF6D5BFF)),
-            (label: 'Database', color: const Color(0xFF14B8A6)),
-            (label: 'Editor', color: const Color(0xFFFFB300)),
-            (label: 'Security', color: const Color(0xFFF43F5E)),
+            (label: 'Sync', color: const Color(0xFF8E44AD)),
+            (label: 'Database', color: const Color(0xFF16A085)),
+            (label: 'Editor', color: const Color(0xFFF39C12)),
+            (label: 'Security', color: const Color(0xFFD81B60)),
           ],
         ),
       ];
@@ -249,72 +236,86 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
     return Positioned.fill(
       child: Stack(
         children: [
-          // Dim + blur the logs screen beneath the tour.
+          // Frosted background mask
           Positioned.fill(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
               child: ColoredBox(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: scheme.surface.withValues(alpha: 0.8),
               ),
             ),
           ),
+
+          // Skip Button
           Positioned(
-            top: MediaQuery.paddingOf(context).top + 8,
-            right: 8,
-            child: TextButton(
-              onPressed: widget.onDone,
+            top: MediaQuery.paddingOf(context).top + 16,
+            right: 24,
+            child: GestureDetector(
+              onTap: widget.onDone,
               child: Text(
                 'Skip',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
                 ),
               ),
             ),
           ),
+
+          // Constrained, Adaptive Tour Card
           Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 320),
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.08),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420), // Prevents ultra-wide stretching
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.05),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
                   ),
-                ),
-                child: _TourCard(
-                  key: ValueKey(_step),
-                  step: step,
-                  scheme: scheme,
-                  isLast: isLast,
-                  onNext: () => setState(() => _step++),
-                  onDone: widget.onDone,
+                  child: _TourCard(
+                    key: ValueKey(_step),
+                    step: step,
+                    scheme: scheme,
+                    isLast: isLast,
+                    onNext: () => setState(() => _step++),
+                    onDone: widget.onDone,
+                  ),
                 ),
               ),
             ),
           ),
+
+          // Navigation Dots
           Positioned(
             left: 0,
             right: 0,
-            bottom: MediaQuery.paddingOf(context).bottom + 24,
+            bottom: MediaQuery.paddingOf(context).bottom + 32,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(steps.length, (i) {
                 final active = i == _step;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: active ? 24 : 8,
+                  curve: Curves.easeOutBack,
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  width: active ? 32 : 8,
                   height: 8,
                   decoration: BoxDecoration(
                     color: active
                         ? scheme.primary
-                        : Colors.white.withValues(alpha: 0.35),
+                        : scheme.outlineVariant.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 );
@@ -327,7 +328,6 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
   }
 }
 
-/// One glassmorphism step card in the tour.
 class _TourCard extends StatelessWidget {
   const _TourCard({
     super.key,
@@ -348,103 +348,94 @@ class _TourCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final stepColor = step.color;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 32,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: stepColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: stepColor.withValues(alpha: 0.45),
-                      blurRadius: 22,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: HugeIcon(
-                    icon: step.icon, size: 30, color: _onColor(stepColor)),
-              ),
-              const SizedBox(height: 22),
-              Text(
-                step.title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                step.description,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.55,
-                  fontWeight: FontWeight.w500,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              if (step.legend != null) ...[
-                const SizedBox(height: 24),
-                _Legend(scheme: scheme, entries: step.legend!),
-              ],
-              const SizedBox(height: 26),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: isLast ? onDone : onNext,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: stepColor,
-                    foregroundColor: _onColor(stepColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(26),
-                    ),
-                  ),
-                  child: Text(
-                    isLast ? 'Done' : 'Next',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(32, 40, 32, 32),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.3),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.shadow.withValues(alpha: 0.08),
+            blurRadius: 40,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: stepColor.withValues(alpha: 0.1),
+              border: Border.all(color: stepColor.withValues(alpha: 0.3)),
+            ),
+            child: HugeIcon(
+              icon: step.icon,
+              size: 32,
+              color: stepColor,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            step.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            step.description,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.6,
+              fontWeight: FontWeight.w500,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          if (step.legend != null) ...[
+            const SizedBox(height: 32),
+            _Legend(scheme: scheme, entries: step.legend!),
+          ],
+          const SizedBox(height: 40),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton(
+              onPressed: isLast ? onDone : onNext,
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.primary,
+                foregroundColor: scheme.onPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                isLast ? 'Enter Logs' : 'Continue',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Color-coded legend shown on the final tour step.
 class _Legend extends StatelessWidget {
   const _Legend({required this.scheme, required this.entries});
 
@@ -455,31 +446,39 @@ class _Legend extends StatelessWidget {
   Widget build(BuildContext context) {
     return Wrap(
       alignment: WrapAlignment.center,
-      spacing: 18,
-      runSpacing: 10,
+      spacing: 16,
+      runSpacing: 16,
       children: [
         for (final entry in entries)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: entry.color,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: entry.color,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                entry.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurface,
+                const SizedBox(width: 8),
+                Text(
+                  entry.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
       ],
     );

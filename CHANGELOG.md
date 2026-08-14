@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.9] - 2026-08-14
+
+### Bug fixes
+- Fixed a 4px `RenderFlex` overflow in the editor's auto-hiding glass app bar
+  on narrow (landscape-phone) widths: the notebook/tag metadata subtitle no
+  longer renders in narrow mode.
+
+### Logs screen polish
+- Rewrote the diagnostic logs tour overlay: walkthrough cards are constrained
+  to `420px` so they never stretch into unreadable rectangles on desktop.
+- Moved the Help affordance from a bottom-floating FAB to a frosted pill pinned
+  to the top-right safe area.
+- Elevated the tour typography (tight tracking, heavy weights) and switched to
+  HugeIcons throughout; frosted surface mask replaces the black overlay.
+
 ## [0.7.8] - 2026-08-14
 
 ### Icon system — Hugeicons stroke-rounded migration

@@ -95,63 +95,65 @@ class _MobileShell extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(36),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: Container(
-                height: 72,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: scheme.surface.withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.2),
-                    width: 1,
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: RepaintBoundary(
+                child: Container(
+                  height: 72,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: scheme.surface.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(36),
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.primary.withValues(alpha: 0.08),
+                        blurRadius: 32,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.08),
-                      blurRadius: 32,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    _DockItem(
-                      icon: HugeIcons.strokeRoundedHome01,
-                      activeIcon: HugeIcons.strokeRoundedHome02,
-                      label: 'Home',
-                      isSelected: selectedIndex == 0,
-                      onTap: () => onTap(0),
-                    ),
-                    _DockItem(
-                      icon: HugeIcons.strokeRoundedBook01,
-                      activeIcon: HugeIcons.strokeRoundedBook02,
-                      label: 'Notebooks',
-                      isSelected: selectedIndex == 1,
-                      onTap: () => onTap(1),
-                    ),
-                    _DockItem(
-                      icon: HugeIcons.strokeRoundedTag01,
-                      activeIcon: HugeIcons.strokeRoundedTag02,
-                      label: 'Tags',
-                      isSelected: selectedIndex == 2,
-                      onTap: () => onTap(2),
-                    ),
-                    _DockItem(
-                      icon: HugeIcons.strokeRoundedDelete01,
-                      activeIcon: HugeIcons.strokeRoundedDelete02,
-                      label: 'Trash',
-                      isSelected: selectedIndex == 3,
-                      onTap: () => onTap(3),
-                    ),
-                    _DockItem(
-                      icon: HugeIcons.strokeRoundedSettings01,
-                      activeIcon: HugeIcons.strokeRoundedSettings02,
-                      label: 'Settings',
-                      isSelected: selectedIndex == 4,
-                      onTap: () => onTap(4),
-                    ),
-                  ],
+                  child: Row(
+                    children: [
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedHome01,
+                        activeIcon: HugeIcons.strokeRoundedHome02,
+                        label: 'Home',
+                        isSelected: selectedIndex == 0,
+                        onTap: () => onTap(0),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedBook01,
+                        activeIcon: HugeIcons.strokeRoundedBook02,
+                        label: 'Notebooks',
+                        isSelected: selectedIndex == 1,
+                        onTap: () => onTap(1),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedTag01,
+                        activeIcon: HugeIcons.strokeRoundedTag02,
+                        label: 'Tags',
+                        isSelected: selectedIndex == 2,
+                        onTap: () => onTap(2),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedDelete01,
+                        activeIcon: HugeIcons.strokeRoundedDelete02,
+                        label: 'Trash',
+                        isSelected: selectedIndex == 3,
+                        onTap: () => onTap(3),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedSettings01,
+                        activeIcon: HugeIcons.strokeRoundedSettings02,
+                        label: 'Settings',
+                        isSelected: selectedIndex == 4,
+                        onTap: () => onTap(4),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -183,6 +185,9 @@ class _DockItem extends StatefulWidget {
 
 class _DockItemState extends State<_DockItem>
     with SingleTickerProviderStateMixin {
+  static const _selectionDuration = Duration(milliseconds: 320);
+  static const _iconSwapDuration = Duration(milliseconds: 260);
+
   late final AnimationController _controller;
   late final Animation<double> _scaleAnimation;
 
@@ -191,10 +196,10 @@ class _DockItemState extends State<_DockItem>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 280),
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
   }
 
@@ -216,6 +221,7 @@ class _DockItemState extends State<_DockItem>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final icon = widget.isSelected ? widget.activeIcon : widget.icon;
 
     return Expanded(
       child: GestureDetector(
@@ -233,7 +239,7 @@ class _DockItemState extends State<_DockItem>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
+                    duration: _selectionDuration,
                     curve: Curves.easeOutCubic,
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -243,12 +249,26 @@ class _DockItemState extends State<_DockItem>
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: HugeIcon(
-                      icon: widget.isSelected ? widget.activeIcon : widget.icon,
-                      size: 24,
-                      color: widget.isSelected
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant,
+                    child: AnimatedSwitcher(
+                      duration: _iconSwapDuration,
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.7, end: 1.0)
+                              .animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: HugeIcon(
+                        key: ValueKey(icon),
+                        icon: icon,
+                        size: 24,
+                        color: widget.isSelected
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -256,7 +276,8 @@ class _DockItemState extends State<_DockItem>
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 200),
+                        duration: _selectionDuration,
+                        curve: Curves.easeOutCubic,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: widget.isSelected

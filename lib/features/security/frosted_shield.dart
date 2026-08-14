@@ -84,21 +84,24 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
 
           return BackdropFilter(
             filter: ImageFilter.blur(sigmaX: _blur.value, sigmaY: _blur.value),
-            child: Container(
-              width: double.infinity,
-              height: double.infinity,
-              color: scheme.surface.withValues(alpha: 0.8),
-              child: SafeArea(
-                child: Center(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 360),
-                        child: _FrostedShieldButton(
-                          enabled: !gate.isAuthenticating,
-                          onTap: _unlock,
-                          error: _error,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: scheme.surface.withValues(alpha: 0.8),
+                child: SafeArea(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: _FrostedShieldButton(
+                            enabled: !gate.isAuthenticating,
+                            onTap: _unlock,
+                            error: _error,
+                          ),
                         ),
                       ),
                     ),

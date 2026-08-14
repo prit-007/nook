@@ -1277,16 +1277,17 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                   Text(
                     saving
                         ? 'Saving...'
-                        : DateFormat('MMMM d, yyyy')
-                            .format(note?.updatedAt ?? DateTime.now()),
+                        : _subtitle(
+                            note?.updatedAt ?? DateTime.now(),
+                          ),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: noteScheme.onSurfaceVariant,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  if (notebookName != null || tagNames.isNotEmpty)
-                    _buildMetadataSubtitle(),
                 ],
               ),
             ),
@@ -1463,7 +1464,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
     );
   }
 
-  Widget _buildMetadataSubtitle() {
+  String _subtitle(DateTime updatedAt) {
+    final date = DateFormat('MMMM d, yyyy').format(updatedAt);
     final parts = <String>[];
     if (notebookName != null) {
       parts.add(notebookName!);
@@ -1474,19 +1476,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
         parts.add('+${tagNames.length - 3}');
       }
     }
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Text(
-        parts.join(' | '),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: noteScheme.onSurfaceVariant.withValues(alpha: 0.7),
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
+    if (parts.isEmpty) return date;
+    return '$date \u00b7 ${parts.join(' | ')}';
   }
 }
 

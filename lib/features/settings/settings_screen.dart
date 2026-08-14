@@ -33,6 +33,10 @@ class SettingsScreen extends ConsumerWidget {
           data: (count) => '$count entries',
           orElse: () => '\u2014',
         );
+    final version = ref.watch(appInfoProvider).maybeWhen(
+          data: (info) => info.version,
+          orElse: () => '',
+        );
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -213,7 +217,7 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: HugeIcons.strokeRoundedInformationCircle,
                 title: 'Version',
-                value: AppInfo.version,
+                value: version,
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.push('/settings/about');

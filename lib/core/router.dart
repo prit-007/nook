@@ -42,8 +42,8 @@ CustomTransitionPage<T> buildEditorialTransition<T>({
   return CustomTransitionPage<T>(
     key: state.pageKey,
     child: child,
-    transitionDuration: const Duration(milliseconds: 800),
-    reverseTransitionDuration: const Duration(milliseconds: 400),
+    transitionDuration: const Duration(milliseconds: 500),
+    reverseTransitionDuration: const Duration(milliseconds: 350),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curve = CurvedAnimation(
         parent: animation,
@@ -58,7 +58,9 @@ CustomTransitionPage<T> buildEditorialTransition<T>({
             begin: const Offset(0.0, 0.05), // Subtle 5% drop
             end: Offset.zero,
           ).animate(curve),
-          child: child,
+          // Rasterize the incoming page once so the fade/slide only composites
+          // layers — no per-frame repaint of the page subtree during the push.
+          child: RepaintBoundary(child: child),
         ),
       );
     },
@@ -74,8 +76,8 @@ CustomTransitionPage<void> _slideUpTransition(
   return CustomTransitionPage<void>(
     key: state.pageKey,
     child: child,
-    transitionDuration: const Duration(milliseconds: 800),
-    reverseTransitionDuration: const Duration(milliseconds: 400),
+    transitionDuration: const Duration(milliseconds: 500),
+    reverseTransitionDuration: const Duration(milliseconds: 350),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curve = CurvedAnimation(
         parent: animation,
@@ -90,7 +92,7 @@ CustomTransitionPage<void> _slideUpTransition(
             begin: const Offset(0, 0.05),
             end: Offset.zero,
           ).animate(curve),
-          child: child,
+          child: RepaintBoundary(child: child),
         ),
       );
     },
@@ -112,7 +114,7 @@ CustomTransitionPage<void> _fadeTransition(
           parent: animation,
           curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
         ),
-        child: child,
+        child: RepaintBoundary(child: child),
       );
     },
   );
