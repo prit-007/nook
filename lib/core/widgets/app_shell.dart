@@ -91,36 +91,30 @@ class _MobileShell extends StatelessWidget {
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+          padding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(36),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: Container(
                 height: 72,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  // Tint the dock with the screen surface itself so it melts
-                  // into every screen's background (light, dark, AMOLED)
-                  // instead of reading as a mismatched gray band; the blur
-                  // still frosts whatever scrolls beneath.
-                  color: scheme.surface.withValues(alpha: 0.55),
+                  color: scheme.surface.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(36),
                   border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.15),
+                    color: scheme.outlineVariant.withValues(alpha: 0.2),
                     width: 1,
                   ),
                   boxShadow: [
-                    // Ambient Glow
                     BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.06),
+                      color: scheme.primary.withValues(alpha: 0.08),
                       blurRadius: 32,
                       offset: const Offset(0, 12),
                     ),
                   ],
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _DockItem(
                       icon: HugeIcons.strokeRoundedHome01,
@@ -197,10 +191,10 @@ class _DockItemState extends State<_DockItem>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 200),
     );
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
     );
   }
 
@@ -210,47 +204,44 @@ class _DockItemState extends State<_DockItem>
     super.dispose();
   }
 
-  void _handleTapDown(TapDownDetails details) {
-    _controller.forward();
-  }
+  void _handleTapDown(TapDownDetails details) => _controller.forward();
 
   void _handleTapUp(TapUpDetails details) {
     _controller.reverse();
     widget.onTap();
   }
 
-  void _handleTapCancel() {
-    _controller.reverse();
-  }
+  void _handleTapCancel() => _controller.reverse();
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onTapDown: _handleTapDown,
-      onTapUp: _handleTapUp,
-      onTapCancel: _handleTapCancel,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedBuilder(
-        animation: _scaleAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: SizedBox(
-              width: 54, // Fixed width prevents layout jitter
+    return Expanded(
+      child: GestureDetector(
+        onTapDown: _handleTapDown,
+        onTapUp: _handleTapUp,
+        onTapCancel: _handleTapCancel,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.all(8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
                       color: widget.isSelected
                           ? scheme.primary.withValues(alpha: 0.15)
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: HugeIcon(
                       icon: widget.isSelected ? widget.activeIcon : widget.icon,
@@ -260,32 +251,38 @@ class _DockItemState extends State<_DockItem>
                           : scheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 200),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight:
-                          widget.isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: widget.isSelected
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                      letterSpacing: 0.2,
+                  const SizedBox(height: 4),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: widget.isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: widget.isSelected
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          letterSpacing: 0.3,
+                        ),
+                        child: Text(widget.label, maxLines: 1),
+                      ),
                     ),
-                    child: Text(widget.label, maxLines: 1),
                   ),
                 ],
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Wide (tablet / desktop / web): Elevated NavigationRail
+// Wide (tablet / desktop / web): Fluid NavigationRail
 // ---------------------------------------------------------------------------
 
 class _WideShell extends StatelessWidget {
@@ -301,28 +298,28 @@ class _WideShell extends StatelessWidget {
 
   static const _destinations = [
     NavigationRailDestination(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedHome01, size: 24),
-      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedHome02, size: 24),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedHome01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedHome02, size: 26),
       label: Text('Home'),
     ),
     NavigationRailDestination(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 24),
-      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedBook02, size: 24),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedBook02, size: 26),
       label: Text('Notebooks'),
     ),
     NavigationRailDestination(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedTag01, size: 24),
-      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedTag02, size: 24),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedTag01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedTag02, size: 26),
       label: Text('Tags'),
     ),
     NavigationRailDestination(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 24),
-      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: 24),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: 26),
       label: Text('Trash'),
     ),
     NavigationRailDestination(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 24),
-      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 24),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 26),
       label: Text('Settings'),
     ),
   ];
@@ -332,59 +329,69 @@ class _WideShell extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: Row(
-        children: [
-          SizedBox(
-            width: 80,
-            child: Container(
+      backgroundColor: scheme.surface,
+      body: SafeArea(
+        child: Row(
+          children: [
+            Container(
               decoration: BoxDecoration(
                 color: scheme.surface,
                 border: Border(
                   right: BorderSide(
-                    color: scheme.outlineVariant.withValues(alpha: 0.15),
+                    color: scheme.outlineVariant.withValues(alpha: 0.2),
                   ),
                 ),
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
                       child: IntrinsicHeight(
                         child: NavigationRail(
+                          minWidth: 110,
                           selectedIndex: selectedIndex,
                           onDestinationSelected: onTap,
                           backgroundColor: Colors.transparent,
                           indicatorColor:
-                              scheme.primary.withValues(alpha: 0.15),
+                              scheme.primary.withValues(alpha: 0.12),
+                          indicatorShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                           selectedIconTheme:
                               IconThemeData(color: scheme.primary),
                           unselectedIconTheme:
                               IconThemeData(color: scheme.onSurfaceVariant),
                           selectedLabelTextStyle: TextStyle(
                             color: scheme.primary,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             letterSpacing: 0.5,
+                            fontSize: 13,
                           ),
                           unselectedLabelTextStyle: TextStyle(
                             color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
                           labelType: NavigationRailLabelType.all,
                           leading: Padding(
-                            padding: const EdgeInsets.only(bottom: 24, top: 24),
+                            padding: const EdgeInsets.symmetric(vertical: 32),
                             child: Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: scheme.primaryContainer,
+                                color: scheme.primaryContainer
+                                    .withValues(alpha: 0.6),
                                 shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: scheme.primary.withValues(alpha: 0.2),
+                                ),
                               ),
                               child: HugeIcon(
                                 icon: HugeIcons.strokeRoundedFlash,
                                 size: 28,
-                                color: scheme.onPrimaryContainer,
+                                color: scheme.primary,
                               ),
                             ),
                           ),
@@ -396,9 +403,9 @@ class _WideShell extends StatelessWidget {
                 },
               ),
             ),
-          ),
-          Expanded(child: child),
-        ],
+            Expanded(child: child),
+          ],
+        ),
       ),
     );
   }
