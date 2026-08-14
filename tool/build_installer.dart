@@ -13,8 +13,7 @@ import 'dart:io';
 ///   --iscc     Absolute path to ISCC.exe when it is not resolvable from PATH.
 
 const _publisher = "Developer's Paradise";
-// TODO: replace with the real repository URL.
-const _homeUrl = 'https://github.com/your-repo/nook';
+const _homeUrl = 'https://github.com/prit-007/nook';
 // Stable AppId so Windows Update / upgrades install over a previous version.
 const _appId = '{{26eb0e5d-00f0-40a0-ae68-21e0a62e5509}}';
 
@@ -47,7 +46,11 @@ void main(List<String> args) {
       'iscc not found on PATH. Install Inno Setup from '
       'https://jrsoftware.org/isdl.php and re-run, or pass --iscc <path>.',
     );
-    return;
+    // Dry-run only validates the .iss generation (useful on non-Windows
+    // hosts); a real build that cannot produce the .exe must fail loudly so
+    // CI never ships a "successful" run without an installer.
+    if (dryRun) return;
+    exit(1);
   }
 
   stdout.writeln('Compiling installer with $iscc ...');

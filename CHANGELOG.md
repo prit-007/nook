@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.9.2] - 2026-08-14
+
+### Alpha status + release pipeline
+- Declared **alpha** status in the README; sync is explicitly marked as still
+  in testing/development (loopback tests green, physical-device validation
+  pending).
+- CI (`CI & Release`) is now industry-grade: `workflow_dispatch` trigger,
+  concurrency cancel-in-progress, per-job timeouts, and a shared composite
+  `flutter-prep` action (pub get + patches + codegen) used by every job.
+- **New artifacts shipped per release:** macOS (`nook-macos-*.zip`, unsigned
+  `.app`) and Linux (`nook-linux-*.tar.gz`) join Android APKs, the Windows zip
+  + Inno Setup `.exe`, and the iOS zip in the GitHub release.
+- `tool/build_installer.dart` now fails loudly (non-zero exit) when a real
+  build cannot produce the `.exe` because `iscc` is missing; `--dry-run` still
+  validates the `.iss` on any host. CI verifies the installer was produced
+  before uploading.
+- Fixed the placeholder installer home URL (`prit-007/nook`).
+
 ## [0.7.9] - 2026-08-14
 
 ### Version single source of truth

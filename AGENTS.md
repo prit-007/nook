@@ -26,6 +26,21 @@ flutter test --coverage -x network
 ```
 `flutter test` accepts `-x <name>` to skip (CI skips the real-mDNS test, tagged `network`), or `<path>:<line>` to run a single test.
 
+## CI (`CI & Release` — `.github/workflows/ci.yml`)
+- Every job starts with the shared composite action `.github/actions/flutter-prep`
+  (pub get + appflowy/talker patches + build_runner). The Windows job passes
+  `patch-local-auth: 'true'`. **If you add a new pre-build step, put it in the
+  composite action so every job gets it.**
+- Triggers: `workflow_dispatch`, push to `main`, tags `v*`, PRs to `main`.
+  `concurrency` cancels superseded runs; every job has a `timeout-minutes`.
+- Artifact jobs (all `needs: analyze-and-test`, parallel): `build-android`
+  (split-per-ABI APKs), `build-windows` (zip + Inno Setup `.exe`), `build-ios`
+  (unsigned), `build-macos` (unsigned `.app`), `build-linux` (release bundle
+  tarball; needs `ninja-build libgtk-3-dev libsecret-1-dev`).
+- `release` runs only on tags, requires Android to succeed, and attaches every
+  artifact that built successfully. Release body is extracted from CHANGELOG
+  by tag name — a `## [x.y.z]` entry must exist for each tagged version.
+
 ## Lint / format
 - Includes `flutter_lints/flutter.yaml` plus custom rules in `analysis_options.yaml`.
 - Single quotes preferred; `avoid_print: true`; generated files excluded.
@@ -100,7 +115,7 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 ## Branding & distribution
 - **Launcher icons**: `flutter_launcher_icons ^0.14.4` (config block at the bottom of `pubspec.yaml`). Sources in `assets/icons/` (`favicon_fg.png` transparent foreground, `favicon_full.png` full logo). Android adaptive icon = foreground over `#FBFBFB` (`android/app/src/main/res/values/colors.xml`), regenerated legacy mipmaps, plus iOS/macOS/Windows icons. Re-run after changing art: `flutter pub get && dart run flutter_launcher_icons`.
 - **Linux window icon**: `linux/runner/icon.png` installs to `bundle/data/icon.png` via `linux/CMakeLists.txt`; `linux/runner/my_application.cc` applies it with `gtk_window_set_icon_from_file` (path derived from `fl_dart_project_get_assets_path`). If the icon ever moves, both the CMake DESTINATION and the C++ path must change together.
-- **Windows installer**: `dart run tool/build_installer.dart` (run after `flutter build windows --release`, on a Windows host with Inno Setup installed) writes `build/installers/nook_setup_<ver>.iss` and compiles it with `iscc`. Flags: `--dry-run` validates ISS generation on any host; `--iscc <path>` points at ISCC.exe. Installs to `{localappdata}\nook` with `PrivilegesRequired=lowest` (no admin), stable `AppId`, modern wizard, LZMA2, Start Menu folder + opt-in desktop shortcut. Update `_homeUrl` in the script before a release. CI (`.github/workflows/ci.yml` `build-windows`) installs Inno Setup via Chocolatey and ships the `.exe`.
+- **Windows installer**: `dart run tool/build_installer.dart` (run after `flutter build windows --release`, on a Windows host with Inno Setup installed) writes `build/installers/nook_setup_<ver>.iss` and compiles it with `iscc`. Flags: `--dry-run` validates ISS generation on any host; `--iscc <path>` points at ISCC.exe. A real build **fails loudly** (exit 1) if `iscc` is missing — it must never report success without an `.exe`. Installs to `{localappdata}\nook` with `PrivilegesRequired=lowest` (no admin), stable `AppId`, modern wizard, LZMA2, Start Menu folder + opt-in desktop shortcut. `_homeUrl` points at the `prit-007/nook` repo. CI (`.github/workflows/ci.yml` `build-windows`) installs Inno Setup via Chocolatey, builds the installer, verifies the `.exe` was produced, and ships it.
 - **Linux build prerequisite**: Linux desktop builds require the system package `libsecret-1-dev` (`pkg_check_modules` in `flutter_secure_storage_linux`). `sudo apt-get install -y libsecret-1-dev`.
 - **Docs**: ADRs `docs/adr/0009-app-launcher-icons-and-linux-window-icon.md` and `docs/adr/0010-windows-installer.md` record the decisions.
 

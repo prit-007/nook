@@ -19,7 +19,7 @@ server, never through us.
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20Web-lightgrey.svg)
 ![Flutter](https://img.shields.io/badge/Flutter-3.44%20stable-02569B.svg)
-![Status](https://img.shields.io/badge/status-pre--alpha-important.svg)
+![Status](https://img.shields.io/badge/status-alpha-important.svg)
 
 </div>
 
@@ -59,14 +59,20 @@ Three clauses, three promises:
 
 ## Status
 
-🚧 **Pre-alpha — v0.7.8** — Phases 0–4 complete (foundation, core notes,
+🚧 **Alpha — v0.7.9** — Phases 0–4 complete (foundation, core notes,
 checklists + doodles, theming, security). Phase 5 (nearby sync) is implemented:
 the transport was rebuilt on **libp2p over UDX** with a stable keystore identity,
 an own mDNS discovery fork, and categorized failure outcomes. Legacy TCP remains
-as a fallback. Loopback transport + orchestrator tests are green; physical-device
-validation remains. v0.7.8 adds the full launcher-icon/branding pass (adaptive
-Android icons + Linux window icon) and a polished **Inno Setup Windows installer**
-built by CI. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
+as a fallback.
+
+> ⚠️ **Sync is still in testing/development.** The loopback transport and
+> orchestrator tests are green, but physical-device sync has not yet been
+> validated on real hardware, and mDNS discovery is unproven on some Android
+> stacks. Do not rely on sync for anything you cannot afford to lose.
+
+v0.7.9 adds a single-source-of-truth app version (`package_info_plus`), a
+responsive rewrite of the in-app log viewer, and the fully responsive editor
+app bar. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
 
 ## Features
 
@@ -80,10 +86,41 @@ built by CI. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKL
 | **Theming** | Material You 3 dynamic color + per-note color overrides, light/dark |
 | **Security** | SQLCipher encryption, biometric gate, per-note lock, screenshot blocking |
 | **Trash** | Soft-delete with 30-day auto-expiry |
-| **Sync** | libp2p over UDX device-to-device sync: discovery, pairing, transfer, conflict resolution, history |
+| **Sync** | libp2p over UDX device-to-device sync: discovery, pairing, transfer, conflict resolution, history *(in testing)* |
 | **Export** | `.nook` bundle export via `archive` |
 | **Branding** | Adaptive launcher icons on all platforms (`flutter_launcher_icons`), Linux window icon |
-| **CI** | GitHub Actions: format, analyze, test, APK build, Inno Setup Windows installer + GitHub releases |
+| **CI** | GitHub Actions: format, analyze, test, APK build, Windows/macOS/Linux/iOS artifacts + GitHub releases |
+
+## Downloads & releases
+
+There are **no official release binaries yet**. GitHub Actions builds unsigned
+Android APKs, an unsigned iOS/macOS build, a Linux tarball, and the Windows
+installer on every tagged release, but a pre-alpha product means you should
+expect rough edges and frequent breaking changes between versions. Watch the
+[releases page](https://github.com/prit-007/nook/releases) — official binaries
+land once the alpha stabilizes and sync passes physical-device testing.
+
+Until binaries are published, build from source:
+
+- **Android**: build an APK yourself (see [Build a release APK](#build-a-release-apk)).
+- **Linux**: build from source on a Linux host (see [Run it](#run-it)).
+- **Windows**: build the installer on a Windows host (see
+  [Build the Windows installer](#build-the-windows-installer)).
+- **macOS/iOS**: unsigned builds only — a code-signing certificate is required
+  to run them on real hardware.
+
+### What CI ships per release (v0.7.9.2+)
+
+Every tagged release triggers `CI & Release` (`.github/workflows/ci.yml`),
+which uploads all of these to the GitHub release when their builds succeed:
+
+| Platform | Artifact |
+|---|---|
+| Android | split-per-ABI `*-release.apk` files |
+| Windows | `nook-windows-<version>.zip` + `nook_setup_<version>.exe` (Inno Setup) |
+| macOS | `nook-macos-<version>.zip` (unsigned `.app`) |
+| Linux | `nook-linux-<version>.tar.gz` (release bundle) |
+| iOS | `nook-ios-<version>.zip` (unsigned `Runner.app`) |
 
 ## Privacy & security model
 
