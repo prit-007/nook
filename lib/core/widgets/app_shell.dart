@@ -3,8 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
-import '../providers/navigation_preference.dart';
 import 'dock_safe_area.dart';
 
 /// Responsive navigation shell with magical micro-animations.
@@ -27,19 +27,14 @@ class AppShell extends StatelessWidget {
     HapticFeedback.selectionClick();
     switch (index) {
       case 0:
-        NavigationPreference.rememberPath('/home');
         context.go('/home');
       case 1:
-        NavigationPreference.rememberPath('/notebooks');
         context.go('/notebooks');
       case 2:
-        NavigationPreference.rememberPath('/tags');
         context.go('/tags');
       case 3:
-        NavigationPreference.rememberPath('/trash');
         context.go('/trash');
       case 4:
-        NavigationPreference.rememberPath('/settings');
         context.go('/settings');
     }
   }
@@ -96,73 +91,69 @@ class _MobileShell extends StatelessWidget {
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+          padding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(36),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: Container(
-                height: 72,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  // Tint the dock with the screen surface itself so it melts
-                  // into every screen's background (light, dark, AMOLED)
-                  // instead of reading as a mismatched gray band; the blur
-                  // still frosts whatever scrolls beneath.
-                  color: scheme.surface.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.15),
-                    width: 1,
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: RepaintBoundary(
+                child: Container(
+                  height: 72,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: scheme.surface.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(36),
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.primary.withValues(alpha: 0.08),
+                        blurRadius: 32,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                  boxShadow: [
-                    // Ambient Glow
-                    BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.06),
-                      blurRadius: 32,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _DockItem(
-                      icon: Icons.home_outlined,
-                      activeIcon: Icons.home_rounded,
-                      label: 'Home',
-                      isSelected: selectedIndex == 0,
-                      onTap: () => onTap(0),
-                    ),
-                    _DockItem(
-                      icon: Icons.book_outlined,
-                      activeIcon: Icons.book_rounded,
-                      label: 'Notebooks',
-                      isSelected: selectedIndex == 1,
-                      onTap: () => onTap(1),
-                    ),
-                    _DockItem(
-                      icon: Icons.label_outlined,
-                      activeIcon: Icons.label_rounded,
-                      label: 'Tags',
-                      isSelected: selectedIndex == 2,
-                      onTap: () => onTap(2),
-                    ),
-                    _DockItem(
-                      icon: Icons.delete_outline,
-                      activeIcon: Icons.delete_rounded,
-                      label: 'Trash',
-                      isSelected: selectedIndex == 3,
-                      onTap: () => onTap(3),
-                    ),
-                    _DockItem(
-                      icon: Icons.settings_outlined,
-                      activeIcon: Icons.settings_rounded,
-                      label: 'Settings',
-                      isSelected: selectedIndex == 4,
-                      onTap: () => onTap(4),
-                    ),
-                  ],
+                  child: Row(
+                    children: [
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedHome01,
+                        activeIcon: HugeIcons.strokeRoundedHome02,
+                        label: 'Home',
+                        isSelected: selectedIndex == 0,
+                        onTap: () => onTap(0),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedBook01,
+                        activeIcon: HugeIcons.strokeRoundedBook02,
+                        label: 'Notebooks',
+                        isSelected: selectedIndex == 1,
+                        onTap: () => onTap(1),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedTag01,
+                        activeIcon: HugeIcons.strokeRoundedTag02,
+                        label: 'Tags',
+                        isSelected: selectedIndex == 2,
+                        onTap: () => onTap(2),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedDelete01,
+                        activeIcon: HugeIcons.strokeRoundedDelete02,
+                        label: 'Trash',
+                        isSelected: selectedIndex == 3,
+                        onTap: () => onTap(3),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedSettings01,
+                        activeIcon: HugeIcons.strokeRoundedSettings02,
+                        label: 'Settings',
+                        isSelected: selectedIndex == 4,
+                        onTap: () => onTap(4),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -182,8 +173,8 @@ class _DockItem extends StatefulWidget {
     required this.onTap,
   });
 
-  final IconData icon;
-  final IconData activeIcon;
+  final List<List<dynamic>> icon;
+  final List<List<dynamic>> activeIcon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
@@ -194,6 +185,9 @@ class _DockItem extends StatefulWidget {
 
 class _DockItemState extends State<_DockItem>
     with SingleTickerProviderStateMixin {
+  static const _selectionDuration = Duration(milliseconds: 320);
+  static const _iconSwapDuration = Duration(milliseconds: 260);
+
   late final AnimationController _controller;
   late final Animation<double> _scaleAnimation;
 
@@ -202,9 +196,9 @@ class _DockItemState extends State<_DockItem>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 280),
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
   }
@@ -215,82 +209,101 @@ class _DockItemState extends State<_DockItem>
     super.dispose();
   }
 
-  void _handleTapDown(TapDownDetails details) {
-    _controller.forward();
-  }
+  void _handleTapDown(TapDownDetails details) => _controller.forward();
 
   void _handleTapUp(TapUpDetails details) {
     _controller.reverse();
     widget.onTap();
   }
 
-  void _handleTapCancel() {
-    _controller.reverse();
-  }
+  void _handleTapCancel() => _controller.reverse();
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final icon = widget.isSelected ? widget.activeIcon : widget.icon;
 
-    return GestureDetector(
-      onTapDown: _handleTapDown,
-      onTapUp: _handleTapUp,
-      onTapCancel: _handleTapCancel,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedBuilder(
-        animation: _scaleAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: SizedBox(
-              width: 54, // Fixed width prevents layout jitter
+    return Expanded(
+      child: GestureDetector(
+        onTapDown: _handleTapDown,
+        onTapUp: _handleTapUp,
+        onTapCancel: _handleTapCancel,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
+                    duration: _selectionDuration,
                     curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.all(8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
                       color: widget.isSelected
                           ? scheme.primary.withValues(alpha: 0.15)
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Icon(
-                      widget.isSelected ? widget.activeIcon : widget.icon,
-                      size: 24,
-                      color: widget.isSelected
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant,
+                    child: AnimatedSwitcher(
+                      duration: _iconSwapDuration,
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.7, end: 1.0)
+                              .animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: HugeIcon(
+                        key: ValueKey(icon),
+                        icon: icon,
+                        size: 24,
+                        color: widget.isSelected
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 200),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight:
-                          widget.isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: widget.isSelected
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                      letterSpacing: 0.2,
+                  const SizedBox(height: 4),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: AnimatedDefaultTextStyle(
+                        duration: _selectionDuration,
+                        curve: Curves.easeOutCubic,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: widget.isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: widget.isSelected
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          letterSpacing: 0.3,
+                        ),
+                        child: Text(widget.label, maxLines: 1),
+                      ),
                     ),
-                    child: Text(widget.label, maxLines: 1),
                   ),
                 ],
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Wide (tablet / desktop / web): Elevated NavigationRail
+// Wide (tablet / desktop / web): Fluid NavigationRail
 // ---------------------------------------------------------------------------
 
 class _WideShell extends StatelessWidget {
@@ -306,28 +319,28 @@ class _WideShell extends StatelessWidget {
 
   static const _destinations = [
     NavigationRailDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedHome01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedHome02, size: 26),
       label: Text('Home'),
     ),
     NavigationRailDestination(
-      icon: Icon(Icons.book_outlined),
-      selectedIcon: Icon(Icons.book_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedBook02, size: 26),
       label: Text('Notebooks'),
     ),
     NavigationRailDestination(
-      icon: Icon(Icons.label_outlined),
-      selectedIcon: Icon(Icons.label_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedTag01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedTag02, size: 26),
       label: Text('Tags'),
     ),
     NavigationRailDestination(
-      icon: Icon(Icons.delete_outline),
-      selectedIcon: Icon(Icons.delete_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: 26),
       label: Text('Trash'),
     ),
     NavigationRailDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 26),
       label: Text('Settings'),
     ),
   ];
@@ -337,58 +350,69 @@ class _WideShell extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: Row(
-        children: [
-          Flexible(
-            child: Container(
+      backgroundColor: scheme.surface,
+      body: SafeArea(
+        child: Row(
+          children: [
+            Container(
               decoration: BoxDecoration(
                 color: scheme.surface,
                 border: Border(
                   right: BorderSide(
-                    color: scheme.outlineVariant.withValues(alpha: 0.15),
+                    color: scheme.outlineVariant.withValues(alpha: 0.2),
                   ),
                 ),
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
                       child: IntrinsicHeight(
                         child: NavigationRail(
+                          minWidth: 110,
                           selectedIndex: selectedIndex,
                           onDestinationSelected: onTap,
                           backgroundColor: Colors.transparent,
                           indicatorColor:
-                              scheme.primary.withValues(alpha: 0.15),
+                              scheme.primary.withValues(alpha: 0.12),
+                          indicatorShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                           selectedIconTheme:
                               IconThemeData(color: scheme.primary),
                           unselectedIconTheme:
                               IconThemeData(color: scheme.onSurfaceVariant),
                           selectedLabelTextStyle: TextStyle(
                             color: scheme.primary,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             letterSpacing: 0.5,
+                            fontSize: 13,
                           ),
                           unselectedLabelTextStyle: TextStyle(
                             color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
                           labelType: NavigationRailLabelType.all,
                           leading: Padding(
-                            padding: const EdgeInsets.only(bottom: 24, top: 24),
+                            padding: const EdgeInsets.symmetric(vertical: 32),
                             child: Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: scheme.primaryContainer,
+                                color: scheme.primaryContainer
+                                    .withValues(alpha: 0.6),
                                 shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: scheme.primary.withValues(alpha: 0.2),
+                                ),
                               ),
-                              child: Icon(
-                                Icons.bolt_rounded,
+                              child: HugeIcon(
+                                icon: HugeIcons.strokeRoundedFlash,
                                 size: 28,
-                                color: scheme.onPrimaryContainer,
+                                color: scheme.primary,
                               ),
                             ),
                           ),
@@ -400,9 +424,9 @@ class _WideShell extends StatelessWidget {
                 },
               ),
             ),
-          ),
-          Expanded(child: child),
-        ],
+            Expanded(child: child),
+          ],
+        ),
       ),
     );
   }

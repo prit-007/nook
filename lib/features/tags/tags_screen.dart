@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
@@ -183,8 +183,9 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                                         : null,
                                   ),
                                   child: isSelected(seed)
-                                      ? const Icon(
-                                          Icons.check_rounded,
+                                      ? const HugeIcon(
+                                          icon: HugeIcons
+                                              .strokeRoundedCheckmarkCircle01,
                                           color: Colors.white,
                                           size: 20,
                                         )
@@ -351,7 +352,14 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Flexible(flex: 3, child: grid),
+                    Flexible(
+                      flex: 3,
+                      child: Container(
+                        color:
+                            scheme.surfaceContainerLow.withValues(alpha: 0.3),
+                        child: grid,
+                      ),
+                    ),
                     VerticalDivider(
                       width: 1,
                       thickness: 1,
@@ -377,7 +385,10 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               backgroundColor: scheme.primaryContainer.withValues(alpha: 0.8),
               foregroundColor: scheme.onPrimaryContainer,
               elevation: 0,
-              icon: const Icon(LucideIcons.plus),
+              icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedAdd01,
+                  size: 24,
+                  color: scheme.onPrimaryContainer),
               label: const Text(
                 'New Tag',
                 style: TextStyle(
@@ -396,7 +407,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   Widget _tagsGrid(ColorScheme scheme, bool isDualPane) {
     if (_tags.isEmpty) {
       return const EmptyState(
-        icon: LucideIcons.tags,
+        icon: HugeIcons.strokeRoundedTags,
         title: 'No tags yet',
         subtitle: 'Organize your vault by creating tags',
         animate: true,
@@ -498,7 +509,10 @@ class _TagPillState extends State<_TagPill> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(LucideIcons.tag, size: 16, color: widget.color),
+              HugeIcon(
+                  icon: HugeIcons.strokeRoundedTag01,
+                  size: 16,
+                  color: widget.color),
               const SizedBox(width: 8),
               Text(
                 widget.tag.name,

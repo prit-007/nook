@@ -25,6 +25,14 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autofree gchar* data_dir = g_path_get_dirname(fl_dart_project_get_assets_path(project));
+  g_autofree gchar* icon_path = g_build_filename(data_dir, "icon.png", nullptr);
+  g_autoptr(GError) icon_error = nullptr;
+  if (!gtk_window_set_icon_from_file(window, icon_path, &icon_error)) {
+    g_warning("Failed to set window icon: %s", icon_error->message);
+  }
+
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
   // desktop).
@@ -54,7 +62,6 @@ static void my_application_activate(GApplication* application) {
 
   gtk_window_set_default_size(window, 1280, 720);
 
-  g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
 

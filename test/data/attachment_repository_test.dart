@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
@@ -191,6 +191,136 @@ void main() {
       expect(images.last.id, id1);
       expect(images.first.sortOrder, 0);
       expect(images.last.sortOrder, 1);
+    });
+  });
+
+  group('softDelete', () {
+    test('sets deleted to true and deletedAt to non-null', () async {
+      final id = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.softDelete(id);
+      final row = await repo.getById(id);
+      expect(row!.deleted, isTrue);
+      expect(row.deletedAt, isNotNull);
+    });
+
+    test('excludes soft-deleted from getAllForNote', () async {
+      final id = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.addImage(noteId: 'note-1', filePath: '/p/2.jpg');
+      await repo.softDelete(id);
+
+      final all = await repo.getAllForNote('note-1');
+      expect(all, hasLength(1));
+      expect(all.first.filePath, '/p/2.jpg');
+    });
+
+    test('excludes soft-deleted from getImagesForNote', () async {
+      final id = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.addImage(noteId: 'note-1', filePath: '/p/2.jpg');
+      await repo.softDelete(id);
+
+      final images = await repo.getImagesForNote('note-1');
+      expect(images, hasLength(1));
+      expect(images.first.filePath, '/p/2.jpg');
+    });
+
+    test('excludes soft-deleted from getByFilePath', () async {
+      final id = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.softDelete(id);
+
+      final result = await repo.getByFilePath('/p/1.jpg');
+      expect(result, isNull);
+    });
+  });
+
+  group('restore', () {
+    test('clears deleted and deletedAt', () async {
+      final id = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.softDelete(id);
+      await repo.restore(id);
+
+      final row = await repo.getById(id);
+      expect(row!.deleted, isFalse);
+      expect(row.deletedAt, isNull);
+    });
+
+    test('makes attachment visible in queries again', () async {
+      final id = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.softDelete(id);
+
+      var all = await repo.getAllForNote('note-1');
+      expect(all, isEmpty);
+
+      await repo.restore(id);
+
+      all = await repo.getAllForNote('note-1');
+      expect(all, hasLength(1));
+    });
+  });
+
+  group('getDeletedForNote', () {
+    test('returns only soft-deleted attachments', () async {
+      final id1 = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.addImage(noteId: 'note-1', filePath: '/p/2.jpg');
+      await repo.softDelete(id1);
+
+      final deleted = await repo.getDeletedForNote('note-1');
+      expect(deleted, hasLength(1));
+      expect(deleted.first.id, id1);
+    });
+
+    test('returns empty when no attachments are deleted', () async {
+      await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      final deleted = await repo.getDeletedForNote('note-1');
+      expect(deleted, isEmpty);
+    });
+  });
+
+  group('softDeleteAllForNote', () {
+    test('soft-deletes all attachments for a note', () async {
+      await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.addImage(noteId: 'note-1', filePath: '/p/2.jpg');
+      await insertDoodleLayer(db, noteId: 'note-1', filePath: '/d/1.draw');
+
+      await repo.softDeleteAllForNote('note-1');
+
+      final active = await repo.getAllForNote('note-1');
+      expect(active, isEmpty);
+
+      final deleted = await repo.getDeletedForNote('note-1');
+      expect(deleted, hasLength(3));
+    });
+  });
+
+  group('restoreAllForNote', () {
+    test('restores all soft-deleted attachments for a note', () async {
+      await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.addImage(noteId: 'note-1', filePath: '/p/2.jpg');
+      await repo.softDeleteAllForNote('note-1');
+
+      await repo.restoreAllForNote('note-1');
+
+      final active = await repo.getAllForNote('note-1');
+      expect(active, hasLength(2));
+    });
+  });
+
+  group('permanentlyDelete', () {
+    test('removes attachment from DB', () async {
+      final id = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.permanentlyDelete(id);
+      final result = await repo.getById(id);
+      expect(result, isNull);
+    });
+  });
+
+  group('getAllForNoteIncludingDeleted', () {
+    test('returns all attachments including soft-deleted', () async {
+      final id1 = await repo.addImage(noteId: 'note-1', filePath: '/p/1.jpg');
+      await repo.addImage(noteId: 'note-1', filePath: '/p/2.jpg');
+      await repo.softDelete(id1);
+
+      final all = await repo.getAllForNoteIncludingDeleted('note-1');
+      expect(all, hasLength(2));
     });
   });
 }

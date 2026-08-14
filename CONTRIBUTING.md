@@ -27,8 +27,9 @@ cd nook
 # 2. Resolve dependencies
 flutter pub get
 
-# 3. Patch appflowy_editor (REQUIRED — see "Editor patches" below)
+# 3. Patch appflowy_editor + talker_flutter (REQUIRED — see below)
 dart run tool/patch_appflowy_editor.dart
+dart run tool/patch_talker_flutter.dart
 
 # 4. Generate Drift / Freezed / Riverpod code
 dart run build_runner build --delete-conflicting-outputs
@@ -76,7 +77,7 @@ from analysis; regenerate rather than edit them by hand.
 
 ## Editor patches (why they exist)
 
-`appflowy_editor ^6.2.0` has two upstream gaps that this repo currently patches:
+`appflowy_editor ^6.2.0` has upstream gaps that this repo currently patches:
 
 1. **`keyboard_height_plugin` compile-SDK mismatch** — the transitive plugin
    ships `compileSdkVersion 31`, which fails AAR metadata checks on AGP 9+.
@@ -87,8 +88,15 @@ from analysis; regenerate rather than edit them by hand.
    `appflowy_editor` doesn't implement it, so editors won't compile.
    `tool/patch_appflowy_editor.dart` adds the override idempotently. Remove
    once `appflowy_editor` publishes `>= 6.2.1`.
+3. **`/` slash command dead on mobile** — the stock `_showSlashMenu` returns
+   false on mobile, so typing `/` does nothing, and the `SelectionMenu`
+   overlay can't be shown on touch (it closes the soft keyboard and needs
+   hardware-keyboard navigation). The same `tool/patch_appflowy_editor.dart`
+   instead inserts the `/` character as a visual breadcrumb and consumes the
+   event; block insertion happens through the app's `MobileToolbarV2` (see
+   AGENTS.md → "Mobile toolbar & global shortcuts").
 
-Both are tracked in [`AGENTS.md`](AGENTS.md). If either upstream is fixed,
+All three are tracked in [`AGENTS.md`](AGENTS.md). If any upstream is fixed,
 delete the corresponding patch and open a PR — a great first contribution.
 
 ## Project structure

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:hugeicons/hugeicons.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/dock_safe_area.dart';
@@ -82,7 +83,7 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
           ? Center(child: CircularProgressIndicator(color: seedColor))
           : _notes.isEmpty
               ? const EmptyState(
-                  icon: Icons.notes_outlined,
+                  icon: HugeIcons.strokeRoundedNotebook01,
                   title: 'No notes in this collection',
                   subtitle: 'Create a note and assign it here.',
                   animate: false,

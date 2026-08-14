@@ -3,12 +3,16 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/core/theme/note_theme.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/checklist_item_repository.dart';
+import 'package:nook/data/repositories/notebook_repository.dart';
+import 'package:nook/data/repositories/tag_repository.dart';
 import 'package:nook/data/tables/notes.dart';
 
+import 'card_tag_pill.dart';
 import 'note_quick_actions_sheet.dart';
 
 class NoteCard extends ConsumerStatefulWidget {
@@ -32,6 +36,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
   bool _isPressed = false;
   List<ChecklistItem> _checklistItems = [];
   bool _loadingChecklist = false;
+  List<Tag> _tags = [];
+  String? _notebookName;
 
   bool get _hasColor =>
       widget.note.colorSeed != null && widget.note.colorSeed!.isNotEmpty;
@@ -42,14 +48,17 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     if (widget.note.type == NoteType.checklist) {
       _loadChecklistItems();
     }
+    _loadMetadata();
   }
 
   @override
   void didUpdateWidget(covariant NoteCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.note.id != widget.note.id &&
-        widget.note.type == NoteType.checklist) {
-      _loadChecklistItems();
+    if (oldWidget.note.id != widget.note.id) {
+      if (widget.note.type == NoteType.checklist) {
+        _loadChecklistItems();
+      }
+      _loadMetadata();
     }
   }
 
@@ -61,6 +70,23 @@ class _NoteCardState extends ConsumerState<NoteCard> {
       setState(() {
         _checklistItems = items;
         _loadingChecklist = false;
+      });
+    }
+  }
+
+  Future<void> _loadMetadata() async {
+    final db = ref.read(databaseProvider);
+    final tags = await TagRepository(db).getTagsForNote(widget.note.id);
+    String? nbName;
+    if (widget.note.notebookId != null) {
+      final nb =
+          await NotebookRepository(db).getNotebookById(widget.note.notebookId!);
+      nbName = nb?.name;
+    }
+    if (mounted) {
+      setState(() {
+        _tags = tags;
+        _notebookName = nbName;
       });
     }
   }
@@ -138,6 +164,10 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                               ? _lockedPreview(cardScheme)
                               : _contentPreview(cardScheme),
                         ),
+                        if (_tags.isNotEmpty || _notebookName != null) ...[
+                          const SizedBox(height: 8),
+                          _metadataRow(cardScheme),
+                        ],
                       ],
                     ),
                   ),
@@ -151,8 +181,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                           color: cardScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(
-                          Icons.push_pin,
+                        child: HugeIcon(
+                          icon: HugeIcons.strokeRoundedPin,
                           size: 14,
                           color: cardScheme.onPrimaryContainer,
                         ),
@@ -168,8 +198,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                           color: cardScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(
-                          Icons.lock,
+                        child: HugeIcon(
+                          icon: HugeIcons.strokeRoundedLock,
                           size: 14,
                           color: cardScheme.onSurface.withValues(alpha: 0.5),
                         ),
@@ -186,12 +216,12 @@ class _NoteCardState extends ConsumerState<NoteCard> {
 
   Widget _typeIcon(ColorScheme scheme) {
     final icon = switch (widget.note.type) {
-      NoteType.checklist => Icons.checklist,
-      NoteType.doodle => Icons.draw,
-      NoteType.mixed => Icons.layers,
-      NoteType.text => Icons.notes,
+      NoteType.checklist => HugeIcons.strokeRoundedCheckList,
+      NoteType.doodle => HugeIcons.strokeRoundedDrawingMode,
+      NoteType.mixed => HugeIcons.strokeRoundedLayers01,
+      NoteType.text => HugeIcons.strokeRoundedNotebook01,
     };
-    return Icon(icon, size: 16, color: scheme.primary);
+    return HugeIcon(icon: icon, size: 16, color: scheme.primary);
   }
 
   Widget _lockedPreview(ColorScheme scheme) {
@@ -216,8 +246,10 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     final text = widget.note.plainText ?? widget.note.title;
     if (text.isEmpty) {
       return Center(
-        child: Icon(
-          widget.note.type == NoteType.doodle ? Icons.draw : Icons.notes,
+        child: HugeIcon(
+          icon: widget.note.type == NoteType.doodle
+              ? HugeIcons.strokeRoundedDrawingMode
+              : HugeIcons.strokeRoundedNotebook01,
           size: 32,
           color: scheme.onSurface.withValues(alpha: 0.15),
         ),
@@ -252,8 +284,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
 
     if (_checklistItems.isEmpty) {
       return Center(
-        child: Icon(
-          Icons.add_task_rounded,
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
           size: 32,
           color: scheme.onSurface.withValues(alpha: 0.15),
         ),
@@ -312,10 +344,10 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
                       children: [
-                        Icon(
-                          item.checked
-                              ? Icons.check_circle_rounded
-                              : Icons.radio_button_unchecked,
+                        HugeIcon(
+                          icon: item.checked
+                              ? HugeIcons.strokeRoundedCheckmarkCircle01
+                              : HugeIcons.strokeRoundedCircle,
                           size: 12,
                           color: item.checked
                               ? scheme.primary
@@ -356,6 +388,49 @@ class _NoteCardState extends ConsumerState<NoteCard> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _metadataRow(ColorScheme scheme) {
+    return Row(
+      children: [
+        if (_notebookName != null) ...[
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedFolder01,
+            size: 10,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(
+              _notebookName!,
+              style: TextStyle(
+                fontSize: 10,
+                color: scheme.onSurfaceVariant,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+        if (_tags.isNotEmpty) ...[
+          if (_notebookName != null) const SizedBox(width: 6),
+          Flexible(
+            child: Wrap(
+              spacing: 3,
+              runSpacing: 2,
+              children: [
+                ..._tags.take(2).map((tag) => CardTagPill(
+                      label: tag.name,
+                      colorSeed: tag.colorSeed,
+                    )),
+                if (_tags.length > 2)
+                  CardTagOverflowPill(count: _tags.length - 2),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

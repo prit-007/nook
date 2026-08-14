@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/features/doodle/doodle_canvas.dart';
 import 'package:nook/features/doodle/doodle_controller.dart';
 import 'package:nook/features/doodle/doodle_toolbar.dart';
@@ -10,7 +10,8 @@ void main() {
     /// The toolbar starts collapsed (only the expand handle). This helper
     /// expands it so tool assertions can inspect the full surface.
     Future<void> expandToolbar(WidgetTester tester) async {
-      await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
+      await tester.tap(find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp01));
       await tester.pumpAndSettle();
     }
 
@@ -22,9 +23,18 @@ void main() {
         ),
       ));
 
-      expect(find.byIcon(Icons.keyboard_arrow_up_rounded), findsOneWidget);
-      expect(find.byIcon(LucideIcons.penLine), findsNothing);
-      expect(find.byIcon(LucideIcons.eraser), findsNothing);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp01),
+          findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPen01),
+          findsNothing);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedEraser01),
+          findsNothing);
     });
 
     testWidgets('tapping the handle expands the toolbar', (tester) async {
@@ -37,8 +47,14 @@ void main() {
 
       await expandToolbar(tester);
 
-      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
-      expect(find.byIcon(LucideIcons.penLine), findsAtLeastNWidgets(1));
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowDown01),
+          findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPen01),
+          findsAtLeastNWidgets(1));
     });
 
     testWidgets('collapsed handle never overflows a phone width',
@@ -66,10 +82,22 @@ void main() {
       ));
       await expandToolbar(tester);
 
-      expect(find.byIcon(LucideIcons.penLine), findsAtLeastNWidgets(1));
-      expect(find.byIcon(LucideIcons.highlighter), findsOneWidget);
-      expect(find.byIcon(LucideIcons.eraser), findsOneWidget);
-      expect(find.byIcon(LucideIcons.wandSparkles), findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPen01),
+          findsAtLeastNWidgets(1));
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedHighlighter),
+          findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedEraser01),
+          findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedMagicWand01),
+          findsOneWidget);
     });
 
     testWidgets('pen is selected by default', (tester) async {
@@ -93,7 +121,8 @@ void main() {
       ));
       await expandToolbar(tester);
 
-      await tester.tap(find.byIcon(LucideIcons.eraser));
+      await tester.tap(find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedEraser01));
       await tester.pumpAndSettle();
 
       expect(controller.currentTool, equals(DoodleTool.eraser));
@@ -108,7 +137,8 @@ void main() {
       ));
       await expandToolbar(tester);
 
-      await tester.tap(find.byIcon(LucideIcons.highlighter));
+      await tester.tap(find.byWidgetPredicate((w) =>
+          w is HugeIcon && w.icon == HugeIcons.strokeRoundedHighlighter));
       await tester.pumpAndSettle();
 
       expect(controller.currentTool, equals(DoodleTool.highlighter));
@@ -125,7 +155,8 @@ void main() {
 
       expect(controller.shapeAssistEnabled, isTrue);
 
-      await tester.tap(find.byIcon(LucideIcons.wandSparkles));
+      await tester.tap(find.byWidgetPredicate((w) =>
+          w is HugeIcon && w.icon == HugeIcons.strokeRoundedMagicWand01));
       await tester.pumpAndSettle();
 
       expect(controller.shapeAssistEnabled, isFalse);
@@ -210,7 +241,10 @@ void main() {
       ));
       await expandToolbar(tester);
 
-      expect(find.byIcon(LucideIcons.trash2), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedDelete02),
+          findsOneWidget);
     });
   });
 

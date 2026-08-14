@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
+import 'package:nook/data/repositories/attachment_repository.dart';
 import 'package:nook/data/repositories/note_repository.dart';
 import 'package:nook/data/tables/notes.dart';
 
@@ -226,6 +227,61 @@ void main() {
       expect(
           updated!.deltaContent, '{"document":{"type":"page","children":[]}}');
       expect(updated.plainText, 'Hello world');
+    });
+
+    test('softDelete cascades to soft-delete attachments', () async {
+      final note = await repo.createNote(
+        title: 'With Attachments',
+        type: NoteType.text,
+        deviceOriginId: 'd1',
+      );
+      final attRepo = AttachmentRepository(db);
+      await attRepo.addImage(noteId: note.id, filePath: '/p/1.jpg');
+      await attRepo.addImage(noteId: note.id, filePath: '/p/2.jpg');
+
+      await repo.softDelete(note.id);
+
+      // Attachments should be soft-deleted
+      final active = await attRepo.getAllForNote(note.id);
+      expect(active, isEmpty);
+
+      final deleted = await attRepo.getDeletedForNote(note.id);
+      expect(deleted, hasLength(2));
+    });
+
+    test('restore cascades to restore attachments', () async {
+      final note = await repo.createNote(
+        title: 'With Attachments',
+        type: NoteType.text,
+        deviceOriginId: 'd1',
+      );
+      final attRepo = AttachmentRepository(db);
+      await attRepo.addImage(noteId: note.id, filePath: '/p/1.jpg');
+      await attRepo.addImage(noteId: note.id, filePath: '/p/2.jpg');
+
+      await repo.softDelete(note.id);
+      await repo.restore(note.id);
+
+      // Attachments should be restored
+      final active = await attRepo.getAllForNote(note.id);
+      expect(active, hasLength(2));
+    });
+
+    test('permanentlyDelete removes attachment rows', () async {
+      final note = await repo.createNote(
+        title: 'With Attachments',
+        type: NoteType.text,
+        deviceOriginId: 'd1',
+      );
+      final attRepo = AttachmentRepository(db);
+      await attRepo.addImage(noteId: note.id, filePath: '/p/1.jpg');
+      await attRepo.addImage(noteId: note.id, filePath: '/p/2.jpg');
+
+      await repo.permanentlyDelete(note.id);
+
+      // Attachment rows should be gone
+      final all = await attRepo.getAllForNoteIncludingDeleted(note.id);
+      expect(all, isEmpty);
     });
   });
 }

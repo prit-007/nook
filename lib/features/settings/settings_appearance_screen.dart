@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/design_tokens.dart';
@@ -108,8 +108,8 @@ class SettingsAppearanceScreen extends ConsumerWidget {
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-                  secondary: Icon(
-                    LucideIcons.moon,
+                  secondary: HugeIcon(
+                    icon: HugeIcons.strokeRoundedMoon01,
                     color: scheme.primary,
                     size: 28,
                   ),
@@ -148,8 +148,8 @@ class SettingsAppearanceScreen extends ConsumerWidget {
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-                  secondary: Icon(
-                    LucideIcons.rabbit,
+                  secondary: HugeIcon(
+                    icon: HugeIcons.strokeRoundedFlowCircle,
                     color: scheme.primary,
                     size: 28,
                   ),
@@ -224,10 +224,13 @@ class _ThemeModeTile extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                Icon(LucideIcons.checkCircle, color: scheme.primary, size: 22)
+                HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    color: scheme.primary,
+                    size: 22)
               else
-                Icon(
-                  LucideIcons.circle,
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedCircle,
                   color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                   size: 22,
                 ),

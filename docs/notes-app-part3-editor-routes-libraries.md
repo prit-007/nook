@@ -160,12 +160,12 @@ class _DoodleCanvasScreenState extends State<DoodleCanvasScreen> {
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.close),
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 24),
             onPressed: () => Navigator.of(context).pop(), // discard
           ),
           actions: [
-            IconButton(icon: const Icon(Icons.undo), onPressed: controller.undo),
-            IconButton(icon: const Icon(Icons.redo), onPressed: controller.redo),
+            IconButton(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUndo02, size: 24), onPressed: controller.undo),
+            IconButton(icon: const HugeIcon(icon: HugeIcons.strokeRoundedRedo02, size: 24), onPressed: controller.redo),
             TextButton(onPressed: _save, child: const Text('Done')),
           ],
         ),
@@ -192,7 +192,7 @@ final slashMenuItems = <SelectionMenuItem>[
   SelectionMenuItem(
     name: 'Checklist',
     icon: (_, isSelected, style) => _MenuIcon(
-      icon: Icons.checklist_rounded,
+      icon: HugeIcons.strokeRoundedCheckList,
       selected: isSelected,
     ),
     keywords: ['todo', 'checklist', 'task', 'check'],
@@ -203,7 +203,7 @@ final slashMenuItems = <SelectionMenuItem>[
   SelectionMenuItem(
     name: 'Doodle',
     icon: (_, isSelected, style) => _MenuIcon(
-      icon: Icons.draw_rounded,
+      icon: HugeIcons.strokeRoundedDrawingMode,
       selected: isSelected,
     ),
     keywords: ['doodle', 'draw', 'sketch', 'canvas'],
@@ -218,7 +218,7 @@ final slashMenuItems = <SelectionMenuItem>[
   ),
   SelectionMenuItem(
     name: 'Image',
-    icon: (_, isSelected, style) => _MenuIcon(icon: Icons.image_rounded, selected: isSelected),
+    icon: (_, isSelected, style) => _MenuIcon(icon: HugeIcons.strokeRoundedImage01, selected: isSelected),
     keywords: ['image', 'photo', 'picture'],
     handler: (editorState, menuService, context) async {
       final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -256,6 +256,27 @@ AppFlowyEditor(
 - **Live filtering as you type after `/`** (e.g. `/check` narrows to Checklist) — this is built into `SelectionMenuItem.keywords`, just make sure you populate good keyword lists like above.
 - **A one-time "did you know" tooltip on first use** pointing at the `/` trigger during onboarding (§5.1 in the master plan) — most users never discover slash menus in text editors unless nudged once.
 
+### 2.3 Mobile: the slash menu becomes a toolbar (design decision)
+
+The desktop `/` menu (a `SelectionMenu` overlay) does not survive touch: the
+overlay closes the soft keyboard and its navigation relies on hardware-keyboard
+events. Two coordinated decisions handle mobile:
+
+1. **`tool/patch_appflowy_editor.dart` patches `slash_command.dart`** so the
+   stock `_showSlashMenu`, on mobile, inserts the `/` character as a visual
+   breadcrumb and consumes the event **without** showing the `SelectionMenu`.
+   (Upstream 6.2.0 returns `false` on mobile, so `/` does nothing; simply
+   removing that guard is not enough for the reasons above.)
+2. **`MobileToolbarV2` replaces the overlay on mobile** — `note_editor_screen.dart`
+   wraps the editor with a toolbar themed to the note's scheme, exposing the same
+   block types as the desktop slash menu (H1/H2/H3, bulleted/numbered lists,
+   checkbox, quote), a Doodle action item that opens the doodle canvas via
+   `_insertDoodle()`, and `textDecorationMobileToolbarItemV2`.
+
+Desktop keeps the real slash menu: the global keyboard shortcuts (AGENTS.md →
+"Mobile toolbar & global shortcuts") are suppressed while the editor has focus,
+so `/` still opens the menu while editing.
+
 ---
 
 ## 3. Full Screen & Routing Map (go_router)
@@ -288,9 +309,11 @@ AppFlowyEditor(
 | Settings — Security | `/settings/security` | |
 | Settings — Storage & Backup | `/settings/storage` | |
 | Settings — Sync devices | `/settings/sync-devices` | Paired-device history, distinct from the live `/sync/*` flow |
+| Settings — Privacy | `/settings/privacy` | Privacy policy |
+| Settings — App Logs | `/settings/logs` | Developer log viewer (`talker_flutter`) |
 | Settings — About/License | `/settings/about` | |
 
-That's **~22 routes** across 8 feature areas (Home, Search, Notebooks, Tags, Editor, Trash/Locked, Sync, Settings) — a healthy scope for a v1 that doesn't feel thin, without ballooning into over-engineering.
+That's **~28 routes** across 8 feature areas (Home, Search, Notebooks, Tags, Editor, Trash/Locked, Sync, Settings) — a healthy scope for a v1 that doesn't feel thin, without ballooning into over-engineering.
 
 ### 3.2 go_router Skeleton
 

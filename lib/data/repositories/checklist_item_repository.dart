@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 
 /// Repository for ChecklistItems table operations.
@@ -30,6 +31,8 @@ class ChecklistItemRepository {
         );
 
     final item = await getItemById(itemId);
+    nookLog(
+        NookLogKey.database, 'Checklist item added: $itemId', LogLevel.debug);
     return item!;
   }
 
@@ -65,6 +68,7 @@ class ChecklistItemRepository {
   /// Deletes a single item.
   Future<void> deleteItem(String id) async {
     await (_db.delete(_db.checklistItems)..where((t) => t.id.equals(id))).go();
+    nookLog(NookLogKey.database, 'Checklist item deleted: $id', LogLevel.debug);
   }
 
   /// Deletes all items for a note.

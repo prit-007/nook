@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/widgets/empty_state.dart';
@@ -81,14 +82,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           onChanged: _search,
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowLeft01, size: 24),
           tooltip: 'Go back',
           onPressed: () => context.pop(),
         ),
       ),
       body: _query.trim().isEmpty
           ? const EmptyState(
-              icon: Icons.search_rounded,
+              icon: HugeIcons.strokeRoundedSearch01,
               title: 'Search notes',
               subtitle: 'Type to find your notes',
               animate: false,
@@ -97,7 +99,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ? const Center(child: CircularProgressIndicator())
               : _results.isEmpty && _searched
                   ? EmptyState(
-                      icon: Icons.search_off_rounded,
+                      icon: HugeIcons.strokeRoundedSearch02,
                       title: 'No results',
                       subtitle: 'No notes found for "$_query"',
                       animate: false,

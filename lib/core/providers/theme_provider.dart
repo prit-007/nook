@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/design_tokens.dart';
+import 'talker_provider.dart';
 
 /// Persists: manual seed index, dark/light/system mode, reduce-motion flag,
 /// and AMOLED true-black dark-mode flag.
@@ -23,12 +24,14 @@ class ThemePreference extends ChangeNotifier {
 
   void setSeedIndex(int index) {
     seedIndex = index;
+    talker.info('Theme seed changed to ${NookColors.seeds[index]}');
     notifyListeners();
     _save();
   }
 
   void setThemeMode(ThemeMode mode) {
     themeMode = mode;
+    talker.info('Theme mode changed to $mode');
     notifyListeners();
     _save();
   }

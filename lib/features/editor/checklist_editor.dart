@@ -3,17 +3,20 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
 
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/note_theme_scope.dart';
+import '../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/tables/attachments.dart';
 import '../../data/repositories/note_repository.dart';
+import 'widgets/media_delete_button.dart';
 
 /// A standalone checklist editor for checklist-type notes.
 /// Shows a list of items with checkboxes, add item field, and delete.
@@ -22,18 +25,22 @@ class ChecklistEditor extends ConsumerStatefulWidget {
     super.key,
     required this.noteId,
     this.title = '',
+    this.initialAttachments = const [],
     this.onTitleChanged,
     this.onInsertImage,
     this.onInsertDoodle,
     this.onOpenAttachment,
+    this.onDeleteAttachment,
   });
 
   final String noteId;
   final String title;
+  final List<Attachment> initialAttachments;
   final ValueChanged<String>? onTitleChanged;
   final Future<void> Function()? onInsertImage;
   final Future<void> Function()? onInsertDoodle;
   final Future<void> Function(Attachment attachment)? onOpenAttachment;
+  final Future<void> Function(Attachment attachment)? onDeleteAttachment;
 
   @override
   ConsumerState<ChecklistEditor> createState() => _ChecklistEditorState();
@@ -55,6 +62,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.title);
+    _attachments = List.of(widget.initialAttachments);
     _load();
   }
 
@@ -73,6 +81,10 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     if (oldWidget.title != widget.title &&
         _titleController.text != widget.title) {
       _titleController.text = widget.title;
+    }
+    // Sync attachments from parent when they change (instant refresh).
+    if (oldWidget.initialAttachments != widget.initialAttachments) {
+      _attachments = List.of(widget.initialAttachments);
     }
   }
 
@@ -170,6 +182,20 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   }
 
   Future<void> _deleteItem(String id) async {
+    final item = [..._items, ..._archivedItems].firstWhere(
+      (i) => i.id == id,
+      orElse: () =>
+          _ChecklistItemView(id: id, text: '', checked: false, sortOrder: 0),
+    );
+    final confirmed = await showConfirmDeleteDialog(
+      context,
+      title: 'Delete task?',
+      message: item.text.isNotEmpty
+          ? '"${item.text}" will be moved to trash.'
+          : 'This task will be moved to trash.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
     unawaited(HapticFeedback.selectionClick());
     _recordHistory();
     final db = ref.read(databaseProvider);
@@ -264,13 +290,19 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                   IconButton(
                     tooltip: 'Undo',
                     onPressed: _undoStack.isEmpty ? null : _undo,
-                    icon: const Icon(Icons.undo_rounded, size: 20),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedUndo02,
+                        size: 20,
+                        color: scheme.onSurface),
                     visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
                     tooltip: 'Redo',
                     onPressed: _redoStack.isEmpty ? null : _redo,
-                    icon: const Icon(Icons.redo_rounded, size: 20),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedRedo02,
+                        size: 20,
+                        color: scheme.onSurface),
                     visualDensity: VisualDensity.compact,
                   ),
                 ],
@@ -312,8 +344,8 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                 if (_items.isNotEmpty)
                   IconButton(
                     tooltip: 'Use first task as title',
-                    icon: Icon(
-                      Icons.text_fields_rounded,
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedTextCreation,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -347,6 +379,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                 onInsertImage: widget.onInsertImage,
                                 onInsertDoodle: widget.onInsertDoodle,
                                 onOpenAttachment: widget.onOpenAttachment,
+                                onDeleteAttachment: widget.onDeleteAttachment,
                               ),
                             ),
                           SliverPadding(
@@ -564,8 +597,10 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      _expanded ? Icons.close_rounded : Icons.add_rounded,
+                    HugeIcon(
+                      icon: _expanded
+                          ? HugeIcons.strokeRoundedCancelCircle
+                          : HugeIcons.strokeRoundedAdd01,
                       color: scheme.primary,
                       size: 24,
                     ),
@@ -704,7 +739,10 @@ class _ChecklistTile extends StatelessWidget {
                 ),
               ),
               child: checked
-                  ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary)
+                  ? HugeIcon(
+                      icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                      size: 16,
+                      color: scheme.onPrimary)
                   : null,
             ),
           ),
@@ -747,16 +785,20 @@ class _ChecklistTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.close_rounded,
-                size: 20, color: scheme.onSurface.withValues(alpha: 0.3)),
+            icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedCancelCircle,
+                size: 20,
+                color: scheme.onSurface.withValues(alpha: 0.3)),
             tooltip: 'Delete item',
             onPressed: onDelete,
             visualDensity: VisualDensity.compact,
           ),
           ReorderableDragStartListener(
             index: index,
-            child: Icon(Icons.drag_indicator_rounded,
-                size: 22, color: scheme.onSurface.withValues(alpha: 0.2)),
+            child: HugeIcon(
+                icon: HugeIcons.strokeRoundedDrag01,
+                size: 22,
+                color: scheme.onSurface.withValues(alpha: 0.2)),
           ),
         ],
       ),
@@ -887,8 +929,10 @@ class _SwipeToCheckBackground extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isChecked ? Icons.undo_rounded : Icons.check_circle_rounded,
+          HugeIcon(
+            icon: isChecked
+                ? HugeIcons.strokeRoundedUndo02
+                : HugeIcons.strokeRoundedCheckmarkCircle01,
             size: 24,
             color: scheme.primary,
           ),
@@ -914,12 +958,14 @@ class _ChecklistMediaStrip extends StatelessWidget {
     this.onInsertImage,
     this.onInsertDoodle,
     this.onOpenAttachment,
+    this.onDeleteAttachment,
   });
 
   final List<dynamic> attachments;
   final Future<void> Function()? onInsertImage;
   final Future<void> Function()? onInsertDoodle;
   final Future<void> Function(Attachment attachment)? onOpenAttachment;
+  final Future<void> Function(Attachment attachment)? onDeleteAttachment;
 
   @override
   Widget build(BuildContext context) {
@@ -935,19 +981,35 @@ class _ChecklistMediaStrip extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           if (index < attachments.length) {
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: 84,
-                height: 84,
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                child: GestureDetector(
-                  onTap: onOpenAttachment == null
-                      ? null
-                      : () => onOpenAttachment!(attachments[index]),
-                  child: _attachmentPreview(attachments[index], scheme),
+            final attachment = attachments[index] as Attachment;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 84,
+                    height: 84,
+                    color:
+                        scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    child: GestureDetector(
+                      onTap: onOpenAttachment == null
+                          ? null
+                          : () => onOpenAttachment!(attachment),
+                      child: _attachmentPreview(attachment, scheme),
+                    ),
+                  ),
                 ),
-              ),
+                if (onDeleteAttachment != null)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: MediaDeleteButton(
+                      tooltip: 'Remove attachment',
+                      onPressed: () => onDeleteAttachment!(attachment),
+                    ),
+                  ),
+              ],
             );
           }
           final isImage = index == attachments.length;
@@ -971,10 +1033,10 @@ class _ChecklistMediaStrip extends StatelessWidget {
                   width: 1.5,
                 ),
               ),
-              child: Icon(
-                isImage
-                    ? Icons.add_photo_alternate_rounded
-                    : Icons.draw_rounded,
+              child: HugeIcon(
+                icon: isImage
+                    ? HugeIcons.strokeRoundedImageAdd01
+                    : HugeIcons.strokeRoundedDrawingMode,
                 color: scheme.primary,
                 size: 24,
               ),
@@ -995,10 +1057,10 @@ class _ChecklistMediaStrip extends StatelessWidget {
     return _attachmentIcon(attachment, scheme);
   }
 
-  Widget _attachmentIcon(Attachment attachment, ColorScheme scheme) => Icon(
-        attachment.type == AttachmentType.doodleLayer
-            ? Icons.draw_rounded
-            : Icons.image_outlined,
+  Widget _attachmentIcon(Attachment attachment, ColorScheme scheme) => HugeIcon(
+        icon: attachment.type == AttachmentType.doodleLayer
+            ? HugeIcons.strokeRoundedDrawingMode
+            : HugeIcons.strokeRoundedImage01,
         color: scheme.onSurfaceVariant,
       );
 }

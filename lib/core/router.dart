@@ -25,6 +25,7 @@ import '../../features/settings/settings_storage_screen.dart';
 import '../../features/settings/settings_sync_devices_screen.dart';
 import '../../features/settings/settings_about_screen.dart';
 import '../../features/settings/settings_privacy_screen.dart';
+import '../../features/settings/settings_logs_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import 'widgets/app_shell.dart';
 import 'providers/navigation_preference.dart';
@@ -41,8 +42,8 @@ CustomTransitionPage<T> buildEditorialTransition<T>({
   return CustomTransitionPage<T>(
     key: state.pageKey,
     child: child,
-    transitionDuration: const Duration(milliseconds: 800),
-    reverseTransitionDuration: const Duration(milliseconds: 400),
+    transitionDuration: const Duration(milliseconds: 500),
+    reverseTransitionDuration: const Duration(milliseconds: 350),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curve = CurvedAnimation(
         parent: animation,
@@ -57,7 +58,9 @@ CustomTransitionPage<T> buildEditorialTransition<T>({
             begin: const Offset(0.0, 0.05), // Subtle 5% drop
             end: Offset.zero,
           ).animate(curve),
-          child: child,
+          // Rasterize the incoming page once so the fade/slide only composites
+          // layers — no per-frame repaint of the page subtree during the push.
+          child: RepaintBoundary(child: child),
         ),
       );
     },
@@ -73,8 +76,8 @@ CustomTransitionPage<void> _slideUpTransition(
   return CustomTransitionPage<void>(
     key: state.pageKey,
     child: child,
-    transitionDuration: const Duration(milliseconds: 800),
-    reverseTransitionDuration: const Duration(milliseconds: 400),
+    transitionDuration: const Duration(milliseconds: 500),
+    reverseTransitionDuration: const Duration(milliseconds: 350),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curve = CurvedAnimation(
         parent: animation,
@@ -89,7 +92,7 @@ CustomTransitionPage<void> _slideUpTransition(
             begin: const Offset(0, 0.05),
             end: Offset.zero,
           ).animate(curve),
-          child: child,
+          child: RepaintBoundary(child: child),
         ),
       );
     },
@@ -111,7 +114,7 @@ CustomTransitionPage<void> _fadeTransition(
           parent: animation,
           curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
         ),
-        child: child,
+        child: RepaintBoundary(child: child),
       );
     },
   );
@@ -120,6 +123,14 @@ CustomTransitionPage<void> _fadeTransition(
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: ref.read(navigationPreferenceProvider.notifier).route,
+    redirect: (context, state) {
+      // Auto-persist every navigated route so the app can restore it on
+      // cold start.  Only top-level and first-level sub-routes are saved;
+      // deep links like /note/:id are intentionally skipped so the app
+      // opens to the containing section, not a possibly-stale note.
+      NavigationPreference.rememberPath(state.matchedLocation);
+      return null; // no redirect, just persist.
+    },
     routes: [
       GoRoute(
         path: '/',
@@ -242,6 +253,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               context,
               state,
               const SettingsPrivacyScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/settings/logs',
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SettingsLogsScreen(),
             ),
           ),
         ],

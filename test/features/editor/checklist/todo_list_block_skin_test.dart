@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/note_repository.dart';
@@ -86,7 +87,8 @@ void main() {
         .first;
     return find.descendant(
       of: row,
-      matching: find.byIcon(Icons.check),
+      matching: find.byWidgetPredicate((w) =>
+          w is HugeIcon && w.icon == HugeIcons.strokeRoundedCheckmarkCircle01),
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/database_provider.dart';
@@ -212,7 +213,7 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                     else ...[
                       _NotebookOption(
                         name: 'No notebook',
-                        icon: Icons.folder_off_outlined,
+                        icon: HugeIcons.strokeRoundedFolderOff,
                         isSelected: _selectedNotebookId == null,
                         onTap: () => _selectNotebook(null),
                       ),
@@ -270,10 +271,10 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
-                      secondary: Icon(
-                        _isLocked
-                            ? Icons.lock_rounded
-                            : Icons.lock_open_rounded,
+                      secondary: HugeIcon(
+                        icon: _isLocked
+                            ? HugeIcons.strokeRoundedLock
+                            : HugeIcons.strokeRoundedCircleUnlock01,
                         color: _isLocked
                             ? scheme.primary
                             : scheme.onSurfaceVariant,
@@ -335,8 +336,10 @@ class _ColorDot extends StatelessWidget {
             ),
           ),
           child: isSelected
-              ? Icon(
-                  color != null ? Icons.check : Icons.close,
+              ? HugeIcon(
+                  icon: color != null
+                      ? HugeIcons.strokeRoundedCheckmarkCircle01
+                      : HugeIcons.strokeRoundedCancelCircle,
                   size: 18,
                   color: swatch != null
                       ? NookSemantics.contrastForeground(swatch)
@@ -360,7 +363,7 @@ class _NotebookOption extends StatelessWidget {
   final String name;
   final bool isSelected;
   final VoidCallback onTap;
-  final IconData? icon;
+  final List<List<dynamic>>? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -369,8 +372,8 @@ class _NotebookOption extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      leading: Icon(
-        icon ?? Icons.book_outlined,
+      leading: HugeIcon(
+        icon: icon ?? HugeIcons.strokeRoundedBook01,
         color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
         size: 20,
       ),
@@ -383,7 +386,10 @@ class _NotebookOption extends StatelessWidget {
         ),
       ),
       trailing: isSelected
-          ? Icon(Icons.check, color: scheme.primary, size: 20)
+          ? HugeIcon(
+              icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+              color: scheme.primary,
+              size: 20)
           : null,
       onTap: onTap,
     );
@@ -430,7 +436,10 @@ class _TagChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isSelected) ...[
-                Icon(Icons.check, size: 14, color: tagColor),
+                HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    size: 14,
+                    color: tagColor),
                 const SizedBox(width: 4),
               ],
               Text(

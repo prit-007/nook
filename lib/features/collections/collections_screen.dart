@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../core/providers/navigation_preference.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../notebooks/notebooks_screen.dart';
 import '../tags/tags_screen.dart';
@@ -37,22 +36,27 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: SegmentedButton<int>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                     value: 0,
-                    label: Text('Notebooks'),
-                    icon: Icon(Icons.book_outlined)),
+                    label: const Text('Notebooks'),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedBook01,
+                        size: 20,
+                        color: scheme.onSurface)),
                 ButtonSegment(
                     value: 1,
-                    label: Text('Tags'),
-                    icon: Icon(Icons.label_outline)),
+                    label: const Text('Tags'),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedTag01,
+                        size: 20,
+                        color: scheme.onSurface)),
               ],
               selected: {_selectedTab},
               onSelectionChanged: (value) {
                 final tab = value.first;
                 setState(() => _selectedTab = tab);
                 final route = tab == 0 ? '/notebooks' : '/tags';
-                NavigationPreference.rememberPath(route);
                 context.go(route);
               },
               style: ButtonStyle(

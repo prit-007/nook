@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/checklist_item_repository.dart';
@@ -57,7 +58,8 @@ void main() {
   /// Tap the morphing input circle to expand it into a full text field.
   Future<void> expandInput(WidgetTester tester) async {
     // The collapsed circle shows an add icon.
-    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAdd01));
     await tester.pumpAndSettle();
   }
 
@@ -129,7 +131,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.text_fields_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedTextCreation));
     await tester.pumpAndSettle();
 
     expect(reported, 'Buy milk');
@@ -222,16 +225,26 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedCancelCircle),
+        findsOneWidget);
   });
 
-  testWidgets('tapping delete icon removes item', (tester) async {
+  testWidgets('tapping delete icon removes item after confirmation',
+      (tester) async {
     await repo.addItem(noteId: 'note-1', text: 'Delete me');
 
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedCancelCircle));
+    await tester.pumpAndSettle();
+
+    // Confirmation dialog should appear — tap the Delete button.
+    expect(find.text('Delete task?'), findsOneWidget);
+    await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
     expect(find.text('Delete me'), findsNothing);

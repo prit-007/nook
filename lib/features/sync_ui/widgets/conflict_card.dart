@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Conflict resolution card — editorial split-view layout.
 ///
@@ -39,8 +39,8 @@ class ConflictCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                LucideIcons.circleAlert,
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedAlertCircle,
                 color: scheme.error,
                 size: 22,
               ),
@@ -79,7 +79,7 @@ class ConflictCard extends StatelessWidget {
                     containerColor:
                         scheme.primaryContainer.withValues(alpha: 0.6),
                     onContainerColor: scheme.onPrimaryContainer,
-                    icon: LucideIcons.smartphone,
+                    icon: HugeIcons.strokeRoundedSmartPhone01,
                     deviceName: localDeviceName,
                     label: 'This device',
                     actionLabel: 'Keep this device',
@@ -94,7 +94,7 @@ class ConflictCard extends StatelessWidget {
                     containerColor:
                         scheme.tertiaryContainer.withValues(alpha: 0.6),
                     onContainerColor: scheme.onTertiaryContainer,
-                    icon: LucideIcons.layers,
+                    icon: HugeIcons.strokeRoundedLayers01,
                     deviceName: remoteDeviceName,
                     label: 'Incoming',
                     actionLabel: 'Keep incoming',
@@ -113,7 +113,10 @@ class ConflictCard extends StatelessWidget {
               ),
             ),
             onPressed: () => _resolve(context, 'both'),
-            icon: const Icon(LucideIcons.copyPlus, size: 18),
+            icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedCopyPlus,
+                size: 18,
+                color: scheme.onSurface),
             label: const Text(
               'Keep both',
               style: TextStyle(fontWeight: FontWeight.w700),
@@ -148,7 +151,7 @@ class _VersionPanel extends StatelessWidget {
   final Color tint;
   final Color containerColor;
   final Color onContainerColor;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String deviceName;
   final String label;
   final String actionLabel;
@@ -169,7 +172,7 @@ class _VersionPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: tint),
+              HugeIcon(icon: icon, size: 18, color: tint),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

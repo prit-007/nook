@@ -1,5 +1,6 @@
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme/note_theme_scope.dart';
 
@@ -65,7 +66,10 @@ class _NookTodoCheckbox extends StatelessWidget {
               ),
             ),
             child: checked
-                ? Icon(Icons.check, size: 15, color: scheme.onPrimary)
+                ? HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    size: 15,
+                    color: scheme.onPrimary)
                 : null,
           ),
         ),

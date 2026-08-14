@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/features/settings/settings_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
   Widget buildScreen() {
@@ -10,6 +11,17 @@ void main() {
       child: MaterialApp(home: SettingsScreen()),
     );
   }
+
+  setUp(() {
+    PackageInfo.setMockInitialValues(
+      appName: 'nook',
+      packageName: 'nook',
+      version: '0.7.9',
+      buildNumber: '2',
+      buildSignature: '',
+      installerStore: null,
+    );
+  });
 
   testWidgets('renders AppBar with title', (tester) async {
     await tester.pumpWidget(buildScreen());
@@ -91,7 +103,7 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.scrollUntilVisible(find.text('Version'), 100);
     expect(find.text('Version'), findsOneWidget);
-    expect(find.text('0.7.1'), findsOneWidget);
+    expect(find.text('0.7.9'), findsOneWidget);
   });
 
   testWidgets('renders two switches', (tester) async {
@@ -103,7 +115,10 @@ void main() {
   testWidgets('renders chevron icons for tappable tiles', (tester) async {
     await tester.pumpWidget(buildScreen());
     // Theme, Auto-lock, Storage, Paired devices, Version = 5 chevrons
-    expect(find.byIcon(LucideIcons.chevronRight), findsAtLeastNWidgets(5));
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowRight01),
+        findsAtLeastNWidgets(5));
   });
 
   testWidgets('renders section containers with rounded corners',

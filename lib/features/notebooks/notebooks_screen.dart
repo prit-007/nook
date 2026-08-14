@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:hugeicons/hugeicons.dart';
 import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
@@ -246,43 +247,81 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
     final scheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(
-          'Delete Notebook',
-          style: TextStyle(
-            fontFamily: 'Playfair Display',
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to delete "${notebook.name}"? Notes inside '
-          'will remain safely intact.',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: scheme.error,
-              foregroundColor: scheme.onError,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          bool deleteNotes = false;
+          return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: Text(
+              'Delete Notebook',
+              style: TextStyle(
+                fontFamily: 'Playfair Display',
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurface,
+              ),
             ),
-            onPressed: () async {
-              final repo = NotebookRepository(ref.read(databaseProvider));
-              await repo.deleteNotebook(notebook.id);
-              if (ctx.mounted) Navigator.pop(ctx);
-              await _load();
-            },
-            child: const Text('Delete'),
-          ),
-        ],
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Are you sure you want to delete "${notebook.name}"?',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(
+                    'Move all notes to trash',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Notes can be restored from trash later',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  value: deleteNotes,
+                  onChanged: (value) {
+                    setDialogState(() => deleteNotes = value ?? false);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: scheme.error,
+                  foregroundColor: scheme.onError,
+                ),
+                onPressed: () async {
+                  final repo = NotebookRepository(ref.read(databaseProvider));
+                  if (deleteNotes) {
+                    await repo.deleteNotebookAndNotes(notebook.id);
+                  } else {
+                    await repo.deleteNotebook(notebook.id);
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  await _load();
+                },
+                child: const Text('Delete'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -316,7 +355,14 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Flexible(flex: 3, child: grid),
+                    Flexible(
+                      flex: 3,
+                      child: Container(
+                        color:
+                            scheme.surfaceContainerLow.withValues(alpha: 0.3),
+                        child: grid,
+                      ),
+                    ),
                     VerticalDivider(
                       width: 1,
                       thickness: 1,
@@ -338,7 +384,10 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
           heroTag: 'fab-notebooks',
           onPressed: _showCreateSheet,
           tooltip: 'Create notebook',
-          icon: const Icon(Icons.add_rounded),
+          icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedAdd01,
+              size: 24,
+              color: scheme.onPrimary),
           label: const Text(
             'New',
             style: TextStyle(
@@ -354,7 +403,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   Widget _notebooksGrid(ColorScheme scheme, bool isDualPane) {
     if (_notebooks.isEmpty) {
       return const EmptyState(
-        icon: Icons.book_outlined,
+        icon: HugeIcons.strokeRoundedBook01,
         title: 'No collections yet',
         subtitle: 'Tap + New to create your first notebook.',
         animate: false,
@@ -438,8 +487,8 @@ class _SeedColorDot extends StatelessWidget {
               : null,
         ),
         child: isSelected
-            ? const Icon(
-                Icons.check_rounded,
+            ? const HugeIcon(
+                icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                 color: Colors.white,
                 size: 20,
               )

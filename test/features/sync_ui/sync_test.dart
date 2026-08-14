@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
@@ -173,14 +173,21 @@ void main() {
       await tester.pumpWidget(wrapInApp(const SyncScreen(), db: db));
       await tester.pump();
 
-      expect(find.byIcon(LucideIcons.send), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedSendToMobile),
+          findsOneWidget);
     });
 
     testWidgets('shows sync history button', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncScreen(), db: db));
       await tester.pump();
 
-      expect(find.byIcon(LucideIcons.history), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon &&
+              w.icon == HugeIcons.strokeRoundedTransactionHistory),
+          findsOneWidget);
     });
   });
 
@@ -204,7 +211,10 @@ void main() {
       await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
       await tester.pump();
 
-      expect(find.byIcon(LucideIcons.search), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedSearch01),
+          findsOneWidget);
     });
 
     testWidgets('note list tiles keep ink splashes visible', (tester) async {
@@ -257,7 +267,10 @@ void main() {
       await tester.pumpWidget(wrapInApp(const SyncReceiveScreen(), db: db));
       await tester.pump();
 
-      expect(find.byIcon(LucideIcons.smartphone), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedSmartPhone01),
+          findsOneWidget);
     });
   });
 

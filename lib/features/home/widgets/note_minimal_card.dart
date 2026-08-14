@@ -3,12 +3,16 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/checklist_item_repository.dart';
+import '../../../data/repositories/notebook_repository.dart';
+import '../../../data/repositories/tag_repository.dart';
 import '../../../data/tables/notes.dart';
+import 'card_tag_pill.dart';
 import 'note_quick_actions_sheet.dart';
 
 class NoteMinimalCard extends ConsumerStatefulWidget {
@@ -25,6 +29,8 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
   bool _isPressed = false;
   List<ChecklistItem> _checklistItems = [];
   bool _loadingChecklist = false;
+  List<Tag> _tags = [];
+  String? _notebookName;
 
   @override
   void initState() {
@@ -32,14 +38,17 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
     if (widget.note.type == NoteType.checklist) {
       _loadChecklistItems();
     }
+    _loadMetadata();
   }
 
   @override
   void didUpdateWidget(covariant NoteMinimalCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.note.id != widget.note.id &&
-        widget.note.type == NoteType.checklist) {
-      _loadChecklistItems();
+    if (oldWidget.note.id != widget.note.id) {
+      if (widget.note.type == NoteType.checklist) {
+        _loadChecklistItems();
+      }
+      _loadMetadata();
     }
   }
 
@@ -51,6 +60,23 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
       setState(() {
         _checklistItems = items;
         _loadingChecklist = false;
+      });
+    }
+  }
+
+  Future<void> _loadMetadata() async {
+    final db = ref.read(databaseProvider);
+    final tags = await TagRepository(db).getTagsForNote(widget.note.id);
+    String? nbName;
+    if (widget.note.notebookId != null) {
+      final nb =
+          await NotebookRepository(db).getNotebookById(widget.note.notebookId!);
+      nbName = nb?.name;
+    }
+    if (mounted) {
+      setState(() {
+        _tags = tags;
+        _notebookName = nbName;
       });
     }
   }
@@ -105,8 +131,10 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
                         children: [
                           Row(
                             children: [
-                              Icon(_typeIcon,
-                                  size: 15, color: cardScheme.primary),
+                              HugeIcon(
+                                  icon: _typeIcon,
+                                  size: 15,
+                                  color: cardScheme.primary),
                               const SizedBox(width: 6),
                               Text(
                                 _typeLabel,
@@ -120,8 +148,8 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
                             ],
                           ),
                           if (widget.note.pinned)
-                            Icon(
-                              Icons.push_pin_rounded,
+                            HugeIcon(
+                              icon: HugeIcons.strokeRoundedPin,
                               size: 16,
                               color: cardScheme.primary,
                             ),
@@ -163,6 +191,10 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
                           ),
                         ],
                       ],
+                      if (_tags.isNotEmpty || _notebookName != null) ...[
+                        const SizedBox(height: 10),
+                        _metadataRow(cardScheme),
+                      ],
                     ],
                   ),
                 ],
@@ -174,11 +206,11 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
     );
   }
 
-  IconData get _typeIcon => switch (widget.note.type) {
-        NoteType.checklist => Icons.checklist_rounded,
-        NoteType.doodle => Icons.draw_rounded,
-        NoteType.mixed => Icons.layers_rounded,
-        NoteType.text => Icons.notes_rounded,
+  List<List<dynamic>> get _typeIcon => switch (widget.note.type) {
+        NoteType.checklist => HugeIcons.strokeRoundedCheckList,
+        NoteType.doodle => HugeIcons.strokeRoundedDrawingMode,
+        NoteType.mixed => HugeIcons.strokeRoundedLayers01,
+        NoteType.text => HugeIcons.strokeRoundedNotebook01,
       };
 
   String get _typeLabel => switch (widget.note.type) {
@@ -253,10 +285,8 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
             padding: const EdgeInsets.symmetric(vertical: 3),
             child: Row(
               children: [
-                Icon(
-                  item.checked
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked,
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                   size: 14,
                   color: item.checked
                       ? scheme.primary
@@ -307,7 +337,10 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_rounded, size: 16, color: scheme.primary),
+              HugeIcon(
+                  icon: HugeIcons.strokeRoundedLock,
+                  size: 16,
+                  color: scheme.primary),
               const SizedBox(width: 8),
               Text(
                 'Biometrics required',
@@ -321,6 +354,49 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _metadataRow(ColorScheme scheme) {
+    return Row(
+      children: [
+        if (_notebookName != null) ...[
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedFolder01,
+            size: 10,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(
+              _notebookName!,
+              style: TextStyle(
+                fontSize: 10,
+                color: scheme.onSurfaceVariant,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+        if (_tags.isNotEmpty) ...[
+          if (_notebookName != null) const SizedBox(width: 6),
+          Flexible(
+            child: Wrap(
+              spacing: 3,
+              runSpacing: 2,
+              children: [
+                ..._tags.take(2).map((tag) => CardTagPill(
+                      label: tag.name,
+                      colorSeed: tag.colorSeed,
+                    )),
+                if (_tags.length > 2)
+                  CardTagOverflowPill(count: _tags.length - 2),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
@@ -140,7 +141,11 @@ void main() {
 
     await openSheet(tester, currentNotebookId: nbId);
 
-    expect(find.byIcon(Icons.check), findsAtLeastNWidgets(1));
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon &&
+            w.icon == HugeIcons.strokeRoundedCheckmarkCircle01),
+        findsAtLeastNWidgets(1));
   });
 
   testWidgets('tapping notebook closes sheet', (tester) async {
@@ -163,7 +168,11 @@ void main() {
     await tester.pump();
 
     // Tag should now be selected (check icon visible)
-    expect(find.byIcon(Icons.check), findsAtLeastNWidgets(1));
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon &&
+            w.icon == HugeIcons.strokeRoundedCheckmarkCircle01),
+        findsAtLeastNWidgets(1));
   });
 
   testWidgets('shows already-assigned tags as selected', (tester) async {
@@ -173,7 +182,11 @@ void main() {
 
     await openSheet(tester);
 
-    expect(find.byIcon(Icons.check), findsAtLeastNWidgets(1));
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon &&
+            w.icon == HugeIcons.strokeRoundedCheckmarkCircle01),
+        findsAtLeastNWidgets(1));
   });
 
   testWidgets('shows done button', (tester) async {

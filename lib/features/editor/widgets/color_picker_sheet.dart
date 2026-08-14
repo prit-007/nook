@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/design_tokens.dart';
@@ -98,9 +99,12 @@ class _ColorPickerSheetState extends State<ColorPickerSheet> {
                         : null,
                   ),
                   child: _selectedColor == null
-                      ? Icon(Icons.check, color: scheme.primary, size: 20)
-                      : Icon(
-                          Icons.close,
+                      ? HugeIcon(
+                          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                          color: scheme.primary,
+                          size: 20)
+                      : HugeIcon(
+                          icon: HugeIcons.strokeRoundedCancelCircle,
                           color: scheme.onSurface.withValues(alpha: 0.3),
                           size: 18,
                         ),
@@ -135,8 +139,8 @@ class _ColorPickerSheetState extends State<ColorPickerSheet> {
                           : null,
                     ),
                     child: _selectedColor == NookColors.seeds[i]
-                        ? Icon(
-                            Icons.check,
+                        ? HugeIcon(
+                            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                             color: NookSemantics.contrastForeground(
                                 NookColors.seeds[i]),
                             size: 20,

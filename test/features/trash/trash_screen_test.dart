@@ -3,7 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
@@ -63,7 +63,10 @@ void main() {
     await tester.pumpWidget(buildTrash());
     await tester.pump();
     await tester.pump();
-    expect(find.byIcon(LucideIcons.trash), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedDelete01),
+        findsOneWidget);
   });
 
   testWidgets('displays deleted notes', (tester) async {
@@ -95,7 +98,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byIcon(LucideIcons.undo2), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedUndo02),
+        findsOneWidget);
   });
 
   testWidgets('shows permanent delete button for each note', (tester) async {
@@ -105,7 +111,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byIcon(LucideIcons.trash), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedDelete01),
+        findsOneWidget);
   });
 
   testWidgets('restore removes note from trash list', (tester) async {
@@ -114,7 +123,8 @@ void main() {
     await tester.pumpWidget(buildTrash());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(LucideIcons.undo2));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedUndo02));
     await tester.pump();
     await tester.pump();
 
@@ -128,7 +138,8 @@ void main() {
     await tester.pumpWidget(buildTrash());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(LucideIcons.trash));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedDelete01));
     await tester.pumpAndSettle();
 
     expect(find.text('Permanently Delete?'), findsOneWidget);
@@ -144,7 +155,8 @@ void main() {
     await tester.pumpWidget(buildTrash());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(LucideIcons.trash));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedDelete01));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Destroy'));
@@ -161,7 +173,8 @@ void main() {
     await tester.pumpWidget(buildTrash());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(LucideIcons.trash));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedDelete01));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Cancel'));
@@ -177,7 +190,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byIcon(LucideIcons.flame), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedFlameKindling),
+        findsOneWidget);
   });
 
   testWidgets('empty trash button not shown when empty', (tester) async {
@@ -185,7 +201,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byIcon(LucideIcons.flame), findsNothing);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedFlameKindling),
+        findsNothing);
   });
 
   testWidgets('empty trash shows confirmation dialog', (tester) async {
@@ -195,7 +214,8 @@ void main() {
     await tester.pumpWidget(buildTrash());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(LucideIcons.flame));
+    await tester.tap(find.byWidgetPredicate((w) =>
+        w is HugeIcon && w.icon == HugeIcons.strokeRoundedFlameKindling));
     await tester.pumpAndSettle();
 
     expect(find.text('Empty Archive?'), findsOneWidget);
@@ -209,7 +229,8 @@ void main() {
     await tester.pumpWidget(buildTrash());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(LucideIcons.flame));
+    await tester.tap(find.byWidgetPredicate((w) =>
+        w is HugeIcon && w.icon == HugeIcons.strokeRoundedFlameKindling));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Empty Trash'));

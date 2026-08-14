@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'talker_provider.dart';
+
 enum AppLockState { locked, unlocked }
 
 /// Auto-lock delay options.
@@ -63,6 +65,8 @@ class BiometricGate extends ChangeNotifier {
       _hasAuthenticated = false;
       _lastBackgroundedAt = null;
     }
+    nookLog(NookLogKey.security,
+        'Biometric lock ${value ? 'enabled' : 'disabled'}', LogLevel.info);
     notifyListeners();
   }
 
@@ -83,6 +87,11 @@ class BiometricGate extends ChangeNotifier {
 
   void setAutoLockDuration(AutoLockDuration value) {
     _autoLockDuration = value;
+    nookLog(
+      NookLogKey.security,
+      'Auto-lock duration set to ${value.name}',
+      LogLevel.info,
+    );
     notifyListeners();
     _save();
   }
@@ -118,7 +127,13 @@ class BiometricGate extends ChangeNotifier {
       } finally {
         _authenticating = false;
       }
-      if (!ok) return false;
+      if (!ok) {
+        nookLog(NookLogKey.security, 'Biometric authentication failed',
+            LogLevel.warning);
+        return false;
+      }
+      nookLog(NookLogKey.security, 'Biometric authentication succeeded',
+          LogLevel.info);
       _hasAuthenticated = true;
     }
     _state = AppLockState.unlocked;

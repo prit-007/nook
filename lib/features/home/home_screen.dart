@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/selection_providers.dart';
@@ -118,7 +119,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Flexible(flex: 3, child: grid),
+                    Flexible(
+                      flex: 3,
+                      child: Container(
+                        color:
+                            scheme.surfaceContainerLow.withValues(alpha: 0.3),
+                        child: grid,
+                      ),
+                    ),
                     VerticalDivider(
                       width: 1,
                       thickness: 1,
@@ -210,8 +218,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.search_rounded,
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedSearch01,
                       color: scheme.primary,
                       size: 22,
                     ),

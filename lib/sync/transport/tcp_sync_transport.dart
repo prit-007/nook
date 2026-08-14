@@ -8,6 +8,7 @@ import 'package:bonsoir/bonsoir.dart';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../crypto/sync_session_cipher.dart';
 import '../protocol/sync_bundle.dart';
 import 'sync_transport.dart';
@@ -516,6 +517,7 @@ class TcpSyncTransport implements SyncTransport {
 
     final checksum = sha256.convert(bytes).toString();
     if (_incomingChecksum != null && checksum != _incomingChecksum) {
+      nookLog(NookLogKey.sync, 'TCP sync checksum mismatch', LogLevel.error);
       _emitState(const SyncSessionState.error(
         'Checksum mismatch',
         outcome: SyncOutcomeCategory.protocol,

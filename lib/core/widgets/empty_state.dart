@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// A reusable empty-state widget following the pattern from EmptyHome.
 class EmptyState extends StatelessWidget {
@@ -12,7 +13,7 @@ class EmptyState extends StatelessWidget {
     this.animate = true,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final String subtitle;
   final Widget? action;
@@ -28,7 +29,7 @@ class EmptyState extends StatelessWidget {
         color: scheme.primaryContainer.withValues(alpha: 0.3),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, size: 48, color: scheme.primary),
+      child: HugeIcon(icon: icon, size: 48, color: scheme.primary),
     );
 
     if (animate) {

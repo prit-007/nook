@@ -190,6 +190,9 @@ AES-GCM-encrypted after the ECDH handshake).
   Drift. Custom node types: `doodle` (`lib/features/editor/doodle/doodle_block.dart`)
   and re-skinned `todo_list` (`custom_todo_list_block.dart`). Image
   handling in `zoomable_image_block.dart` / `image_picker_handler.dart`.
+  Non-checklist notes wrap the editor in `MobileToolbarV2` with a custom blocks
+  menu, a Doodle action, and `textDecorationMobileToolbarItemV2` (see AGENTS.md →
+  "Mobile toolbar & global shortcuts").
 - **doodle/** — `doodle_controller` (undo/redo, mode), `doodle_painter`,
   `doodle_strokes_codec` (v1/v2 codec, `isPerfectShape`), thumbnail renderer,
   shape-assist toolbar.
@@ -203,10 +206,23 @@ AES-GCM-encrypted after the ECDH handshake).
 
 - **Theme:** `theme/app_theme.dart` + `design_tokens.dart`; per-note color
   scopes via `note_theme_scope.dart`.
-- **Router:** `router.dart` (go_router, 26 routes).
-- **Providers:** database, theme, pin, biometric, screenshot blocker.
+- **Router:** `router.dart` (go_router, 28 routes).
+- **Providers:** database, theme, pin, biometric, screenshot blocker, talker.
 - **Platform bridges:** `platform/window_manager.dart` (MethodChannel, replaced
   discontinued `flutter_windowmanager`), `platform/nearby_permissions.dart`.
+- **Global keyboard shortcuts:** `widgets/keyboard_shortcuts.dart`
+  (`NookKeyboardShortcuts`, wraps the `MaterialApp.router.builder` output) binds
+  `/` and Ctrl/Cmd+K → search, Ctrl/Cmd+N → new note. A guard skips firing while
+  an `EditableText` (or the editor's nested `FocusScope`) holds focus, so typing
+  `/` in the editor still opens AppFlowy's slash menu. Covered by
+  `test/core/widgets/keyboard_shortcuts_test.dart`.
+- **Wide shell:** the `NavigationRail` is pinned to a fixed 80px rail
+  (`widgets/app_shell.dart`); dual-pane list screens tint their left pane with
+  `surfaceContainerLow`.
+- **Logging:** `talker_flutter` — global `talker` + `talkerProvider` in
+  `providers/talker_provider.dart`, `FlutterError.onError` /
+  `PlatformDispatcher.onError` wired in `main.dart`, viewer at
+  `features/settings/settings_logs_screen.dart` (`Settings → Developer → App Logs`).
 
 ---
 
@@ -217,10 +233,12 @@ AES-GCM-encrypted after the ECDH handshake).
 - `android/settings.gradle.kts` patches the pub-cache `keyboard_height_plugin`
   build.gradle (compileSdk 31 → 34) — see
   https://github.com/AppFlowy-IO/appflowy-editor/issues/1036.
-- `tool/patch_appflowy_editor.dart` adds the missing
-  `TextInputClient.onFocusReceived` override (Flutter 3.44+). CI runs it after
-  `flutter pub get`; local dev must too. Remove both once upstream publishes
-  fixes.
+- `tool/patch_appflowy_editor.dart` patches two files in the pub cache:
+  (1) `delta_input_service.dart` — the `TextInputClient.onFocusReceived`
+  override Flutter 3.44+ requires; and (2) `slash_command.dart` — makes `/`
+  work on mobile by inserting the slash character and consuming the event
+  without the SelectionMenu overlay. CI runs it after `flutter pub get`; local
+  dev must too. Remove once upstream publishes fixes (>= 6.2.1).
 
 ---
 
@@ -241,7 +259,9 @@ AES-GCM-encrypted after the ECDH handshake).
 | Real devices | real-mDNS round trip tagged `network` (skipped in CI); two-emulator harness | `test/sync/nook_mdns_discovery_test.dart`, detailed plan §11 |
 
 CI (`github/workflows/ci.yml`): `format → analyze → test --coverage -x network`,
-then an APK build + tag-triggered GitHub release.
+then an APK build + tag-triggered GitHub release. The `build-windows` job also
+installs Inno Setup via Chocolatey and produces a setup wizard
+(`nook_setup_<ver>.exe`) that is attached to tag releases.
 
 ## 8. Common changes & where to make them
 
@@ -254,5 +274,21 @@ then an APK build + tag-triggered GitHub release.
 | Add a sync screen/route | `core/router.dart` + `features/sync_ui/` |
 | New attachment type | `tables/attachments.dart` + `SyncAttachment` mapping + restore path |
 | Change editor behavior | `features/editor/` (blocks, autosave, toolbar) |
+| Change the app icon/branding | `assets/icons/*` → `dart run flutter_launcher_icons`; Linux: re-copy `linux/runner/icon.png` (keep CMake install + C++ path in sync) |
+| Change the Windows installer | `tool/build_installer.dart` (ISS generation) + `iscc` compile; see `docs/adr/0010-windows-installer.md` |
+
+## 9. Branding & distribution
+
+- **Launcher icons** (`flutter_launcher_icons ^0.14.4`): sources in
+  `assets/icons/` (`favicon_fg.png` transparent foreground, `favicon_full.png`
+  full logo). Android adaptive icon = foreground over `#FBFBFB`
+  (`android/app/src/main/res/values/colors.xml`), legacy mipmaps, plus
+  iOS/macOS/Windows icons — see `docs/adr/0009-app-launcher-icons-and-linux-window-icon.md`.
+- **Linux window icon**: `linux/runner/icon.png` → `bundle/data/icon.png` via
+  `linux/CMakeLists.txt`, applied in `linux/runner/my_application.cc`.
+- **Windows installer**: `tool/build_installer.dart` (pure Dart) generates a
+  no-admin, modern Inno Setup wizard and compiles it with `iscc` —
+  see `docs/adr/0010-windows-installer.md`.
+- Linux desktop builds require the system package `libsecret-1-dev`.
 | Security/scanner UI | `core/providers/*_provider.dart` + `features/security/` |
 | CI / release | `.github/workflows/ci.yml` |

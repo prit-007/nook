@@ -2,7 +2,16 @@ import 'dart:io';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
+
+import 'media_delete_button.dart';
+
+/// Signature for a callback invoked when an image block's delete button is tapped.
+typedef ImageBlockDeleteCallback = void Function(
+  Node node,
+  EditorState editorState,
+);
 
 /// An image block component that shows a full-screen zoomable viewer on tap.
 ///
@@ -12,7 +21,10 @@ import 'package:provider/provider.dart';
 class NookImageBlockComponentBuilder extends BlockComponentBuilder {
   NookImageBlockComponentBuilder({
     super.configuration,
+    this.onDelete,
   });
+
+  final ImageBlockDeleteCallback? onDelete;
 
   @override
   BlockComponentWidget build(BlockComponentContext blockComponentContext) {
@@ -30,6 +42,7 @@ class NookImageBlockComponentBuilder extends BlockComponentBuilder {
         blockComponentContext,
         state,
       ),
+      onDelete: onDelete,
     );
   }
 
@@ -47,7 +60,10 @@ class NookImageBlockComponentWidget extends BlockComponentStatefulWidget {
     super.actionBuilder,
     super.actionTrailingBuilder,
     super.configuration = const BlockComponentConfiguration(),
+    this.onDelete,
   });
+
+  final ImageBlockDeleteCallback? onDelete;
 
   @override
   State<NookImageBlockComponentWidget> createState() =>
@@ -78,9 +94,25 @@ class _NookImageBlockComponentWidgetState
         MediaQuery.of(context).size.width;
     final height = attributes[ImageBlockKeys.height]?.toDouble();
 
-    Widget child = GestureDetector(
-      onTap: () => _openZoomViewer(context, src),
-      child: _buildImage(src, width, height, alignment),
+    Widget child = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          onTap: () => _openZoomViewer(context, src),
+          child: _buildImage(src, width, height, alignment),
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: MediaDeleteButton(
+            tooltip: 'Delete image',
+            onPressed: () {
+              final editorState = context.read<EditorState>();
+              widget.onDelete?.call(node, editorState);
+            },
+          ),
+        ),
+      ],
     );
 
     child = Padding(
@@ -126,8 +158,8 @@ class _NookImageBlockComponentWidgetState
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(
-          Icons.image_outlined,
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedImage01,
           size: 36,
           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
         ),

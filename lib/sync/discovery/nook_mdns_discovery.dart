@@ -8,6 +8,8 @@ import 'package:dart_libp2p/core/peer/addr_info.dart';
 import 'package:dart_libp2p/core/peer/peer_id.dart';
 import 'package:mdns_dart/mdns_dart.dart';
 
+import '../../core/providers/talker_provider.dart';
+
 /// Constants for Nook's mDNS service.
 class NookMdnsConstants {
   /// Nook sync runs its own service so it never collides with libp2p's
@@ -180,8 +182,14 @@ class NookMdnsDiscovery {
       final config = MDNSServerConfig(zone: _service!);
       _server = MDNSServer(config);
       await _server!.start();
+      nookLog(NookLogKey.sync, 'mDNS advertising started', LogLevel.info);
     } catch (_) {
       // mDNS advertising is best-effort; discovery still works.
+      nookLog(
+        NookLogKey.sync,
+        'mDNS advertising failed (best-effort)',
+        LogLevel.warning,
+      );
     }
   }
 
@@ -207,8 +215,14 @@ class NookMdnsDiscovery {
         const Duration(seconds: 5),
         (_) async => _performDiscoveryQuery(params),
       );
+      nookLog(NookLogKey.sync, 'mDNS discovery started', LogLevel.info);
     } catch (_) {
       // Discovery is best-effort.
+      nookLog(
+        NookLogKey.sync,
+        'mDNS discovery failed to start (best-effort)',
+        LogLevel.warning,
+      );
     }
   }
 
@@ -220,6 +234,11 @@ class NookMdnsDiscovery {
       }
     } catch (_) {
       // Best-effort.
+      nookLog(
+        NookLogKey.sync,
+        'mDNS discovery query failed (best-effort)',
+        LogLevel.warning,
+      );
     }
   }
 

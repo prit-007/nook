@@ -4,10 +4,12 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/note_repository.dart';
@@ -195,8 +197,8 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
                       // ── Quick actions ──
                       _ActionButton(
                         icon: _currentNote.pinned
-                            ? Icons.push_pin_rounded
-                            : Icons.push_pin_outlined,
+                            ? HugeIcons.strokeRoundedPin
+                            : HugeIcons.strokeRoundedPinOff,
                         label: _currentNote.pinned ? 'Unpin Note' : 'Pin Note',
                         color: _currentNote.pinned
                             ? scheme.primary
@@ -214,8 +216,8 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
                       ),
                       _ActionButton(
                         icon: _currentNote.locked
-                            ? Icons.lock_open_rounded
-                            : Icons.lock_outline_rounded,
+                            ? HugeIcons.strokeRoundedCircleUnlock01
+                            : HugeIcons.strokeRoundedCircleLock01,
                         label: _currentNote.locked
                             ? 'Unlock Note'
                             : 'Lock with Biometrics',
@@ -292,10 +294,21 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
 
                       // ── Delete ──
                       _ActionButton(
-                        icon: Icons.delete_outline_rounded,
+                        icon: HugeIcons.strokeRoundedDelete01,
                         label: 'Move to Trash',
                         color: scheme.error,
                         onTap: () async {
+                          final title = _currentNote.title.isNotEmpty
+                              ? _currentNote.title
+                              : 'Untitled';
+                          final confirmed = await showConfirmDeleteDialog(
+                            context,
+                            title: 'Move to Trash?',
+                            message:
+                                '"$title" will be moved to trash. You can restore it from the archive.',
+                            confirmLabel: 'Move to Trash',
+                          );
+                          if (!confirmed) return;
                           await HapticFeedback.mediumImpact();
                           await _noteRepo.softDelete(_currentNote.id);
                           if (context.mounted) {
@@ -377,8 +390,12 @@ class _NotebookPicker extends StatelessWidget {
               ),
             ),
             child: currentNotebookId == null
-                ? Icon(Icons.check, size: 14, color: scheme.primary)
-                : Icon(Icons.folder_off_rounded,
+                ? HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    size: 14,
+                    color: scheme.primary)
+                : HugeIcon(
+                    icon: HugeIcons.strokeRoundedFolderOff,
                     size: 14,
                     color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
           ),
@@ -409,8 +426,10 @@ class _NotebookPicker extends StatelessWidget {
               ),
             ),
             trailing: currentNotebookId == nb.id
-                ? Icon(Icons.check_circle_rounded,
-                    size: 18, color: scheme.primary)
+                ? HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    size: 18,
+                    color: scheme.primary)
                 : null,
             onTap: () => onSelected(nb.id),
           ),
@@ -434,8 +453,8 @@ class _NotebookAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         color: ColorScheme.fromSeed(seedColor: seed).primaryContainer,
       ),
-      child: Icon(
-        Icons.book_rounded,
+      child: HugeIcon(
+        icon: HugeIcons.strokeRoundedBook02,
         size: 16,
         color: ColorScheme.fromSeed(seedColor: seed).onPrimaryContainer,
       ),
@@ -532,7 +551,10 @@ class _TagChip extends StatelessWidget {
             ),
             if (isSelected) ...[
               const SizedBox(width: 4),
-              Icon(Icons.check_rounded, size: 14, color: tagColor),
+              HugeIcon(
+                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                  size: 14,
+                  color: tagColor),
             ],
           ],
         ),
@@ -553,7 +575,7 @@ class _ActionButton extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
@@ -563,7 +585,7 @@ class _ActionButton extends StatelessWidget {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: color, size: 20),
+      leading: HugeIcon(icon: icon, color: color, size: 20),
       title: Text(
         label,
         style: TextStyle(
@@ -667,7 +689,8 @@ class _ColorChoice extends StatelessWidget {
           ),
         ),
         child: isSelected
-            ? Icon(Icons.check,
+            ? HugeIcon(
+                icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                 size: 16,
                 color: swatch != null
                     ? NookSemantics.contrastForeground(swatch)

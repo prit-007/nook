@@ -7,6 +7,147 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.9.2] - 2026-08-14
+
+### Alpha status + release pipeline
+- Declared **alpha** status in the README; sync is explicitly marked as still
+  in testing/development (loopback tests green, physical-device validation
+  pending).
+- CI (`CI & Release`) is now industry-grade: `workflow_dispatch` trigger,
+  concurrency cancel-in-progress, per-job timeouts, and a shared composite
+  `flutter-prep` action (pub get + patches + codegen) used by every job.
+- **New artifacts shipped per release:** macOS (`nook-macos-*.zip`, unsigned
+  `.app`) and Linux (`nook-linux-*.tar.gz`) join Android APKs, the Windows zip
+  + Inno Setup `.exe`, and the iOS zip in the GitHub release.
+- `tool/build_installer.dart` now fails loudly (non-zero exit) when a real
+  build cannot produce the `.exe` because `iscc` is missing; `--dry-run` still
+  validates the `.iss` on any host. CI verifies the installer was produced
+  before uploading.
+- Fixed the placeholder installer home URL (`prit-007/nook`).
+
+## [0.7.9] - 2026-08-14
+
+### Version single source of truth
+- Added `package_info_plus`; app version now loads at runtime from the built
+  binary (generated from `version:` in `pubspec.yaml`), so there is exactly
+  one place to bump it. `AppInfo` became a `FutureProvider`; the Settings
+  "Version" tile and About "EDITION" line read from it automatically.
+- Updated `settings_screen_test.dart` to mock `PackageInfo`.
+
+### Bug fixes
+- Fixed a 4px `RenderFlex` overflow in the editor's auto-hiding glass app bar
+  on narrow (landscape-phone) widths. Date and notebook/tag metadata are now
+  merged into a single ellipsized subtitle line (`Aug 14, 2026 · Notebook |
+  #tag`), so metadata renders on narrow screens too without overflowing.
+
+### Logs screen polish
+- Rewrote the diagnostic logs tour overlay: walkthrough cards are constrained
+  to `420px` so they never stretch into unreadable rectangles on desktop.
+- Moved the Help affordance from a bottom-floating FAB to a frosted pill pinned
+  to the top-right safe area.
+- Elevated the tour typography (tight tracking, heavy weights) and switched to
+  HugeIcons throughout; frosted surface mask replaces the black overlay.
+
+## [0.7.8] - 2026-08-14
+
+### Icon system — Hugeicons stroke-rounded migration
+- Replaced **all** Material Icons (`Icons.xxx`) and Lucide Icons
+  (`LucideIcons.xxx`) with `HugeIcons` stroke-rounded variants
+  (`hugeicons ^1.1.7`) across the entire codebase (50+ lib files, 20+ test
+  files).
+- Removed `lucide_flutter` and unused `cupertino_icons` dependencies.
+- Design language: stroke-rounded for inactive states, solid/duotone for
+  active states; rounded shape language for editorial luxury aesthetic.
+- `empty_state.dart` icon field widened from `IconData` to
+  `List<List<dynamic>>` to accept HugeIcon data; all call sites updated.
+- Test files migrated from `find.byIcon(...)` to
+  `find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.xxx)`.
+- All `prefer_const_constructors` lint issues resolved; `flutter analyze`
+  reports zero issues.
+
+### About screen — editorial "About Us" page
+- `SettingsAboutScreen` rewritten as a full editorial "About Us" page with
+  luxury editorial copy: vision statement, zero-telemetry philosophy, flow
+  design principles, and developer's paradise credits.
+- Glassmorphic section cards, Playfair Display serif headers, Inter body
+  text, and frosted pill badges for license/technology tags.
+- Fixed `AppInfo.version` mismatch: the in-app constant was stale at `0.7.1`
+  while `pubspec.yaml` read `0.7.7+1`. Both are now `0.7.8+1`.
+
+### App icon & branding — all platforms
+- Launcher icons generated with `flutter_launcher_icons ^0.14.4`
+  (config at the bottom of `pubspec.yaml`). Sources live in `assets/icons/`:
+  `favicon_fg.png` (transparent foreground) + `favicon_full.png` (full logo).
+- Android adaptive icon: transparent foreground over a `#FBFBFB` background
+  (color resource in `android/app/src/main/res/values/colors.xml`), safe-zone
+  inset for launcher shape masking, plus regenerated legacy `mipmap-*` icons.
+- iOS, macOS (`AppIcon.appiconset`), and Windows (`app_icon.ico`, 256px)
+  app icons regenerated from the same art.
+- **Linux window icon**: `linux/runner/icon.png` is bundled into
+  `bundle/data/` by the install rule in `linux/CMakeLists.txt` and applied in
+  `linux/runner/my_application.cc` via `gtk_window_set_icon_from_file`
+  (resolved off `fl_dart_project_get_assets_path`). The runner previously set
+  no window icon.
+
+### Windows installer — Inno Setup
+- New `tool/build_installer.dart` (pure `dart:io`, no new deps): reads the
+  version from `pubspec.yaml`, writes `build/installers/nook_setup_<ver>.iss`,
+  and compiles it with the Inno Setup compiler (`iscc`; `--dry-run` validates
+  ISS generation on any host, `--iscc <path>` points at the compiler).
+- Installer features: stable `AppId` (clean upgrades), `PrivilegesRequired=lowest`
+  + `DefaultDirName={localappdata}\nook` (**no admin**), `WizardStyle=modern`,
+  LZMA2 solid compression, 64-bit install, GPL license page, Start Menu folder
+  + **opt-in** desktop shortcut, launch-after-install.
+- CI (`build-windows` job) installs Inno Setup via Chocolatey, runs the
+  installer build, and ships `nook_setup_*.exe` in the Windows artifact;
+  tag releases now attach the `.exe` alongside the zip and APKs.
+- Note: `flutter build windows` + `iscc` only run on a Windows host; the script
+  fails fast with a clear message otherwise.
+
+## [0.7.7] - 2026-08-13
+
+### Developer tooling — in-app log viewer
+- `talker_flutter` powers an in-app log viewer at `Settings → Developer → App
+  Logs` (`lib/features/settings/settings_logs_screen.dart`): a `TalkerScreen`
+  themed to the app (custom colors for errors, warnings, info, debug, verbose,
+  plus distinct `sync`, `database`, `editor`, `security` domain keys), newest
+  first and expanded by default, with a pure-Flutter first-visit help tour.
+- Global `talker` instance in `lib/core/providers/talker_provider.dart`;
+  `FlutterError.onError` and `PlatformDispatcher.instance.onError` feed into it
+  from `main.dart`, so uncaught framework/async errors are visible in-app.
+- Logging calls added across repositories, sync, editor, security, and settings
+  (`nookLog` with domain keys).
+- `tool/patch_talker_flutter.dart` wraps the package's `ListTile`s in a
+  `Material` to silence the "ink splashes may be invisible" framework warning.
+
+### Desktop & tablet layout polish
+- The wide-shell `NavigationRail` is pinned to a fixed 80px rail
+  (`lib/core/widgets/app_shell.dart`); dual-pane Home/Notebooks/Tags tint their
+  left list pane with `scheme.surfaceContainerLow`.
+
+### Global keyboard shortcuts
+- `lib/core/widgets/keyboard_shortcuts.dart` binds `/` and Ctrl/Cmd+K → search,
+  Ctrl/Cmd+N → new note on desktop/web. A focus guard suppresses them while a
+  text input is focused (`EditableText` ancestry or the editor's nested
+  `FocusScope`), so `/` still opens AppFlowy's slash menu while editing.
+  Covered by `test/core/widgets/keyboard_shortcuts_test.dart`.
+
+### Mobile editor — slash menu + toolbar
+- `tool/patch_appflowy_editor.dart` now also patches `slash_command.dart`: on
+  mobile, `/` inserts the slash character and consumes the event instead of
+  doing nothing (the SelectionMenu overlay is unusable on touch — it closes the
+  soft keyboard and needs hardware-keyboard navigation).
+- The editor is wrapped in `MobileToolbarV2` (translucent, note-themed) with a
+  custom blocks menu (H1/H2/H3, bulleted/numbered lists, checkbox, quote), a
+  Doodle action that opens the doodle canvas, and text-decoration. The old
+  `_FloatingFormatBar` pill was removed.
+- New ADR: `docs/adr/0008-mobile-editor-toolbar-and-global-shortcuts.md`.
+
+### Fixes
+- Logs screen now shows a back button (help moved to a floating frosted chip).
+- `ListTile` ink-splash warnings fixed in the trash screen and the security
+  screen's frosted glass cards.
+
 ## [0.7.5] - 2026-08-13
 
 The sync transport is rebuilt on **libp2p over UDX** — a server-less, account-free
@@ -202,7 +343,9 @@ Editor UX upgrades, shape assist, checklist polish, and the CI release pipeline.
 - CI: GitHub Actions release pipeline with `softprops/action-gh-release`,
   tag-triggered APK builds, and auto-generated release notes.
 
-[Unreleased]: https://github.com/anomalyco/nook/compare/v0.7.5...HEAD
+[Unreleased]: https://github.com/anomalyco/nook/compare/v0.7.8...HEAD
+[0.7.8]: https://github.com/anomalyco/nook/compare/v0.7.7...v0.7.8
+[0.7.7]: https://github.com/anomalyco/nook/compare/v0.7.5...v0.7.7
 [0.7.5]: https://github.com/anomalyco/nook/compare/v0.7.2...v0.7.5
 [0.7.2]: https://github.com/anomalyco/nook/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/anomalyco/nook/compare/v0.7.0...v0.7.1

@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nook/core/providers/database_provider.dart';
+import 'package:nook/core/providers/talker_provider.dart';
 import 'package:nook/data/repositories/attachment_repository.dart';
 import 'package:nook/data/repositories/doodle_storage.dart';
 import 'package:nook/data/repositories/note_repository.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:nook/core/theme/note_theme.dart';
@@ -145,6 +147,11 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
         attachmentId: attachmentId,
       );
     } catch (_) {
+      nookLog(
+        NookLogKey.editor,
+        'Doodle save failed for ${widget.noteId}',
+        LogLevel.error,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -222,8 +229,10 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                       title: Text(option.name.capitalize(),
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       trailing: option == _controller.background
-                          ? Icon(Icons.check_circle_rounded,
-                              color: noteScheme.primary)
+                          ? HugeIcon(
+                              icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                              color: noteScheme.primary,
+                              size: 24)
                           : null,
                       onTap: () {
                         _controller.setBackground(option);
@@ -294,8 +303,11 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                                   duration: const Duration(milliseconds: 200),
                                   opacity: isDrawing ? 0.0 : 1.0,
                                   child: FilledButton.tonalIcon(
-                                    icon: const Icon(
-                                        Icons.keyboard_arrow_down_rounded),
+                                    icon: HugeIcon(
+                                        icon:
+                                            HugeIcons.strokeRoundedArrowDown01,
+                                        size: 24,
+                                        color: scheme.onSurface),
                                     label: const Text('Extend Paper'),
                                     onPressed: () {
                                       setState(() {
@@ -332,7 +344,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _GlassButton(
-                      icon: Icons.close_rounded,
+                      icon: HugeIcons.strokeRoundedCancelCircle,
                       tooltip: 'Close',
                       onTap: () => Navigator.maybePop(context),
                     ),
@@ -340,20 +352,20 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _GlassButton(
-                          icon: Icons.grid_view_rounded,
+                          icon: HugeIcons.strokeRoundedGridView,
                           tooltip: 'Background',
                           onTap: () => _showBackgroundSheet(context),
                         ),
                         const SizedBox(width: 8),
                         _GlassButton(
-                          icon: Icons.undo_rounded,
+                          icon: HugeIcons.strokeRoundedUndo02,
                           tooltip: 'Undo',
                           isEnabled: _controller.canUndo,
                           onTap: _controller.undo,
                         ),
                         const SizedBox(width: 8),
                         _GlassButton(
-                          icon: Icons.redo_rounded,
+                          icon: HugeIcons.strokeRoundedRedo02,
                           tooltip: 'Redo',
                           isEnabled: _controller.canRedo,
                           onTap: _controller.redo,
@@ -410,7 +422,7 @@ class _GlassButton extends StatelessWidget {
     this.tooltip,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final VoidCallback onTap;
   final bool isEnabled;
   final String? tooltip;
@@ -433,8 +445,8 @@ class _GlassButton extends StatelessWidget {
             onTap: isEnabled ? onTap : null,
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Icon(
-                icon,
+              child: HugeIcon(
+                icon: icon,
                 size: 22,
                 color: isEnabled
                     ? scheme.onSurface

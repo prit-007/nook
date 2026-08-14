@@ -7,6 +7,8 @@ import 'package:dart_libp2p/core/crypto/ed25519.dart'
 import 'package:dart_libp2p/core/crypto/keys.dart' show KeyPair;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../core/providers/talker_provider.dart';
+
 /// Storage abstraction so unit tests can inject an in-memory fake instead of
 /// the platform keystore-backed [FlutterSecureStorage].
 abstract class SeedStorage {
@@ -71,6 +73,9 @@ class IdentityStore {
 
     if (stored == null) {
       await _storage.write(seedKey, _encodeSeed(seed));
+      nookLog(NookLogKey.sync, 'Device identity seed generated', LogLevel.info);
+    } else {
+      nookLog(NookLogKey.sync, 'Device identity seed loaded', LogLevel.debug);
     }
 
     _cachedSeed = seed;
@@ -87,6 +92,7 @@ class IdentityStore {
   Future<void> clear() async {
     await _storage.delete(seedKey);
     _cachedSeed = null;
+    nookLog(NookLogKey.sync, 'Device identity reset', LogLevel.info);
   }
 
   static Uint8List _generateSeed() {
