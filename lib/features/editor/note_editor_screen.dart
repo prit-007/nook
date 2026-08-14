@@ -5,6 +5,7 @@ import 'dart:ui';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -522,6 +523,164 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _scheduleAutosave();
   }
 
+  /// Removes a doodle or image block from the document and deletes the
+  /// associated attachment row + files from disk.
+  Future<void> _deleteMediaBlock(Node node, EditorState editorState) async {
+    if (_db == null || _note == null) return;
+    unawaited(HapticFeedback.lightImpact());
+
+    final repo = AttachmentRepository(_db!);
+
+    // 1. Clean up attachment row + files from disk.
+    if (node.type == DoodleBlockKeys.type) {
+      final attId = node.attributes[DoodleBlockKeys.attachmentId] as String?;
+      if (attId != null) {
+        final att = await repo.getById(attId);
+        if (att != null) await repo.deleteAttachmentWithFiles(att);
+      }
+    } else if (node.type == ImageBlockKeys.type) {
+      final url = node.attributes[ImageBlockKeys.url] as String?;
+      if (url != null && url.isNotEmpty) {
+        final att = await repo.getByFilePath(url);
+        if (att != null) await repo.deleteAttachmentWithFiles(att);
+      }
+    }
+
+    // 2. Remove the node from the document, keeping a valid selection.
+    final nodePath = node.path;
+    final parentPath = nodePath.sublist(0, nodePath.length - 1);
+    final index = nodePath.last;
+    final siblings = node.parent?.children.toList() ?? [];
+    final hasNext = index < siblings.length - 1;
+
+    final transaction = editorState.transaction;
+    transaction.deleteNode(node);
+
+    if (siblings.length <= 1) {
+      // Deleting the only block — insert a fresh paragraph.
+      transaction.insertNode(const [0], paragraphNode());
+      transaction.afterSelection =
+          Selection.collapsed(Position(path: const [0]));
+    } else if (hasNext) {
+      // Next sibling slides into the deleted index.
+      transaction.afterSelection =
+          Selection.collapsed(Position(path: [...parentPath, index]));
+    } else {
+      // No next sibling — fall back to the previous one.
+      transaction.afterSelection =
+          Selection.collapsed(Position(path: [...parentPath, index - 1]));
+    }
+
+    await editorState.apply(transaction);
+    _scheduleAutosave();
+    setState(() {});
+  }
+
+  /// Deletes an attachment from a checklist note.
+  Future<void> _deleteChecklistAttachment(Attachment attachment) async {
+    if (_db == null) return;
+    unawaited(HapticFeedback.lightImpact());
+    final repo = AttachmentRepository(_db!);
+    await repo.deleteAttachmentWithFiles(attachment);
+    setState(() {});
+  }
+
+  /// Returns the editor widget appropriate for the current platform.
+  ///
+  /// Mobile platforms get [MobileToolbarV2] (keyboard toolbar).
+  /// Desktop / web get [AppFlowyEditor] directly with desktop style
+  /// (slash menu, selection menu, and app bar handle all actions).
+  Widget _buildEditorForPlatform({
+    required ColorScheme noteScheme,
+    required TextTheme dynamicTextTheme,
+  }) {
+    final isMobile = defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+
+    final editor = AppFlowyEditor(
+      editorState: _editorState!,
+      editorStyle: isMobile
+          ? EditorStyle.mobile(
+              cursorColor: noteScheme.primary,
+              selectionColor: noteScheme.primary.withValues(alpha: 0.2),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              textStyleConfiguration: TextStyleConfiguration(
+                text: dynamicTextTheme.bodyLarge!.copyWith(
+                  color: noteScheme.onSurface,
+                  height: 1.65,
+                ),
+              ),
+            )
+          : EditorStyle.desktop(
+              cursorColor: noteScheme.primary,
+              selectionColor: noteScheme.primary.withValues(alpha: 0.2),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              textStyleConfiguration: TextStyleConfiguration(
+                text: dynamicTextTheme.bodyLarge!.copyWith(
+                  color: noteScheme.onSurface,
+                  height: 1.65,
+                ),
+              ),
+            ),
+      autoFocus: true,
+      blockComponentBuilders: {
+        ...standardBlockComponentBuilderMap,
+        TodoListBlockKeys.type: NookTodoListBlock.builder(),
+        DoodleBlockKeys.type: DoodleBlockComponentBuilder(
+          configuration: BlockComponentConfiguration(
+            padding: (_) => const EdgeInsets.symmetric(vertical: 24),
+          ),
+          onTap: (node, editorState) {
+            HapticFeedback.lightImpact();
+            _openDoodleCanvas(node, editorState);
+          },
+          onDelete: _deleteMediaBlock,
+        ),
+        ImageBlockKeys.type: NookImageBlockComponentBuilder(
+          onDelete: _deleteMediaBlock,
+        ),
+      },
+      characterShortcutEvents: [
+        ...standardCharacterShortcutEvents,
+        customSlashCommand(
+          [
+            ...standardSelectionMenuItems,
+            SelectionMenuItem(
+              getName: () => 'Doodle',
+              icon: (editorState, isSelected, style) => SelectionMenuIconWidget(
+                name: 'draw',
+                isSelected: isSelected,
+                style: style,
+              ),
+              keywords: ['doodle', 'draw', 'sketch'],
+              handler: (editorState, _, __) async {
+                await _insertDoodle();
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return MobileToolbarV2(
+        editorState: _editorState!,
+        backgroundColor:
+            noteScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        foregroundColor: noteScheme.onSurface,
+        iconColor: noteScheme.onSurface,
+        itemHighlightColor: noteScheme.primary,
+        primaryColor: noteScheme.primary,
+        onPrimaryColor: noteScheme.onPrimary,
+        itemOutlineColor: noteScheme.outlineVariant.withValues(alpha: 0.4),
+        toolbarItems: _buildMobileToolbarItems(),
+        child: editor,
+      );
+    }
+
+    return editor;
+  }
+
   /// Builds the mobile toolbar items shown above the on-screen keyboard.
   ///
   /// The custom blocks menu mirrors the block-type shortcuts a desktop user
@@ -882,87 +1041,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                 onOpenAttachment: _note != null
                                     ? _openChecklistAttachment
                                     : null,
+                                onDeleteAttachment: _note != null
+                                    ? _deleteChecklistAttachment
+                                    : null,
                               )
-                            : MobileToolbarV2(
-                                editorState: _editorState!,
-                                // Frosted-glass look: translucent note-tinted
-                                // surfaces so editor content glows through.
-                                backgroundColor: noteScheme
-                                    .surfaceContainerHighest
-                                    .withValues(alpha: 0.55),
-                                foregroundColor: noteScheme.onSurface,
-                                iconColor: noteScheme.onSurface,
-                                itemHighlightColor: noteScheme.primary,
-                                primaryColor: noteScheme.primary,
-                                onPrimaryColor: noteScheme.onPrimary,
-                                itemOutlineColor: noteScheme.outlineVariant
-                                    .withValues(alpha: 0.4),
-                                toolbarItems: _buildMobileToolbarItems(),
-                                child: AppFlowyEditor(
-                                  editorState: _editorState!,
-                                  editorStyle: EditorStyle.mobile(
-                                    cursorColor: noteScheme.primary,
-                                    selectionColor: noteScheme.primary
-                                        .withValues(alpha: 0.2),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 24),
-                                    textStyleConfiguration:
-                                        TextStyleConfiguration(
-                                      text:
-                                          dynamicTextTheme.bodyLarge!.copyWith(
-                                        color: noteScheme.onSurface,
-                                        height: 1.65,
-                                      ),
-                                    ),
-                                  ),
-                                  autoFocus: true,
-                                  blockComponentBuilders: {
-                                    ...standardBlockComponentBuilderMap,
-                                    TodoListBlockKeys.type:
-                                        NookTodoListBlock.builder(),
-                                    DoodleBlockKeys.type:
-                                        DoodleBlockComponentBuilder(
-                                      configuration:
-                                          BlockComponentConfiguration(
-                                        padding: (_) =>
-                                            const EdgeInsets.symmetric(
-                                                vertical: 24),
-                                      ),
-                                      onTap: (node, editorState) {
-                                        HapticFeedback.lightImpact();
-                                        _openDoodleCanvas(node, editorState);
-                                      },
-                                    ),
-                                    ImageBlockKeys.type:
-                                        NookImageBlockComponentBuilder(),
-                                  },
-                                  characterShortcutEvents: [
-                                    ...standardCharacterShortcutEvents,
-                                    customSlashCommand(
-                                      [
-                                        ...standardSelectionMenuItems,
-                                        SelectionMenuItem(
-                                          getName: () => 'Doodle',
-                                          icon: (editorState, isSelected,
-                                                  style) =>
-                                              SelectionMenuIconWidget(
-                                            name: 'draw',
-                                            isSelected: isSelected,
-                                            style: style,
-                                          ),
-                                          keywords: [
-                                            'doodle',
-                                            'draw',
-                                            'sketch'
-                                          ],
-                                          handler: (editorState, _, __) async {
-                                            await _insertDoodle();
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                            : _buildEditorForPlatform(
+                                noteScheme: noteScheme,
+                                dynamicTextTheme: dynamicTextTheme,
                               ),
                       ),
                     ),

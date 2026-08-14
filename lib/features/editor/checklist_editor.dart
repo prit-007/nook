@@ -14,6 +14,7 @@ import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/tables/attachments.dart';
 import '../../data/repositories/note_repository.dart';
+import 'widgets/media_delete_button.dart';
 
 /// A standalone checklist editor for checklist-type notes.
 /// Shows a list of items with checkboxes, add item field, and delete.
@@ -26,6 +27,7 @@ class ChecklistEditor extends ConsumerStatefulWidget {
     this.onInsertImage,
     this.onInsertDoodle,
     this.onOpenAttachment,
+    this.onDeleteAttachment,
   });
 
   final String noteId;
@@ -34,6 +36,7 @@ class ChecklistEditor extends ConsumerStatefulWidget {
   final Future<void> Function()? onInsertImage;
   final Future<void> Function()? onInsertDoodle;
   final Future<void> Function(Attachment attachment)? onOpenAttachment;
+  final Future<void> Function(Attachment attachment)? onDeleteAttachment;
 
   @override
   ConsumerState<ChecklistEditor> createState() => _ChecklistEditorState();
@@ -347,6 +350,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                 onInsertImage: widget.onInsertImage,
                                 onInsertDoodle: widget.onInsertDoodle,
                                 onOpenAttachment: widget.onOpenAttachment,
+                                onDeleteAttachment: widget.onDeleteAttachment,
                               ),
                             ),
                           SliverPadding(
@@ -914,12 +918,14 @@ class _ChecklistMediaStrip extends StatelessWidget {
     this.onInsertImage,
     this.onInsertDoodle,
     this.onOpenAttachment,
+    this.onDeleteAttachment,
   });
 
   final List<dynamic> attachments;
   final Future<void> Function()? onInsertImage;
   final Future<void> Function()? onInsertDoodle;
   final Future<void> Function(Attachment attachment)? onOpenAttachment;
+  final Future<void> Function(Attachment attachment)? onDeleteAttachment;
 
   @override
   Widget build(BuildContext context) {
@@ -935,19 +941,35 @@ class _ChecklistMediaStrip extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           if (index < attachments.length) {
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: 84,
-                height: 84,
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                child: GestureDetector(
-                  onTap: onOpenAttachment == null
-                      ? null
-                      : () => onOpenAttachment!(attachments[index]),
-                  child: _attachmentPreview(attachments[index], scheme),
+            final attachment = attachments[index] as Attachment;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 84,
+                    height: 84,
+                    color:
+                        scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    child: GestureDetector(
+                      onTap: onOpenAttachment == null
+                          ? null
+                          : () => onOpenAttachment!(attachment),
+                      child: _attachmentPreview(attachment, scheme),
+                    ),
+                  ),
                 ),
-              ),
+                if (onDeleteAttachment != null)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: MediaDeleteButton(
+                      tooltip: 'Remove attachment',
+                      onPressed: () => onDeleteAttachment!(attachment),
+                    ),
+                  ),
+              ],
             );
           }
           final isImage = index == attachments.length;

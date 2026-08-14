@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/providers/talker_provider.dart';
@@ -63,6 +65,32 @@ class AttachmentRepository {
   Future<void> updateFilePath(String id, String filePath) async {
     await (_db.update(_db.attachments)..where((a) => a.id.equals(id)))
         .write(AttachmentsCompanion(filePath: Value(filePath)));
+  }
+
+  /// Returns the attachment whose full-size file path matches [filePath], or null.
+  Future<Attachment?> getByFilePath(String filePath) {
+    return (_db.select(_db.attachments)
+          ..where((a) => a.filePath.equals(filePath)))
+        .getSingleOrNull();
+  }
+
+  /// Deletes an attachment row and any files it references on disk.
+  Future<void> deleteAttachmentWithFiles(Attachment attachment) async {
+    final paths = <String>[
+      if (attachment.filePath.isNotEmpty) attachment.filePath,
+      if (attachment.thumbnailPath != null &&
+          attachment.thumbnailPath!.isNotEmpty)
+        attachment.thumbnailPath!,
+    ];
+    for (final path in paths) {
+      try {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      } catch (_) {
+        // Best-effort — file may already be gone.
+      }
+    }
+    await deleteImage(attachment.id);
   }
 
   /// Returns all attachments (images + doodle layers) for a note, ordered by sortOrder.

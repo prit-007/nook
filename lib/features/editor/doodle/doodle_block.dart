@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/note_theme_scope.dart';
+import '../widgets/media_delete_button.dart';
 
 /// Block keys for the doodle custom node.
 class DoodleBlockKeys {
@@ -44,14 +45,22 @@ typedef DoodleBlockTapCallback = void Function(
   EditorState editorState,
 );
 
+/// Signature for a callback invoked when a doodle block's delete button is tapped.
+typedef DoodleBlockDeleteCallback = void Function(
+  Node node,
+  EditorState editorState,
+);
+
 /// Builder that maps a doodle node to [DoodleBlockComponentWidget].
 class DoodleBlockComponentBuilder extends BlockComponentBuilder {
   DoodleBlockComponentBuilder({
     super.configuration,
     this.onTap,
+    this.onDelete,
   });
 
   final DoodleBlockTapCallback? onTap;
+  final DoodleBlockDeleteCallback? onDelete;
 
   @override
   BlockComponentWidget build(BlockComponentContext blockComponentContext) {
@@ -70,6 +79,7 @@ class DoodleBlockComponentBuilder extends BlockComponentBuilder {
         state,
       ),
       onTap: onTap,
+      onDelete: onDelete,
     );
   }
 
@@ -83,7 +93,7 @@ class DoodleBlockComponentBuilder extends BlockComponentBuilder {
 /// Renders the persisted thumbnail from the Attachments sidecar and, when
 /// tapped, allows the owning [EditorState] to launch the full doodle canvas.
 /// Thumbnail updates are persisted back to the editor document via a
-/// [Transaction] so the editor stays in sync.
+/// [Transaction] so the inline doodle block stays in sync.
 class DoodleBlockComponentWidget extends BlockComponentStatefulWidget {
   const DoodleBlockComponentWidget({
     super.key,
@@ -93,9 +103,11 @@ class DoodleBlockComponentWidget extends BlockComponentStatefulWidget {
     super.actionTrailingBuilder,
     super.configuration = const BlockComponentConfiguration(),
     this.onTap,
+    this.onDelete,
   });
 
   final DoodleBlockTapCallback? onTap;
+  final DoodleBlockDeleteCallback? onDelete;
 
   @override
   State<DoodleBlockComponentWidget> createState() =>
@@ -162,16 +174,29 @@ class _DoodleBlockComponentWidgetState extends State<DoodleBlockComponentWidget>
       );
     }
 
-    Widget child = GestureDetector(
-      onTap: () => widget.onTap?.call(node, editorState),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 120),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
+    Widget child = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          onTap: () => widget.onTap?.call(node, editorState),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 120),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: visual,
+          ),
         ),
-        child: visual,
-      ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: MediaDeleteButton(
+            tooltip: 'Delete doodle',
+            onPressed: () => widget.onDelete?.call(node, editorState),
+          ),
+        ),
+      ],
     );
 
     child = Padding(
