@@ -4,10 +4,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/talker_provider.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/masked_reveal.dart';
 import '../../core/widgets/masked_reveal_text.dart';
 import '../../data/repositories/note_repository.dart';
@@ -50,6 +52,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
   Future<void> _restore(String id) async {
     unawaited(HapticFeedback.mediumImpact());
+    nookLog(
+        NookLogKey.database, 'Note restored from archive: $id', LogLevel.info);
     final db = ref.read(databaseProvider);
     final repo = NoteRepository(db);
     await repo.restore(id);
@@ -102,6 +106,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     );
 
     if (confirmed == true) {
+      nookLog(
+        NookLogKey.database,
+        'Note destroyed forever: $id',
+        LogLevel.warning,
+      );
       final repo = NoteRepository(ref.read(databaseProvider));
       await repo.permanentlyDelete(id);
       await _load();
@@ -124,7 +133,10 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
           ),
           title: Row(
             children: [
-              Icon(LucideIcons.alertTriangle, color: scheme.error),
+              HugeIcon(
+                  icon: HugeIcons.strokeRoundedAlert01,
+                  color: scheme.error,
+                  size: 24),
               const SizedBox(width: 8),
               const Text(
                 'Empty Archive?',
@@ -165,6 +177,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     );
 
     if (confirmed == true) {
+      nookLog(
+        NookLogKey.database,
+        'Archive emptied (${_notes.length} notes destroyed)',
+        LogLevel.warning,
+      );
       final repo = NoteRepository(ref.read(databaseProvider));
       await repo.permanentlyDeleteAllDeleted();
       if (mounted) await _load();
@@ -188,14 +205,19 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
           ? Center(child: CircularProgressIndicator(color: scheme.primary))
           : _notes.isEmpty
               ? const EmptyState(
-                  icon: LucideIcons.trash,
+                  icon: HugeIcons.strokeRoundedDelete01,
                   title: 'Archive is empty',
                   subtitle: 'Deleted notes will be held here',
                   animate: false,
                 )
               : ListView.builder(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    16,
+                    20,
+                    DockSafeArea.bottomOf(context) + 72,
+                  ),
                   itemCount: _notes.length,
                   itemBuilder: (context, index) {
                     final note = _notes[index];
@@ -214,51 +236,59 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                             color: scheme.outlineVariant.withValues(alpha: 0.2),
                           ),
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
-                          ),
-                          title: Text(
-                            note.title.isEmpty
-                                ? 'Untitled Document'
-                                : note.title,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: scheme.onSurface.withValues(alpha: 0.7),
+                        // Material keeps the ListTile's ink splash on top of
+                        // the decorated background ("ink splashes invisible"
+                        // framework warning).
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            'Archived $age',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: scheme.onSurfaceVariant
-                                  .withValues(alpha: 0.6),
+                            title: Text(
+                              note.title.isEmpty
+                                  ? 'Untitled Document'
+                                  : note.title,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onSurface.withValues(alpha: 0.7),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  LucideIcons.undo2,
-                                  color: scheme.primary,
-                                ),
-                                tooltip: 'Restore Note',
-                                onPressed: () => _restore(note.id),
+                            subtitle: Text(
+                              'Archived $age',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: scheme.onSurfaceVariant
+                                    .withValues(alpha: 0.6),
                               ),
-                              IconButton(
-                                icon: Icon(
-                                  LucideIcons.trash,
-                                  color: scheme.error.withValues(alpha: 0.8),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: HugeIcon(
+                                    icon: HugeIcons.strokeRoundedUndo02,
+                                    color: scheme.primary,
+                                    size: 24,
+                                  ),
+                                  tooltip: 'Restore Note',
+                                  onPressed: () => _restore(note.id),
                                 ),
-                                tooltip: 'Destroy',
-                                onPressed: () =>
-                                    _permanentDelete(note.id, note.title),
-                              ),
-                            ],
+                                IconButton(
+                                  icon: HugeIcon(
+                                    icon: HugeIcons.strokeRoundedDelete01,
+                                    color: scheme.error.withValues(alpha: 0.8),
+                                    size: 24,
+                                  ),
+                                  tooltip: 'Destroy',
+                                  onPressed: () =>
+                                      _permanentDelete(note.id, note.title),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -268,7 +298,9 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _notes.isNotEmpty
           ? Padding(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: EdgeInsets.only(
+                bottom: DockSafeArea.bottomOf(context) + 16,
+              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(32),
                 child: BackdropFilter(
@@ -278,7 +310,10 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                         scheme.errorContainer.withValues(alpha: 0.9),
                     foregroundColor: scheme.onErrorContainer,
                     elevation: 0,
-                    icon: const Icon(LucideIcons.flame),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedFlameKindling,
+                        size: 24,
+                        color: scheme.onErrorContainer),
                     label: const Text(
                       'Empty Archive',
                       style: TextStyle(fontWeight: FontWeight.w700),

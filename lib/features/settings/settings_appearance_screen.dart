@@ -3,10 +3,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/widgets/dock_safe_area.dart';
 
 class SettingsAppearanceScreen extends ConsumerWidget {
   const SettingsAppearanceScreen({super.key});
@@ -27,7 +28,12 @@ class SettingsAppearanceScreen extends ConsumerWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: [
           const _SectionHeader(title: 'Seed Color Signature'),
           const SizedBox(height: 8),
@@ -60,9 +66,6 @@ class SettingsAppearanceScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.3),
-                  ),
                 ),
                 child: Column(
                   children: [
@@ -81,6 +84,46 @@ class SettingsAppearanceScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 36),
+          const _SectionHeader(title: 'True Black (AMOLED)'),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: SwitchListTile.adaptive(
+                  title: const Text(
+                    'True black (AMOLED)',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Pure black surfaces in dark mode so OLED pixels turn '
+                    'off. Seed colors stay intact.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  secondary: HugeIcon(
+                    icon: HugeIcons.strokeRoundedMoon01,
+                    color: scheme.primary,
+                    size: 28,
+                  ),
+                  value: pref.amoledDark,
+                  activeThumbColor: scheme.primary,
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    pref.setAmoledDark(value);
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 36),
           const _SectionHeader(title: 'Reduce Motion'),
           const SizedBox(height: 8),
           ClipRRect(
@@ -89,9 +132,6 @@ class SettingsAppearanceScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
-                ),
               ),
               child: Material(
                 color: Colors.transparent,
@@ -108,8 +148,8 @@ class SettingsAppearanceScreen extends ConsumerWidget {
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-                  secondary: Icon(
-                    LucideIcons.rabbit,
+                  secondary: HugeIcon(
+                    icon: HugeIcons.strokeRoundedFlowCircle,
                     color: scheme.primary,
                     size: 28,
                   ),
@@ -184,10 +224,13 @@ class _ThemeModeTile extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                Icon(LucideIcons.checkCircle, color: scheme.primary, size: 22)
+                HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    color: scheme.primary,
+                    size: 22)
               else
-                Icon(
-                  LucideIcons.circle,
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedCircle,
                   color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                   size: 22,
                 ),
@@ -223,9 +266,7 @@ class _SeedSwatch extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutBack,
+            Container(
               width: isSelected ? 52 : 44,
               height: isSelected ? 52 : 44,
               decoration: BoxDecoration(

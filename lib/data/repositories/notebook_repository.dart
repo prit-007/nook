@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 import '../tables/attachments.dart';
+import 'note_repository.dart';
 
 /// Repository for Notebooks table operations.
 class NotebookRepository {
@@ -28,6 +30,8 @@ class NotebookRepository {
             sortOrder: Value(sortOrder),
           ),
         );
+
+    nookLog(NookLogKey.database, 'Notebook created: $id', LogLevel.debug);
 
     return (_db.select(_db.notebooks)..where((t) => t.id.equals(id)))
         .getSingle();
@@ -74,6 +78,27 @@ class NotebookRepository {
       ));
       await (_db.delete(_db.notebooks)..where((t) => t.id.equals(id))).go();
     });
+    nookLog(NookLogKey.database, 'Notebook deleted: $id', LogLevel.debug);
+  }
+
+  /// Deletes a notebook and soft-deletes all notes inside it.
+  /// Notes are moved to trash so they can be restored later.
+  Future<void> deleteNotebookAndNotes(String id) async {
+    final noteRepo = NoteRepository(_db);
+    final notes = await (_db.select(_db.notes)
+          ..where((t) => t.notebookId.equals(id)))
+        .get();
+    for (final note in notes) {
+      await noteRepo.softDelete(note.id);
+    }
+    // Unlink notes from the notebook before deleting it (FK constraint).
+    await (_db.update(_db.notes)..where((t) => t.notebookId.equals(id)))
+        .write(const NotesCompanion(
+      notebookId: Value(null),
+    ));
+    await (_db.delete(_db.notebooks)..where((t) => t.id.equals(id))).go();
+    nookLog(NookLogKey.database,
+        'Notebook deleted with ${notes.length} notes: $id', LogLevel.debug);
   }
 
   /// Counts non-deleted notes in a notebook.

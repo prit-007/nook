@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/core/providers/theme_provider.dart';
+import 'package:nook/core/theme/app_theme.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/features/editor/note_editor_screen.dart';
 import 'package:nook/features/home/home_screen.dart';
@@ -21,19 +22,29 @@ void main() {
   setUp(() => db = createTestDb());
   tearDown(() async => db.close());
 
-  Widget darkApp(Widget child) => ProviderScope(
+  Widget themedApp(
+    Widget child, {
+    required bool amoled,
+  }) =>
+      ProviderScope(
         overrides: [
           databaseProvider.overrideWithValue(db),
           themePreferenceProvider.overrideWith(
-            (_) => ThemePreference(themeMode: ThemeMode.dark),
+            (_) => ThemePreference(
+              themeMode: ThemeMode.dark,
+              amoledDark: amoled,
+            ),
           ),
         ],
         child: MaterialApp(
           themeMode: ThemeMode.dark,
-          darkTheme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
+          darkTheme: buildDarkTheme(Colors.blue, amoled: amoled),
           home: child,
         ),
       );
+
+  Widget darkApp(Widget child) => themedApp(child, amoled: false);
+  Widget amoledApp(Widget child) => themedApp(child, amoled: true);
 
   testWidgets('home screen renders in dark mode', (tester) async {
     await tester.pumpWidget(darkApp(const HomeScreen()));
@@ -65,7 +76,7 @@ void main() {
   testWidgets('notebooks screen renders in dark mode', (tester) async {
     await tester.pumpWidget(darkApp(const NotebooksScreen()));
     await tester.pumpAndSettle();
-    expect(find.text('Notebooks'), findsOneWidget);
+    expect(find.text('Collections'), findsOneWidget);
   });
 
   testWidgets('tags screen renders in dark mode', (tester) async {
@@ -80,5 +91,34 @@ void main() {
     await tester.pumpWidget(darkApp(const SearchScreen()));
     await tester.pumpAndSettle();
     expect(find.byType(Scaffold), findsOneWidget);
+  });
+
+  // ── AMOLED true-black variants ───────────────────────────────
+
+  testWidgets('home screen renders in AMOLED dark mode', (tester) async {
+    await tester.pumpWidget(amoledApp(const HomeScreen()));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.byType(Scaffold), findsOneWidget);
+    await db.close();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('editor screen renders in AMOLED dark mode', (tester) async {
+    await tester.pumpWidget(amoledApp(const NoteEditorScreen()));
+    await tester.pumpAndSettle();
+    expect(find.byType(Scaffold), findsOneWidget);
+  });
+
+  testWidgets('appearance screen renders in AMOLED dark mode', (tester) async {
+    await tester.pumpWidget(amoledApp(const SettingsAppearanceScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('Appearance'), findsOneWidget);
+  });
+
+  testWidgets('notebooks screen renders in AMOLED dark mode', (tester) async {
+    await tester.pumpWidget(amoledApp(const NotebooksScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('Collections'), findsOneWidget);
   });
 }

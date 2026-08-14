@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/providers/selection_providers.dart';
@@ -32,7 +32,7 @@ class NotePreviewPane extends ConsumerWidget {
 
     if (noteId == null) {
       return const _PreviewPlaceholder(
-        icon: LucideIcons.mousePointerClick,
+        icon: HugeIcons.strokeRoundedCursorCircleSelection01,
         title: 'Select a note',
         subtitle: 'Choose a note from the list to preview it here.',
       );
@@ -48,7 +48,7 @@ class NotePreviewPane extends ConsumerWidget {
         final data = snapshot.data!;
         if (data.$1 == null) {
           return const _PreviewPlaceholder(
-            icon: LucideIcons.fileQuestion,
+            icon: HugeIcons.strokeRoundedFileQuestionMark,
             title: 'Note not found',
             subtitle: 'This note may have been deleted.',
           );
@@ -115,10 +115,10 @@ class NotePreviewPane extends ConsumerWidget {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  item.checked
-                                      ? Icons.check_circle_rounded
-                                      : Icons.radio_button_unchecked,
+                                HugeIcon(
+                                  icon: item.checked
+                                      ? HugeIcons.strokeRoundedCheckmarkCircle01
+                                      : HugeIcons.strokeRoundedCircle,
                                   size: 20,
                                   color: noteScheme.primary,
                                 ),
@@ -202,7 +202,7 @@ class _PreviewPlaceholder extends StatelessWidget {
     required this.title,
     required this.subtitle,
   });
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final String subtitle;
 
@@ -279,7 +279,7 @@ class _PreviewHeader extends StatelessWidget {
               HapticFeedback.lightImpact();
               context.push('/note/$noteId');
             },
-            icon: const Icon(Icons.open_in_full_rounded, size: 18),
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedExpand, size: 18),
             label: const Text('Open'),
           ),
         ],
@@ -347,10 +347,10 @@ class _AttachmentThumb extends StatelessWidget {
         color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(
-        attachment.type == AttachmentType.doodleLayer
-            ? Icons.gesture_rounded
-            : Icons.image_outlined,
+      child: HugeIcon(
+        icon: attachment.type == AttachmentType.doodleLayer
+            ? HugeIcons.strokeRoundedPenTool01
+            : HugeIcons.strokeRoundedImage01,
         color: scheme.onSurfaceVariant,
       ),
     );

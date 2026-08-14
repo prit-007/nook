@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'widgets/pairing_code_field.dart';
 
@@ -49,8 +49,8 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
                   color: scheme.primaryContainer,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  LucideIcons.shieldCheck,
+                child: HugeIcon(
+                  icon: HugeIcons.strokeRoundedSecurityCheck,
                   size: 64,
                   color: scheme.onPrimaryContainer,
                 ),

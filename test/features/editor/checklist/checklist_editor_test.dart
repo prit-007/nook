@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/checklist_item_repository.dart';
@@ -33,15 +34,33 @@ void main() {
     await db.close();
   });
 
-  Widget buildEditor({String noteId = 'note-1'}) {
+  Widget buildEditor({
+    String noteId = 'note-1',
+    String title = '',
+    ValueChanged<String>? onTitleChanged,
+  }) {
     return ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
       child: MaterialApp(
         home: Scaffold(
-          body: ChecklistEditor(noteId: noteId),
+          body: ChecklistEditor(
+            noteId: noteId,
+            title: title,
+            onTitleChanged: onTitleChanged,
+          ),
         ),
       ),
     );
+  }
+
+  Finder addTaskField() => find.widgetWithText(TextField, 'Add a new task...');
+
+  /// Tap the morphing input circle to expand it into a full text field.
+  Future<void> expandInput(WidgetTester tester) async {
+    // The collapsed circle shows an add icon.
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAdd01));
+    await tester.pumpAndSettle();
   }
 
   testWidgets('renders empty state when no items', (tester) async {
@@ -51,17 +70,19 @@ void main() {
     expect(find.text('A fresh start.'), findsOneWidget);
   });
 
-  testWidgets('shows add item text field', (tester) async {
+  testWidgets('shows add item text field after expanding', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.byType(TextField), findsOneWidget);
+    await expandInput(tester);
+    expect(addTaskField(), findsOneWidget);
   });
 
-  testWidgets('shows hint text in add field', (tester) async {
+  testWidgets('shows hint text in add field after expanding', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
+    await expandInput(tester);
     expect(find.text('Add a new task...'), findsOneWidget);
   });
 
@@ -69,11 +90,53 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'Buy milk');
+    await expandInput(tester);
+    await tester.enterText(addTaskField(), 'Buy milk');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     expect(find.text('Buy milk'), findsOneWidget);
+  });
+
+  testWidgets('renders title field with the current title', (tester) async {
+    await tester.pumpWidget(buildEditor(title: 'Groceries'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Groceries'), findsOneWidget);
+  });
+
+  testWidgets('editing the title reports it through onTitleChanged',
+      (tester) async {
+    String? reported;
+    await tester.pumpWidget(
+      buildEditor(title: 'Old', onTitleChanged: (v) => reported = v),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Old'),
+      'Grocery run',
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(reported, 'Grocery run');
+  });
+
+  testWidgets('extract button pulls the first task into the title',
+      (tester) async {
+    await repo.addItem(noteId: 'note-1', text: 'Buy milk');
+
+    String? reported;
+    await tester.pumpWidget(
+      buildEditor(onTitleChanged: (v) => reported = v),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedTextCreation));
+    await tester.pumpAndSettle();
+
+    expect(reported, 'Buy milk');
+    expect(find.text('Buy milk'), findsNWidgets(2));
   });
 
   testWidgets('displays existing items', (tester) async {
@@ -162,16 +225,26 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedCancelCircle),
+        findsOneWidget);
   });
 
-  testWidgets('tapping delete icon removes item', (tester) async {
+  testWidgets('tapping delete icon removes item after confirmation',
+      (tester) async {
     await repo.addItem(noteId: 'note-1', text: 'Delete me');
 
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedCancelCircle));
+    await tester.pumpAndSettle();
+
+    // Confirmation dialog should appear — tap the Delete button.
+    expect(find.text('Delete task?'), findsOneWidget);
+    await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
     expect(find.text('Delete me'), findsNothing);
@@ -216,7 +289,7 @@ void main() {
       expect(items.first.checked, isTrue);
     });
 
-    testWidgets('swiping a checked item unchecks it', (tester) async {
+    testWidgets('tapping checked item in archive unchecks it', (tester) async {
       await repo.addItem(noteId: 'note-1', text: 'Uncheck me');
       final items = await repo.getItems('note-1');
       await repo.toggleChecked(items[0].id);
@@ -224,7 +297,17 @@ void main() {
       await tester.pumpWidget(buildEditor());
       await tester.pumpAndSettle();
 
-      await tester.drag(find.text('Uncheck me'), const Offset(400, 0));
+      // Checked items appear in the archived section under COMPLETED.
+      // Tap the checkbox circle to uncheck.
+      final rowFinder = find.ancestor(
+        of: find.text('Uncheck me'),
+        matching: find.byType(Row),
+      );
+      final circleToggle = find.descendant(
+        of: rowFinder.first,
+        matching: find.byType(GestureDetector),
+      );
+      await tester.tap(circleToggle.first);
       await tester.pumpAndSettle();
 
       final updatedItems = await repo.getItems('note-1');

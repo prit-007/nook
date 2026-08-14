@@ -1,14 +1,17 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_info.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
+import '../../core/providers/talker_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../sync/sync_orchestrator.dart';
 import 'providers/vault_stats_provider.dart';
 
@@ -26,6 +29,14 @@ class SettingsScreen extends ConsumerWidget {
     final vaultStats = ref.watch(vaultStatsProvider);
     final syncState = ref.watch(syncOrchestratorProvider);
     final deviceCount = syncState.devices.length;
+    final logCount = ref.watch(talkerLogCountProvider).maybeWhen(
+          data: (count) => '$count entries',
+          orElse: () => '\u2014',
+        );
+    final version = ref.watch(appInfoProvider).maybeWhen(
+          data: (info) => info.version,
+          orElse: () => '',
+        );
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -40,13 +51,18 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: [
           _Section(
             title: 'Appearance',
             children: [
               _SettingsTile(
-                icon: LucideIcons.palette,
+                icon: HugeIcons.strokeRoundedSwatch,
                 title: 'Theme & Colors',
                 value: 'System',
                 onTap: () {
@@ -61,19 +77,34 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Security & Privacy',
             children: [
               _SettingsTile(
-                icon: LucideIcons.fingerprint,
+                icon: HugeIcons.strokeRoundedFingerPrint,
                 title: 'Biometric Lock',
                 trailing: Switch.adaptive(
                   value: gate.enabled,
                   activeThumbColor: scheme.primary,
-                  onChanged: (value) {
-                    HapticFeedback.lightImpact();
-                    ref.read(biometricGateProvider).setEnabled(value);
-                  },
+                  onChanged: (value) => unawaited(() async {
+                    unawaited(HapticFeedback.lightImpact());
+                    final gate = ref.read(biometricGateProvider);
+                    if (!value) {
+                      gate.setEnabled(false);
+                      return;
+                    }
+                    final enabled = await gate.enableWithVerification();
+                    if (!enabled && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Authentication is unavailable on this device.',
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  }()),
                 ),
               ),
               _SettingsTile(
-                icon: LucideIcons.timer,
+                icon: HugeIcons.strokeRoundedTimer01,
                 title: 'Auto-Lock Timer',
                 value: _autoLockLabel(gate.autoLockDuration),
                 onTap: () {
@@ -82,7 +113,7 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
-                icon: LucideIcons.ban,
+                icon: HugeIcons.strokeRoundedBlockGame,
                 title: 'Screenshot Blocking',
                 trailing: Switch.adaptive(
                   value: screenshotBlocker.blocked,
@@ -100,7 +131,7 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Storage & Sync',
             children: [
               _SettingsTile(
-                icon: LucideIcons.hardDrive,
+                icon: HugeIcons.strokeRoundedHardDrive,
                 title: 'Storage Used',
                 value: vaultStats.maybeWhen(
                   data: (stats) => '${formatBytes(stats.dbBytes)} '
@@ -113,7 +144,7 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
-                icon: LucideIcons.arrowUpFromLine,
+                icon: HugeIcons.strokeRoundedUpload01,
                 title: 'Export Vault',
                 onTap: () {
                   HapticFeedback.lightImpact();
@@ -121,7 +152,7 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
-                icon: LucideIcons.wifi,
+                icon: HugeIcons.strokeRoundedWifi01,
                 title: 'Peer Sync',
                 value: 'Send & receive',
                 onTap: () {
@@ -130,7 +161,7 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
-                icon: LucideIcons.monitorSmartphone,
+                icon: HugeIcons.strokeRoundedSmartPhone01,
                 title: 'Paired Devices',
                 value: deviceCount > 0 ? '$deviceCount active' : 'None',
                 onTap: () {
@@ -139,7 +170,7 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
-                icon: LucideIcons.history,
+                icon: HugeIcons.strokeRoundedTransactionHistory,
                 title: 'Sync History',
                 onTap: () {
                   HapticFeedback.lightImpact();
@@ -150,10 +181,25 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
           _Section(
+            title: 'Developer',
+            children: [
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedComputerTerminal01,
+                title: 'App Logs',
+                value: logCount,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/logs');
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _Section(
             title: 'About',
             children: [
               _SettingsTile(
-                icon: LucideIcons.shieldCheck,
+                icon: HugeIcons.strokeRoundedSecurityCheck,
                 title: 'Privacy Policy',
                 onTap: () {
                   HapticFeedback.lightImpact();
@@ -161,7 +207,7 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
-                icon: LucideIcons.code,
+                icon: HugeIcons.strokeRoundedCode,
                 title: 'Open Source Licenses',
                 onTap: () {
                   HapticFeedback.lightImpact();
@@ -169,9 +215,9 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
-                icon: LucideIcons.info,
+                icon: HugeIcons.strokeRoundedInformationCircle,
                 title: 'Version',
-                value: AppInfo.version,
+                value: version,
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.push('/settings/about');
@@ -226,9 +272,6 @@ class _Section extends StatelessWidget {
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
-                ),
               ),
               child: Column(children: children),
             ),
@@ -247,7 +290,7 @@ class _SettingsTile extends StatelessWidget {
     this.trailing,
     this.onTap,
   });
-  final IconData icon;
+  final dynamic icon;
   final String title;
   final String? value;
   final Widget? trailing;
@@ -271,11 +314,8 @@ class _SettingsTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.5),
-                  ),
                 ),
-                child: Icon(icon, size: 20, color: scheme.onSurface),
+                child: HugeIcon(icon: icon, size: 20, color: scheme.onSurface),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -302,8 +342,8 @@ class _SettingsTile extends StatelessWidget {
               if (trailing != null)
                 trailing!
               else if (onTap != null)
-                Icon(
-                  LucideIcons.chevronRight,
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowRight01,
                   size: 18,
                   color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),

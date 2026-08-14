@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/database_provider.dart';
@@ -28,6 +29,7 @@ class NoteAssignmentSheet extends ConsumerStatefulWidget {
   }) {
     return showModalBottomSheet<AssignmentResult>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -167,7 +169,7 @@ class _NoteAssignmentSheetState extends ConsumerState<NoteAssignmentSheet> {
                       // "None" option
                       _NotebookTile(
                         name: 'No notebook',
-                        icon: Icons.folder_off_outlined,
+                        icon: HugeIcons.strokeRoundedFolderOff,
                         isSelected: _selectedNotebookId == null,
                         onTap: () => _selectNotebook(null),
                       ),
@@ -238,7 +240,7 @@ class _NotebookTile extends StatelessWidget {
   final String name;
   final bool isSelected;
   final VoidCallback onTap;
-  final IconData? icon;
+  final List<List<dynamic>>? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -246,8 +248,8 @@ class _NotebookTile extends StatelessWidget {
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        icon ?? Icons.book_outlined,
+      leading: HugeIcon(
+        icon: icon ?? HugeIcons.strokeRoundedBook01,
         color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
       ),
       title: Text(
@@ -257,7 +259,11 @@ class _NotebookTile extends StatelessWidget {
           fontWeight: isSelected ? FontWeight.w600 : null,
         ),
       ),
-      trailing: isSelected ? Icon(Icons.check, color: scheme.primary) : null,
+      trailing: isSelected
+          ? HugeIcon(
+              icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+              color: scheme.primary)
+          : null,
       onTap: onTap,
     );
   }
@@ -299,7 +305,10 @@ class _TagChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isSelected) ...[
-              Icon(Icons.check, size: 16, color: tagColor),
+              HugeIcon(
+                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                  size: 16,
+                  color: tagColor),
               const SizedBox(width: 4),
             ],
             Text(

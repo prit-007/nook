@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 import '../tables/notes.dart';
+import 'attachment_repository.dart';
 
 /// Repository for Notes table operations.
 class NoteRepository {
@@ -27,23 +29,31 @@ class NoteRepository {
     int? syncVersion,
   }) async {
     final noteId = id ?? _uuid.v4();
-    await _db.into(_db.notes).insert(
-          NotesCompanion.insert(
-            id: Value(noteId),
-            type: type,
-            title: Value(title),
-            deviceOriginId: deviceOriginId,
-            notebookId:
-                notebookId != null ? Value(notebookId) : const Value.absent(),
-            colorSeed: Value(colorSeed),
-            deltaContent: Value(deltaContent),
-            plainText: Value(plainText),
-            syncVersion:
-                syncVersion != null ? Value(syncVersion) : const Value.absent(),
-          ),
-        );
+    try {
+      await _db.into(_db.notes).insert(
+            NotesCompanion.insert(
+              id: Value(noteId),
+              type: type,
+              title: Value(title),
+              deviceOriginId: deviceOriginId,
+              notebookId:
+                  notebookId != null ? Value(notebookId) : const Value.absent(),
+              colorSeed: Value(colorSeed),
+              deltaContent: Value(deltaContent),
+              plainText: Value(plainText),
+              syncVersion: syncVersion != null
+                  ? Value(syncVersion)
+                  : const Value.absent(),
+            ),
+          );
 
-    await _syncFts(noteId, title, plainText);
+      await _syncFts(noteId, title, plainText);
+    } catch (e) {
+      nookLog(NookLogKey.database, 'Note create failed: $e', LogLevel.error);
+      rethrow;
+    }
+
+    nookLog(NookLogKey.database, 'Note created: $noteId', LogLevel.debug);
 
     return (_db.select(_db.notes)..where((t) => t.id.equals(noteId)))
         .getSingle();
@@ -137,28 +147,37 @@ class NoteRepository {
         await _syncFts(id, note.title, plainText);
       }
     }
+    nookLog(NookLogKey.database, 'Note content saved: $id', LogLevel.debug);
   }
 
-  /// Soft-deletes a note (sets deleted = true, deletedAt = now).
+  /// Soft-deletes a note and all its attachments.
   Future<void> softDelete(String id) async {
-    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
-      NotesCompanion(
-        deleted: const Value(true),
-        deletedAt: Value(DateTime.now()),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+    await _db.transaction(() async {
+      await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+        NotesCompanion(
+          deleted: const Value(true),
+          deletedAt: Value(DateTime.now()),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      await AttachmentRepository(_db).softDeleteAllForNote(id);
+    });
+    nookLog(NookLogKey.database, 'Note soft-deleted: $id', LogLevel.debug);
   }
 
-  /// Restores a soft-deleted note.
+  /// Restores a soft-deleted note and all its attachments.
   Future<void> restore(String id) async {
-    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
-      NotesCompanion(
-        deleted: const Value(false),
-        deletedAt: const Value(null),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+    await _db.transaction(() async {
+      await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+        NotesCompanion(
+          deleted: const Value(false),
+          deletedAt: const Value(null),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      await AttachmentRepository(_db).restoreAllForNote(id);
+    });
+    nookLog(NookLogKey.database, 'Note restored: $id', LogLevel.debug);
   }
 
   /// Returns soft-deleted notes, ordered by deletedAt desc.
@@ -169,26 +188,56 @@ class NoteRepository {
         .get();
   }
 
-  /// Permanently deletes a note and all associated data from the database.
+  /// Permanently deletes a note and all associated data including on-disk files.
   Future<void> permanentlyDelete(String id) async {
-    await _db.transaction(() async {
-      await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(id))).go();
-      await (_db.delete(_db.checklistItems)..where((t) => t.noteId.equals(id)))
-          .go();
-      await (_db.delete(_db.attachments)..where((a) => a.noteId.equals(id)))
-          .go();
-      await _db.customStatement(
-        'DELETE FROM notes_fts WHERE id = ?',
-        [id],
-      );
-      await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
-    });
+    try {
+      final attachmentRepo = AttachmentRepository(_db);
+      // Delete on-disk files for all attachments first.
+      final attachments =
+          await attachmentRepo.getAllForNoteIncludingDeleted(id);
+      for (final att in attachments) {
+        await attachmentRepo.deleteFilesForAttachment(att);
+      }
+
+      await _db.transaction(() async {
+        await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(id)))
+            .go();
+        await (_db.delete(_db.checklistItems)
+              ..where((t) => t.noteId.equals(id)))
+            .go();
+        await (_db.delete(_db.attachments)..where((a) => a.noteId.equals(id)))
+            .go();
+        await _db.customStatement(
+          'DELETE FROM notes_fts WHERE id = ?',
+          [id],
+        );
+        await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
+      });
+    } catch (e) {
+      nookLog(NookLogKey.database, 'Note permanent delete failed: $e',
+          LogLevel.error);
+      rethrow;
+    }
+    nookLog(
+        NookLogKey.database, 'Note permanently deleted: $id', LogLevel.debug);
   }
 
-  /// Permanently deletes all soft-deleted notes and their associated data.
+  /// Permanently deletes all soft-deleted notes and their associated data,
+  /// including on-disk attachment files.
   Future<void> permanentlyDeleteAllDeleted() async {
     final deleted = await getDeletedNotes();
     if (deleted.isEmpty) return;
+
+    final attachmentRepo = AttachmentRepository(_db);
+    // Delete on-disk files for all attachments of deleted notes.
+    for (final note in deleted) {
+      final attachments =
+          await attachmentRepo.getAllForNoteIncludingDeleted(note.id);
+      for (final att in attachments) {
+        await attachmentRepo.deleteFilesForAttachment(att);
+      }
+    }
+
     await _db.transaction(() async {
       for (final note in deleted) {
         await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(note.id)))
@@ -219,6 +268,11 @@ class NoteRepository {
             );
       }
     });
+    nookLog(
+      NookLogKey.database,
+      'Note tags updated: $noteId (${tagIds.length})',
+      LogLevel.debug,
+    );
   }
 
   /// Returns only pinned, non-deleted notes.

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/providers/database_provider.dart';
@@ -28,7 +29,11 @@ class _SyncHistoryScreenState extends ConsumerState<SyncHistoryScreen> {
         title: const Text('Sync History'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_sweep),
+            icon: Builder(
+                builder: (context) => HugeIcon(
+                    icon: HugeIcons.strokeRoundedDelete02,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.onSurface)),
             tooltip: 'Clear History',
             onPressed: () async {
               final confirmed = await showDialog<bool>(
@@ -73,8 +78,8 @@ class _SyncHistoryScreenState extends ConsumerState<SyncHistoryScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.history,
+                  HugeIcon(
+                    icon: HugeIcons.strokeRoundedTransactionHistory,
                     size: 64,
                     color: Theme.of(context)
                         .colorScheme
@@ -98,7 +103,10 @@ class _SyncHistoryScreenState extends ConsumerState<SyncHistoryScreen> {
             itemBuilder: (context, index) {
               final log = logs[index];
               return ListTile(
-                leading: Icon(_actionIcon(log.action)),
+                leading: HugeIcon(
+                    icon: _actionIcon(log.action),
+                    size: 24,
+                    color: Theme.of(context).colorScheme.onSurface),
                 title: Text(_actionLabel(log.action)),
                 subtitle: Text('${log.deviceName} - ${log.noteId}'),
                 trailing: Text(
@@ -113,14 +121,14 @@ class _SyncHistoryScreenState extends ConsumerState<SyncHistoryScreen> {
     );
   }
 
-  IconData _actionIcon(SyncAction action) {
+  List<List<dynamic>> _actionIcon(SyncAction action) {
     switch (action) {
       case SyncAction.sent:
-        return Icons.send;
+        return HugeIcons.strokeRoundedSendToMobile;
       case SyncAction.received:
-        return Icons.download;
+        return HugeIcons.strokeRoundedDownload01;
       case SyncAction.conflict:
-        return Icons.warning_amber_rounded;
+        return HugeIcons.strokeRoundedAlert01;
     }
   }
 

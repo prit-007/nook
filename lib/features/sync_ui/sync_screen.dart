@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 class SyncScreen extends StatelessWidget {
   const SyncScreen({super.key});
@@ -22,7 +22,10 @@ class SyncScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            icon: Icon(LucideIcons.history, color: scheme.onSurface),
+            icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedTransactionHistory,
+                size: 24,
+                color: scheme.onSurface),
             tooltip: 'Sync History',
             onPressed: () {
               HapticFeedback.lightImpact();
@@ -46,7 +49,7 @@ class SyncScreen extends StatelessWidget {
           ),
           const SizedBox(height: 48),
           _GlassModeCard(
-            icon: LucideIcons.send,
+            icon: HugeIcons.strokeRoundedSendToMobile,
             title: 'Send to Device',
             subtitle: 'Select notes and beam them across the room.',
             onTap: () {
@@ -56,7 +59,7 @@ class SyncScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _GlassModeCard(
-            icon: LucideIcons.download,
+            icon: HugeIcons.strokeRoundedDownload01,
             title: 'Receive Notes',
             subtitle: 'Open your vault to accept incoming transfers.',
             onTap: () {
@@ -78,7 +81,7 @@ class _GlassModeCard extends StatefulWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -135,7 +138,8 @@ class _GlassModeCardState extends State<_GlassModeCard> {
                         color: scheme.primary.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(widget.icon, size: 32, color: scheme.primary),
+                      child: HugeIcon(
+                          icon: widget.icon, size: 32, color: scheme.primary),
                     ),
                     const SizedBox(width: 20),
                     Expanded(

@@ -1,6 +1,7 @@
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 import 'package:nook/features/editor/doodle/doodle_block.dart';
 
@@ -137,7 +138,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // default dotted template -> brush icon.
-      expect(find.byIcon(Icons.brush), findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedBrush),
+          findsOneWidget);
     });
 
     testWidgets('renders the template-correct placeholder icon',
@@ -147,7 +151,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.grid_3x3_rounded), findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedGrid),
+          findsOneWidget);
     });
 
     testWidgets('tapping widget invokes onNodeTap with node + editorState',
@@ -164,7 +171,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.brush));
+      await tester.tap(find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedBrush));
       expect(capturedNode, isNotNull);
       expect(capturedNode!.type, DoodleBlockKeys.type);
       expect(capturedState, isNotNull);

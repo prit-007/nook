@@ -1,55 +1,86 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'doodle_controller.dart';
 
-class DoodleToolbar extends StatelessWidget {
-  const DoodleToolbar({super.key, required this.controller});
+class DoodleToolbar extends StatefulWidget {
+  const DoodleToolbar({
+    super.key,
+    required this.controller,
+    this.noteScheme,
+  });
 
   final DoodleController controller;
+  final ColorScheme? noteScheme;
+
+  @override
+  State<DoodleToolbar> createState() => _DoodleToolbarState();
+}
+
+class _DoodleToolbarState extends State<DoodleToolbar> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final controller = widget.controller;
+    final noteScheme = widget.noteScheme;
+    final scheme = noteScheme ?? Theme.of(context).colorScheme;
 
     final colors = [
       scheme.onSurface,
       scheme.surface,
       Colors.redAccent,
-      Colors.blueAccent,
-      Colors.greenAccent,
+      Colors.orangeAccent,
       Colors.amber,
+      Colors.greenAccent,
+      Colors.blueAccent,
+      Colors.indigoAccent,
       Colors.deepPurpleAccent,
+      Colors.pinkAccent,
     ];
 
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        // Collapsed: a compact pill carrying only the expand arrow so it can
+        // never obstruct the canvas while drawing.
+        if (!_expanded) {
+          return _CollapsedHandle(
+            noteScheme: noteScheme ?? scheme,
+            onTap: () => setState(() => _expanded = true),
+          );
+        }
+
         return ClipRRect(
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(36),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.1),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                color: (noteScheme?.surfaceContainerHighest ??
+                        scheme.surfaceContainerHighest)
+                    .withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(36),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      tooltip: 'Collapse toolbar',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => setState(() => _expanded = false),
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowDown01,
+                        color: scheme.onSurfaceVariant,
+                        size: 24,
+                      ),
+                    ),
+                  ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -58,7 +89,7 @@ class DoodleToolbar extends StatelessWidget {
                         button: true,
                         selected: controller.currentTool == DoodleTool.pen,
                         child: _TactileTool(
-                          icon: LucideIcons.penLine,
+                          icon: HugeIcons.strokeRoundedPen01,
                           isSelected: controller.currentTool == DoodleTool.pen,
                           onTap: () =>
                               controller.setCurrentTool(DoodleTool.pen),
@@ -71,7 +102,7 @@ class DoodleToolbar extends StatelessWidget {
                         selected:
                             controller.currentTool == DoodleTool.highlighter,
                         child: _TactileTool(
-                          icon: LucideIcons.highlighter,
+                          icon: HugeIcons.strokeRoundedHighlighter,
                           isSelected:
                               controller.currentTool == DoodleTool.highlighter,
                           onTap: () =>
@@ -84,7 +115,7 @@ class DoodleToolbar extends StatelessWidget {
                         button: true,
                         selected: controller.currentTool == DoodleTool.eraser,
                         child: _TactileTool(
-                          icon: LucideIcons.eraser,
+                          icon: HugeIcons.strokeRoundedEraser01,
                           isSelected:
                               controller.currentTool == DoodleTool.eraser,
                           onTap: () =>
@@ -104,7 +135,7 @@ class DoodleToolbar extends StatelessWidget {
                         button: true,
                         selected: controller.shapeAssistEnabled,
                         child: _TactileTool(
-                          icon: LucideIcons.wandSparkles,
+                          icon: HugeIcons.strokeRoundedMagicWand01,
                           isSelected: controller.shapeAssistEnabled,
                           onTap: () => controller.toggleShapeAssist(),
                           activeColor: scheme.primary,
@@ -115,9 +146,10 @@ class DoodleToolbar extends StatelessWidget {
                         label: 'Clear all strokes',
                         button: true,
                         child: IconButton(
-                          icon: Icon(
-                            LucideIcons.trash2,
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedDelete02,
                             color: scheme.error,
+                            size: 24,
                           ),
                           onPressed: controller.strokes.isNotEmpty
                               ? controller.clear
@@ -129,41 +161,60 @@ class DoodleToolbar extends StatelessWidget {
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 48,
-                    child: ListView.separated(
-                      shrinkWrap: true,
+                    child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      itemCount: colors.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final color = colors[index];
-                        final isSelected = controller.currentColor == color;
-                        return Semantics(
-                          label: 'Color ${index + 1}',
-                          button: true,
-                          selected: isSelected,
-                          child: GestureDetector(
-                            onTap: () => controller.setCurrentColor(color),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOutBack,
-                              width: isSelected ? 32 : 24,
-                              height: isSelected ? 32 : 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: color,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? scheme.primary
-                                      : scheme.outlineVariant
-                                          .withValues(alpha: 0.5),
-                                  width: isSelected ? 2 : 1,
-                                ),
-                              ),
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < colors.length; i++) ...[
+                            _ColorSwatch(
+                              color: colors[i],
+                              isSelected: controller.currentColor == colors[i],
+                              onTap: () =>
+                                  controller.setCurrentColor(colors[i]),
+                            ),
+                            if (i < colors.length - 1)
+                              const SizedBox(width: 12),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedPen01,
+                        size: 14,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 2,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6,
+                            ),
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 14,
                             ),
                           ),
-                        );
-                      },
-                    ),
+                          child: Slider(
+                            value: controller.currentWidth,
+                            min: 1.0,
+                            max: 20.0,
+                            onChanged: (value) =>
+                                controller.setCurrentWidth(value),
+                          ),
+                        ),
+                      ),
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedPen01,
+                        size: 24,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -171,6 +222,96 @@ class DoodleToolbar extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Compact floating handle shown while the toolbar is collapsed. It is a tiny
+/// frosted circle carrying only the expand arrow, so it can never cover the
+/// canvas drawing surface.
+class _CollapsedHandle extends StatelessWidget {
+  const _CollapsedHandle({required this.noteScheme, required this.onTap});
+
+  final ColorScheme noteScheme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Expand toolbar',
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: noteScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: noteScheme.outlineVariant.withValues(alpha: 0.25),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowUp01,
+              size: 22,
+              color: noteScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ColorSwatch extends StatelessWidget {
+  const _ColorSwatch({
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: isSelected ? 36 : 28,
+        height: isSelected ? 36 : 28,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          border: Border.all(
+            color: isSelected
+                ? scheme.primary
+                : scheme.outlineVariant.withValues(alpha: 0.5),
+            width: isSelected ? 3 : 1,
+          ),
+          // Keep one shadow in both states. Interpolating a shadow list with
+          // null during a theme/color change can produce a negative blur.
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: isSelected ? 0.4 : 0),
+              blurRadius: isSelected ? 12 : 0,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -183,7 +324,7 @@ class _TactileTool extends StatelessWidget {
     this.activeColor,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final bool isSelected;
   final VoidCallback onTap;
   final Color? activeColor;
@@ -205,8 +346,8 @@ class _TactileTool extends StatelessWidget {
               isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          icon,
+        child: HugeIcon(
+          icon: icon,
           size: 24,
           color: isSelected ? color : scheme.onSurfaceVariant,
         ),

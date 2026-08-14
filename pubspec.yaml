@@ -1,7 +1,7 @@
 name: nook
 description: "A private, local-first note-taking app. Your notes, your device, yours."
 publish_to: 'none'
-version: 0.7.2+1
+version: 0.7.9+2
 license: GPL-3.0
 
 # Select a SQLCipher build for the sqlite3 native-assets hook so that
@@ -33,6 +33,7 @@ dependencies:
 
   # Theming
   palette_generator: ^0.3.3
+  google_fonts: ^6.2.1
 
   # Editor
   appflowy_editor: ^6.2.0
@@ -52,6 +53,9 @@ dependencies:
 
   # Nearby sync
   bonsoir: ^7.1.5
+  dart_libp2p: ^1.0.3
+  dart_udx: ^2.0.3
+  mdns_dart: ^2.2.1
   crypto: ^3.0.5
   cbor: ^6.3.4
   archive: ^3.6.1
@@ -66,14 +70,17 @@ dependencies:
   flutter_staggered_animations: ^1.1.1
   flex_color_picker: ^3.6.0
 
+  # Developer tooling
+  talker_flutter: ^5.1.16
+
   # Utilities
   uuid: ^4.5.1
   intl: ^0.20.2
   freezed_annotation: ^3.1.0
   json_annotation: ^4.9.0
-  cupertino_icons: ^1.0.8
   shared_preferences: ^2.5.5
-  lucide_flutter: ^1.28.0
+  hugeicons: ^1.1.7
+  package_info_plus: ^9.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -83,8 +90,45 @@ dev_dependencies:
   freezed: ^3.2.0
   json_serializable: ^6.9.0
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 flutter:
   uses-material-design: true
+  fonts:
+    - family: Playfair Display
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlayfairDisplay-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlayfairDisplay-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlayfairDisplay-ExtraBold.ttf
+          weight: 800
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
   # assets:
   #   - assets/illustrations/
   #   - assets/icons/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/icons/favicon_full.png"
+  adaptive_icon_background: "#FBFBFB"
+  adaptive_icon_foreground: "assets/icons/favicon_fg.png"
+  macos:
+    generate: true
+    image_path: "assets/icons/favicon_full.png"
+  windows:
+    generate: true
+    image_path: "assets/icons/favicon_full.png"
+    icon_size: 256

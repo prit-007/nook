@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
@@ -79,7 +80,10 @@ void main() {
       await tester.pumpWidget(buildCard(note));
       await tester.pump();
 
-      expect(find.byIcon(Icons.push_pin_rounded), findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPin),
+          findsOneWidget);
     });
 
     testWidgets('does not show pin icon when not pinned', (tester) async {
@@ -87,7 +91,10 @@ void main() {
       await tester.pumpWidget(buildCard(note));
       await tester.pump();
 
-      expect(find.byIcon(Icons.push_pin_rounded), findsNothing);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPin),
+          findsNothing);
     });
 
     testWidgets('shows lock icon when locked', (tester) async {
@@ -95,7 +102,10 @@ void main() {
       await tester.pumpWidget(buildCard(note));
       await tester.pump();
 
-      expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedLock),
+          findsOneWidget);
     });
 
     testWidgets('shows plain text preview', (tester) async {

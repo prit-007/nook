@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/icons/favicon_full.png" alt="Nook — your notes. your device. yours." width="128" height="128" />
+
 # 🕊️ Nook
 
 > **Your notes. Your device. Yours.**
@@ -17,7 +19,7 @@ server, never through us.
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20Web-lightgrey.svg)
 ![Flutter](https://img.shields.io/badge/Flutter-3.44%20stable-02569B.svg)
-![Status](https://img.shields.io/badge/status-pre--alpha-important.svg)
+![Status](https://img.shields.io/badge/status-alpha-important.svg)
 
 </div>
 
@@ -57,10 +59,20 @@ Three clauses, three promises:
 
 ## Status
 
-🚧 **Pre-alpha — v0.6.2** — Phases 0–4 complete (foundation, core notes,
-checklists + doodles, theming, security). Phase 5 (nearby sync) is implemented
-and covered by loopback transport + orchestrator tests; physical-device
-validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
+🚧 **Alpha — v0.7.9** — Phases 0–4 complete (foundation, core notes,
+checklists + doodles, theming, security). Phase 5 (nearby sync) is implemented:
+the transport was rebuilt on **libp2p over UDX** with a stable keystore identity,
+an own mDNS discovery fork, and categorized failure outcomes. Legacy TCP remains
+as a fallback.
+
+> ⚠️ **Sync is still in testing/development.** The loopback transport and
+> orchestrator tests are green, but physical-device sync has not yet been
+> validated on real hardware, and mDNS discovery is unproven on some Android
+> stacks. Do not rely on sync for anything you cannot afford to lose.
+
+v0.7.9 adds a single-source-of-truth app version (`package_info_plus`), a
+responsive rewrite of the in-app log viewer, and the fully responsive editor
+app bar. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
 
 ## Features
 
@@ -74,9 +86,41 @@ validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION
 | **Theming** | Material You 3 dynamic color + per-note color overrides, light/dark |
 | **Security** | SQLCipher encryption, biometric gate, per-note lock, screenshot blocking |
 | **Trash** | Soft-delete with 30-day auto-expiry |
-| **Sync** | Bonsoir/TCP device-to-device sync: discovery, pairing, transfer, conflict resolution, history |
+| **Sync** | libp2p over UDX device-to-device sync: discovery, pairing, transfer, conflict resolution, history *(in testing)* |
 | **Export** | `.nook` bundle export via `archive` |
-| **CI** | GitHub Actions: format, analyze, test, APK build + GitHub releases |
+| **Branding** | Adaptive launcher icons on all platforms (`flutter_launcher_icons`), Linux window icon |
+| **CI** | GitHub Actions: format, analyze, test, APK build, Windows/macOS/Linux/iOS artifacts + GitHub releases |
+
+## Downloads & releases
+
+There are **no official release binaries yet**. GitHub Actions builds unsigned
+Android APKs, an unsigned iOS/macOS build, a Linux tarball, and the Windows
+installer on every tagged release, but a pre-alpha product means you should
+expect rough edges and frequent breaking changes between versions. Watch the
+[releases page](https://github.com/prit-007/nook/releases) — official binaries
+land once the alpha stabilizes and sync passes physical-device testing.
+
+Until binaries are published, build from source:
+
+- **Android**: build an APK yourself (see [Build a release APK](#build-a-release-apk)).
+- **Linux**: build from source on a Linux host (see [Run it](#run-it)).
+- **Windows**: build the installer on a Windows host (see
+  [Build the Windows installer](#build-the-windows-installer)).
+- **macOS/iOS**: unsigned builds only — a code-signing certificate is required
+  to run them on real hardware.
+
+### What CI ships per release (v0.7.9.2+)
+
+Every tagged release triggers `CI & Release` (`.github/workflows/ci.yml`),
+which uploads all of these to the GitHub release when their builds succeed:
+
+| Platform | Artifact |
+|---|---|
+| Android | split-per-ABI `*-release.apk` files |
+| Windows | `nook-windows-<version>.zip` + `nook_setup_<version>.exe` (Inno Setup) |
+| macOS | `nook-macos-<version>.zip` (unsigned `.app`) |
+| Linux | `nook-linux-<version>.tar.gz` (release bundle) |
+| iOS | `nook-ios-<version>.zip` (unsigned `Runner.app`) |
 
 ## Privacy & security model
 
@@ -84,8 +128,8 @@ validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION
   (`flutter_secure_storage`). The key is never hardcoded and never sent anywhere.
 - **Biometric gate.** The database is opened only after fingerprint/Face unlock.
 - **Peer-to-peer sync.** A short pairing code is verified *on both devices*
-  before any note crosses the wire. Transfers are chunked, SHA-256 checksummed,
-  and acked.
+  before any note crosses the wire. Transfers are framed with a SHA-256 checksum
+  verified before deserialization, over a Noise-encrypted libp2p link.
 - **No analytics. No crash reporters. No ads.** Nook phones nothing home.
 
 ## Getting started as a user
@@ -94,6 +138,9 @@ validation remains. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION
 
 - Flutter **3.44.x** (stable channel) and Dart `>=3.6.0 <4.0.0`
 - A device or emulator (Android, iOS, macOS, Linux, Windows, or Web)
+- Linux desktop builds need the system package `libsecret-1-dev`
+  (`sudo apt-get install -y libsecret-1-dev`); the Windows installer build
+  needs the [Inno Setup compiler](https://jrsoftware.org/isdl.php) on PATH.
 
 ### Run it
 
@@ -103,12 +150,14 @@ dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
-> **Note for AppFlowy editor users:** `appflowy_editor 6.2.0` has two known
-> upstream gaps patched by this repo (the `keyboard_height_plugin` SDK and
-> `TextInputClient.onFocusReceived`). The patches are applied automatically by
-> `android/settings.gradle.kts` and `tool/patch_appflowy_editor.dart`
-> respectively — **do not skip `dart run tool/patch_appflowy_editor.dart`**
-> after `flutter pub get`. Details in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+> **Note for library users:** upstream gaps are patched by this repo —
+> `appflowy_editor 6.2.0` (`keyboard_height_plugin` SDK,
+> `TextInputClient.onFocusReceived`, and the mobile `/` slash command) and
+> `talker_flutter` (ListTile ink-splash background). The patches are applied
+> automatically by `android/settings.gradle.kts`, `tool/patch_appflowy_editor.dart`
+> and `tool/patch_talker_flutter.dart` — **do not skip the two
+> `dart run tool/patch_*.dart` steps** after `flutter pub get`.
+> Details in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ### Build a release APK
 
@@ -116,6 +165,19 @@ flutter run
 flutter build apk --release
 # artifact: build/app/outputs/flutter-apk/app-release.apk
 ```
+
+### Build the Windows installer
+
+```bash
+flutter build windows --release   # Windows host (Inno Setup required)
+dart run tool/build_installer.dart
+# artifact: build/installers/nook_setup_<version>.exe
+```
+
+`tool/build_installer.dart` generates an Inno Setup script and compiles it with
+`iscc` into a modern wizard that installs under `{localappdata}` (no admin
+required), with a Start Menu entry and an opt-in desktop shortcut. See
+[`docs/adr/0010-windows-installer.md`](docs/adr/0010-windows-installer.md).
 
 ## Developing Nook
 
@@ -129,7 +191,7 @@ lib/
 ├── core/       app shell, router, theme, providers, platform bridges
 ├── data/       Drift schema + repositories (notes, tags, attachments, sync log)
 ├── features/   feature UIs: home, editor, doodle, sync_ui, security, settings…
-├── sync/       protocol (CBOR bundle), merge resolver, orchestrator, transports
+├── sync/       libp2p/UDX transport, mDNS discovery, protocol, orchestrator
 └── main.dart   entry point
 ```
 
@@ -139,9 +201,11 @@ A full walkthrough of every layer and the sync wire protocol lives in
 ### Test
 
 ```bash
-flutter test                       # everything
-flutter test test/sync             # sync protocol, resolver, orchestrator, transports
-flutter test test/sync/tcp_transport_integration_test.dart   # real loopback TCP
+flutter test                              # everything (CI skips the `network` tag)
+flutter test -x network                   # hermetic suite, no multicast
+flutter test test/sync                    # sync protocol, resolver, orchestrator, transports
+flutter test test/sync/libp2p_transport_test.dart   # loopback UDX transport (no mDNS)
+flutter test test/sync/tcp_transport_integration_test.dart   # legacy loopback TCP
 ```
 
 ## Tech stack
@@ -153,10 +217,10 @@ flutter test test/sync/tcp_transport_integration_test.dart   # real loopback TCP
 | Storage | Drift + SQLCipher | type-safe relational ORM, encrypted at rest |
 | Editor | AppFlowy Editor | block node-tree document model |
 | Doodle | `perfect_freehand` | smooth freehand strokes |
-| Discovery/sync | Bonsoir (mDNS) + raw TCP | zero-server, LAN-only transfer |
+| Discovery/sync | libp2p over UDX (`dart_libp2p`) + own `_syncnotenet._udp` mDNS fork | zero-server, LAN-only, Noise-encrypted transfer |
 | Serialization | CBOR + SHA-256 | compact, portable, checksummed |
 | Security | `local_auth`, `flutter_secure_storage` | biometric gate + keystore keys |
-| Icons | Lucide | consistent editorial iconography |
+| Icons | Hugeicons (stroke-rounded) | luxury editorial iconography, 5,100+ free icons |
 | License | GPL-3.0 | freedom from downstream enclosure |
 
 ## Documentation
@@ -166,6 +230,7 @@ Everything lives in `docs/` and `ADR`/decision records in `docs/adr/`.
 | Doc | What it is |
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | **Start here.** Current codebase map: layers, sync protocol, editor patches |
+| [`docs/SYNC-LIBP2P-TRANSPORT.md`](docs/SYNC-LIBP2P-TRANSPORT.md) | The libp2p/UDX sync transport: wire envelope, lifecycle, discovery, identity, outcomes |
 | [`docs/notes-app-masterplan.md`](docs/notes-app-masterplan.md) | Product vision, positioning, roadmap |
 | [`docs/notes-app-detailed-plan.md`](docs/notes-app-detailed-plan.md) | Schema, architecture, protocol races, testing strategy |
 | [`docs/notes-app-part3-editor-routes-libraries.md`](docs/notes-app-part3-editor-routes-libraries.md) | Editor internals + full route map |

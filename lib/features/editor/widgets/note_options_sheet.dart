@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/database_provider.dart';
@@ -44,6 +45,7 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
   }) {
     return showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -67,15 +69,19 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
 
 class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   String? _selectedNotebookId;
+  String? _selectedColorSeed;
   List<String> _selectedTagIds = [];
   List<Notebook> _notebooks = [];
   List<Tag> _tags = [];
   bool _loading = true;
+  late bool _isLocked;
 
   @override
   void initState() {
     super.initState();
     _selectedNotebookId = widget.currentNotebookId;
+    _selectedColorSeed = widget.currentColorSeed;
+    _isLocked = widget.currentlyLocked;
     _load();
   }
 
@@ -118,8 +124,8 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final currentColor =
-        widget.currentColorSeed != null && widget.currentColorSeed!.isNotEmpty
-            ? NookColors.parseHex(widget.currentColorSeed)
+        _selectedColorSeed != null && _selectedColorSeed!.isNotEmpty
+            ? NookColors.parseHex(_selectedColorSeed)
             : null;
 
     return DraggableScrollableSheet(
@@ -165,18 +171,23 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                         _ColorDot(
                           color: null,
                           isSelected: currentColor == null,
-                          onTap: () => widget.onColorChanged?.call(''),
+                          onTap: () {
+                            setState(() => _selectedColorSeed = '');
+                            widget.onColorChanged?.call('');
+                          },
                         ),
                         for (int i = 0; i < NookColors.seeds.length; i++)
                           _ColorDot(
                             color: NookColors.seeds[i],
                             isSelected: currentColor == NookColors.seeds[i],
-                            onTap: () => widget.onColorChanged?.call(
-                              NookColors.seeds[i]
+                            onTap: () {
+                              final seed = NookColors.seeds[i]
                                   .toARGB32()
                                   .toRadixString(16)
-                                  .substring(2),
-                            ),
+                                  .substring(2);
+                              setState(() => _selectedColorSeed = seed);
+                              widget.onColorChanged?.call(seed);
+                            },
                           ),
                       ],
                     ),
@@ -202,7 +213,7 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                     else ...[
                       _NotebookOption(
                         name: 'No notebook',
-                        icon: Icons.folder_off_outlined,
+                        icon: HugeIcons.strokeRoundedFolderOff,
                         isSelected: _selectedNotebookId == null,
                         onTap: () => _selectNotebook(null),
                       ),
@@ -260,16 +271,19 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
-                      secondary: Icon(
-                        widget.currentlyLocked
-                            ? Icons.lock_rounded
-                            : Icons.lock_open_rounded,
-                        color: widget.currentlyLocked
+                      secondary: HugeIcon(
+                        icon: _isLocked
+                            ? HugeIcons.strokeRoundedLock
+                            : HugeIcons.strokeRoundedCircleUnlock01,
+                        color: _isLocked
                             ? scheme.primary
                             : scheme.onSurfaceVariant,
                       ),
-                      value: widget.currentlyLocked,
-                      onChanged: (v) => widget.onLockedChanged?.call(v),
+                      value: _isLocked,
+                      onChanged: (v) {
+                        setState(() => _isLocked = v);
+                        widget.onLockedChanged?.call(v);
+                      },
                     ),
 
                     const SizedBox(height: 24),
@@ -322,8 +336,10 @@ class _ColorDot extends StatelessWidget {
             ),
           ),
           child: isSelected
-              ? Icon(
-                  color != null ? Icons.check : Icons.close,
+              ? HugeIcon(
+                  icon: color != null
+                      ? HugeIcons.strokeRoundedCheckmarkCircle01
+                      : HugeIcons.strokeRoundedCancelCircle,
                   size: 18,
                   color: swatch != null
                       ? NookSemantics.contrastForeground(swatch)
@@ -347,7 +363,7 @@ class _NotebookOption extends StatelessWidget {
   final String name;
   final bool isSelected;
   final VoidCallback onTap;
-  final IconData? icon;
+  final List<List<dynamic>>? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -356,8 +372,8 @@ class _NotebookOption extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      leading: Icon(
-        icon ?? Icons.book_outlined,
+      leading: HugeIcon(
+        icon: icon ?? HugeIcons.strokeRoundedBook01,
         color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
         size: 20,
       ),
@@ -370,7 +386,10 @@ class _NotebookOption extends StatelessWidget {
         ),
       ),
       trailing: isSelected
-          ? Icon(Icons.check, color: scheme.primary, size: 20)
+          ? HugeIcon(
+              icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+              color: scheme.primary,
+              size: 20)
           : null,
       onTap: onTap,
     );
@@ -417,7 +436,10 @@ class _TagChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isSelected) ...[
-                Icon(Icons.check, size: 14, color: tagColor),
+                HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    size: 14,
+                    color: tagColor),
                 const SizedBox(width: 4),
               ],
               Text(

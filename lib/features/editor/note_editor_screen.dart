@@ -5,7 +5,9 @@ import 'dart:ui';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,13 +18,19 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/providers/database_provider.dart';
-import '../../core/theme/design_tokens.dart';
+import '../../core/providers/talker_provider.dart';
+import '../../core/theme/note_theme.dart';
 import '../../core/theme/note_theme_scope.dart';
+import '../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
+import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/doodle_storage.dart';
 import '../../data/repositories/note_repository.dart';
+import '../../data/repositories/notebook_repository.dart';
+import '../../data/repositories/tag_repository.dart';
 import '../../data/tables/notes.dart';
+import '../../data/tables/attachments.dart';
 import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/doodle/doodle_thumbnail_renderer.dart';
 import 'doodle/doodle_block.dart';
@@ -31,6 +39,42 @@ import 'widgets/custom_todo_list_block.dart';
 import 'widgets/image_picker_handler.dart';
 import 'widgets/note_options_sheet.dart';
 import 'widgets/zoomable_image_block.dart';
+import 'checklist_editor.dart';
+
+/// Inserts [node] into the editor document.
+///
+/// Uses the current collapsed selection when available; otherwise appends
+/// after the last block.  Returns the live in-tree [Node] so callers can
+/// reference it for later [Transaction.updateNode] calls.
+Node insertBlockNode(EditorState editorState, Node node) {
+  final selection = editorState.selection;
+  Path? insertPath;
+
+  if (selection != null && selection.isCollapsed) {
+    final success = insertNodeAfterSelection(editorState, node);
+    if (success) {
+      // insertNodeAfterSelection deep-copies; re-fetch the live node.
+      final pos = editorState.selection?.end.path;
+      if (pos != null) {
+        final live = editorState.getNodeAtPath(pos);
+        if (live != null) return live;
+      }
+    }
+  }
+
+  // No valid selection — append after the last block.
+  final root = editorState.document.root;
+  final last = root.children.lastOrNull;
+  insertPath = last == null ? const [0] : last.path.next;
+
+  final transaction = editorState.transaction;
+  transaction
+    ..insertNode(insertPath, node)
+    ..afterSelection = Selection.collapsed(Position(path: insertPath));
+  editorState.apply(transaction);
+
+  return editorState.getNodeAtPath(insertPath) ?? node;
+}
 
 class NoteEditorScreen extends ConsumerStatefulWidget {
   const NoteEditorScreen({
@@ -60,10 +104,16 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   bool _disposed = false;
   String? _colorSeed;
   String? _notebookId;
+  String? _notebookName;
+  List<String> _tagNames = [];
   Timer? _autosaveTimer;
   StreamSubscription<void>? _transactionSubscription;
   AppDatabase? _db;
   bool _corruptedDelta = false;
+  List<Attachment> _checklistAttachments = [];
+
+  /// Tracks whether the user has made real edits since the last save.
+  bool _dirty = false;
 
   @override
   void initState() {
@@ -164,10 +214,35 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
 
     _transactionSubscription = _editorState!.transactionStream.listen((_) {
+      _dirty = true;
       _scheduleAutosave();
     });
 
+    // Pre-load attachments for checklist notes so the media strip renders instantly.
+    if (_note?.type == NoteType.checklist) {
+      _checklistAttachments =
+          await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    }
+
+    // Load metadata (notebook name + tags) for the app bar subtitle.
+    if (_note != null) {
+      final tagRepo = TagRepository(_db!);
+      final tags = await tagRepo.getTagsForNote(_note!.id);
+      _tagNames = tags.map((t) => t.name).toList();
+
+      if (_note!.notebookId != null) {
+        final nbRepo = NotebookRepository(_db!);
+        final nb = await nbRepo.getNotebookById(_note!.notebookId!);
+        _notebookName = nb?.name;
+      }
+    }
+
     setState(() => _loading = false);
+    if (widget.noteId == null && _note?.type == NoteType.doodle) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_insertDoodle());
+      });
+    }
     if (_corruptedDelta) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -191,10 +266,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   void _scheduleAutosave() {
     _autosaveTimer?.cancel();
     _autosaveTimer = Timer(const Duration(milliseconds: 600), _save);
+    nookLog(NookLogKey.editor, 'Autosave triggered for ${_note?.id}',
+        LogLevel.debug);
   }
 
   Future<void> _save() async {
     if (_disposed || _note == null || _editorState == null) return;
+    if (!_dirty) return;
     if (_saving) {
       _saveQueued = true;
       return;
@@ -239,6 +317,14 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         deltaContent: Value(deltaJson),
         plainText: Value(plainText),
         updatedAt: now,
+      );
+
+      // Update snapshot after successful save.
+      _dirty = false;
+      nookLog(
+        NookLogKey.editor,
+        'Note saved: ${_note!.id} (${plainText.length} chars)',
+        LogLevel.info,
       );
     } finally {
       _saving = false;
@@ -316,15 +402,134 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     final result = await handler.pickAndStore(noteId: _note!.id);
     if (result == null || !mounted) return;
 
-    // Insert an image node at the current cursor position.
+    // Insert an image node at the current cursor position (or after last block).
     final node = imageNode(url: result.filePath);
-    insertNodeAfterSelection(_editorState!, node);
+    insertBlockNode(_editorState!, node);
 
     // Force an empty paragraph after the image so the user can keep typing.
     final pNode = paragraphNode();
-    insertNodeAfterSelection(_editorState!, pNode);
+    insertBlockNode(_editorState!, pNode);
 
+    _dirty = true;
     _scheduleAutosave();
+  }
+
+  /// Picks an image and stores it as a checklist attachment.
+  Future<void> _insertChecklistImage() async {
+    if (_note == null) return;
+    unawaited(HapticFeedback.lightImpact());
+
+    final baseDir = await getApplicationDocumentsDirectory();
+    final handler = ImagePickerHandler(
+      attachments: AttachmentRepository(_db!),
+      baseDir: baseDir,
+    );
+
+    final result = await handler.pickAndStore(noteId: _note!.id);
+    if (result == null || !mounted) return;
+
+    // Reload attachments so the media strip updates instantly.
+    final attachments =
+        await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    setState(() => _checklistAttachments = attachments);
+    _dirty = true;
+  }
+
+  Future<void> _openChecklistAttachment(Attachment attachment) async {
+    if (attachment.type == AttachmentType.doodleLayer) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => DoodleCanvasScreen(
+            noteId: _note!.id,
+            attachmentId: attachment.id,
+          ),
+        ),
+      );
+      return;
+    }
+
+    final file = File(attachment.filePath);
+    if (!file.existsSync() || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: InteractiveViewer(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.file(file, fit: BoxFit.contain),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Persists an edited checklist title and keeps the app bar in sync.
+  Future<void> _updateChecklistTitle(String title) async {
+    if (_note == null) return;
+    if (_title != title) {
+      setState(() => _title = title);
+    }
+    await NoteRepository(_db!).updateNote(_note!.id, title: title);
+  }
+
+  /// Creates a doodle and stores it as a checklist attachment.
+  Future<void> _insertChecklistDoodle() async {
+    if (_note == null) return;
+    unawaited(HapticFeedback.lightImpact());
+    final noteId = _note!.id;
+
+    final attachmentId = const Uuid().v4();
+
+    // Create the attachment row for the doodle.
+    final attachmentRepo = AttachmentRepository(_db!);
+    final baseDir = await getApplicationDocumentsDirectory();
+    final doodlePath = '${baseDir.path}/$attachmentId.doodle.json';
+    await attachmentRepo.addDoodle(
+      noteId: noteId,
+      filePath: doodlePath,
+      id: attachmentId,
+    );
+
+    // Open the doodle canvas.
+    if (!mounted) return;
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => DoodleCanvasScreen(
+          noteId: noteId,
+          attachmentId: attachmentId,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    // Regenerate the thumbnail.
+    final storage = DoodleStorage(
+      attachments: attachmentRepo,
+      baseDir: baseDir,
+    );
+    final data = await storage.loadDoodle(result);
+    if (!mounted) return;
+    final noteScheme = noteSchemeFor(context, _colorSeed);
+    final thumbBytes = await DoodleThumbnailRenderer.render(
+      data.strokes,
+      background: data.background,
+      noteScheme: noteScheme,
+    );
+
+    final thumbFile = File('${baseDir.path}/${result}_thumb.png');
+    await thumbFile.writeAsBytes(thumbBytes);
+
+    // Update the attachment's thumbnail path.
+    await attachmentRepo.updateThumbnail(result, thumbFile.path);
+
+    // Reload attachments so the media strip updates instantly.
+    final attachments =
+        await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    setState(() => _checklistAttachments = attachments);
+    _dirty = true;
   }
 
   /// Creates a new doodle block and opens the doodle canvas.
@@ -334,40 +539,289 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     final attachmentId = const Uuid().v4();
 
-    // Insert a placeholder doodle node at the current cursor position.
+    // Insert a placeholder doodle node (uses insertBlockNode for reliable placement).
     final node = doodleNode(attachmentId: attachmentId);
-    insertNodeAfterSelection(_editorState!, node);
+    final liveNode = insertBlockNode(_editorState!, node);
 
     // Force an empty paragraph after the doodle so the user can keep typing.
     final pNode = paragraphNode();
-    insertNodeAfterSelection(_editorState!, pNode);
+    insertBlockNode(_editorState!, pNode);
 
-    // Open the canvas for the new doodle.
-    await _openDoodleCanvas(node, _editorState!);
+    // Open the canvas for the new doodle — use the live in-tree node so
+    // _openDoodleCanvas's updateNode targets the correct path.
+    await _openDoodleCanvas(liveNode, _editorState!);
     _scheduleAutosave();
+  }
+
+  /// Removes a doodle or image block from the document and deletes the
+  /// associated attachment row + files from disk.
+  Future<void> _deleteMediaBlock(Node node, EditorState editorState) async {
+    if (_db == null || _note == null || !mounted) return;
+
+    final mediaType = node.type == DoodleBlockKeys.type ? 'doodle' : 'image';
+    final confirmed = await showConfirmDeleteDialog(
+      context,
+      title: 'Delete $mediaType?',
+      message:
+          'This $mediaType will be moved to trash and can be restored later.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
+
+    unawaited(HapticFeedback.lightImpact());
+
+    final repo = AttachmentRepository(_db!);
+
+    // 1. Clean up attachment row + files from disk.
+    if (node.type == DoodleBlockKeys.type) {
+      final attId = node.attributes[DoodleBlockKeys.attachmentId] as String?;
+      if (attId != null) {
+        final att = await repo.getById(attId);
+        if (att != null) await repo.deleteAttachmentWithFiles(att);
+      }
+    } else if (node.type == ImageBlockKeys.type) {
+      final url = node.attributes[ImageBlockKeys.url] as String?;
+      if (url != null && url.isNotEmpty) {
+        final att = await repo.getByFilePath(url);
+        if (att != null) await repo.deleteAttachmentWithFiles(att);
+      }
+    }
+
+    // 2. Remove the node from the document, keeping a valid selection.
+    final nodePath = node.path;
+    final parentPath = nodePath.sublist(0, nodePath.length - 1);
+    final index = nodePath.last;
+    final siblings = node.parent?.children.toList() ?? [];
+    final hasNext = index < siblings.length - 1;
+
+    final transaction = editorState.transaction;
+    transaction.deleteNode(node);
+
+    if (siblings.length <= 1) {
+      // Deleting the only block — insert a fresh paragraph.
+      transaction.insertNode(const [0], paragraphNode());
+      transaction.afterSelection =
+          Selection.collapsed(Position(path: const [0]));
+    } else if (hasNext) {
+      // Next sibling slides into the deleted index.
+      transaction.afterSelection =
+          Selection.collapsed(Position(path: [...parentPath, index]));
+    } else {
+      // No next sibling — fall back to the previous one.
+      transaction.afterSelection =
+          Selection.collapsed(Position(path: [...parentPath, index - 1]));
+    }
+
+    await editorState.apply(transaction);
+    _scheduleAutosave();
+    setState(() {});
+  }
+
+  /// Deletes an attachment from a checklist note.
+  Future<void> _deleteChecklistAttachment(Attachment attachment) async {
+    if (_db == null || !mounted) return;
+
+    final mediaType =
+        attachment.type == AttachmentType.doodleLayer ? 'doodle' : 'image';
+    final confirmed = await showConfirmDeleteDialog(
+      context,
+      title: 'Delete $mediaType?',
+      message:
+          'This $mediaType will be moved to trash and can be restored later.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
+
+    unawaited(HapticFeedback.lightImpact());
+    final repo = AttachmentRepository(_db!);
+    await repo.deleteAttachmentWithFiles(attachment);
+    // Reload attachments so the media strip updates instantly.
+    final attachments =
+        await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    setState(() => _checklistAttachments = attachments);
+  }
+
+  /// Returns the editor widget appropriate for the current platform.
+  ///
+  /// Mobile platforms get [MobileToolbarV2] (keyboard toolbar).
+  /// Desktop / web get [AppFlowyEditor] directly with desktop style
+  /// (slash menu, selection menu, and app bar handle all actions).
+  Widget _buildEditorForPlatform({
+    required ColorScheme noteScheme,
+    required TextTheme dynamicTextTheme,
+  }) {
+    final isMobile = defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+
+    final editor = AppFlowyEditor(
+      editorState: _editorState!,
+      editorStyle: isMobile
+          ? EditorStyle.mobile(
+              cursorColor: noteScheme.primary,
+              selectionColor: noteScheme.primary.withValues(alpha: 0.2),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              textStyleConfiguration: TextStyleConfiguration(
+                text: dynamicTextTheme.bodyLarge!.copyWith(
+                  color: noteScheme.onSurface,
+                  height: 1.65,
+                ),
+              ),
+            )
+          : EditorStyle.desktop(
+              cursorColor: noteScheme.primary,
+              selectionColor: noteScheme.primary.withValues(alpha: 0.2),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              textStyleConfiguration: TextStyleConfiguration(
+                text: dynamicTextTheme.bodyLarge!.copyWith(
+                  color: noteScheme.onSurface,
+                  height: 1.65,
+                ),
+              ),
+            ),
+      autoFocus: true,
+      blockComponentBuilders: {
+        ...standardBlockComponentBuilderMap,
+        TodoListBlockKeys.type: NookTodoListBlock.builder(),
+        DoodleBlockKeys.type: DoodleBlockComponentBuilder(
+          configuration: BlockComponentConfiguration(
+            padding: (_) => const EdgeInsets.symmetric(vertical: 24),
+          ),
+          onTap: (node, editorState) {
+            HapticFeedback.lightImpact();
+            _openDoodleCanvas(node, editorState);
+          },
+          onDelete: _deleteMediaBlock,
+        ),
+        ImageBlockKeys.type: NookImageBlockComponentBuilder(
+          onDelete: _deleteMediaBlock,
+        ),
+      },
+      characterShortcutEvents: [
+        ...standardCharacterShortcutEvents,
+        customSlashCommand(
+          [
+            ...standardSelectionMenuItems,
+            SelectionMenuItem(
+              getName: () => 'Doodle',
+              icon: (editorState, isSelected, style) => SelectionMenuIconWidget(
+                name: 'draw',
+                isSelected: isSelected,
+                style: style,
+              ),
+              keywords: ['doodle', 'draw', 'sketch'],
+              handler: (editorState, _, __) async {
+                await _insertDoodle();
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return MobileToolbarV2(
+        editorState: _editorState!,
+        backgroundColor:
+            noteScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        foregroundColor: noteScheme.onSurface,
+        iconColor: noteScheme.onSurface,
+        itemHighlightColor: noteScheme.primary,
+        primaryColor: noteScheme.primary,
+        onPrimaryColor: noteScheme.onPrimary,
+        itemOutlineColor: noteScheme.outlineVariant.withValues(alpha: 0.4),
+        toolbarItems: _buildMobileToolbarItems(),
+        child: editor,
+      );
+    }
+
+    return editor;
+  }
+
+  /// Builds the mobile toolbar items shown above the on-screen keyboard.
+  ///
+  /// The custom blocks menu mirrors the block-type shortcuts a desktop user
+  /// gets from the slash menu, and the Doodle item opens the doodle canvas
+  /// directly (it is an action, not a block-type toggle).
+  List<MobileToolbarItem> _buildMobileToolbarItems() {
+    return [
+      MobileToolbarItem.withMenu(
+        itemIconBuilder: (context, editorState, _) => AFMobileIcon(
+          afMobileIcons: AFMobileIcons.list,
+          color: MobileToolbarTheme.of(context).iconColor,
+        ),
+        itemMenuBuilder: (context, editorState, _) {
+          final selection = editorState.selection;
+          if (selection == null) return const SizedBox.shrink();
+          return _NookBlocksMenu(
+            editorState: editorState,
+            selection: selection,
+          );
+        },
+      ),
+      MobileToolbarItem.action(
+        itemIconBuilder: (context, editorState, _) => HugeIcon(
+          icon: HugeIcons.strokeRoundedPenTool01,
+          color: MobileToolbarTheme.of(context).iconColor,
+        ),
+        actionHandler: (context, editorState) {
+          unawaited(_insertDoodle());
+        },
+      ),
+      textDecorationMobileToolbarItemV2,
+    ];
+  }
+
+  void _undoEditor() {
+    final state = _editorState;
+    if (state == null || !state.undoManager.undoStack.isNonEmpty) return;
+    HapticFeedback.selectionClick();
+    state.undoManager.undo();
+    _scheduleAutosave();
+    setState(() {});
+  }
+
+  void _redoEditor() {
+    final state = _editorState;
+    if (state == null || !state.undoManager.redoStack.isNonEmpty) return;
+    HapticFeedback.selectionClick();
+    state.undoManager.redo();
+    _scheduleAutosave();
+    setState(() {});
   }
 
   /// Exports the current note as a PNG and offers save-to-gallery / share.
   Future<void> _exportNote() async {
     if (_note == null || _editorState == null || !mounted) return;
     unawaited(HapticFeedback.lightImpact());
+    await _save();
+    if (!mounted || _note == null || _editorState == null) return;
 
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final boundaryKey = GlobalKey();
+    final checklistItems = _note!.type == NoteType.checklist
+        ? await ChecklistItemRepository(_db!).getItems(_note!.id)
+        : const <ChecklistItem>[];
+    if (!mounted) return;
 
     // Build the render widget off-screen inside an Overlay.
+    // Use a Stack with overflow to allow the capture to render at intrinsic height.
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
     entry = OverlayEntry(
-      builder: (_) => Material(
-        color: Colors.transparent,
-        child: RepaintBoundary(
-          key: boundaryKey,
-          child: NoteExportCapture(
-            note: _note!,
-            editorState: _editorState!,
+      builder: (_) => Stack(
+        children: [
+          Positioned(
+            top: -10000,
+            left: -10000,
+            child: RepaintBoundary(
+              key: boundaryKey,
+              child: NoteExportCapture(
+                note: _note!,
+                editorState: _editorState!,
+                checklistItems: checklistItems,
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
     overlay.insert(entry);
@@ -380,46 +834,72 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       final boundary = boundaryKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary == null) {
-        scaffoldMessenger.showSnackBar(
+        entry.remove();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Export failed: could not capture')),
         );
         return;
       }
       final bytes = await NoteExporter.captureBoundaryToPng(boundary);
-
-      final baseDir = await getApplicationDocumentsDirectory();
-      final filePath =
-          '${baseDir.path}/${NoteExporter.generateFileName(_note!.title)}';
-      await File(filePath).writeAsBytes(bytes);
-
-      // Save to gallery
-      final saved = await NoteExporter.saveToGallery(
-        bytes,
-        name: NoteExporter.generateFileName(_note!.title),
-      );
+      entry.remove();
 
       if (!mounted) return;
-      scaffoldMessenger.hideCurrentSnackBar();
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            saved ? 'Saved to gallery' : 'Gallery permission denied',
-          ),
-          action: saved
-              ? SnackBarAction(
-                  label: 'Share',
-                  onPressed: () => NoteExporter.sharePng(filePath),
-                )
-              : null,
-        ),
-      );
+
+      // Show the preview dialog.
+      await _showExportPreview(bytes);
     } catch (e) {
+      entry.remove();
       if (!mounted) return;
-      scaffoldMessenger.showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Export failed: $e')),
       );
-    } finally {
-      entry.remove();
+    }
+  }
+
+  /// Shows a preview of the exported PNG with share and save actions.
+  Future<void> _showExportPreview(Uint8List bytes) async {
+    if (!mounted) return;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _ExportPreviewSheet(bytes: bytes, noteTitle: _title),
+    );
+
+    if (!mounted || result == null) return;
+
+    final baseDir = await getApplicationDocumentsDirectory();
+    final filePath = '${baseDir.path}/${NoteExporter.generateFileName(_title)}';
+    await File(filePath).writeAsBytes(bytes);
+
+    if (result == 'share') {
+      await NoteExporter.sharePng(filePath);
+    } else if (result == 'gallery') {
+      final saved = await NoteExporter.saveToGallery(
+        bytes,
+        name: NoteExporter.generateFileName(_title),
+      );
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              saved ? 'Saved to gallery' : 'Gallery permission denied',
+            ),
+            action: saved
+                ? SnackBarAction(
+                    label: 'Share',
+                    onPressed: () => NoteExporter.sharePng(filePath),
+                  )
+                : null,
+          ),
+        );
+      }
     }
   }
 
@@ -452,9 +932,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       baseDir: baseDir,
     );
     final data = await storage.loadDoodle(result);
+    if (!mounted) return;
+    final noteScheme = noteSchemeFor(context, _colorSeed);
     final thumbBytes = await DoodleThumbnailRenderer.render(
       data.strokes,
       background: data.background,
+      noteScheme: noteScheme,
     );
 
     final thumbFile = File('${baseDir.path}/${result}_thumb.png');
@@ -483,7 +966,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     // Snapshot content synchronously before EditorState is disposed.
     final note = _note;
     final db = _db;
-    if (note != null && db != null && _editorState != null) {
+    if (note != null && db != null && _editorState != null && _dirty) {
       final snapshot = _snapshotContent(note.id, db);
       _editorState?.dispose();
       super.dispose();
@@ -563,311 +1046,159 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       );
     }
 
-    final noteScheme = _colorSeed != null && _colorSeed!.isNotEmpty
-        ? ColorScheme.fromSeed(
-            seedColor: NookColors.parseHex(_colorSeed),
-          )
-        : Theme.of(context).colorScheme;
+    final noteScheme = noteSchemeFor(context, _colorSeed);
 
     final dynamicTextTheme =
         NoteThemeScope.buildDynamicTextTheme(context, noteScheme);
 
-    return NoteThemeScope(
-      colorScheme: noteScheme,
-      textTheme: dynamicTextTheme,
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: noteScheme.surfaceContainerLowest,
-        body: Stack(
-          children: [
-            if (widget.noteId != null)
-              Positioned.fill(
-                child: Hero(
-                  tag: 'note-${widget.noteId}',
-                  child: ColoredBox(color: noteScheme.surfaceContainerLowest),
+    // Build the Hero outside NoteThemeScope to avoid _dependents.isEmpty
+    // assertion during route pop Hero flights. The Hero's child is a plain
+    // ColoredBox using a captured Color — no inherited deps needed.
+    final heroChild = widget.noteId != null
+        ? Positioned.fill(
+            child: Hero(
+              tag: 'note-${widget.noteId}',
+              child: ColoredBox(color: noteScheme.surfaceContainerLowest),
+            ),
+          )
+        : const SizedBox.shrink();
+
+    return Stack(
+      children: [
+        heroChild,
+        NoteThemeScope(
+          colorScheme: noteScheme,
+          textTheme: dynamicTextTheme,
+          child: Scaffold(
+            resizeToAvoidBottomInset: false,
+            backgroundColor: noteScheme.surfaceContainerLowest,
+            body: Stack(
+              children: [
+                CustomScrollView(
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.only(
+                        top: topPadding + 90,
+                        bottom: keyboardHeight + 120,
+                      ),
+                      sliver: SliverFillRemaining(
+                        hasScrollBody: true,
+                        child: _note?.type == NoteType.checklist
+                            ? ChecklistEditor(
+                                noteId: _note!.id,
+                                title: _title,
+                                initialAttachments: _checklistAttachments,
+                                onTitleChanged: _updateChecklistTitle,
+                                onInsertImage: _note != null
+                                    ? _insertChecklistImage
+                                    : null,
+                                onInsertDoodle: _note != null
+                                    ? _insertChecklistDoodle
+                                    : null,
+                                onOpenAttachment: _note != null
+                                    ? _openChecklistAttachment
+                                    : null,
+                                onDeleteAttachment: _note != null
+                                    ? _deleteChecklistAttachment
+                                    : null,
+                              )
+                            : _buildEditorForPlatform(
+                                noteScheme: noteScheme,
+                                dynamicTextTheme: dynamicTextTheme,
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    top: topPadding + 90,
-                    bottom: keyboardHeight + 120,
-                  ),
-                  sliver: SliverFillRemaining(
-                    hasScrollBody: true,
-                    child: AppFlowyEditor(
-                      editorState: _editorState!,
-                      editorStyle: EditorStyle.mobile(
-                        cursorColor: noteScheme.primary,
-                        selectionColor:
-                            noteScheme.primary.withValues(alpha: 0.2),
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        textStyleConfiguration: TextStyleConfiguration(
-                          text: dynamicTextTheme.bodyLarge!.copyWith(
-                            color: noteScheme.onSurface,
-                            height: 1.65,
+
+                // 2. Auto-Hiding Glass App Bar (Zen Mode)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOutBack,
+                  top: isKeyboardVisible ? -100 : topPadding + 12,
+                  left: 20,
+                  right: 20,
+                  child: RepaintBoundary(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 250),
+                      opacity: isKeyboardVisible ? 0.0 : 1.0,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(32),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                          child: Container(
+                            height: 60,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: noteScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(32),
+                            ),
+                            child: _ResponsiveEditorAppBar(
+                              noteScheme: noteScheme,
+                              dynamicTextTheme: dynamicTextTheme,
+                              title: _title,
+                              saving: _saving,
+                              pinned: _pinned,
+                              note: _note,
+                              notebookName: _notebookName,
+                              tagNames: _tagNames,
+                              onBack: () async {
+                                final router = GoRouter.of(context);
+                                unawaited(HapticFeedback.lightImpact());
+                                // Delete newly-created blank notes on exit.
+                                if (_dirty) {
+                                  final nodes =
+                                      _editorState!.document.root.children;
+                                  String plainText = '';
+                                  for (final node in nodes) {
+                                    if (node.delta != null) {
+                                      for (final op in node.delta!.toList()) {
+                                        if (op is TextInsert) {
+                                          plainText += op.text;
+                                        }
+                                      }
+                                      plainText += '\n';
+                                    }
+                                  }
+                                  plainText = plainText.trim();
+                                  if (plainText.isEmpty &&
+                                      _title.isEmpty &&
+                                      widget.noteId == null) {
+                                    await NoteRepository(_db!)
+                                        .permanentlyDelete(_note!.id);
+                                  } else {
+                                    await _save();
+                                  }
+                                }
+                                if (mounted) router.pop();
+                              },
+                              onInsertImage: _insertImage,
+                              onInsertDoodle: _insertDoodle,
+                              onTogglePin: _togglePin,
+                              onExport: _exportNote,
+                              onMoreOptions: _showNoteOptions,
+                              canUndo: _editorState!
+                                  .undoManager.undoStack.isNonEmpty,
+                              canRedo: _editorState!
+                                  .undoManager.redoStack.isNonEmpty,
+                              onUndo: _undoEditor,
+                              onRedo: _redoEditor,
+                            ),
                           ),
                         ),
                       ),
-                      autoFocus: true,
-                      blockComponentBuilders: {
-                        ...standardBlockComponentBuilderMap,
-                        TodoListBlockKeys.type: NookTodoListBlock.builder(),
-                        DoodleBlockKeys.type: DoodleBlockComponentBuilder(
-                          configuration: BlockComponentConfiguration(
-                            padding: (_) =>
-                                const EdgeInsets.symmetric(vertical: 24),
-                          ),
-                          onTap: (node, editorState) {
-                            HapticFeedback.lightImpact();
-                            _openDoodleCanvas(node, editorState);
-                          },
-                        ),
-                        ImageBlockKeys.type: NookImageBlockComponentBuilder(),
-                      },
-                      characterShortcutEvents: [
-                        ...standardCharacterShortcutEvents,
-                        customSlashCommand(
-                          [
-                            ...standardSelectionMenuItems,
-                            SelectionMenuItem(
-                              getName: () => 'Doodle',
-                              icon: (editorState, isSelected, style) =>
-                                  SelectionMenuIconWidget(
-                                name: 'draw',
-                                isSelected: isSelected,
-                                style: style,
-                              ),
-                              keywords: ['doodle', 'draw', 'sketch'],
-                              handler: (editorState, _, __) async {
-                                final node = doodleNode(
-                                  attachmentId: const Uuid().v4(),
-                                );
-                                insertNodeAfterSelection(editorState, node);
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
                     ),
                   ),
                 ),
+
+                // 3. (removed) Floating Formatting Pill — superseded by the
+                // MobileToolbarV2 keyboard toolbar (see _buildMobileToolbarItems).
               ],
             ),
-
-            // 2. Auto-Hiding Glass App Bar (Zen Mode)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutBack,
-              top: isKeyboardVisible ? -100 : topPadding + 12,
-              left: 20,
-              right: 20,
-              child: RepaintBoundary(
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
-                  opacity: isKeyboardVisible ? 0.0 : 1.0,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(32),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                      child: Container(
-                        height: 60,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: noteScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(32),
-                          border: Border.all(
-                            color: noteScheme.outlineVariant
-                                .withValues(alpha: 0.25),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: noteScheme.shadow.withValues(alpha: 0.05),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: _ResponsiveEditorAppBar(
-                          noteScheme: noteScheme,
-                          dynamicTextTheme: dynamicTextTheme,
-                          title: _title,
-                          saving: _saving,
-                          pinned: _pinned,
-                          note: _note,
-                          onBack: () async {
-                            final router = GoRouter.of(context);
-                            unawaited(HapticFeedback.lightImpact());
-                            await _save();
-                            if (mounted) router.pop();
-                          },
-                          onInsertImage: _insertImage,
-                          onInsertDoodle: _insertDoodle,
-                          onTogglePin: _togglePin,
-                          onExport: _exportNote,
-                          onMoreOptions: _showNoteOptions,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // 3. Floating Formatting Pill (Anchors to keyboard)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeOutCubic,
-              bottom: isKeyboardVisible ? keyboardHeight + 16 : -100,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: RepaintBoundary(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 300),
-                    opacity: isKeyboardVisible ? 1.0 : 0.0,
-                    child: _FloatingFormatBar(editorState: _editorState!),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FloatingFormatBar extends StatelessWidget {
-  const _FloatingFormatBar({required this.editorState});
-
-  final EditorState editorState;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = NoteThemeScope.of(context);
-
-    return RepaintBoundary(
-      child: ExcludeFocus(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _FormatAction(
-                    icon: Icons.format_bold_rounded,
-                    tooltip: 'Bold',
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      editorState.toggleAttribute('bold');
-                    },
-                  ),
-                  _FormatAction(
-                    icon: Icons.format_italic_rounded,
-                    tooltip: 'Italic',
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      editorState.toggleAttribute('italic');
-                    },
-                  ),
-                  _FormatAction(
-                    icon: Icons.format_strikethrough_rounded,
-                    tooltip: 'Strikethrough',
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      editorState.toggleAttribute('strikethrough');
-                    },
-                  ),
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-                    child: VerticalDivider(
-                      width: 1,
-                      color: scheme.outlineVariant.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  _FormatAction(
-                    icon: Icons.format_list_bulleted_rounded,
-                    tooltip: 'Bullet list',
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      insertNodeAfterSelection(
-                        editorState,
-                        bulletedListNode(),
-                      );
-                    },
-                  ),
-                  _FormatAction(
-                    icon: Icons.checklist_rounded,
-                    tooltip: 'Checklist',
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      insertNodeAfterSelection(
-                        editorState,
-                        todoListNode(checked: false),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _FormatAction extends StatelessWidget {
-  const _FormatAction({
-    required this.icon,
-    required this.onTap,
-    this.tooltip,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final String? tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = NoteThemeScope.of(context);
-    return Semantics(
-      label: tooltip,
-      button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(
-            icon,
-            size: 22,
-            color: scheme.onSurface.withValues(alpha: 0.8),
-          ),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -886,6 +1217,12 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
     required this.onTogglePin,
     required this.onExport,
     required this.onMoreOptions,
+    required this.canUndo,
+    required this.canRedo,
+    required this.onUndo,
+    required this.onRedo,
+    this.notebookName,
+    this.tagNames = const [],
   });
 
   final ColorScheme noteScheme;
@@ -900,6 +1237,12 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
   final VoidCallback onTogglePin;
   final VoidCallback onExport;
   final VoidCallback onMoreOptions;
+  final bool canUndo;
+  final bool canRedo;
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
+  final String? notebookName;
+  final List<String> tagNames;
 
   @override
   Widget build(BuildContext context) {
@@ -911,8 +1254,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
           children: [
             IconButton(
               tooltip: 'Back',
-              icon: Icon(
-                Icons.arrow_back_rounded,
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowLeft01,
                 color: noteScheme.onSurface,
               ),
               onPressed: onBack,
@@ -934,21 +1277,38 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                   Text(
                     saving
                         ? 'Saving...'
-                        : DateFormat('MMMM d, yyyy')
-                            .format(note?.updatedAt ?? DateTime.now()),
+                        : _subtitle(
+                            note?.updatedAt ?? DateTime.now(),
+                          ),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: noteScheme.onSurfaceVariant,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            if (isNarrow)
+            if (isNarrow) ...[
+              IconButton(
+                tooltip: 'Undo',
+                onPressed: canUndo ? onUndo : null,
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedUndo02,
+                    color: noteScheme.onSurface),
+              ),
+              IconButton(
+                tooltip: 'Redo',
+                onPressed: canRedo ? onRedo : null,
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedRedo02,
+                    color: noteScheme.onSurface),
+              ),
               PopupMenuButton<String>(
-                icon: Icon(
-                  Icons.more_horiz_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedMore01,
                   color: noteScheme.onSurface,
                 ),
                 onSelected: (value) {
@@ -970,8 +1330,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'image',
                     child: Row(
                       children: [
-                        Icon(Icons.add_photo_alternate_rounded,
-                            size: 20, color: noteScheme.onSurface),
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedImageAdd01,
+                            size: 20,
+                            color: noteScheme.onSurface),
                         const SizedBox(width: 12),
                         const Text('Insert image'),
                       ],
@@ -981,8 +1343,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'doodle',
                     child: Row(
                       children: [
-                        Icon(Icons.draw_rounded,
-                            size: 20, color: noteScheme.onSurface),
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedDrawingMode,
+                            size: 20,
+                            color: noteScheme.onSurface),
                         const SizedBox(width: 12),
                         const Text('Insert doodle'),
                       ],
@@ -992,10 +1356,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'pin',
                     child: Row(
                       children: [
-                        Icon(
-                          pinned
-                              ? Icons.push_pin_rounded
-                              : Icons.push_pin_outlined,
+                        HugeIcon(
+                          icon: pinned
+                              ? HugeIcons.strokeRoundedPin
+                              : HugeIcons.strokeRoundedPinOff,
                           size: 20,
                           color: pinned
                               ? noteScheme.primary
@@ -1010,8 +1374,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'export',
                     child: Row(
                       children: [
-                        Icon(Icons.ios_share_rounded,
-                            size: 20, color: noteScheme.onSurface),
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedShare01,
+                            size: 20,
+                            color: noteScheme.onSurface),
                         const SizedBox(width: 12),
                         const Text('Export note'),
                       ],
@@ -1021,8 +1387,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'more',
                     child: Row(
                       children: [
-                        Icon(Icons.settings_rounded,
-                            size: 20, color: noteScheme.onSurface),
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedSettings02,
+                            size: 20,
+                            color: noteScheme.onSurface),
                         const SizedBox(width: 12),
                         const Text('Note options'),
                       ],
@@ -1030,27 +1398,43 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                   ),
                 ],
               )
-            else ...[
+            ] else ...[
+              IconButton(
+                tooltip: 'Undo',
+                onPressed: canUndo ? onUndo : null,
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedUndo02,
+                    color: noteScheme.onSurface),
+              ),
+              IconButton(
+                tooltip: 'Redo',
+                onPressed: canRedo ? onRedo : null,
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedRedo02,
+                    color: noteScheme.onSurface),
+              ),
               IconButton(
                 tooltip: 'Insert image',
-                icon: Icon(
-                  Icons.add_photo_alternate_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedImageAdd01,
                   color: noteScheme.onSurface,
                 ),
                 onPressed: onInsertImage,
               ),
               IconButton(
                 tooltip: 'Insert doodle',
-                icon: Icon(
-                  Icons.draw_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedDrawingMode,
                   color: noteScheme.onSurface,
                 ),
                 onPressed: onInsertDoodle,
               ),
               IconButton(
                 tooltip: pinned ? 'Unpin note' : 'Pin note',
-                icon: Icon(
-                  pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                icon: HugeIcon(
+                  icon: pinned
+                      ? HugeIcons.strokeRoundedPin
+                      : HugeIcons.strokeRoundedPinOff,
                   color: pinned ? noteScheme.primary : noteScheme.onSurface,
                   size: 20,
                 ),
@@ -1058,8 +1442,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Export note',
-                icon: Icon(
-                  Icons.ios_share_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedShare01,
                   color: noteScheme.onSurface,
                   size: 20,
                 ),
@@ -1067,8 +1451,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'More options',
-                icon: Icon(
-                  Icons.more_horiz_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedMore01,
                   color: noteScheme.onSurface,
                 ),
                 onPressed: onMoreOptions,
@@ -1079,6 +1463,22 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
       },
     );
   }
+
+  String _subtitle(DateTime updatedAt) {
+    final date = DateFormat('MMMM d, yyyy').format(updatedAt);
+    final parts = <String>[];
+    if (notebookName != null) {
+      parts.add(notebookName!);
+    }
+    if (tagNames.isNotEmpty) {
+      parts.addAll(tagNames.take(3).map((t) => '#$t'));
+      if (tagNames.length > 3) {
+        parts.add('+${tagNames.length - 3}');
+      }
+    }
+    if (parts.isEmpty) return date;
+    return '$date \u00b7 ${parts.join(' | ')}';
+  }
 }
 
 /// Minimal capture-only widget for exporting a note as PNG.
@@ -1087,30 +1487,26 @@ class NoteExportCapture extends StatelessWidget {
     super.key,
     required this.note,
     required this.editorState,
+    this.checklistItems = const [],
   });
 
   final Note note;
   final EditorState editorState;
+  final List<ChecklistItem> checklistItems;
 
-  ColorScheme _noteScheme() {
-    if (note.colorSeed != null && note.colorSeed!.isNotEmpty) {
-      return ColorScheme.fromSeed(
-        seedColor: NookColors.parseHex(note.colorSeed),
-      );
-    }
-    return const ColorScheme.light();
-  }
+  ColorScheme _noteScheme(BuildContext context) =>
+      noteSchemeFor(context, note.colorSeed);
 
   @override
   Widget build(BuildContext context) {
-    final scheme = _noteScheme();
+    final scheme = _noteScheme(context);
     final nodes = editorState.document.root.children;
 
     return Material(
       color: scheme.surface,
       child: Container(
-        width: 400,
-        padding: const EdgeInsets.all(32),
+        width: 460,
+        padding: const EdgeInsets.fromLTRB(72, 56, 72, 64),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -1126,11 +1522,13 @@ class NoteExportCapture extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               note.title.isNotEmpty ? note.title : 'Untitled',
-              style: TextStyle(
+              style: const TextStyle(
+                fontFamily: 'Playfair Display',
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: scheme.onSurface,
                 height: 1.2,
+              ).copyWith(
+                color: scheme.onSurface,
               ),
             ),
             const SizedBox(height: 20),
@@ -1151,8 +1549,10 @@ class NoteExportCapture extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        checked ? Icons.check_circle : Icons.circle_outlined,
+                      HugeIcon(
+                        icon: checked
+                            ? HugeIcons.strokeRoundedCheckmarkCircle01
+                            : HugeIcons.strokeRoundedCircle,
                         size: 18,
                         color: scheme.primary,
                       ),
@@ -1182,6 +1582,22 @@ class NoteExportCapture extends StatelessWidget {
                   );
                 }
               }
+              if (type == DoodleBlockKeys.type) {
+                final path =
+                    node.attributes[DoodleBlockKeys.thumbnailPath] as String?;
+                if (path != null &&
+                    path.isNotEmpty &&
+                    File(path).existsSync()) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(File(path), width: 300),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }
               final delta = node.delta;
               if (delta != null && delta.isNotEmpty) {
                 String text = '';
@@ -1204,13 +1620,50 @@ class NoteExportCapture extends StatelessWidget {
               }
               return const SizedBox.shrink();
             }),
+            if (checklistItems.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ...checklistItems.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HugeIcon(
+                        icon: item.checked
+                            ? HugeIcons.strokeRoundedCheckmarkCircle01
+                            : HugeIcons.strokeRoundedCircle,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          item.itemText,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: scheme.onSurfaceVariant,
+                            height: 1.5,
+                            decoration: item.checked
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 32),
+            Divider(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
             Text(
-              'nook',
+              'nook. / 2026',
               style: TextStyle(
+                fontFamily: 'Playfair Display',
                 fontSize: 10,
                 color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
-                letterSpacing: 1.5,
+                letterSpacing: 2.0,
               ),
             ),
           ],
@@ -1235,4 +1688,218 @@ class _PersistSnapshot {
   final String deltaJson;
   final String plainText;
   final AppDatabase db;
+}
+
+/// Bottom sheet showing a preview of the exported PNG with share/save actions.
+class _ExportPreviewSheet extends StatelessWidget {
+  const _ExportPreviewSheet({required this.bytes, required this.noteTitle});
+
+  final Uint8List bytes;
+  final String noteTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: scheme.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Export Preview',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 400),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: SingleChildScrollView(
+                child: Image.memory(
+                  bytes,
+                  fit: BoxFit.fitWidth,
+                  width: double.infinity,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'share'),
+                  icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedShare01,
+                      size: 18,
+                      color: scheme.onSurface),
+                  label: const Text('Share'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.pop(context, 'gallery'),
+                  icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedDownload01,
+                      size: 18,
+                      color: scheme.onSurface),
+                  label: const Text('Save to Gallery'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+/// Grid menu shown by the mobile toolbar's custom blocks item.
+///
+/// Mirrors the block types a desktop user reaches through the `/` slash menu:
+/// headings, bulleted/numbered lists, a checkbox, and a quote. Selecting an
+/// already-selected block reverts it to a plain paragraph.
+class _NookBlocksMenu extends StatefulWidget {
+  const _NookBlocksMenu({
+    required this.editorState,
+    required this.selection,
+  });
+
+  final EditorState editorState;
+  final Selection selection;
+
+  @override
+  State<_NookBlocksMenu> createState() => _NookBlocksMenuState();
+}
+
+class _NookBlocksMenuState extends State<_NookBlocksMenu> {
+  static const _items = [
+    (
+      icon: AFMobileIcons.h1,
+      label: 'Heading 1',
+      type: HeadingBlockKeys.type,
+      level: 1,
+    ),
+    (
+      icon: AFMobileIcons.h2,
+      label: 'Heading 2',
+      type: HeadingBlockKeys.type,
+      level: 2,
+    ),
+    (
+      icon: AFMobileIcons.h3,
+      label: 'Heading 3',
+      type: HeadingBlockKeys.type,
+      level: 3,
+    ),
+    (
+      icon: AFMobileIcons.bulletedList,
+      label: 'Bulleted list',
+      type: BulletedListBlockKeys.type,
+      level: null,
+    ),
+    (
+      icon: AFMobileIcons.numberedList,
+      label: 'Numbered list',
+      type: NumberedListBlockKeys.type,
+      level: null,
+    ),
+    (
+      icon: AFMobileIcons.checkbox,
+      label: 'Checkbox',
+      type: TodoListBlockKeys.type,
+      level: null,
+    ),
+    (
+      icon: AFMobileIcons.quote,
+      label: 'Quote',
+      type: QuoteBlockKeys.type,
+      level: null,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final style = MobileToolbarTheme.of(context);
+
+    final children = _items.map((item) {
+      final node =
+          widget.editorState.getNodeAtPath(widget.selection.start.path);
+      final isSelected = node?.type == item.type &&
+          (item.level == null ||
+              node?.attributes[HeadingBlockKeys.level] == item.level);
+
+      return MobileToolbarItemMenuBtn(
+        icon: AFMobileIcon(
+          afMobileIcons: item.icon,
+          color: MobileToolbarTheme.of(context).iconColor,
+        ),
+        label: Text(item.label),
+        isSelected: isSelected,
+        onPressed: () {
+          setState(() {
+            widget.editorState.formatNode(
+              widget.selection,
+              (n) => n.copyWith(
+                type: isSelected ? ParagraphBlockKeys.type : item.type,
+                attributes: {
+                  ParagraphBlockKeys.delta: (n.delta ?? Delta()).toJson(),
+                  blockComponentBackgroundColor:
+                      n.attributes[blockComponentBackgroundColor],
+                  if (!isSelected && item.type == TodoListBlockKeys.type)
+                    TodoListBlockKeys.checked: false,
+                  if (!isSelected && item.type == HeadingBlockKeys.type)
+                    HeadingBlockKeys.level: item.level,
+                },
+              ),
+              selectionExtraInfo: {
+                selectionExtraInfoDoNotAttachTextService: true,
+              },
+            );
+          });
+        },
+      );
+    }).toList();
+
+    return GridView(
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      gridDelegate: buildMobileToolbarMenuGridDelegate(
+        mobileToolbarStyle: style,
+        crossAxisCount: 2,
+      ),
+      children: children,
+    );
+  }
 }

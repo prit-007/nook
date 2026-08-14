@@ -4,10 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/home/home_screen.dart';
 import '../../features/home/search_screen.dart';
-import '../../features/notebooks/notebooks_screen.dart';
 import '../../features/notebooks/notebook_detail_screen.dart';
-import '../../features/tags/tags_screen.dart';
 import '../../features/tags/tag_detail_screen.dart';
+import '../../features/collections/collections_screen.dart';
 import '../../features/editor/note_editor_screen.dart';
 import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/trash/trash_screen.dart';
@@ -26,10 +25,49 @@ import '../../features/settings/settings_storage_screen.dart';
 import '../../features/settings/settings_sync_devices_screen.dart';
 import '../../features/settings/settings_about_screen.dart';
 import '../../features/settings/settings_privacy_screen.dart';
+import '../../features/settings/settings_logs_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import 'widgets/app_shell.dart';
+import 'providers/navigation_preference.dart';
 
-/// Custom page transition: fade + slight slide up for forward pushes.
+/// Bespoke page transition for a luxury editorial feel.
+///
+/// Combines a slow fade with a subtle upward glide, using an extended
+/// duration and aggressive easing curve for GSAP-like fluidity.
+CustomTransitionPage<T> buildEditorialTransition<T>({
+  required BuildContext context,
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<T>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 500),
+    reverseTransitionDuration: const Duration(milliseconds: 350),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curve = CurvedAnimation(
+        parent: animation,
+        curve: Curves.fastLinearToSlowEaseIn,
+        reverseCurve: Curves.easeOut,
+      );
+
+      return FadeTransition(
+        opacity: curve,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.0, 0.05), // Subtle 5% drop
+            end: Offset.zero,
+          ).animate(curve),
+          // Rasterize the incoming page once so the fade/slide only composites
+          // layers — no per-frame repaint of the page subtree during the push.
+          child: RepaintBoundary(child: child),
+        ),
+      );
+    },
+  );
+}
+
+/// Custom page transition: slow fade + slight slide up for forward pushes.
 CustomTransitionPage<void> _slideUpTransition(
   BuildContext context,
   GoRouterState state,
@@ -38,16 +76,23 @@ CustomTransitionPage<void> _slideUpTransition(
   return CustomTransitionPage<void>(
     key: state.pageKey,
     child: child,
+    transitionDuration: const Duration(milliseconds: 500),
+    reverseTransitionDuration: const Duration(milliseconds: 350),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curve = CurvedAnimation(
+        parent: animation,
+        curve: Curves.fastLinearToSlowEaseIn,
+        reverseCurve: Curves.easeOut,
+      );
+
       return FadeTransition(
-        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        opacity: curve,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
+            begin: const Offset(0, 0.05),
             end: Offset.zero,
-          ).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-          child: child,
+          ).animate(curve),
+          child: RepaintBoundary(child: child),
         ),
       );
     },
@@ -69,7 +114,7 @@ CustomTransitionPage<void> _fadeTransition(
           parent: animation,
           curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
         ),
-        child: child,
+        child: RepaintBoundary(child: child),
       );
     },
   );
@@ -77,7 +122,15 @@ CustomTransitionPage<void> _fadeTransition(
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: ref.read(navigationPreferenceProvider.notifier).route,
+    redirect: (context, state) {
+      // Auto-persist every navigated route so the app can restore it on
+      // cold start.  Only top-level and first-level sub-routes are saved;
+      // deep links like /note/:id are intentionally skipped so the app
+      // opens to the containing section, not a possibly-stale note.
+      NavigationPreference.rememberPath(state.matchedLocation);
+      return null; // no redirect, just persist.
+    },
     routes: [
       GoRoute(
         path: '/',
@@ -107,7 +160,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _fadeTransition(
               context,
               state,
-              const NotebooksScreen(),
+              const CollectionsScreen(initialTab: 0),
             ),
           ),
           GoRoute(
@@ -125,7 +178,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _fadeTransition(
               context,
               state,
-              const TagsScreen(),
+              const CollectionsScreen(initialTab: 1),
             ),
           ),
           GoRoute(
@@ -200,6 +253,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               context,
               state,
               const SettingsPrivacyScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/settings/logs',
+            pageBuilder: (context, state) => _slideUpTransition(
+              context,
+              state,
+              const SettingsLogsScreen(),
             ),
           ),
         ],

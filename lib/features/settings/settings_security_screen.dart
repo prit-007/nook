@@ -4,11 +4,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../features/security/pin_entry_screen.dart';
 
 class SettingsSecurityScreen extends ConsumerWidget {
@@ -32,7 +33,12 @@ class SettingsSecurityScreen extends ConsumerWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: [
           _buildGlassCard(
             scheme,
@@ -48,17 +54,32 @@ class SettingsSecurityScreen extends ConsumerWidget {
                   fontSize: 13,
                 ),
               ),
-              secondary: Icon(
-                LucideIcons.fingerprint,
+              secondary: HugeIcon(
+                icon: HugeIcons.strokeRoundedFingerPrint,
                 color: scheme.primary,
                 size: 28,
               ),
               value: gate.enabled,
               activeThumbColor: scheme.primary,
-              onChanged: (value) {
-                HapticFeedback.lightImpact();
-                ref.read(biometricGateProvider).setEnabled(value);
-              },
+              onChanged: (value) => unawaited(() async {
+                unawaited(HapticFeedback.lightImpact());
+                final gate = ref.read(biometricGateProvider);
+                if (!value) {
+                  gate.setEnabled(false);
+                  return;
+                }
+                final enabled = await gate.enableWithVerification();
+                if (!enabled && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Authentication is unavailable on this device.',
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }()),
             ),
           ),
           const SizedBox(height: 16),
@@ -76,8 +97,8 @@ class SettingsSecurityScreen extends ConsumerWidget {
                   fontSize: 13,
                 ),
               ),
-              secondary: Icon(
-                LucideIcons.ban,
+              secondary: HugeIcon(
+                icon: HugeIcons.strokeRoundedBlockGame,
                 color: scheme.primary,
                 size: 28,
               ),
@@ -133,14 +154,15 @@ class SettingsSecurityScreen extends ConsumerWidget {
                                 ),
                               ),
                               if (gate.autoLockDuration == duration)
-                                Icon(
-                                  LucideIcons.checkCircle,
+                                HugeIcon(
+                                  icon:
+                                      HugeIcons.strokeRoundedCheckmarkCircle01,
                                   color: scheme.primary,
                                   size: 22,
                                 )
                               else
-                                Icon(
-                                  LucideIcons.circle,
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedCircle,
                                   color: scheme.onSurfaceVariant
                                       .withValues(alpha: 0.4),
                                   size: 22,
@@ -183,10 +205,10 @@ class SettingsSecurityScreen extends ConsumerWidget {
                   fontSize: 13,
                 ),
               ),
-              secondary: Icon(
-                pinProv.enabled
-                    ? LucideIcons.lockKeyhole
-                    : LucideIcons.keyRound,
+              secondary: HugeIcon(
+                icon: pinProv.enabled
+                    ? HugeIcons.strokeRoundedLock
+                    : HugeIcons.strokeRoundedKey01,
                 color: scheme.primary,
                 size: 28,
               ),
@@ -226,7 +248,12 @@ class SettingsSecurityScreen extends ConsumerWidget {
               color: scheme.outlineVariant.withValues(alpha: 0.3),
             ),
           ),
-          child: child,
+          // Material keeps SwitchListTile ink splashes on top of the frosted
+          // background (avoids the "ink splashes may be invisible" warning).
+          child: Material(
+            type: MaterialType.transparency,
+            child: child,
+          ),
         ),
       ),
     );

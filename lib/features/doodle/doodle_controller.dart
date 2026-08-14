@@ -130,6 +130,18 @@ class DoodleController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Discards the in-progress stroke without committing it to the canvas.
+  ///
+  /// Used when a second pointer lands while drawing (multi-touch scroll) so the
+  /// partial single-finger stroke is removed instead of left on the paper.
+  void cancelStroke() {
+    if (_activeStroke == null) return;
+    _strokes.remove(_activeStroke);
+    _activeStroke = null;
+    _isDrawing = false;
+    notifyListeners();
+  }
+
   void _attemptShapeSnap() {
     if (_activeStroke == null || _activeStroke!.points.length < 15) return;
 

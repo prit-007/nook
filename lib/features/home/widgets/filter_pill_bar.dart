@@ -46,6 +46,12 @@ class FilterPillBar extends StatelessWidget {
             isActive: selectedType == NoteType.doodle,
             onTap: () => onTypeSelected(NoteType.doodle),
           ),
+          _FilterPill(
+            label: 'Mixed',
+            count: counts?[NoteType.mixed],
+            isActive: selectedType == NoteType.mixed,
+            onTap: () => onTypeSelected(NoteType.mixed),
+          ),
         ],
       ),
     );

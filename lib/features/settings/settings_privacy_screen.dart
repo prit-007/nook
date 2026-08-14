@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
+
+import '../../core/widgets/dock_safe_area.dart';
 
 /// In-app privacy policy. Honest, no-cloud copy: every permission the app may
 /// touch is declared up front so the Play Store data-safety form can simply
@@ -23,7 +25,12 @@ class SettingsPrivacyScreen extends StatelessWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: const [
           _SectionHeader(title: 'Local-first'),
           SizedBox(height: 8),
@@ -41,7 +48,7 @@ class SettingsPrivacyScreen extends StatelessWidget {
             child: Column(
               children: [
                 _PermissionTile(
-                  icon: LucideIcons.wifi,
+                  icon: HugeIcons.strokeRoundedWifi01,
                   title: 'Wi-Fi Sync',
                   subtitle:
                       'While the Sync screen is open, Nook advertises a short '
@@ -53,7 +60,7 @@ class SettingsPrivacyScreen extends StatelessWidget {
                 ),
                 Divider(height: 1),
                 _PermissionTile(
-                  icon: LucideIcons.fingerprint,
+                  icon: HugeIcons.strokeRoundedFingerPrint,
                   title: 'Biometric Lock',
                   subtitle:
                       'Face ID / fingerprint unlock is handled entirely by the '
@@ -62,7 +69,7 @@ class SettingsPrivacyScreen extends StatelessWidget {
                 ),
                 Divider(height: 1),
                 _PermissionTile(
-                  icon: LucideIcons.fileText,
+                  icon: HugeIcons.strokeRoundedFile01,
                   title: 'Storage & Backup',
                   subtitle: 'The database is written to the app\u2019s private '
                       'storage. Exporting a .nook zip or a PNG writes a file '
@@ -95,7 +102,7 @@ class _PermissionTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
   });
-  final IconData icon;
+  final dynamic icon;
   final String title;
   final String subtitle;
 
@@ -117,7 +124,7 @@ class _PermissionTile extends StatelessWidget {
                 color: scheme.outlineVariant.withValues(alpha: 0.5),
               ),
             ),
-            child: Icon(icon, size: 20, color: scheme.primary),
+            child: HugeIcon(icon: icon, size: 20, color: scheme.primary),
           ),
           const SizedBox(width: 16),
           Expanded(

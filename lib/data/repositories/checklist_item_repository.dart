@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 
 /// Repository for ChecklistItems table operations.
@@ -15,20 +16,23 @@ class ChecklistItemRepository {
     required String noteId,
     required String text,
     int? sortOrder,
+    String? id,
   }) async {
-    final id = _uuid.v4();
+    final itemId = id ?? _uuid.v4();
     final order = sortOrder ?? await _nextSortOrder(noteId);
 
     await _db.into(_db.checklistItems).insert(
           ChecklistItemsCompanion.insert(
-            id: Value(id),
+            id: Value(itemId),
             noteId: noteId,
             itemText: text,
             sortOrder: Value(order),
           ),
         );
 
-    final item = await getItemById(id);
+    final item = await getItemById(itemId);
+    nookLog(
+        NookLogKey.database, 'Checklist item added: $itemId', LogLevel.debug);
     return item!;
   }
 
@@ -64,6 +68,7 @@ class ChecklistItemRepository {
   /// Deletes a single item.
   Future<void> deleteItem(String id) async {
     await (_db.delete(_db.checklistItems)..where((t) => t.id.equals(id))).go();
+    nookLog(NookLogKey.database, 'Checklist item deleted: $id', LogLevel.debug);
   }
 
   /// Deletes all items for a note.
@@ -71,6 +76,20 @@ class ChecklistItemRepository {
     await (_db.delete(_db.checklistItems)
           ..where((t) => t.noteId.equals(noteId)))
         .go();
+  }
+
+  Future<void> replaceItems(
+    String noteId,
+    List<ChecklistItemsCompanion> items,
+  ) async {
+    await _db.transaction(() async {
+      await (_db.delete(_db.checklistItems)
+            ..where((t) => t.noteId.equals(noteId)))
+          .go();
+      for (final item in items) {
+        await _db.into(_db.checklistItems).insert(item);
+      }
+    });
   }
 
   /// Reorders items by updating their sortOrder to match the given order.

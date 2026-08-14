@@ -38,13 +38,13 @@ void main() {
   testWidgets('renders app bar title', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
-    expect(find.text('Notebooks'), findsOneWidget);
+    expect(find.text('Collections'), findsOneWidget);
   });
 
   testWidgets('shows empty state when no notebooks', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
-    expect(find.textContaining('No notebooks'), findsOneWidget);
+    expect(find.textContaining('No collections'), findsOneWidget);
   });
 
   testWidgets('displays notebooks in a grid', (tester) async {
@@ -65,7 +65,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
-    expect(find.text('Create Notebook'), findsOneWidget);
+    expect(find.text('New Collection'), findsOneWidget);
     expect(find.byType(TextField), findsWidgets);
   });
 
@@ -81,7 +81,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Tap save button
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
 
     // Notebook should appear in grid

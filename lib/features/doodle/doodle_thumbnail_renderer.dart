@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/painting.dart';
+import 'package:flutter/material.dart';
 
 import '../../features/editor/note_exporter.dart';
 import 'doodle_controller.dart';
@@ -17,17 +17,22 @@ class DoodleThumbnailRenderer {
     DoodleBackground background = DoodleBackground.dotted,
     double width = 480,
     double height = 360,
+    ColorScheme? noteScheme,
   }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
 
-    final surface = const Color(0xFFFFFFFF);
+    final surface = noteScheme?.surface ?? const Color(0xFFFFFFFF);
     canvas.drawRect(
       Offset.zero & Size(width, height),
       Paint()..color = surface,
     );
 
-    final lineColor = const Color(0xFF9E9E9E).withValues(alpha: 0.45);
+    final baseLineColor = noteScheme?.outlineVariant ??
+        const Color(0xFF9E9E9E).withValues(alpha: 0.45);
+    final lineColor = baseLineColor.computeLuminance() < 0.2
+        ? Colors.white.withValues(alpha: 0.2)
+        : baseLineColor.withValues(alpha: 0.3);
     paintDoodleBackground(
       canvas,
       Size(width, height),

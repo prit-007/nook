@@ -1,9 +1,10 @@
-import 'package:drift/drift.dart' hide Column, isNotNull;
+import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/core/providers/theme_provider.dart';
 import 'package:nook/data/database.dart';
@@ -104,7 +105,10 @@ void main() {
       find.text('Search thoughts, doodles, checklists...'),
       findsOneWidget,
     );
-    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedSearch01),
+        findsOneWidget);
   });
 
   testWidgets('shows filter pills', (tester) async {
@@ -157,6 +161,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Quick Thought'), findsNothing);
+  });
+
+  testWidgets(
+      'quick actions sheet renders ListTiles without ink-splash warnings',
+      (tester) async {
+    final notes = await insertNotes([
+      (title: 'Sheet note', type: NoteType.text, pinned: false),
+    ]);
+
+    await tester.pumpWidget(buildHome(notes: notes));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Sheet note'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pin Note'), findsOneWidget);
+    expect(find.text('Color Theme'), findsOneWidget);
+    // The frosted sheet sits between the ListTiles and the nearest Material;
+    // the inner Material wrap must prevent the ink-splash visibility warning.
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('displays notes', (tester) async {
@@ -404,5 +428,18 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Grocery Run'), findsOneWidget);
+  });
+
+  testWidgets('FAB receives mobileBottomOffset based on screen padding',
+      (tester) async {
+    await tester.pumpWidget(buildHome(notes: []));
+    await tester.pumpAndSettle();
+
+    final fab = tester.widget<MorphingEditorialFab>(
+      find.byType(MorphingEditorialFab),
+    );
+    // Default bottom padding is 0; the shell already reserves the dock height
+    // via body padding, so the FAB offset is just the small gap above it.
+    expect(fab.mobileBottomOffset, equals(16));
   });
 }

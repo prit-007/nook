@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/pin_provider.dart';
 
-/// PIN entry screen — numeric keypad for PIN verification.
-/// Used both as lock screen fallback and for PIN setup.
+/// Adaptive PIN entry screen — numeric keypad for PIN verification.
+/// Uses `CustomScrollView` + `SliverFillRemaining` so the layout never
+/// overflows on landscape or short screens.
 class PinEntryScreen extends ConsumerStatefulWidget {
   const PinEntryScreen({super.key, this.isSetup = false});
 
@@ -25,20 +29,16 @@ class _PinEntryScreenState extends ConsumerState<PinEntryScreen> {
   int get _pinLength => 6;
 
   void _onKey(String digit) {
-    HapticFeedback.selectionClick();
+    HapticFeedback.lightImpact();
     setState(() {
       _error = null;
-      if (_entered.length < _pinLength) {
-        _entered += digit;
-      }
-      if (_entered.length == _pinLength) {
-        _submit();
-      }
+      if (_entered.length < _pinLength) _entered += digit;
+      if (_entered.length == _pinLength) _submit();
     });
   }
 
   void _onBackspace() {
-    HapticFeedback.lightImpact();
+    HapticFeedback.selectionClick();
     if (_entered.isNotEmpty) {
       setState(() {
         _error = null;
@@ -52,14 +52,12 @@ class _PinEntryScreenState extends ConsumerState<PinEntryScreen> {
 
     if (widget.isSetup) {
       if (!_confirming) {
-        // First entry — store and ask for confirmation.
         setState(() {
           _firstEntry = _entered;
           _confirming = true;
           _entered = '';
         });
       } else {
-        // Confirmation — compare.
         if (_entered == _firstEntry) {
           await pinProv.setPin(_entered);
           if (mounted) Navigator.of(context).pop(true);
@@ -73,11 +71,11 @@ class _PinEntryScreenState extends ConsumerState<PinEntryScreen> {
         }
       }
     } else {
-      // Verification mode.
       final ok = await pinProv.verify(_entered);
       if (ok) {
         if (mounted) Navigator.of(context).pop(true);
       } else {
+        unawaited(HapticFeedback.heavyImpact());
         setState(() {
           _error = 'Incorrect PIN';
           _entered = '';
@@ -91,131 +89,178 @@ class _PinEntryScreenState extends ConsumerState<PinEntryScreen> {
     final scheme = Theme.of(context).colorScheme;
     final title = widget.isSetup
         ? (_confirming ? 'Confirm PIN' : 'Set a 6-digit PIN')
-        : 'Enter your PIN';
+        : 'Enter PIN';
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 48),
-            // Title
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            if (_error != null)
-              Text(
-                _error!,
-                style: TextStyle(color: scheme.error, fontSize: 14),
-              )
-            else
-              Text(
-                widget.isSetup && _confirming
-                    ? 'Re-enter your PIN to confirm'
-                    : 'Enter PIN to unlock',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            const SizedBox(height: 32),
-
-            // PIN dots
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_pinLength, (i) {
-                final filled = i < _entered.length;
-                return Container(
-                  width: 14,
-                  height: 14,
-                  margin: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: filled
-                        ? scheme.primary
-                        : scheme.onSurface.withValues(alpha: 0.15),
-                  ),
-                );
-              }),
-            ),
-
-            const Spacer(),
-
-            // Numeric keypad
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48),
-              child: Column(
-                children: [
-                  for (final row in [
-                    ['1', '2', '3'],
-                    ['4', '5', '6'],
-                    ['7', '8', '9'],
-                    ['', '0', '⌫'],
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: row.map((digit) {
-                          if (digit.isEmpty) return const SizedBox(width: 72);
-                          if (digit == '⌫') {
-                            return _KeyButton(
-                              onTap: _onBackspace,
-                              child: Icon(
-                                Icons.backspace_outlined,
-                                color: scheme.onSurface,
-                              ),
-                            );
-                          }
-                          return _KeyButton(
-                            onTap: () => _onKey(digit),
-                            child: Text(
-                              digit,
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w500,
-                                color: scheme.onSurface,
-                              ),
-                            ),
-                          );
-                        }).toList(),
+      backgroundColor: scheme.surface,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: SafeArea(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Column(
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                ],
+                    const SizedBox(height: 8),
+                    if (_error != null)
+                      Text(
+                        _error!,
+                        style: TextStyle(
+                          color: scheme.error,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else
+                      Text(
+                        widget.isSetup && _confirming
+                            ? 'Re-enter your PIN to confirm'
+                            : 'Secure vault access',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+
+                    const SizedBox(height: 48),
+
+                    // PIN Dots
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(_pinLength, (i) {
+                        final filled = i < _entered.length;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutBack,
+                          width: filled ? 16 : 12,
+                          height: filled ? 16 : 12,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: filled
+                                ? scheme.primary
+                                : scheme.surfaceContainerHighest,
+                          ),
+                        );
+                      }),
+                    ),
+
+                    const Spacer(),
+
+                    // Responsive Keypad
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 380),
+                      child: Column(
+                        children: [
+                          for (final row in [
+                            ['1', '2', '3'],
+                            ['4', '5', '6'],
+                            ['7', '8', '9'],
+                            ['', '0', '⌫'],
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: row.map((digit) {
+                                  if (digit.isEmpty) {
+                                    return const SizedBox(width: 80);
+                                  }
+
+                                  final isBackspace = digit == '⌫';
+                                  return _KeyButton(
+                                    onTap: isBackspace
+                                        ? _onBackspace
+                                        : () => _onKey(digit),
+                                    isBackspace: isBackspace,
+                                    child: isBackspace
+                                        ? HugeIcon(
+                                            icon: HugeIcons
+                                                .strokeRoundedBackward01,
+                                            color: scheme.onSurface,
+                                            size: 28,
+                                          )
+                                        : Text(
+                                            digit,
+                                            style: const TextStyle(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
-
-            const SizedBox(height: 32),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _KeyButton extends StatelessWidget {
-  const _KeyButton({required this.onTap, required this.child});
+class _KeyButton extends StatefulWidget {
+  const _KeyButton({
+    required this.onTap,
+    required this.child,
+    required this.isBackspace,
+  });
 
   final Widget child;
   final VoidCallback onTap;
+  final bool isBackspace;
+
+  @override
+  State<_KeyButton> createState() => _KeyButtonState();
+}
+
+class _KeyButtonState extends State<_KeyButton> {
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.9 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: widget.isBackspace
+                ? Colors.transparent
+                : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          ),
+          alignment: Alignment.center,
+          child: widget.child,
         ),
-        alignment: Alignment.center,
-        child: child,
       ),
     );
   }

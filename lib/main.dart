@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/native.dart';
@@ -21,25 +23,44 @@ import 'package:drift/native.dart';
 import 'app.dart';
 import 'core/providers/biometric_provider.dart';
 import 'core/providers/database_provider.dart';
+import 'core/providers/navigation_preference.dart';
 import 'core/providers/pin_provider.dart';
 import 'core/providers/screenshot_blocker_provider.dart';
+import 'core/providers/talker_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'data/database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Route framework and uncaught async errors into the talker log history so
+  // they are visible in Settings → Developer → App Logs.
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    talker.handle(details.exception, details.stack, details.library);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    talker.handle(error, stack);
+    return true;
+  };
+
+  talker.info('App started');
+
   final results = await Future.wait([
     ThemePreference.load(),
     BiometricGate.load(),
     ScreenshotBlocker.load(),
     PinProvider.load(),
+    NavigationPreference.load(),
   ]);
 
   final themePref = results[0] as ThemePreference;
   final biometricGate = results[1] as BiometricGate;
   final screenshotBlocker = results[2] as ScreenshotBlocker;
   final pinProv = results[3] as PinProvider;
+  final navigationPreference = results[4] as NavigationPreference;
+
+  talker.info('Preferences loaded');
 
   // Apply screenshot blocker flag on startup if persisted.
   await screenshotBlocker.applyPersisted();
@@ -49,8 +70,10 @@ void main() async {
   late final AppDatabase db;
   try {
     db = await openEncryptedDatabase();
+    talker.info('DB opened');
   } catch (_) {
     db = AppDatabase(NativeDatabase.memory());
+    talker.warning('DB fallback to memory');
   }
 
   runApp(
@@ -60,6 +83,8 @@ void main() async {
         biometricGateProvider.overrideWith((ref) => biometricGate),
         screenshotBlockerProvider.overrideWith((ref) => screenshotBlocker),
         pinProvider.overrideWith((ref) => pinProv),
+        navigationPreferenceProvider
+            .overrideWith((ref) => navigationPreference),
         databaseProvider.overrideWith((ref) => db),
       ],
       child: const NookApp(),

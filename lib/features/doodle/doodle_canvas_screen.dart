@@ -4,9 +4,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nook/core/providers/database_provider.dart';
+import 'package:nook/core/providers/talker_provider.dart';
 import 'package:nook/data/repositories/attachment_repository.dart';
 import 'package:nook/data/repositories/doodle_storage.dart';
+import 'package:nook/data/repositories/note_repository.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:path_provider/path_provider.dart';
+
+import 'package:nook/core/theme/note_theme.dart';
+import 'package:nook/core/theme/design_tokens.dart';
 
 import 'doodle_controller.dart';
 import 'doodle_canvas.dart';
@@ -39,8 +45,12 @@ class DoodleCanvasScreen extends ConsumerStatefulWidget {
 
 class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   late final DoodleController _controller;
+  final ScrollController _scrollController = ScrollController();
 
   DoodleStorage? _storage;
+
+  /// The note's color seed loaded from the database.
+  String? _noteColorSeed;
 
   /// Track canvas height for "extend paper" feature.
   double _canvasHeightMultiplier = 1.0;
@@ -48,14 +58,24 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = DoodleController();
+    _controller = DoodleController(defaultColor: Colors.black);
     _init();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Scrolls the canvas from a two-finger swipe. [deltaY] is positive when the
+  /// fingers move downward, which scrolls the paper up (towards the top).
+  void _handleTwoFingerPan(double deltaY) {
+    final position = _scrollController.position;
+    if (!position.hasContentDimensions) return;
+    final target = position.pixels - deltaY;
+    _scrollController.jumpTo(target.clamp(0.0, position.maxScrollExtent));
   }
 
   Future<DoodleStorage> _resolveStorage() async {
@@ -73,13 +93,33 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   void _init() {
     _resolveStorage().then((storage) {
       final attachmentId = widget.attachmentId;
-      if (attachmentId == null) return Future.value(const DoodleData());
-      return storage.loadDoodle(attachmentId);
-    }).then((data) {
+      return Future.wait([
+        if (attachmentId != null)
+          storage.loadDoodle(attachmentId)
+        else
+          Future.value(const DoodleData()),
+        _loadNoteColorSeed(),
+      ]);
+    }).then((results) {
       if (!mounted) return;
+      final data = results[0] as DoodleData;
       _controller.replaceStrokes(data.strokes);
       _controller.setBackground(data.background);
+      _updateNoteColorSeed();
     });
+  }
+
+  Future<void> _loadNoteColorSeed() async {
+    final db = ref.read(databaseProvider);
+    final note = await NoteRepository(db).getNoteById(widget.noteId);
+    if (!mounted) return;
+    _noteColorSeed = note?.colorSeed;
+  }
+
+  void _updateNoteColorSeed() {
+    final scheme = noteSchemeFor(context, _noteColorSeed);
+    _controller.setCurrentColor(scheme.primary);
+    setState(() {});
   }
 
   Future<void> _handleDone() async {
@@ -107,6 +147,11 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
         attachmentId: attachmentId,
       );
     } catch (_) {
+      nookLog(
+        NookLogKey.editor,
+        'Doodle save failed for ${widget.noteId}',
+        LogLevel.error,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -131,9 +176,15 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
     DoodleBackground background,
   ) async {
     try {
+      final noteScheme = _noteColorSeed != null && _noteColorSeed!.isNotEmpty
+          ? ColorScheme.fromSeed(
+              seedColor: NookColors.parseHex(_noteColorSeed),
+            )
+          : null;
       final thumbBytes = await DoodleThumbnailRenderer.render(
         strokes,
         background: background,
+        noteScheme: noteScheme,
       );
       final thumbFile =
           await File('${storage.baseDir.path}/${attachmentId}_thumb.png')
@@ -145,15 +196,16 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   }
 
   void _showBackgroundSheet(BuildContext context) {
+    final noteScheme = noteSchemeFor(context, _noteColorSeed);
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        final scheme = Theme.of(context).colorScheme;
         return Container(
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh,
+            color: noteScheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(24),
           ),
           child: SafeArea(
@@ -177,8 +229,10 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                       title: Text(option.name.capitalize(),
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       trailing: option == _controller.background
-                          ? Icon(Icons.check_circle_rounded,
-                              color: scheme.primary)
+                          ? HugeIcon(
+                              icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                              color: noteScheme.primary,
+                              size: 24)
                           : null,
                       onTap: () {
                         _controller.setBackground(option);
@@ -198,9 +252,10 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final noteScheme = noteSchemeFor(context, _noteColorSeed);
 
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: noteScheme.surface,
       body: ListenableBuilder(
         listenable: _controller,
         builder: (context, _) {
@@ -208,35 +263,63 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
           return Stack(
             children: [
-              // 1. Interactive Scrollable Canvas (infinite vertical scroll)
+              // 1. Interactive Scrollable Canvas (infinite vertical scroll).
+              // Scrolling is driven by two-finger pans via [DoodleCanvas];
+              // single-finger drags draw instead of scrolling. The scroll view
+              // never claims drag gestures itself, so the first finger always
+              // reaches the drawing [Listener] while a second finger can scroll.
               Positioned.fill(
                 child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
+                  controller: _scrollController,
+                  physics: const NeverScrollableScrollPhysics(),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final baseHeight = MediaQuery.sizeOf(context).height;
+                      const affordanceHeight = 160.0;
                       return SizedBox(
-                        height: baseHeight * _canvasHeightMultiplier,
+                        height: baseHeight * _canvasHeightMultiplier +
+                            affordanceHeight,
                         child: Stack(
                           children: [
-                            DoodleCanvas(controller: _controller),
-                            // Extend Paper Trigger
                             Positioned(
-                              bottom: 120,
+                              top: 0,
                               left: 0,
                               right: 0,
+                              height: baseHeight * _canvasHeightMultiplier,
+                              child: DoodleCanvas(
+                                controller: _controller,
+                                noteScheme: noteScheme,
+                                onTwoFingerPan: _handleTwoFingerPan,
+                              ),
+                            ),
+                            // Extend Paper Trigger
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              height: affordanceHeight,
                               child: Center(
                                 child: AnimatedOpacity(
                                   duration: const Duration(milliseconds: 200),
                                   opacity: isDrawing ? 0.0 : 1.0,
                                   child: FilledButton.tonalIcon(
-                                    icon: const Icon(
-                                        Icons.keyboard_arrow_down_rounded),
+                                    icon: HugeIcon(
+                                        icon:
+                                            HugeIcons.strokeRoundedArrowDown01,
+                                        size: 24,
+                                        color: scheme.onSurface),
                                     label: const Text('Extend Paper'),
                                     onPressed: () {
                                       setState(() {
                                         _canvasHeightMultiplier += 0.5;
                                       });
+                                      _scrollController.animateTo(
+                                        _scrollController
+                                            .position.maxScrollExtent,
+                                        duration:
+                                            const Duration(milliseconds: 300),
+                                        curve: Curves.easeOutCubic,
+                                      );
                                     },
                                   ),
                                 ),
@@ -261,7 +344,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _GlassButton(
-                      icon: Icons.close_rounded,
+                      icon: HugeIcons.strokeRoundedCancelCircle,
                       tooltip: 'Close',
                       onTap: () => Navigator.maybePop(context),
                     ),
@@ -269,20 +352,20 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _GlassButton(
-                          icon: Icons.grid_view_rounded,
+                          icon: HugeIcons.strokeRoundedGridView,
                           tooltip: 'Background',
                           onTap: () => _showBackgroundSheet(context),
                         ),
                         const SizedBox(width: 8),
                         _GlassButton(
-                          icon: Icons.undo_rounded,
+                          icon: HugeIcons.strokeRoundedUndo02,
                           tooltip: 'Undo',
                           isEnabled: _controller.canUndo,
                           onTap: _controller.undo,
                         ),
                         const SizedBox(width: 8),
                         _GlassButton(
-                          icon: Icons.redo_rounded,
+                          icon: HugeIcons.strokeRoundedRedo02,
                           tooltip: 'Redo',
                           isEnabled: _controller.canRedo,
                           onTap: _controller.redo,
@@ -317,7 +400,10 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: DoodleToolbar(controller: _controller),
+                  child: DoodleToolbar(
+                    controller: _controller,
+                    noteScheme: noteScheme,
+                  ),
                 ),
               ),
             ],
@@ -336,7 +422,7 @@ class _GlassButton extends StatelessWidget {
     this.tooltip,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final VoidCallback onTap;
   final bool isEnabled;
   final String? tooltip;
@@ -359,8 +445,8 @@ class _GlassButton extends StatelessWidget {
             onTap: isEnabled ? onTap : null,
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Icon(
-                icon,
+              child: HugeIcon(
+                icon: icon,
                 size: 22,
                 color: isEnabled
                     ? scheme.onSurface

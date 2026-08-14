@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/widgets/semantics.dart';
 
 /// Bottom sheet for picking a note's seed color.
 /// Returns the selected hex string on pop, or null if cancelled.
-class ColorPickerSheet extends StatelessWidget {
+class ColorPickerSheet extends StatefulWidget {
   const ColorPickerSheet({super.key, this.currentSeed});
 
   final String? currentSeed;
@@ -13,6 +16,7 @@ class ColorPickerSheet extends StatelessWidget {
   static Future<String?> show(BuildContext context, {String? currentSeed}) {
     return showModalBottomSheet<String>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -22,10 +26,26 @@ class ColorPickerSheet extends StatelessWidget {
   }
 
   @override
+  State<ColorPickerSheet> createState() => _ColorPickerSheetState();
+}
+
+class _ColorPickerSheetState extends State<ColorPickerSheet> {
+  late Color? _selectedColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedColor = widget.currentSeed != null
+        ? NookColors.parseHex(widget.currentSeed)
+        : null;
+  }
+
+  String _hexFromColor(Color color) =>
+      color.toARGB32().toRadixString(16).substring(2);
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final currentColor =
-        currentSeed != null ? NookColors.parseHex(currentSeed) : null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -63,7 +83,10 @@ class ColorPickerSheet extends StatelessWidget {
             children: [
               // "None" option
               GestureDetector(
-                onTap: () => Navigator.pop(context, ''),
+                onTap: () {
+                  unawaited(HapticFeedback.selectionClick());
+                  setState(() => _selectedColor = null);
+                },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: 48,
@@ -71,14 +94,17 @@ class ColorPickerSheet extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: scheme.surfaceContainerHighest,
-                    border: currentColor == null
+                    border: _selectedColor == null
                         ? Border.all(color: scheme.primary, width: 3)
                         : null,
                   ),
-                  child: currentColor == null
-                      ? Icon(Icons.check, color: scheme.primary, size: 20)
-                      : Icon(
-                          Icons.close,
+                  child: _selectedColor == null
+                      ? HugeIcon(
+                          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                          color: scheme.primary,
+                          size: 20)
+                      : HugeIcon(
+                          icon: HugeIcons.strokeRoundedCancelCircle,
                           color: scheme.onSurface.withValues(alpha: 0.3),
                           size: 18,
                         ),
@@ -87,13 +113,10 @@ class ColorPickerSheet extends StatelessWidget {
               // Color swatches
               for (int i = 0; i < NookColors.seeds.length; i++)
                 GestureDetector(
-                  onTap: () => Navigator.pop(
-                    context,
-                    NookColors.seeds[i]
-                        .toARGB32()
-                        .toRadixString(16)
-                        .substring(2),
-                  ),
+                  onTap: () {
+                    unawaited(HapticFeedback.selectionClick());
+                    setState(() => _selectedColor = NookColors.seeds[i]);
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: 48,
@@ -101,10 +124,10 @@ class ColorPickerSheet extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: NookColors.seeds[i],
-                      border: currentColor == NookColors.seeds[i]
+                      border: _selectedColor == NookColors.seeds[i]
                           ? Border.all(color: scheme.onSurface, width: 3)
                           : null,
-                      boxShadow: currentColor == NookColors.seeds[i]
+                      boxShadow: _selectedColor == NookColors.seeds[i]
                           ? [
                               BoxShadow(
                                 color:
@@ -115,9 +138,9 @@ class ColorPickerSheet extends StatelessWidget {
                             ]
                           : null,
                     ),
-                    child: currentColor == NookColors.seeds[i]
-                        ? Icon(
-                            Icons.check,
+                    child: _selectedColor == NookColors.seeds[i]
+                        ? HugeIcon(
+                            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                             color: NookSemantics.contrastForeground(
                                 NookColors.seeds[i]),
                             size: 20,
@@ -127,7 +150,30 @@ class ColorPickerSheet extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () {
+                unawaited(HapticFeedback.lightImpact());
+                Navigator.pop(
+                  context,
+                  _selectedColor != null ? _hexFromColor(_selectedColor!) : '',
+                );
+              },
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                'Done',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
         ],
       ),
     );

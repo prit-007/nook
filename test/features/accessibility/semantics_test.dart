@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/core/widgets/semantics.dart';
 import 'package:nook/data/database.dart';
@@ -9,6 +10,7 @@ import 'package:nook/data/repositories/tag_repository.dart';
 import 'package:nook/features/editor/widgets/color_picker_sheet.dart';
 import 'package:nook/features/sync_ui/sync_screen.dart';
 import 'package:nook/features/tags/tag_detail_screen.dart';
+import 'package:nook/sync/crypto/identity_store.dart';
 import 'package:nook/sync/sync_orchestrator.dart';
 import 'package:nook/sync/transport/sync_transport.dart';
 
@@ -19,7 +21,11 @@ class _StubSyncOrchestrator extends SyncOrchestrator {
 
   @override
   Future<void> initializeTransport(
-      {SyncTransport? testTransport, String? localDeviceName}) async {}
+      {SyncTransport? testTransport,
+      String? localDeviceName,
+      bool useTcpFallback = false,
+      IdentityStore? identityStore,
+      String? listenAddress}) async {}
 
   @override
   Future<void> startDiscovery() async {}
@@ -141,9 +147,14 @@ void main() {
         ),
       );
 
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon &&
+              w.icon == HugeIcons.strokeRoundedCheckmarkCircle01),
+          findsOneWidget);
 
-      final icon = tester.widget<Icon>(find.byIcon(Icons.check));
+      final icon = tester.widget<HugeIcon>(find.byWidgetPredicate((w) =>
+          w is HugeIcon && w.icon == HugeIcons.strokeRoundedCheckmarkCircle01));
       // Indigo is dark; the check must be white, never black-on-dark.
       expect(icon.color, Colors.white);
     });

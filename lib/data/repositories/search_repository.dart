@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 import '../tables/notes.dart';
 
@@ -37,7 +38,13 @@ class SearchRepository {
       queryBuilder.where((t) => t.type.equalsValue(type));
     }
 
-    return queryBuilder.get();
+    final results = await queryBuilder.get();
+    nookLog(
+      NookLogKey.database,
+      'Search "${query.trim()}" → ${results.length} results',
+      LogLevel.debug,
+    );
+    return results;
   }
 
   /// Strips FTS5 special characters and operators from user input to prevent

@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../data/tables/notes.dart';
 
@@ -15,9 +16,18 @@ class MorphingEditorialFab extends StatefulWidget {
   const MorphingEditorialFab({
     super.key,
     required this.onCreateNote,
+    this.mobileBottomOffset = 130,
   });
 
   final void Function(NoteType type) onCreateNote;
+
+  /// Offset from the bottom edge on compact (mobile) screens.
+  ///
+  /// When the FAB lives inside the AppShell mobile dock the shell already
+  /// offsets the body by the full dock height, so callers only need a small
+  /// gap above the body's bottom edge (e.g. 16). The default of 130 is kept
+  /// for standalone use outside the shell.
+  final double mobileBottomOffset;
 
   @override
   State<MorphingEditorialFab> createState() => _MorphingEditorialFabState();
@@ -45,6 +55,7 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
         reduceMotion ? Duration.zero : const Duration(milliseconds: 280);
     final closeDuration =
         reduceMotion ? Duration.zero : const Duration(milliseconds: 200);
+    final isWide = MediaQuery.sizeOf(context).width >= 840;
 
     return Stack(
       children: [
@@ -62,8 +73,8 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
             ),
           ),
         Positioned(
-          right: 16,
-          bottom: 130,
+          right: isWide ? 32 : 16,
+          bottom: isWide ? 32 : widget.mobileBottomOffset,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -84,21 +95,21 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
                             children: [
                               _MenuOption(
                                 label: 'Canvas Doodle',
-                                icon: Icons.gesture_rounded,
+                                icon: HugeIcons.strokeRoundedPenTool01,
                                 accentColor: scheme.tertiary,
                                 onTap: () => _selectType(NoteType.doodle),
                               ),
                               const SizedBox(height: 12),
                               _MenuOption(
                                 label: 'Interactive Checklist',
-                                icon: Icons.checklist_rounded,
+                                icon: HugeIcons.strokeRoundedCheckList,
                                 accentColor: scheme.secondary,
                                 onTap: () => _selectType(NoteType.checklist),
                               ),
                               const SizedBox(height: 12),
                               _MenuOption(
                                 label: 'Quick Thought',
-                                icon: Icons.edit_note_rounded,
+                                icon: HugeIcons.strokeRoundedEdit01,
                                 accentColor: scheme.primary,
                                 onTap: () => _selectType(NoteType.text),
                               ),
@@ -121,8 +132,11 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
                   duration: reduceMotion
                       ? Duration.zero
                       : const Duration(milliseconds: 250),
-                  child: Icon(
-                    _isOpen ? Icons.add_rounded : Icons.create_rounded,
+                  child: HugeIcon(
+                    icon: _isOpen
+                        ? HugeIcons.strokeRoundedAdd01
+                        : HugeIcons.strokeRoundedPencil,
+                    size: 24,
                   ),
                 ),
                 label: Text(
@@ -150,7 +164,7 @@ class _MenuOption extends StatelessWidget {
   });
 
   final String label;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color accentColor;
   final VoidCallback onTap;
 
@@ -186,7 +200,7 @@ class _MenuOption extends StatelessWidget {
                   color: accentColor.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 18, color: accentColor),
+                child: HugeIcon(icon: icon, size: 18, color: accentColor),
               ),
             ],
           ),

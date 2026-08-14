@@ -4,10 +4,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/talker_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/note_repository.dart';
@@ -31,6 +33,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
 
   Future<void> _exportVault() async {
     if (_exporting || _importing) return;
+    nookLog(NookLogKey.database, 'Export started', LogLevel.debug);
     setState(() {
       _exporting = true;
       _resultMessage = null;
@@ -45,6 +48,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
       ).exportAll();
 
       if (!mounted) return;
+      nookLog(NookLogKey.database, 'Export completed: $path', LogLevel.info);
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vault exported')),
@@ -56,6 +60,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
         ),
       );
     } catch (e) {
+      nookLog(NookLogKey.database, 'Export failed: $e', LogLevel.error);
       if (mounted) {
         setState(() => _resultMessage = 'Export failed: $e');
       }
@@ -86,6 +91,12 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
       final result = await NookImporter(database: db).importFrom(File(path));
 
       if (!mounted) return;
+      nookLog(
+        NookLogKey.database,
+        'Import completed: ${result.notesImported} notes, '
+        '${result.attachmentsRestored} attachments',
+        LogLevel.info,
+      );
       setState(() {
         _resultMessage = result.error ??
             'Imported ${result.notesImported} '
@@ -97,6 +108,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                 'restored';
       });
     } catch (e) {
+      nookLog(NookLogKey.database, 'Import failed: $e', LogLevel.error);
       if (mounted) {
         setState(() => _resultMessage = 'Import failed: $e');
       }
@@ -145,7 +157,12 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          DockSafeArea.bottomOf(context) + 72,
+        ),
         children: [
           const _SectionHeader(title: 'Vault Usage'),
           const SizedBox(height: 8),
@@ -166,25 +183,25 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
               data: (s) => Column(
                 children: [
                   _StatRow(
-                    icon: LucideIcons.fileText,
+                    icon: HugeIcons.strokeRoundedFile01,
                     label: 'Notes',
                     value: '${s.noteCount}',
                   ),
                   const Divider(height: 24),
                   _StatRow(
-                    icon: LucideIcons.image,
+                    icon: HugeIcons.strokeRoundedImage01,
                     label: 'Attachments',
                     value: '${s.attachmentCount}',
                   ),
                   const Divider(height: 24),
                   _StatRow(
-                    icon: LucideIcons.database,
+                    icon: HugeIcons.strokeRoundedDatabase,
                     label: 'Database',
                     value: formatBytes(s.dbBytes),
                   ),
                   const Divider(height: 24),
                   _StatRow(
-                    icon: LucideIcons.brush,
+                    icon: HugeIcons.strokeRoundedBrush,
                     label: 'Media & doodles',
                     value: formatBytes(s.mediaBytes),
                   ),
@@ -227,8 +244,8 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                       color: scheme.onPrimaryContainer,
                                     ),
                                   )
-                                : Icon(
-                                    LucideIcons.arrowUpFromLine,
+                                : HugeIcon(
+                                    icon: HugeIcons.strokeRoundedUpload01,
                                     size: 20,
                                     color: scheme.onPrimaryContainer,
                                   ),
@@ -261,8 +278,8 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                               ],
                             ),
                           ),
-                          Icon(
-                            LucideIcons.chevronRight,
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
                             size: 18,
                             color:
                                 scheme.onSurfaceVariant.withValues(alpha: 0.5),
@@ -302,8 +319,8 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                       color: scheme.onPrimaryContainer,
                                     ),
                                   )
-                                : Icon(
-                                    LucideIcons.arrowDownToLine,
+                                : HugeIcon(
+                                    icon: HugeIcons.strokeRoundedDownload01,
                                     size: 20,
                                     color: scheme.onPrimaryContainer,
                                   ),
@@ -336,8 +353,8 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                               ],
                             ),
                           ),
-                          Icon(
-                            LucideIcons.chevronRight,
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
                             size: 18,
                             color:
                                 scheme.onSurfaceVariant.withValues(alpha: 0.5),
@@ -380,8 +397,10 @@ class _ResultBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            failed ? LucideIcons.alertTriangle : LucideIcons.checkCircle,
+          HugeIcon(
+            icon: failed
+                ? HugeIcons.strokeRoundedAlert01
+                : HugeIcons.strokeRoundedCheckmarkCircle01,
             size: 20,
             color:
                 failed ? scheme.onErrorContainer : scheme.onSecondaryContainer,
@@ -411,7 +430,7 @@ class _StatRow extends StatelessWidget {
     required this.label,
     required this.value,
   });
-  final IconData icon;
+  final dynamic icon;
   final String label;
   final String value;
 
@@ -422,7 +441,7 @@ class _StatRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: scheme.primary),
+          HugeIcon(icon: icon, size: 18, color: scheme.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

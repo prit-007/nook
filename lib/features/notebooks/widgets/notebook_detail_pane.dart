@@ -2,7 +2,7 @@ import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/providers/selection_providers.dart';
@@ -26,12 +26,12 @@ class NotebookDetailPane extends ConsumerWidget {
 
     if (notebookId == null) {
       return ColoredBox(
-        color: scheme.surfaceContainerLowest,
+        color: scheme.surface,
         child: const Center(
           child: EmptyState(
-            icon: LucideIcons.bookOpen,
-            title: 'Select a notebook',
-            subtitle: 'Choose a notebook to browse its notes.',
+            icon: HugeIcons.strokeRoundedBookOpen01,
+            title: 'Select a collection',
+            subtitle: 'Choose a notebook from the left pane to view notes.',
             animate: false,
           ),
         ),
@@ -98,60 +98,81 @@ class _NotebookNotesPaneState extends ConsumerState<_NotebookNotesPane> {
     final scheme = Theme.of(context).colorScheme;
 
     return ColoredBox(
-      color: scheme.surfaceContainerLowest,
+      color: scheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
             child: Row(
               children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: seedColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     _notebookName.isEmpty ? 'Notebook' : _notebookName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Playfair Display',
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
-                      color: seedColor,
+                      color: scheme.onSurface,
                     ),
                   ),
                 ),
                 Text(
-                  '${_notes.length} note${_notes.length == 1 ? '' : 's'}',
+                  '${_notes.length} ${_notes.length == 1 ? 'note' : 'notes'}',
                   style: TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: 13,
-                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
                 ),
               ],
             ),
           ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: scheme.outlineVariant.withValues(alpha: 0.15),
+          ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: seedColor))
                 : _notes.isEmpty
                     ? const EmptyState(
-                        icon: Icons.notes_outlined,
-                        title: 'No notes in this notebook',
-                        subtitle:
-                            'Create a note and assign it to this notebook',
+                        icon: HugeIcons.strokeRoundedNotebook01,
+                        title: 'No notes in this collection',
+                        subtitle: 'Create a note and assign it here.',
                         animate: false,
                       )
                     : GridView.builder(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 14,
                           childAspectRatio: 0.8,
                         ),
                         itemCount: _notes.length,
                         itemBuilder: (context, index) => NoteCard(
                           note: _notes[index],
+                          // Scope the hero tag per pane so the same note
+                          // rendered in the TagDetailPane (kept alive in the
+                          // CollectionsScreen IndexedStack) never collides.
+                          heroTag:
+                              'nb-${widget.notebookId}-${_notes[index].id}',
                           onTap: () =>
                               context.push('/note/${_notes[index].id}'),
                         ),

@@ -5,6 +5,7 @@ import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/note_repository.dart';
 import 'package:nook/data/tables/notes.dart';
+import 'package:nook/sync/crypto/identity_store.dart';
 import 'package:nook/sync/protocol/sync_bundle.dart';
 import 'package:nook/sync/sync_orchestrator.dart';
 import 'package:nook/sync/transport/sync_transport.dart';
@@ -484,6 +485,90 @@ void main() {
   // Incoming pairing
   // -------------------------------------------------------------------------
 
+  group('transport outcome mapping', () {
+    test('maps a rejected transport state to a rejected outcome', () async {
+      container = makeContainer();
+      final notifier = container.read(syncOrchestratorProvider.notifier);
+
+      await notifier.initializeTransport();
+      await notifier.startDiscovery();
+
+      mockTransport.emitStateChanged(const SyncSessionState.error(
+        'Pairing rejected',
+        outcome: SyncOutcomeCategory.rejected,
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(syncOrchestratorProvider);
+      expect(state.phase, SyncPhase.error);
+      expect(state.outcome, SyncOutcomeCategory.rejected);
+      expect(state.error, 'Pairing rejected');
+    });
+
+    test('maps a timeout transport state to a timedOut outcome', () async {
+      container = makeContainer();
+      final notifier = container.read(syncOrchestratorProvider.notifier);
+
+      await notifier.initializeTransport();
+      await notifier.startDiscovery();
+
+      mockTransport.emitStateChanged(const SyncSessionState.error(
+        'Timed out waiting for ack',
+        outcome: SyncOutcomeCategory.timedOut,
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(syncOrchestratorProvider);
+      expect(state.phase, SyncPhase.error);
+      expect(state.outcome, SyncOutcomeCategory.timedOut);
+    });
+
+    test('untyped transport errors map to internal outcome', () async {
+      container = makeContainer();
+      final notifier = container.read(syncOrchestratorProvider.notifier);
+
+      await notifier.initializeTransport();
+      await notifier.startDiscovery();
+
+      mockTransport.emitStateChanged(
+        const SyncSessionState.error('Connection failed'),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(syncOrchestratorProvider);
+      expect(state.outcome, SyncOutcomeCategory.internal);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Default transport
+  // -------------------------------------------------------------------------
+
+  group('default transport', () {
+    test('uses the libp2p transport by default and derives a stable id',
+        () async {
+      // A real container (no mock orchestrator override) so initializeTransport
+      // builds the actual libp2p transport.
+      final realContainer = ProviderContainer(
+        overrides: [databaseProvider.overrideWithValue(db)],
+      );
+      addTearDown(realContainer.dispose);
+      final notifier = realContainer.read(syncOrchestratorProvider.notifier);
+
+      await notifier.initializeTransport(
+        identityStore: IdentityStore(storage: InMemorySeedStorage()),
+        listenAddress: '/ip4/127.0.0.1/udp/0/udx',
+      );
+
+      // The real libp2p transport initialized successfully.
+      expect(notifier.isTransportInitialized, isTrue);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Incoming pairing
+  // -------------------------------------------------------------------------
+
   group('incoming pairing', () {
     test('surfaces pending pairing request from transport', () async {
       container = makeContainer();
@@ -564,7 +649,11 @@ class _TestSyncOrchestrator extends SyncOrchestrator {
 
   @override
   Future<void> initializeTransport(
-      {SyncTransport? testTransport, String? localDeviceName}) async {
+      {SyncTransport? testTransport,
+      String? localDeviceName,
+      bool useTcpFallback = false,
+      IdentityStore? identityStore,
+      String? listenAddress}) async {
     await super.initializeTransport(testTransport: _mockTransport);
   }
 }

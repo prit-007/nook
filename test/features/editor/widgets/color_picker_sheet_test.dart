@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/theme/design_tokens.dart';
 import 'package:nook/features/editor/widgets/color_picker_sheet.dart';
 
@@ -76,6 +77,10 @@ void main() {
     await tester.tap(swatches.at(1));
     await tester.pumpAndSettle();
 
+    // Tap Done to confirm
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
     expect(result, isNotNull);
     expect(result, isNotEmpty);
     // Should be a hex string (6 chars)
@@ -111,6 +116,10 @@ void main() {
     await tester.tap(swatches.first);
     await tester.pumpAndSettle();
 
+    // Tap Done to confirm
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
     expect(result, equals(''));
   });
 
@@ -138,7 +147,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // Should show a check icon on the selected color
-    expect(find.byIcon(Icons.check), findsAtLeastNWidgets(1));
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon &&
+            w.icon == HugeIcons.strokeRoundedCheckmarkCircle01),
+        findsAtLeastNWidgets(1));
   });
 
   testWidgets('closes on drag down', (tester) async {

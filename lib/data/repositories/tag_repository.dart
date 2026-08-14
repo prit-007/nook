@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 
 /// Repository for Tags and NoteTags table operations.
@@ -23,6 +24,8 @@ class TagRepository {
             colorSeed: colorSeed,
           ),
         );
+
+    nookLog(NookLogKey.database, 'Tag created: $id', LogLevel.debug);
 
     return (_db.select(_db.tags)..where((t) => t.id.equals(id))).getSingle();
   }
@@ -59,6 +62,7 @@ class TagRepository {
       await (_db.delete(_db.noteTags)..where((t) => t.tagId.equals(id))).go();
       await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
     });
+    nookLog(NookLogKey.database, 'Tag deleted: $id', LogLevel.debug);
   }
 
   /// Assigns a tag to a note.

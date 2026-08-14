@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'talker_provider.dart';
+
 /// Manages PIN code for app-level lock fallback.
 ///
 /// The PIN is hashed with a random salt and stored in the platform keystore
@@ -26,7 +28,10 @@ class PinProvider extends ChangeNotifier {
     final match = _verifyPin(pin, stored);
     if (match) {
       _authenticated = true;
+      nookLog(NookLogKey.security, 'PIN verified', LogLevel.info);
       notifyListeners();
+    } else {
+      nookLog(NookLogKey.security, 'PIN verification failed', LogLevel.warning);
     }
     return match;
   }
@@ -36,6 +41,7 @@ class PinProvider extends ChangeNotifier {
     final hash = _hashPin(pin);
     await _writeHash(hash);
     enabled = true;
+    nookLog(NookLogKey.security, 'PIN set', LogLevel.info);
     notifyListeners();
     await _save();
   }

@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/providers/talker_provider.dart';
 import 'tables/notebooks.dart';
 import 'tables/notes.dart';
 import 'tables/checklist_items.dart';
@@ -32,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -41,6 +42,12 @@ class AppDatabase extends _$AppDatabase {
           await customStatement(
             'CREATE VIRTUAL TABLE notes_fts USING fts5(id UNINDEXED, title, plainText)',
           );
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(attachments, attachments.deleted);
+            await m.addColumn(attachments, attachments.deletedAt);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON;');
@@ -66,14 +73,24 @@ Future<String> _readOrCreateEncryptionKey() async {
   try {
     final existing = await _secureStorage.read(key: _keyStorageKey);
     if (existing != null && existing.isNotEmpty) {
+      nookLog(
+        NookLogKey.security,
+        'DB encryption key read from keystore',
+        LogLevel.debug,
+      );
       return existing;
     }
   } on Exception {
-    // Fall through to generate a new key on read failure.
+    nookLog(
+      NookLogKey.security,
+      'DB encryption key read failed; generating a new one',
+      LogLevel.warning,
+    );
   }
 
   final key = _generateRandomKey(32);
   await _secureStorage.write(key: _keyStorageKey, value: key);
+  nookLog(NookLogKey.security, 'DB encryption key generated', LogLevel.info);
   return key;
 }
 
@@ -89,6 +106,11 @@ Future<String> _readOrCreateEncryptionKey() async {
 Future<AppDatabase> openEncryptedDatabase() async {
   final dir = await getApplicationDocumentsDirectory();
   final dbFile = File(p.join(dir.path, 'notes.db'));
+  nookLog(
+    NookLogKey.database,
+    'Opening encrypted DB at ${dbFile.path}',
+    LogLevel.info,
+  );
 
   final key = await _readOrCreateEncryptionKey();
 

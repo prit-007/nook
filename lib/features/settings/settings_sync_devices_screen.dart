@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/talker_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 import '../../data/repositories/sync_log_repository.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
@@ -23,6 +26,11 @@ class SettingsSyncDevicesScreen extends ConsumerWidget {
             _ConnectedDeviceCard(
               device: syncState.selectedDevice!,
               onDisconnect: () {
+                nookLog(
+                  NookLogKey.sync,
+                  'Disconnected from ${syncState.selectedDevice!.deviceName}',
+                  LogLevel.info,
+                );
                 ref.read(syncOrchestratorProvider.notifier).stop();
               },
             ),
@@ -54,11 +62,15 @@ class SettingsSyncDevicesScreen extends ConsumerWidget {
                   ..sort((a, b) => b.lastSync.compareTo(a.lastSync));
 
                 return ListView.builder(
+                  padding: EdgeInsets.only(
+                    bottom: DockSafeArea.bottomOf(context) + 72,
+                  ),
                   itemCount: deviceList.length,
                   itemBuilder: (context, index) {
                     final device = deviceList[index];
                     return ListTile(
-                      leading: const Icon(Icons.devices),
+                      leading: const HugeIcon(
+                          icon: HugeIcons.strokeRoundedSmartPhone01),
                       title: Text(device.deviceName),
                       subtitle: Text(
                         '${device.syncCount} notes synced · '
@@ -102,8 +114,8 @@ class _ConnectedDeviceCard extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.primaryContainer,
-          child: Icon(
-            Icons.phone_android,
+          child: HugeIcon(
+            icon: HugeIcons.strokeRoundedSmartPhone02,
             color: theme.colorScheme.onPrimaryContainer,
           ),
         ),
