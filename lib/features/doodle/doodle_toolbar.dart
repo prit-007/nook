@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'doodle_controller.dart';
 
@@ -74,9 +74,10 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
                       tooltip: 'Collapse toolbar',
                       visualDensity: VisualDensity.compact,
                       onPressed: () => setState(() => _expanded = false),
-                      icon: Icon(
-                        Icons.keyboard_arrow_down_rounded,
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowDown01,
                         color: scheme.onSurfaceVariant,
+                        size: 24,
                       ),
                     ),
                   ),
@@ -88,7 +89,7 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
                         button: true,
                         selected: controller.currentTool == DoodleTool.pen,
                         child: _TactileTool(
-                          icon: LucideIcons.penLine,
+                          icon: HugeIcons.strokeRoundedPen01,
                           isSelected: controller.currentTool == DoodleTool.pen,
                           onTap: () =>
                               controller.setCurrentTool(DoodleTool.pen),
@@ -101,7 +102,7 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
                         selected:
                             controller.currentTool == DoodleTool.highlighter,
                         child: _TactileTool(
-                          icon: LucideIcons.highlighter,
+                          icon: HugeIcons.strokeRoundedHighlighter,
                           isSelected:
                               controller.currentTool == DoodleTool.highlighter,
                           onTap: () =>
@@ -114,7 +115,7 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
                         button: true,
                         selected: controller.currentTool == DoodleTool.eraser,
                         child: _TactileTool(
-                          icon: LucideIcons.eraser,
+                          icon: HugeIcons.strokeRoundedEraser01,
                           isSelected:
                               controller.currentTool == DoodleTool.eraser,
                           onTap: () =>
@@ -134,7 +135,7 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
                         button: true,
                         selected: controller.shapeAssistEnabled,
                         child: _TactileTool(
-                          icon: LucideIcons.wandSparkles,
+                          icon: HugeIcons.strokeRoundedMagicWand01,
                           isSelected: controller.shapeAssistEnabled,
                           onTap: () => controller.toggleShapeAssist(),
                           activeColor: scheme.primary,
@@ -145,9 +146,10 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
                         label: 'Clear all strokes',
                         button: true,
                         child: IconButton(
-                          icon: Icon(
-                            LucideIcons.trash2,
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedDelete02,
                             color: scheme.error,
+                            size: 24,
                           ),
                           onPressed: controller.strokes.isNotEmpty
                               ? controller.clear
@@ -182,8 +184,8 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        LucideIcons.penLine,
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedPen01,
                         size: 14,
                         color: scheme.onSurfaceVariant,
                       ),
@@ -207,8 +209,8 @@ class _DoodleToolbarState extends State<DoodleToolbar> {
                           ),
                         ),
                       ),
-                      Icon(
-                        LucideIcons.penLine,
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedPen01,
                         size: 24,
                         color: scheme.onSurfaceVariant,
                       ),
@@ -259,8 +261,8 @@ class _CollapsedHandle extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(
-              Icons.keyboard_arrow_up_rounded,
+            child: HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowUp01,
               size: 22,
               color: noteScheme.onSurfaceVariant,
             ),
@@ -322,7 +324,7 @@ class _TactileTool extends StatelessWidget {
     this.activeColor,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final bool isSelected;
   final VoidCallback onTap;
   final Color? activeColor;
@@ -344,8 +346,8 @@ class _TactileTool extends StatelessWidget {
               isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          icon,
+        child: HugeIcon(
+          icon: icon,
           size: 24,
           color: isSelected ? color : scheme.onSurfaceVariant,
         ),

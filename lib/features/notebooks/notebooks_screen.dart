@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:hugeicons/hugeicons.dart';
 import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
@@ -383,7 +384,10 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
           heroTag: 'fab-notebooks',
           onPressed: _showCreateSheet,
           tooltip: 'Create notebook',
-          icon: const Icon(Icons.add_rounded),
+          icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedAdd01,
+              size: 24,
+              color: scheme.onPrimary),
           label: const Text(
             'New',
             style: TextStyle(
@@ -399,7 +403,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
   Widget _notebooksGrid(ColorScheme scheme, bool isDualPane) {
     if (_notebooks.isEmpty) {
       return const EmptyState(
-        icon: Icons.book_outlined,
+        icon: HugeIcons.strokeRoundedBook01,
         title: 'No collections yet',
         subtitle: 'Tap + New to create your first notebook.',
         animate: false,
@@ -483,8 +487,8 @@ class _SeedColorDot extends StatelessWidget {
               : null,
         ),
         child: isSelected
-            ? const Icon(
-                Icons.check_rounded,
+            ? HugeIcon(
+                icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                 color: Colors.white,
                 size: 20,
               )

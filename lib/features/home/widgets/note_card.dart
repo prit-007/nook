@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/core/theme/note_theme.dart';
 import 'package:nook/data/database.dart';
@@ -180,8 +181,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                           color: cardScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(
-                          Icons.push_pin,
+                        child: HugeIcon(
+                          icon: HugeIcons.strokeRoundedPin,
                           size: 14,
                           color: cardScheme.onPrimaryContainer,
                         ),
@@ -197,8 +198,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                           color: cardScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(
-                          Icons.lock,
+                        child: HugeIcon(
+                          icon: HugeIcons.strokeRoundedLock,
                           size: 14,
                           color: cardScheme.onSurface.withValues(alpha: 0.5),
                         ),
@@ -215,12 +216,12 @@ class _NoteCardState extends ConsumerState<NoteCard> {
 
   Widget _typeIcon(ColorScheme scheme) {
     final icon = switch (widget.note.type) {
-      NoteType.checklist => Icons.checklist,
-      NoteType.doodle => Icons.draw,
-      NoteType.mixed => Icons.layers,
-      NoteType.text => Icons.notes,
+      NoteType.checklist => HugeIcons.strokeRoundedCheckList,
+      NoteType.doodle => HugeIcons.strokeRoundedDrawingMode,
+      NoteType.mixed => HugeIcons.strokeRoundedLayers01,
+      NoteType.text => HugeIcons.strokeRoundedNotebook01,
     };
-    return Icon(icon, size: 16, color: scheme.primary);
+    return HugeIcon(icon: icon, size: 16, color: scheme.primary);
   }
 
   Widget _lockedPreview(ColorScheme scheme) {
@@ -245,8 +246,10 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     final text = widget.note.plainText ?? widget.note.title;
     if (text.isEmpty) {
       return Center(
-        child: Icon(
-          widget.note.type == NoteType.doodle ? Icons.draw : Icons.notes,
+        child: HugeIcon(
+          icon: widget.note.type == NoteType.doodle
+              ? HugeIcons.strokeRoundedDrawingMode
+              : HugeIcons.strokeRoundedNotebook01,
           size: 32,
           color: scheme.onSurface.withValues(alpha: 0.15),
         ),
@@ -281,8 +284,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
 
     if (_checklistItems.isEmpty) {
       return Center(
-        child: Icon(
-          Icons.add_task_rounded,
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
           size: 32,
           color: scheme.onSurface.withValues(alpha: 0.15),
         ),
@@ -341,10 +344,10 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
                       children: [
-                        Icon(
-                          item.checked
-                              ? Icons.check_circle_rounded
-                              : Icons.radio_button_unchecked,
+                        HugeIcon(
+                          icon: item.checked
+                              ? HugeIcons.strokeRoundedCheckmarkCircle01
+                              : HugeIcons.strokeRoundedCircle,
                           size: 12,
                           color: item.checked
                               ? scheme.primary
@@ -393,8 +396,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     return Row(
       children: [
         if (_notebookName != null) ...[
-          Icon(
-            Icons.folder_outlined,
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedFolder01,
             size: 10,
             color: scheme.onSurfaceVariant,
           ),

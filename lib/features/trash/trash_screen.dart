@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/talker_provider.dart';
@@ -133,7 +133,10 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
           ),
           title: Row(
             children: [
-              Icon(LucideIcons.alertTriangle, color: scheme.error),
+              HugeIcon(
+                  icon: HugeIcons.strokeRoundedAlert01,
+                  color: scheme.error,
+                  size: 24),
               const SizedBox(width: 8),
               const Text(
                 'Empty Archive?',
@@ -202,7 +205,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
           ? Center(child: CircularProgressIndicator(color: scheme.primary))
           : _notes.isEmpty
               ? const EmptyState(
-                  icon: LucideIcons.trash,
+                  icon: HugeIcons.strokeRoundedDelete01,
                   title: 'Archive is empty',
                   subtitle: 'Deleted notes will be held here',
                   animate: false,
@@ -266,17 +269,19 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: Icon(
-                                    LucideIcons.undo2,
+                                  icon: HugeIcon(
+                                    icon: HugeIcons.strokeRoundedUndo02,
                                     color: scheme.primary,
+                                    size: 24,
                                   ),
                                   tooltip: 'Restore Note',
                                   onPressed: () => _restore(note.id),
                                 ),
                                 IconButton(
-                                  icon: Icon(
-                                    LucideIcons.trash,
+                                  icon: HugeIcon(
+                                    icon: HugeIcons.strokeRoundedDelete01,
                                     color: scheme.error.withValues(alpha: 0.8),
+                                    size: 24,
                                   ),
                                   tooltip: 'Destroy',
                                   onPressed: () =>
@@ -305,7 +310,10 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                         scheme.errorContainer.withValues(alpha: 0.9),
                     foregroundColor: scheme.onErrorContainer,
                     elevation: 0,
-                    icon: const Icon(LucideIcons.flame),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedFlameKindling,
+                        size: 24,
+                        color: scheme.onErrorContainer),
                     label: const Text(
                       'Empty Archive',
                       style: TextStyle(fontWeight: FontWeight.w700),

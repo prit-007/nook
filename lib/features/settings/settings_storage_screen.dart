@@ -4,7 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers/database_provider.dart';
@@ -183,25 +183,25 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
               data: (s) => Column(
                 children: [
                   _StatRow(
-                    icon: LucideIcons.fileText,
+                    icon: HugeIcons.strokeRoundedFile01,
                     label: 'Notes',
                     value: '${s.noteCount}',
                   ),
                   const Divider(height: 24),
                   _StatRow(
-                    icon: LucideIcons.image,
+                    icon: HugeIcons.strokeRoundedImage01,
                     label: 'Attachments',
                     value: '${s.attachmentCount}',
                   ),
                   const Divider(height: 24),
                   _StatRow(
-                    icon: LucideIcons.database,
+                    icon: HugeIcons.strokeRoundedDatabase,
                     label: 'Database',
                     value: formatBytes(s.dbBytes),
                   ),
                   const Divider(height: 24),
                   _StatRow(
-                    icon: LucideIcons.brush,
+                    icon: HugeIcons.strokeRoundedBrush,
                     label: 'Media & doodles',
                     value: formatBytes(s.mediaBytes),
                   ),
@@ -244,8 +244,8 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                       color: scheme.onPrimaryContainer,
                                     ),
                                   )
-                                : Icon(
-                                    LucideIcons.arrowUpFromLine,
+                                : HugeIcon(
+                                    icon: HugeIcons.strokeRoundedUpload01,
                                     size: 20,
                                     color: scheme.onPrimaryContainer,
                                   ),
@@ -278,8 +278,8 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                               ],
                             ),
                           ),
-                          Icon(
-                            LucideIcons.chevronRight,
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
                             size: 18,
                             color:
                                 scheme.onSurfaceVariant.withValues(alpha: 0.5),
@@ -319,8 +319,8 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                       color: scheme.onPrimaryContainer,
                                     ),
                                   )
-                                : Icon(
-                                    LucideIcons.arrowDownToLine,
+                                : HugeIcon(
+                                    icon: HugeIcons.strokeRoundedDownload01,
                                     size: 20,
                                     color: scheme.onPrimaryContainer,
                                   ),
@@ -353,8 +353,8 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                               ],
                             ),
                           ),
-                          Icon(
-                            LucideIcons.chevronRight,
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
                             size: 18,
                             color:
                                 scheme.onSurfaceVariant.withValues(alpha: 0.5),
@@ -397,8 +397,10 @@ class _ResultBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            failed ? LucideIcons.alertTriangle : LucideIcons.checkCircle,
+          HugeIcon(
+            icon: failed
+                ? HugeIcons.strokeRoundedAlert01
+                : HugeIcons.strokeRoundedCheckmarkCircle01,
             size: 20,
             color:
                 failed ? scheme.onErrorContainer : scheme.onSecondaryContainer,
@@ -428,7 +430,7 @@ class _StatRow extends StatelessWidget {
     required this.label,
     required this.value,
   });
-  final IconData icon;
+  final dynamic icon;
   final String label;
   final String value;
 
@@ -439,7 +441,7 @@ class _StatRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: scheme.primary),
+          HugeIcon(icon: icon, size: 18, color: scheme.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

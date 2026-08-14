@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/core/widgets/semantics.dart';
 import 'package:nook/data/database.dart';
@@ -146,9 +147,14 @@ void main() {
         ),
       );
 
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon &&
+              w.icon == HugeIcons.strokeRoundedCheckmarkCircle01),
+          findsOneWidget);
 
-      final icon = tester.widget<Icon>(find.byIcon(Icons.check));
+      final icon = tester.widget<HugeIcon>(find.byWidgetPredicate((w) =>
+          w is HugeIcon && w.icon == HugeIcons.strokeRoundedCheckmarkCircle01));
       // Indigo is dark; the check must be white, never black-on-dark.
       expect(icon.color, Colors.white);
     });

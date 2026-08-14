@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/pin_provider.dart';
 
@@ -186,8 +187,9 @@ class _PinEntryScreenState extends ConsumerState<PinEntryScreen> {
                                         : () => _onKey(digit),
                                     isBackspace: isBackspace,
                                     child: isBackspace
-                                        ? Icon(
-                                            Icons.backspace_outlined,
+                                        ? HugeIcon(
+                                            icon: HugeIcons
+                                                .strokeRoundedBackward01,
                                             color: scheme.onSurface,
                                             size: 28,
                                           )

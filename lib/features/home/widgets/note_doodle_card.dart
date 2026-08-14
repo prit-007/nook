@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/note_theme.dart';
@@ -129,8 +130,8 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
                         children: [
                           Row(
                             children: [
-                              Icon(
-                                Icons.draw_rounded,
+                              HugeIcon(
+                                icon: HugeIcons.strokeRoundedDrawingMode,
                                 size: 15,
                                 color: cardScheme.primary,
                               ),
@@ -165,8 +166,8 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
                           ),
                           if (widget.note.pinned) ...[
                             const SizedBox(height: 6),
-                            Icon(
-                              Icons.push_pin_rounded,
+                            HugeIcon(
+                              icon: HugeIcons.strokeRoundedPin,
                               size: 14,
                               color: cardScheme.primary,
                             ),
@@ -217,8 +218,8 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
         ),
       ),
       child: Center(
-        child: Icon(
-          Icons.gesture_rounded,
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedPenTool01,
           size: 40,
           color: cardScheme.onPrimaryContainer.withValues(alpha: 0.7),
         ),
@@ -230,8 +231,8 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
     return Row(
       children: [
         if (_notebookName != null) ...[
-          Icon(
-            Icons.folder_outlined,
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedFolder01,
             size: 10,
             color: scheme.onSurfaceVariant,
           ),

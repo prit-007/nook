@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/features/onboarding/onboarding_screen.dart';
 
 void main() {
@@ -32,7 +33,10 @@ void main() {
 
   testWidgets('renders illustration icon', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.byIcon(Icons.note_alt_outlined), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedNotebook01),
+        findsOneWidget);
   });
 
   testWidgets('renders page view', (tester) async {

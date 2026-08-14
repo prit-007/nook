@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/note_theme.dart';
@@ -129,8 +130,8 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
                               ),
                               if (widget.note.locked) ...[
                                 const SizedBox(width: 8),
-                                Icon(
-                                  Icons.lock_rounded,
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedLock,
                                   size: 14,
                                   color: bannerScheme.onPrimaryContainer
                                       .withValues(alpha: 0.6),
@@ -195,8 +196,8 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
                     Positioned(
                       top: 16,
                       right: 16,
-                      child: Icon(
-                        Icons.push_pin_rounded,
+                      child: HugeIcon(
+                        icon: HugeIcons.strokeRoundedPin,
                         size: 18,
                         color: bannerScheme.onPrimaryContainer
                             .withValues(alpha: 0.6),
@@ -222,8 +223,8 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
     return Row(
       children: [
         if (_notebookName != null) ...[
-          Icon(
-            Icons.folder_outlined,
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedFolder01,
             size: 10,
             color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
           ),

@@ -2,7 +2,7 @@ import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/providers/selection_providers.dart';
@@ -29,7 +29,7 @@ class NotebookDetailPane extends ConsumerWidget {
         color: scheme.surface,
         child: const Center(
           child: EmptyState(
-            icon: LucideIcons.bookOpen,
+            icon: HugeIcons.strokeRoundedBookOpen01,
             title: 'Select a collection',
             subtitle: 'Choose a notebook from the left pane to view notes.',
             animate: false,
@@ -151,7 +151,7 @@ class _NotebookNotesPaneState extends ConsumerState<_NotebookNotesPane> {
                 ? Center(child: CircularProgressIndicator(color: seedColor))
                 : _notes.isEmpty
                     ? const EmptyState(
-                        icon: Icons.notes_outlined,
+                        icon: HugeIcons.strokeRoundedNotebook01,
                         title: 'No notes in this collection',
                         subtitle: 'Create a note and assign it here.',
                         animate: false,

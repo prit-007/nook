@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/note_theme_scope.dart';
@@ -156,8 +157,8 @@ class _DoodleBlockComponentWidgetState extends State<DoodleBlockComponentWidget>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              DoodleBlockBackgroundIcons.fromTemplate(backgroundTemplate),
+            HugeIcon(
+              icon: DoodleBlockBackgroundIcons.fromTemplate(backgroundTemplate),
               size: 48,
               color: scheme.primary.withValues(alpha: 0.6),
             ),
@@ -287,17 +288,17 @@ class _DoodleBlockComponentWidgetState extends State<DoodleBlockComponentWidget>
 class DoodleBlockBackgroundIcons {
   const DoodleBlockBackgroundIcons._();
 
-  static IconData fromTemplate(String template) {
+  static List<List<dynamic>> fromTemplate(String template) {
     switch (template) {
       case 'blank':
-        return Icons.note_outlined;
+        return HugeIcons.strokeRoundedFile01;
       case 'ruled':
-        return Icons.menu_book_rounded;
+        return HugeIcons.strokeRoundedBookOpen01;
       case 'graph':
-        return Icons.grid_3x3_rounded;
+        return HugeIcons.strokeRoundedGrid;
       case 'dotted':
       default:
-        return Icons.brush;
+        return HugeIcons.strokeRoundedBrush;
     }
   }
 }

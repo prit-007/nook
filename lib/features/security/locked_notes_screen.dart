@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/talker_provider.dart';
@@ -63,7 +63,10 @@ class _LockedNotesScreenState extends ConsumerState<LockedNotesScreen> {
                   backgroundColor: scheme.surface,
                   surfaceTintColor: Colors.transparent,
                   leading: IconButton(
-                    icon: Icon(LucideIcons.arrowLeft, color: scheme.onSurface),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowLeft01,
+                        size: 24,
+                        color: scheme.onSurface),
                     onPressed: () => context.pop(),
                   ),
                   flexibleSpace: const FlexibleSpaceBar(
@@ -84,7 +87,7 @@ class _LockedNotesScreenState extends ConsumerState<LockedNotesScreen> {
                   const SliverFillRemaining(
                     hasScrollBody: false,
                     child: EmptyState(
-                      icon: LucideIcons.lockKeyhole,
+                      icon: HugeIcons.strokeRoundedLock,
                       title: 'No secured notes',
                       subtitle: 'Lock notes from the editor options menu',
                       animate: true,
@@ -122,8 +125,8 @@ class _LockedNotesScreenState extends ConsumerState<LockedNotesScreen> {
                                 color: scheme.surfaceContainerHigh,
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(
-                                LucideIcons.lockKeyhole,
+                              child: HugeIcon(
+                                icon: HugeIcons.strokeRoundedLock,
                                 color: scheme.primary,
                                 size: 20,
                               ),
@@ -146,8 +149,8 @@ class _LockedNotesScreenState extends ConsumerState<LockedNotesScreen> {
                                 fontSize: 13,
                               ),
                             ),
-                            trailing: Icon(
-                              LucideIcons.chevronRight,
+                            trailing: HugeIcon(
+                              icon: HugeIcons.strokeRoundedArrowRight01,
                               size: 18,
                               color: scheme.onSurfaceVariant
                                   .withValues(alpha: 0.5),

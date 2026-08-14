@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme/note_theme_scope.dart';
 
@@ -30,8 +31,8 @@ class MediaDeleteButton extends StatelessWidget {
           onTap: onPressed,
           child: Padding(
             padding: const EdgeInsets.all(5),
-            child: Icon(
-              Icons.close_rounded,
+            child: HugeIcon(
+              icon: HugeIcons.strokeRoundedCancelCircle,
               size: 16,
               color: scheme.onSurface,
             ),

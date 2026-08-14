@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
 import 'media_delete_button.dart';
@@ -157,8 +158,8 @@ class _NookImageBlockComponentWidgetState
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(
-          Icons.image_outlined,
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedImage01,
           size: 36,
           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
         ),

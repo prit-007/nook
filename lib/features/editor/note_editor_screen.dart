@@ -7,6 +7,7 @@ import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -758,8 +759,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         },
       ),
       MobileToolbarItem.action(
-        itemIconBuilder: (context, editorState, _) => Icon(
-          Icons.gesture_rounded,
+        itemIconBuilder: (context, editorState, _) => HugeIcon(
+          icon: HugeIcons.strokeRoundedPenTool01,
           color: MobileToolbarTheme.of(context).iconColor,
         ),
         actionHandler: (context, editorState) {
@@ -1253,8 +1254,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
           children: [
             IconButton(
               tooltip: 'Back',
-              icon: Icon(
-                Icons.arrow_back_rounded,
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowLeft01,
                 color: noteScheme.onSurface,
               ),
               onPressed: onBack,
@@ -1293,16 +1294,20 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
               IconButton(
                 tooltip: 'Undo',
                 onPressed: canUndo ? onUndo : null,
-                icon: const Icon(Icons.undo_rounded),
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedUndo02,
+                    color: noteScheme.onSurface),
               ),
               IconButton(
                 tooltip: 'Redo',
                 onPressed: canRedo ? onRedo : null,
-                icon: const Icon(Icons.redo_rounded),
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedRedo02,
+                    color: noteScheme.onSurface),
               ),
               PopupMenuButton<String>(
-                icon: Icon(
-                  Icons.more_horiz_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedMore01,
                   color: noteScheme.onSurface,
                 ),
                 onSelected: (value) {
@@ -1324,8 +1329,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'image',
                     child: Row(
                       children: [
-                        Icon(Icons.add_photo_alternate_rounded,
-                            size: 20, color: noteScheme.onSurface),
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedImageAdd01,
+                            size: 20,
+                            color: noteScheme.onSurface),
                         const SizedBox(width: 12),
                         const Text('Insert image'),
                       ],
@@ -1335,8 +1342,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'doodle',
                     child: Row(
                       children: [
-                        Icon(Icons.draw_rounded,
-                            size: 20, color: noteScheme.onSurface),
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedDrawingMode,
+                            size: 20,
+                            color: noteScheme.onSurface),
                         const SizedBox(width: 12),
                         const Text('Insert doodle'),
                       ],
@@ -1346,10 +1355,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'pin',
                     child: Row(
                       children: [
-                        Icon(
-                          pinned
-                              ? Icons.push_pin_rounded
-                              : Icons.push_pin_outlined,
+                        HugeIcon(
+                          icon: pinned
+                              ? HugeIcons.strokeRoundedPin
+                              : HugeIcons.strokeRoundedPinOff,
                           size: 20,
                           color: pinned
                               ? noteScheme.primary
@@ -1364,8 +1373,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'export',
                     child: Row(
                       children: [
-                        Icon(Icons.ios_share_rounded,
-                            size: 20, color: noteScheme.onSurface),
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedShare01,
+                            size: 20,
+                            color: noteScheme.onSurface),
                         const SizedBox(width: 12),
                         const Text('Export note'),
                       ],
@@ -1375,8 +1386,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     value: 'more',
                     child: Row(
                       children: [
-                        Icon(Icons.settings_rounded,
-                            size: 20, color: noteScheme.onSurface),
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedSettings02,
+                            size: 20,
+                            color: noteScheme.onSurface),
                         const SizedBox(width: 12),
                         const Text('Note options'),
                       ],
@@ -1388,33 +1401,39 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
               IconButton(
                 tooltip: 'Undo',
                 onPressed: canUndo ? onUndo : null,
-                icon: const Icon(Icons.undo_rounded),
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedUndo02,
+                    color: noteScheme.onSurface),
               ),
               IconButton(
                 tooltip: 'Redo',
                 onPressed: canRedo ? onRedo : null,
-                icon: const Icon(Icons.redo_rounded),
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedRedo02,
+                    color: noteScheme.onSurface),
               ),
               IconButton(
                 tooltip: 'Insert image',
-                icon: Icon(
-                  Icons.add_photo_alternate_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedImageAdd01,
                   color: noteScheme.onSurface,
                 ),
                 onPressed: onInsertImage,
               ),
               IconButton(
                 tooltip: 'Insert doodle',
-                icon: Icon(
-                  Icons.draw_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedDrawingMode,
                   color: noteScheme.onSurface,
                 ),
                 onPressed: onInsertDoodle,
               ),
               IconButton(
                 tooltip: pinned ? 'Unpin note' : 'Pin note',
-                icon: Icon(
-                  pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                icon: HugeIcon(
+                  icon: pinned
+                      ? HugeIcons.strokeRoundedPin
+                      : HugeIcons.strokeRoundedPinOff,
                   color: pinned ? noteScheme.primary : noteScheme.onSurface,
                   size: 20,
                 ),
@@ -1422,8 +1441,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Export note',
-                icon: Icon(
-                  Icons.ios_share_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedShare01,
                   color: noteScheme.onSurface,
                   size: 20,
                 ),
@@ -1431,8 +1450,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'More options',
-                icon: Icon(
-                  Icons.more_horiz_rounded,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedMore01,
                   color: noteScheme.onSurface,
                 ),
                 onPressed: onMoreOptions,
@@ -1539,8 +1558,10 @@ class NoteExportCapture extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        checked ? Icons.check_circle : Icons.circle_outlined,
+                      HugeIcon(
+                        icon: checked
+                            ? HugeIcons.strokeRoundedCheckmarkCircle01
+                            : HugeIcons.strokeRoundedCircle,
                         size: 18,
                         color: scheme.primary,
                       ),
@@ -1616,10 +1637,10 @@ class NoteExportCapture extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        item.checked
-                            ? Icons.check_circle
-                            : Icons.circle_outlined,
+                      HugeIcon(
+                        icon: item.checked
+                            ? HugeIcons.strokeRoundedCheckmarkCircle01
+                            : HugeIcons.strokeRoundedCircle,
                         size: 18,
                         color: scheme.primary,
                       ),
@@ -1734,7 +1755,10 @@ class _ExportPreviewSheet extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => Navigator.pop(context, 'share'),
-                  icon: const Icon(Icons.ios_share_rounded, size: 18),
+                  icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedShare01,
+                      size: 18,
+                      color: scheme.onSurface),
                   label: const Text('Share'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1748,7 +1772,10 @@ class _ExportPreviewSheet extends StatelessWidget {
               Expanded(
                 child: FilledButton.icon(
                   onPressed: () => Navigator.pop(context, 'gallery'),
-                  icon: const Icon(Icons.save_alt_rounded, size: 18),
+                  icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedDownload01,
+                      size: 18,
+                      color: scheme.onSurface),
                   label: const Text('Save to Gallery'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),

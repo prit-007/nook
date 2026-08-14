@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
@@ -69,8 +69,10 @@ class SyncTransferScreen extends ConsumerWidget {
                 strokeCap: StrokeCap.round,
               ),
             ),
-            Icon(
-              sending ? LucideIcons.send : LucideIcons.download,
+            HugeIcon(
+              icon: sending
+                  ? HugeIcons.strokeRoundedSendToMobile
+                  : HugeIcons.strokeRoundedDownload01,
               size: 40,
               color: scheme.primary,
             ),
@@ -113,8 +115,8 @@ class SyncTransferScreen extends ConsumerWidget {
             color: scheme.primaryContainer,
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            LucideIcons.checkCircle,
+          child: HugeIcon(
+            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
             size: 64,
             color: scheme.onPrimaryContainer,
           ),
@@ -173,7 +175,7 @@ class SyncTransferScreen extends ConsumerWidget {
         return _failureContent(
           context: context,
           scheme: scheme,
-          icon: LucideIcons.shieldBan,
+          icon: HugeIcons.strokeRoundedShieldBan,
           color: const Color(0xFFB26A00),
           background: const Color(0x1AB26A00),
           title: 'Transfer Declined',
@@ -184,7 +186,7 @@ class SyncTransferScreen extends ConsumerWidget {
         return _failureContent(
           context: context,
           scheme: scheme,
-          icon: LucideIcons.hourglass,
+          icon: HugeIcons.strokeRoundedHourglass,
           color: const Color(0xFF8A6D00),
           background: const Color(0x1A8A6D00),
           title: 'Transfer Timed Out',
@@ -195,7 +197,7 @@ class SyncTransferScreen extends ConsumerWidget {
         return _failureContent(
           context: context,
           scheme: scheme,
-          icon: LucideIcons.wifiOff,
+          icon: HugeIcons.strokeRoundedWifiOff01,
           color: const Color(0xFF8A6D00),
           background: const Color(0x1A8A6D00),
           title: 'Connection Lost',
@@ -206,7 +208,7 @@ class SyncTransferScreen extends ConsumerWidget {
         return _failureContent(
           context: context,
           scheme: scheme,
-          icon: LucideIcons.ban,
+          icon: HugeIcons.strokeRoundedBlockGame,
           color: scheme.onSurfaceVariant,
           background: scheme.surfaceContainerHighest,
           title: 'Transfer Cancelled',
@@ -219,7 +221,7 @@ class SyncTransferScreen extends ConsumerWidget {
         return _failureContent(
           context: context,
           scheme: scheme,
-          icon: LucideIcons.circleAlert,
+          icon: HugeIcons.strokeRoundedAlertCircle,
           color: scheme.error,
           background: scheme.errorContainer.withValues(alpha: 0.25),
           title: 'Transfer Failed',
@@ -232,7 +234,7 @@ class SyncTransferScreen extends ConsumerWidget {
   List<Widget> _failureContent({
     required BuildContext context,
     required ColorScheme scheme,
-    required IconData icon,
+    required List<List<dynamic>> icon,
     required Color color,
     required Color background,
     required String title,
@@ -246,7 +248,7 @@ class SyncTransferScreen extends ConsumerWidget {
           color: background,
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, size: 64, color: color),
+        child: HugeIcon(icon: icon, size: 64, color: color),
       ),
       const SizedBox(height: 24),
       Text(

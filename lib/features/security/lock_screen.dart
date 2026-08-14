@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
@@ -88,8 +88,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                                         .withValues(alpha: 0.3),
                                   ),
                                 ),
-                                child: Icon(
-                                  LucideIcons.fingerprint,
+                                child: HugeIcon(
+                                  icon: HugeIcons.strokeRoundedFingerPrint,
                                   size: 80,
                                   color: scheme.primary,
                                 ),
@@ -132,7 +132,10 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                                     Navigator.of(context).pop(true);
                                   }
                                 },
-                                icon: const Icon(LucideIcons.keyRound),
+                                icon: HugeIcon(
+                                    icon: HugeIcons.strokeRoundedKey01,
+                                    size: 24,
+                                    color: scheme.onSurfaceVariant),
                                 label: const Text(
                                   'Use PIN instead',
                                   style: TextStyle(fontWeight: FontWeight.w600),

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/attachment_repository.dart';
@@ -30,19 +31,28 @@ void main() {
   testWidgets('renders close button', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
-    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedCancelCircle),
+        findsOneWidget);
   });
 
   testWidgets('renders undo button', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
-    expect(find.byIcon(Icons.undo_rounded), findsWidgets);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedUndo02),
+        findsWidgets);
   });
 
   testWidgets('renders redo button', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
-    expect(find.byIcon(Icons.redo_rounded), findsWidgets);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedRedo02),
+        findsWidgets);
   });
 
   testWidgets('renders Done button', (tester) async {
@@ -68,15 +78,22 @@ void main() {
     await tester.pump();
 
     // Just verify the button is there and can be tapped without error
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedCancelCircle));
     await tester.pump();
-    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedCancelCircle),
+        findsOneWidget);
   });
 
   testWidgets('renders background selector button', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
-    expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedGridView),
+        findsOneWidget);
   });
 
   testWidgets('background button opens a sheet with all four templates',
@@ -84,7 +101,8 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.grid_view_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedGridView));
     await tester.pumpAndSettle();
 
     expect(find.text('Blank'), findsOneWidget);
@@ -100,7 +118,8 @@ void main() {
 
     expect(find.byKey(const ValueKey('doodle-bg-dotted')), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.grid_view_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedGridView));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Ruled'));

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
@@ -176,9 +176,10 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                       child: TextField(
                         decoration: InputDecoration(
                           hintText: 'Search your vault...',
-                          prefixIcon: Icon(
-                            LucideIcons.search,
+                          prefixIcon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedSearch01,
                             color: scheme.primary,
+                            size: 24,
                           ),
                           filled: true,
                           fillColor: scheme.surfaceContainerHigh.withValues(
@@ -300,8 +301,8 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                                     color: scheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Icon(
-                                    _noteTypeIcon(note.type),
+                                  child: HugeIcon(
+                                    icon: _noteTypeIcon(note.type),
                                     size: 20,
                                     color: scheme.primary,
                                   ),
@@ -390,8 +391,8 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                   ]
                 : null,
           ),
-          child: Icon(
-            LucideIcons.radar,
+          child: HugeIcon(
+            icon: HugeIcons.strokeRoundedRadar01,
             color: scheme.onPrimaryContainer,
             size: 28,
           ),
@@ -463,11 +464,11 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
         NoteType.mixed => 'Mixed',
       };
 
-  IconData _noteTypeIcon(NoteType type) => switch (type) {
-        NoteType.text => LucideIcons.type,
-        NoteType.checklist => LucideIcons.squareCheck,
-        NoteType.doodle => LucideIcons.penLine,
-        NoteType.mixed => LucideIcons.layers,
+  List<List<dynamic>> _noteTypeIcon(NoteType type) => switch (type) {
+        NoteType.text => HugeIcons.strokeRoundedText,
+        NoteType.checklist => HugeIcons.strokeRoundedCheckmarkSquare01,
+        NoteType.doodle => HugeIcons.strokeRoundedPen01,
+        NoteType.mixed => HugeIcons.strokeRoundedLayers01,
       };
 }
 
@@ -497,7 +498,10 @@ class _DeviceChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(LucideIcons.smartphone, color: scheme.primary, size: 20),
+              HugeIcon(
+                  icon: HugeIcons.strokeRoundedSmartPhone01,
+                  color: scheme.primary,
+                  size: 20),
               const SizedBox(width: 10),
               Text(
                 device.deviceName,

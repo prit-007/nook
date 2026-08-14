@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/features/security/lock_screen.dart';
 
 void main() {
@@ -26,7 +26,10 @@ void main() {
 
   testWidgets('renders fingerprint icon', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.byIcon(LucideIcons.fingerprint), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedFingerPrint),
+        findsOneWidget);
   });
 
   testWidgets('renders PIN fallback when PIN enabled', (tester) async {
@@ -43,10 +46,14 @@ void main() {
   testWidgets('fingerprint icon is tappable', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.tap(
-      find.byIcon(LucideIcons.fingerprint),
+      find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedFingerPrint),
       warnIfMissed: false,
     );
     await tester.pump();
-    expect(find.byIcon(LucideIcons.fingerprint), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedFingerPrint),
+        findsOneWidget);
   });
 }

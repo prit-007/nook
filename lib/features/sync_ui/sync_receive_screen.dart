@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../sync/sync_orchestrator.dart';
 import 'widgets/conflict_card.dart';
@@ -79,10 +79,11 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
-              secondary: Icon(
-                isDiscoverable ? LucideIcons.eye : LucideIcons.eyeOff,
+              secondary: HugeIcon(
+                icon: HugeIcons.strokeRoundedEye,
                 color:
                     isDiscoverable ? scheme.primary : scheme.onSurfaceVariant,
+                size: 24,
               ),
               activeThumbColor: scheme.primary,
               value: isDiscoverable,
@@ -102,9 +103,10 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Icon(
-                LucideIcons.smartphone,
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedSmartPhone01,
                 color: scheme.primary,
+                size: 24,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -247,8 +249,8 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
             Center(
               child: Column(
                 children: [
-                  Icon(
-                    LucideIcons.checkCircle,
+                  HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                     size: 64,
                     color: scheme.primary,
                   ),
@@ -273,8 +275,8 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen> {
             Center(
               child: Column(
                 children: [
-                  Icon(
-                    LucideIcons.circleAlert,
+                  HugeIcon(
+                    icon: HugeIcons.strokeRoundedAlertCircle,
                     size: 64,
                     color: scheme.error,
                   ),

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/note_theme.dart';
@@ -130,8 +131,10 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
                         children: [
                           Row(
                             children: [
-                              Icon(_typeIcon,
-                                  size: 15, color: cardScheme.primary),
+                              HugeIcon(
+                                  icon: _typeIcon,
+                                  size: 15,
+                                  color: cardScheme.primary),
                               const SizedBox(width: 6),
                               Text(
                                 _typeLabel,
@@ -145,8 +148,8 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
                             ],
                           ),
                           if (widget.note.pinned)
-                            Icon(
-                              Icons.push_pin_rounded,
+                            HugeIcon(
+                              icon: HugeIcons.strokeRoundedPin,
                               size: 16,
                               color: cardScheme.primary,
                             ),
@@ -203,11 +206,11 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
     );
   }
 
-  IconData get _typeIcon => switch (widget.note.type) {
-        NoteType.checklist => Icons.checklist_rounded,
-        NoteType.doodle => Icons.draw_rounded,
-        NoteType.mixed => Icons.layers_rounded,
-        NoteType.text => Icons.notes_rounded,
+  List<List<dynamic>> get _typeIcon => switch (widget.note.type) {
+        NoteType.checklist => HugeIcons.strokeRoundedCheckList,
+        NoteType.doodle => HugeIcons.strokeRoundedDrawingMode,
+        NoteType.mixed => HugeIcons.strokeRoundedLayers01,
+        NoteType.text => HugeIcons.strokeRoundedNotebook01,
       };
 
   String get _typeLabel => switch (widget.note.type) {
@@ -282,10 +285,8 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
             padding: const EdgeInsets.symmetric(vertical: 3),
             child: Row(
               children: [
-                Icon(
-                  item.checked
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked,
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                   size: 14,
                   color: item.checked
                       ? scheme.primary
@@ -336,7 +337,10 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_rounded, size: 16, color: scheme.primary),
+              HugeIcon(
+                  icon: HugeIcons.strokeRoundedLock,
+                  size: 16,
+                  color: scheme.primary),
               const SizedBox(width: 8),
               Text(
                 'Biometrics required',
@@ -357,8 +361,8 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
     return Row(
       children: [
         if (_notebookName != null) ...[
-          Icon(
-            Icons.folder_outlined,
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedFolder01,
             size: 10,
             color: scheme.onSurfaceVariant,
           ),

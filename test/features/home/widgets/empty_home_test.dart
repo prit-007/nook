@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/features/home/widgets/empty_home.dart';
 
 void main() {
@@ -14,7 +15,10 @@ void main() {
       await tester.pumpWidget(buildEmptyHome());
       await tester.pump(const Duration(seconds: 1));
 
-      expect(find.byIcon(Icons.auto_awesome_rounded), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedMagicWand01),
+          findsOneWidget);
     });
 
     testWidgets('renders the empty state message', (tester) async {

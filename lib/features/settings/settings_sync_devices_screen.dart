@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/talker_provider.dart';
@@ -68,7 +69,8 @@ class SettingsSyncDevicesScreen extends ConsumerWidget {
                   itemBuilder: (context, index) {
                     final device = deviceList[index];
                     return ListTile(
-                      leading: const Icon(Icons.devices),
+                      leading: const HugeIcon(
+                          icon: HugeIcons.strokeRoundedSmartPhone01),
                       title: Text(device.deviceName),
                       subtitle: Text(
                         '${device.syncCount} notes synced · '
@@ -112,8 +114,8 @@ class _ConnectedDeviceCard extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.primaryContainer,
-          child: Icon(
-            Icons.phone_android,
+          child: HugeIcon(
+            icon: HugeIcons.strokeRoundedSmartPhone02,
             color: theme.colorScheme.onPrimaryContainer,
           ),
         ),

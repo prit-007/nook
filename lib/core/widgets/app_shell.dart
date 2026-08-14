@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'dock_safe_area.dart';
 
@@ -122,36 +123,36 @@ class _MobileShell extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _DockItem(
-                      icon: Icons.home_outlined,
-                      activeIcon: Icons.home_rounded,
+                      icon: HugeIcons.strokeRoundedHome01,
+                      activeIcon: HugeIcons.strokeRoundedHome02,
                       label: 'Home',
                       isSelected: selectedIndex == 0,
                       onTap: () => onTap(0),
                     ),
                     _DockItem(
-                      icon: Icons.book_outlined,
-                      activeIcon: Icons.book_rounded,
+                      icon: HugeIcons.strokeRoundedBook01,
+                      activeIcon: HugeIcons.strokeRoundedBook02,
                       label: 'Notebooks',
                       isSelected: selectedIndex == 1,
                       onTap: () => onTap(1),
                     ),
                     _DockItem(
-                      icon: Icons.label_outlined,
-                      activeIcon: Icons.label_rounded,
+                      icon: HugeIcons.strokeRoundedTag01,
+                      activeIcon: HugeIcons.strokeRoundedTag02,
                       label: 'Tags',
                       isSelected: selectedIndex == 2,
                       onTap: () => onTap(2),
                     ),
                     _DockItem(
-                      icon: Icons.delete_outline,
-                      activeIcon: Icons.delete_rounded,
+                      icon: HugeIcons.strokeRoundedDelete01,
+                      activeIcon: HugeIcons.strokeRoundedDelete02,
                       label: 'Trash',
                       isSelected: selectedIndex == 3,
                       onTap: () => onTap(3),
                     ),
                     _DockItem(
-                      icon: Icons.settings_outlined,
-                      activeIcon: Icons.settings_rounded,
+                      icon: HugeIcons.strokeRoundedSettings01,
+                      activeIcon: HugeIcons.strokeRoundedSettings02,
                       label: 'Settings',
                       isSelected: selectedIndex == 4,
                       onTap: () => onTap(4),
@@ -176,8 +177,8 @@ class _DockItem extends StatefulWidget {
     required this.onTap,
   });
 
-  final IconData icon;
-  final IconData activeIcon;
+  final List<List<dynamic>> icon;
+  final List<List<dynamic>> activeIcon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
@@ -251,8 +252,8 @@ class _DockItemState extends State<_DockItem>
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(
-                      widget.isSelected ? widget.activeIcon : widget.icon,
+                    child: HugeIcon(
+                      icon: widget.isSelected ? widget.activeIcon : widget.icon,
                       size: 24,
                       color: widget.isSelected
                           ? scheme.primary
@@ -298,30 +299,30 @@ class _WideShell extends StatelessWidget {
   final ValueChanged<int> onTap;
   final Widget child;
 
-  static const _destinations = [
+  static final _destinations = [
     NavigationRailDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedHome01, size: 24),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedHome02, size: 24),
       label: Text('Home'),
     ),
     NavigationRailDestination(
-      icon: Icon(Icons.book_outlined),
-      selectedIcon: Icon(Icons.book_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 24),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedBook02, size: 24),
       label: Text('Notebooks'),
     ),
     NavigationRailDestination(
-      icon: Icon(Icons.label_outlined),
-      selectedIcon: Icon(Icons.label_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedTag01, size: 24),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedTag02, size: 24),
       label: Text('Tags'),
     ),
     NavigationRailDestination(
-      icon: Icon(Icons.delete_outline),
-      selectedIcon: Icon(Icons.delete_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 24),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: 24),
       label: Text('Trash'),
     ),
     NavigationRailDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 24),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 24),
       label: Text('Settings'),
     ),
   ];
@@ -380,8 +381,8 @@ class _WideShell extends StatelessWidget {
                                 color: scheme.primaryContainer,
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(
-                                Icons.bolt_rounded,
+                              child: HugeIcon(
+                                icon: HugeIcons.strokeRoundedFlash,
                                 size: 28,
                                 color: scheme.onPrimaryContainer,
                               ),

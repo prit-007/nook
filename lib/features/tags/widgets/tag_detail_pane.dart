@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/providers/selection_providers.dart';
@@ -28,7 +28,7 @@ class TagDetailPane extends ConsumerWidget {
         color: scheme.surface,
         child: const Center(
           child: EmptyState(
-            icon: LucideIcons.tags,
+            icon: HugeIcons.strokeRoundedTags,
             title: 'Select a tag',
             subtitle: 'Choose a tag from the left pane to view notes.',
             animate: false,
@@ -98,7 +98,10 @@ class _TagNotesPaneState extends ConsumerState<_TagNotesPane> {
             padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
             child: Row(
               children: [
-                Icon(LucideIcons.tag, size: 20, color: accent),
+                HugeIcon(
+                    icon: HugeIcons.strokeRoundedTag01,
+                    size: 20,
+                    color: accent),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -136,7 +139,7 @@ class _TagNotesPaneState extends ConsumerState<_TagNotesPane> {
                 ? Center(child: CircularProgressIndicator(color: accent))
                 : _notes.isEmpty
                     ? const EmptyState(
-                        icon: LucideIcons.fileText,
+                        icon: HugeIcons.strokeRoundedFile01,
                         title: 'No notes found',
                         subtitle: 'Tag your notes to see them here',
                         animate: false,

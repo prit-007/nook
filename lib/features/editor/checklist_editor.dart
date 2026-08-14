@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
@@ -289,13 +290,19 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                   IconButton(
                     tooltip: 'Undo',
                     onPressed: _undoStack.isEmpty ? null : _undo,
-                    icon: const Icon(Icons.undo_rounded, size: 20),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedUndo02,
+                        size: 20,
+                        color: scheme.onSurface),
                     visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
                     tooltip: 'Redo',
                     onPressed: _redoStack.isEmpty ? null : _redo,
-                    icon: const Icon(Icons.redo_rounded, size: 20),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedRedo02,
+                        size: 20,
+                        color: scheme.onSurface),
                     visualDensity: VisualDensity.compact,
                   ),
                 ],
@@ -337,8 +344,8 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                 if (_items.isNotEmpty)
                   IconButton(
                     tooltip: 'Use first task as title',
-                    icon: Icon(
-                      Icons.text_fields_rounded,
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedTextCreation,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -590,8 +597,10 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      _expanded ? Icons.close_rounded : Icons.add_rounded,
+                    HugeIcon(
+                      icon: _expanded
+                          ? HugeIcons.strokeRoundedCancelCircle
+                          : HugeIcons.strokeRoundedAdd01,
                       color: scheme.primary,
                       size: 24,
                     ),
@@ -730,7 +739,10 @@ class _ChecklistTile extends StatelessWidget {
                 ),
               ),
               child: checked
-                  ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary)
+                  ? HugeIcon(
+                      icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                      size: 16,
+                      color: scheme.onPrimary)
                   : null,
             ),
           ),
@@ -773,16 +785,20 @@ class _ChecklistTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.close_rounded,
-                size: 20, color: scheme.onSurface.withValues(alpha: 0.3)),
+            icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedCancelCircle,
+                size: 20,
+                color: scheme.onSurface.withValues(alpha: 0.3)),
             tooltip: 'Delete item',
             onPressed: onDelete,
             visualDensity: VisualDensity.compact,
           ),
           ReorderableDragStartListener(
             index: index,
-            child: Icon(Icons.drag_indicator_rounded,
-                size: 22, color: scheme.onSurface.withValues(alpha: 0.2)),
+            child: HugeIcon(
+                icon: HugeIcons.strokeRoundedDrag01,
+                size: 22,
+                color: scheme.onSurface.withValues(alpha: 0.2)),
           ),
         ],
       ),
@@ -913,8 +929,10 @@ class _SwipeToCheckBackground extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isChecked ? Icons.undo_rounded : Icons.check_circle_rounded,
+          HugeIcon(
+            icon: isChecked
+                ? HugeIcons.strokeRoundedUndo02
+                : HugeIcons.strokeRoundedCheckmarkCircle01,
             size: 24,
             color: scheme.primary,
           ),
@@ -1015,10 +1033,10 @@ class _ChecklistMediaStrip extends StatelessWidget {
                   width: 1.5,
                 ),
               ),
-              child: Icon(
-                isImage
-                    ? Icons.add_photo_alternate_rounded
-                    : Icons.draw_rounded,
+              child: HugeIcon(
+                icon: isImage
+                    ? HugeIcons.strokeRoundedImageAdd01
+                    : HugeIcons.strokeRoundedDrawingMode,
                 color: scheme.primary,
                 size: 24,
               ),
@@ -1039,10 +1057,10 @@ class _ChecklistMediaStrip extends StatelessWidget {
     return _attachmentIcon(attachment, scheme);
   }
 
-  Widget _attachmentIcon(Attachment attachment, ColorScheme scheme) => Icon(
-        attachment.type == AttachmentType.doodleLayer
-            ? Icons.draw_rounded
-            : Icons.image_outlined,
+  Widget _attachmentIcon(Attachment attachment, ColorScheme scheme) => HugeIcon(
+        icon: attachment.type == AttachmentType.doodleLayer
+            ? HugeIcons.strokeRoundedDrawingMode
+            : HugeIcons.strokeRoundedImage01,
         color: scheme.onSurfaceVariant,
       );
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/core/providers/theme_provider.dart';
 import 'package:nook/data/database.dart';
@@ -104,7 +105,10 @@ void main() {
       find.text('Search thoughts, doodles, checklists...'),
       findsOneWidget,
     );
-    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedSearch01),
+        findsOneWidget);
   });
 
   testWidgets('shows filter pills', (tester) async {

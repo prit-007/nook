@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../data/tables/notes.dart';
 
@@ -94,21 +95,21 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
                             children: [
                               _MenuOption(
                                 label: 'Canvas Doodle',
-                                icon: Icons.gesture_rounded,
+                                icon: HugeIcons.strokeRoundedPenTool01,
                                 accentColor: scheme.tertiary,
                                 onTap: () => _selectType(NoteType.doodle),
                               ),
                               const SizedBox(height: 12),
                               _MenuOption(
                                 label: 'Interactive Checklist',
-                                icon: Icons.checklist_rounded,
+                                icon: HugeIcons.strokeRoundedCheckList,
                                 accentColor: scheme.secondary,
                                 onTap: () => _selectType(NoteType.checklist),
                               ),
                               const SizedBox(height: 12),
                               _MenuOption(
                                 label: 'Quick Thought',
-                                icon: Icons.edit_note_rounded,
+                                icon: HugeIcons.strokeRoundedEdit01,
                                 accentColor: scheme.primary,
                                 onTap: () => _selectType(NoteType.text),
                               ),
@@ -131,8 +132,11 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
                   duration: reduceMotion
                       ? Duration.zero
                       : const Duration(milliseconds: 250),
-                  child: Icon(
-                    _isOpen ? Icons.add_rounded : Icons.create_rounded,
+                  child: HugeIcon(
+                    icon: _isOpen
+                        ? HugeIcons.strokeRoundedAdd01
+                        : HugeIcons.strokeRoundedPencil,
+                    size: 24,
                   ),
                 ),
                 label: Text(
@@ -160,7 +164,7 @@ class _MenuOption extends StatelessWidget {
   });
 
   final String label;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color accentColor;
   final VoidCallback onTap;
 
@@ -196,7 +200,7 @@ class _MenuOption extends StatelessWidget {
                   color: accentColor.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 18, color: accentColor),
+                child: HugeIcon(icon: icon, size: 18, color: accentColor),
               ),
             ],
           ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/biometric_provider.dart';
 import 'package:nook/features/security/frosted_shield.dart';
 
@@ -22,14 +22,20 @@ void main() {
     final gate = BiometricGate(authenticator: () async => true);
     await tester.pumpWidget(buildShield(gate));
 
-    expect(find.byIcon(LucideIcons.shield), findsNothing);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
+        findsNothing);
   });
 
   testWidgets('renders nothing when lock disabled', (tester) async {
     final gate = BiometricGate(authenticator: () async => true);
     await tester.pumpWidget(buildShield(gate));
 
-    expect(find.byIcon(LucideIcons.shield), findsNothing);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
+        findsNothing);
   });
 
   testWidgets('shows blur shield when locked', (tester) async {
@@ -39,7 +45,10 @@ void main() {
     await tester.pump();
 
     expect(find.byType(FrostedShield), findsOneWidget);
-    expect(find.byIcon(LucideIcons.shield), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
+        findsOneWidget);
     expect(find.text('Vault Locked'), findsOneWidget);
     expect(find.byType(BackdropFilter), findsWidgets);
   });
@@ -51,7 +60,8 @@ void main() {
     await tester.pump();
 
     await tester.tap(
-      find.byIcon(LucideIcons.shield),
+      find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
       warnIfMissed: false,
     );
     // Blur animates 40 -> 0 over 500ms.
@@ -60,7 +70,10 @@ void main() {
     }
 
     expect(gate.isLocked, isFalse);
-    expect(find.byIcon(LucideIcons.shield), findsNothing);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
+        findsNothing);
     expect(find.byType(BackdropFilter), findsNothing);
   });
 
@@ -71,7 +84,8 @@ void main() {
     await tester.pump();
 
     await tester.tap(
-      find.byIcon(LucideIcons.shield),
+      find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
       warnIfMissed: false,
     );
     await tester.pump();

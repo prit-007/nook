@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
@@ -88,26 +89,36 @@ void main() {
   testWidgets('has a back button', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowLeft01),
+        findsOneWidget);
   });
 
   testWidgets('has pin/unpin button', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPinOff),
+        findsOneWidget);
   });
 
   testWidgets('has overflow menu button', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedMore01),
+        findsOneWidget);
   });
 
   testWidgets('overflow menu shows Note options sheet', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedMore01));
     await tester.pumpAndSettle();
 
     expect(find.text('Note options'), findsOneWidget);
@@ -117,7 +128,8 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedMore01));
     await tester.pumpAndSettle();
 
     expect(find.text('Notebook'), findsOneWidget);
@@ -127,7 +139,8 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedMore01));
     await tester.pumpAndSettle();
 
     expect(find.text('Tags'), findsOneWidget);
@@ -137,7 +150,8 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedMore01));
     await tester.pumpAndSettle();
 
     expect(find.text('Color'), findsOneWidget);
@@ -147,12 +161,19 @@ void main() {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPinOff),
+        findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.push_pin_outlined));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPinOff));
     await tester.pump();
 
-    expect(find.byIcon(Icons.push_pin_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPin),
+        findsOneWidget);
   });
 
   testWidgets('app bar shows note title for existing note', (tester) async {
@@ -190,19 +211,28 @@ void main() {
   testWidgets('has image insert button', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.add_photo_alternate_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedImageAdd01),
+        findsOneWidget);
   });
 
   testWidgets('has export button', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.ios_share_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShare01),
+        findsOneWidget);
   });
 
   testWidgets('has doodle insert button', (tester) async {
     await tester.pumpWidget(buildEditor());
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.draw_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedDrawingMode),
+        findsOneWidget);
   });
 
   testWidgets('editor uses custom slash menu with doodle item', (tester) async {
@@ -214,7 +244,10 @@ void main() {
     // We verify by checking the editor widget exists and the doodle
     // toolbar button is present (both wired in the same screen).
     expect(find.byType(AppFlowyEditor), findsOneWidget);
-    expect(find.byIcon(Icons.draw_rounded), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedDrawingMode),
+        findsOneWidget);
   });
 
   testWidgets('tapping checklist button inserts todo_list node',
@@ -302,8 +335,15 @@ void main() {
       expect(find.text('Hello paragraph'), findsOneWidget);
       expect(find.text('Done task'), findsOneWidget);
       expect(find.text('Open task'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle), findsOneWidget);
-      expect(find.byIcon(Icons.circle_outlined), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon &&
+              w.icon == HugeIcons.strokeRoundedCheckmarkCircle01),
+          findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedCircle),
+          findsOneWidget);
     });
   });
 
@@ -382,7 +422,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // The delete button (Icons.close_rounded) should be visible on doodle blocks.
-      expect(find.byIcon(Icons.close_rounded), findsWidgets);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedCancelCircle),
+          findsWidgets);
     });
   });
 }

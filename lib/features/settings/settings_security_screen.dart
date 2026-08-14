@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
@@ -54,8 +54,8 @@ class SettingsSecurityScreen extends ConsumerWidget {
                   fontSize: 13,
                 ),
               ),
-              secondary: Icon(
-                LucideIcons.fingerprint,
+              secondary: HugeIcon(
+                icon: HugeIcons.strokeRoundedFingerPrint,
                 color: scheme.primary,
                 size: 28,
               ),
@@ -97,8 +97,8 @@ class SettingsSecurityScreen extends ConsumerWidget {
                   fontSize: 13,
                 ),
               ),
-              secondary: Icon(
-                LucideIcons.ban,
+              secondary: HugeIcon(
+                icon: HugeIcons.strokeRoundedBlockGame,
                 color: scheme.primary,
                 size: 28,
               ),
@@ -154,14 +154,15 @@ class SettingsSecurityScreen extends ConsumerWidget {
                                 ),
                               ),
                               if (gate.autoLockDuration == duration)
-                                Icon(
-                                  LucideIcons.checkCircle,
+                                HugeIcon(
+                                  icon:
+                                      HugeIcons.strokeRoundedCheckmarkCircle01,
                                   color: scheme.primary,
                                   size: 22,
                                 )
                               else
-                                Icon(
-                                  LucideIcons.circle,
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedCircle,
                                   color: scheme.onSurfaceVariant
                                       .withValues(alpha: 0.4),
                                   size: 22,
@@ -204,10 +205,10 @@ class SettingsSecurityScreen extends ConsumerWidget {
                   fontSize: 13,
                 ),
               ),
-              secondary: Icon(
-                pinProv.enabled
-                    ? LucideIcons.lockKeyhole
-                    : LucideIcons.keyRound,
+              secondary: HugeIcon(
+                icon: pinProv.enabled
+                    ? HugeIcons.strokeRoundedLock
+                    : HugeIcons.strokeRoundedKey01,
                 color: scheme.primary,
                 size: 28,
               ),

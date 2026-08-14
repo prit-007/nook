@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/checklist_item_repository.dart';
@@ -71,7 +72,10 @@ void main() {
       await tester.pumpWidget(buildCard(note));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.push_pin), findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPin),
+          findsOneWidget);
     });
 
     testWidgets('does not show pin icon when not pinned', (tester) async {
@@ -79,7 +83,10 @@ void main() {
       await tester.pumpWidget(buildCard(note));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.push_pin), findsNothing);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPin),
+          findsNothing);
     });
 
     testWidgets('shows lock icon when locked', (tester) async {
@@ -87,7 +94,10 @@ void main() {
       await tester.pumpWidget(buildCard(note));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.lock), findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedLock),
+          findsOneWidget);
     });
 
     testWidgets('blurs content when locked', (tester) async {
@@ -112,7 +122,10 @@ void main() {
       await tester.pumpWidget(buildCard(note));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.checklist), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedCheckList),
+          findsOneWidget);
     });
 
     testWidgets('shows draw icon for doodle notes', (tester) async {
@@ -123,7 +136,10 @@ void main() {
       await tester.pumpWidget(buildCard(note));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.draw), findsOneWidget);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedDrawingMode),
+          findsOneWidget);
     });
 
     testWidgets('applies tonal color from colorSeed', (tester) async {
@@ -270,7 +286,10 @@ void main() {
       expect(find.byType(CardTagOverflowPill), findsOneWidget);
       expect(find.text('+3'), findsOneWidget);
       // No folder icon (no notebook)
-      expect(find.byIcon(Icons.folder_outlined), findsNothing);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedFolder01),
+          findsNothing);
     });
 
     testWidgets('shows no metadata row when no tags and no notebook',
@@ -309,7 +328,10 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(CardTagPill), findsNothing);
       expect(find.byType(CardTagOverflowPill), findsNothing);
-      expect(find.byIcon(Icons.folder_outlined), findsNothing);
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is HugeIcon && w.icon == HugeIcons.strokeRoundedFolder01),
+          findsNothing);
     });
 
     testWidgets('notebook with long name and many tags does not overflow',

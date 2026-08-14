@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/features/settings/settings_screen.dart';
 
 void main() {
@@ -103,7 +103,10 @@ void main() {
   testWidgets('renders chevron icons for tappable tiles', (tester) async {
     await tester.pumpWidget(buildScreen());
     // Theme, Auto-lock, Storage, Paired devices, Version = 5 chevrons
-    expect(find.byIcon(LucideIcons.chevronRight), findsAtLeastNWidgets(5));
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowRight01),
+        findsAtLeastNWidgets(5));
   });
 
   testWidgets('renders section containers with rounded corners',

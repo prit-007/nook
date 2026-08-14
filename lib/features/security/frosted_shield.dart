@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
@@ -145,7 +145,10 @@ class _FrostedShieldButton extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Icon(LucideIcons.shield, size: 56, color: scheme.primary),
+                HugeIcon(
+                    icon: HugeIcons.strokeRoundedShield01,
+                    size: 56,
+                    color: scheme.primary),
                 const SizedBox(height: 24),
                 const Text(
                   'Vault Locked',
@@ -198,7 +201,10 @@ class _FrostedShieldButton extends StatelessWidget {
                   ref.read(biometricGateProvider).unlockWithPin();
                 }
               },
-              icon: const Icon(LucideIcons.keyRound),
+              icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedKey01,
+                  size: 24,
+                  color: scheme.onSurface),
               label: const Text('Use PIN'),
             );
           },

@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
@@ -116,7 +116,9 @@ class _HelpFloatingButton extends StatelessWidget {
                   color: scheme.outlineVariant.withValues(alpha: 0.4),
                 ),
               ),
-              child: Icon(LucideIcons.circleHelp, color: scheme.onSurface),
+              child: HugeIcon(
+                  icon: HugeIcons.strokeRoundedHelpCircle,
+                  color: scheme.onSurface),
             ),
           ),
         ),
@@ -163,7 +165,7 @@ class _TourStep {
 
   final String title;
   final String description;
-  final IconData icon;
+  final dynamic icon;
   final Color color;
   final List<_LegendEntry>? legend;
 }
@@ -187,7 +189,7 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
           description:
               'Every action Nook takes — saving, syncing, locking, errors — '
               'is recorded here so you can see exactly what happened and when.',
-          icon: LucideIcons.scrollText,
+          icon: HugeIcons.strokeRoundedScroll,
           color: scheme.primary,
         ),
         _TourStep(
@@ -195,7 +197,7 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
           description:
               'The chips in the app bar filter the list. Toggle any type on '
               'or off to focus on sync, database, editor or security events.',
-          icon: LucideIcons.slidersHorizontal,
+          icon: HugeIcons.strokeRoundedSlidersHorizontal,
           color: scheme.primary,
         ),
         _TourStep(
@@ -203,7 +205,7 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
           description:
               'Type in the search field to instantly find a note, device or '
               'error message across every entry.',
-          icon: LucideIcons.search,
+          icon: HugeIcons.strokeRoundedSearch01,
           color: scheme.primary,
         ),
         _TourStep(
@@ -211,14 +213,14 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
           description:
               'Open the menu in the app bar for the full toolset — copy an '
               'entry, share the whole report, or clear the log history.',
-          icon: LucideIcons.moreHorizontal,
+          icon: HugeIcons.strokeRoundedMore01,
           color: scheme.primary,
         ),
         _TourStep(
           title: 'Color legend',
           description: 'Each log type has its own color, from errors to the '
               'sync, database, editor and security domains.',
-          icon: LucideIcons.palette,
+          icon: HugeIcons.strokeRoundedSwatch,
           color: scheme.primary,
           legend: [
             (label: 'Error', color: scheme.error),
@@ -384,7 +386,8 @@ class _TourCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(step.icon, size: 30, color: _onColor(stepColor)),
+                child: HugeIcon(
+                    icon: step.icon, size: 30, color: _onColor(stepColor)),
               ),
               const SizedBox(height: 22),
               Text(

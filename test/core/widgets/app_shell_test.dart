@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/widgets/app_shell.dart';
 
 void main() {
@@ -227,7 +228,10 @@ void main() {
       await tester.pumpWidget(buildShell(screenWidth: 800));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.bolt_rounded), findsOneWidget);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedFlash),
+          findsOneWidget);
     });
 
     testWidgets('rail scrolls on short windows without overflow',

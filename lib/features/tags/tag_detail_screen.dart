@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/design_tokens.dart';
@@ -79,9 +79,10 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                   backgroundColor: scheme.surface,
                   surfaceTintColor: Colors.transparent,
                   leading: IconButton(
-                    icon: Icon(
-                      LucideIcons.arrowLeft,
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedArrowLeft01,
                       color: scheme.onSurface,
+                      size: 24,
                     ),
                     tooltip: 'Go back',
                     onPressed: () => context.pop(),
@@ -95,8 +96,8 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (_tagColor != null)
-                          Icon(
-                            LucideIcons.tag,
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedTag01,
                             color: _tagColor,
                             size: 22,
                           ),
@@ -119,7 +120,7 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                   const SliverFillRemaining(
                     hasScrollBody: false,
                     child: EmptyState(
-                      icon: LucideIcons.fileText,
+                      icon: HugeIcons.strokeRoundedFile01,
                       title: 'No notes found',
                       subtitle: 'Tag your notes to see them here',
                       animate: true,

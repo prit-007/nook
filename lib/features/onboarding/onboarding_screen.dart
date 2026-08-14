@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:hugeicons/hugeicons.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/design_tokens.dart';
@@ -162,8 +163,8 @@ class _WelcomePage extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(
-                  Icons.note_alt_outlined,
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedNotebook01,
                   size: 80,
                   color: scheme.onPrimaryContainer,
                 ),
@@ -176,8 +177,8 @@ class _WelcomePage extends StatelessWidget {
                       shape: BoxShape.circle,
                       color: scheme.primary,
                     ),
-                    child: Icon(
-                      Icons.lock_outline,
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedLock,
                       size: 20,
                       color: scheme.onPrimary,
                     ),
@@ -282,13 +283,14 @@ class _VibePage extends StatelessWidget {
                           : null,
                     ),
                     child: isSelected
-                        ? Icon(
-                            Icons.check,
+                        ? HugeIcon(
+                            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                             color: switch (
                                 ThemeData.estimateBrightnessForColor(color)) {
                               Brightness.dark => Colors.white,
                               Brightness.light => Colors.black87,
                             },
+                            size: 24,
                           )
                         : null,
                   ),
@@ -370,8 +372,8 @@ class _ReadyPage extends StatelessWidget {
               shape: BoxShape.circle,
               color: scheme.primaryContainer,
             ),
-            child: Icon(
-              Icons.check_rounded,
+            child: HugeIcon(
+              icon: HugeIcons.strokeRoundedCheckmarkCircle01,
               size: 80,
               color: scheme.onPrimaryContainer,
             ),
