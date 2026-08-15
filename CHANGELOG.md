@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2.3] - 2026-08-15
+
+### F-Droid compatibility
+- Disabled the `Dependency metadata` APK signing block AGP adds by default
+  (`dependenciesInfo { includeInApk = false; includeInBundle = false }`). The
+  block is encrypted with a Google Play key, so F-Droid's APK scanner rejects
+  any APK that carries it.
+- Version bumped to `0.8.2+4` so the fixed APK is built and published.
+
+## [0.8.2.2] - 2026-08-15
+
+### Reproducible F-Droid builds
+- Committed `pubspec.lock` (previously gitignored) so F-Droid resolves the
+  exact dependency set from the manifest instead of the latest compatible
+  versions.
+
+## [0.8.2.1] - 2026-08-15
+
+### CI
+- The signing step now reads its secrets from job-level `env` so the real
+  keystore password is never interpolated into the workflow file.
+
 ## [0.8.2] - 2026-08-15
 
 ### Store-ready builds
