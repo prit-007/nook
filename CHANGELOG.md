@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-15
+
+### Lossless media sync, export & import
+- Notes now travel with **no data loss**: images and doodle strokes (sidecar +
+  thumbnail bytes) are bundled, restored byte-for-byte, and re-pointed onto the
+  target device.
+- Media paths baked into a note's document are rewritten **structurally**
+  (`lib/sync/media_path_rewriter.dart`), so a Windows-sourced vault
+  (`C:\Users\...` paths, JSON-escaped backslashes) imports and syncs correctly
+  onto Android and other devices.
+- Doodles are restored in the canonical `DoodleStorage` layout after sync, so
+  strokes stay editable on the receiving device; thumbnails are shipped as
+  bytes because they cannot be regenerated offline.
+- Imported/synced notes keep their notebooks via `notebooks.json`; a missing
+  notebook reference falls back to a placeholder instead of a foreign-key error.
+
+### mDNS discovery reliability
+- Android `MulticastLock` acquired for the sync session (pure-Dart wrapper +
+  Kotlin channel) so discovery survives Wi-Fi/LAN.
+- Unsolicited mDNS announcements (every 4s) in addition to PTR responses, so a
+  discoverer whose query lands in a gap still finds the device.
+- Patched `mdns_dart` 2.2.1's socket leak (closed on query done **and**
+  cancellation); applied by CI's `flutter-prep` action.
+- Real failure reasons are now logged instead of a stuck "Searching for
+  devices..." state.
+
+### Step-by-step logging
+- Every step of sync and export/import is logged through the in-app log viewer
+  (`Settings → Developer → App Logs`), tagged `sync` / `database` — from device
+  found, pairing, dial, transfer and ack, to per-note attachment restore and
+  delta re-pointing.
+
+### End-to-end sync tests
+- New `test/sync/libp2p_sync_e2e_test.dart`: two real libp2p hosts on loopback
+  (no multicast) run the full flow — device finding, pairing confirm/reject,
+  media note sync with byte-identical bytes + canonical doodle layout, and
+  re-sync overwrite without duplicates.
+- New transport knobs (`discoveryNetworkEnabled`, `debugInjectDiscoveredPeer`)
+  keep discovery hermetic in tests while exercising real dials.
+
+### Trash & storage polish
+- Trash now shows archived attachment thumbnails with a "+N" badge.
+- Import summary reports notebooks created; export report warns about
+  attachments missing on disk.
+
 ## [0.7.9.2] - 2026-08-14
 
 ### Alpha status + release pipeline

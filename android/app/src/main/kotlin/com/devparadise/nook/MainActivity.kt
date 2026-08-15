@@ -14,9 +14,11 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     private val WINDOW_CHANNEL = "com.nook/window_manager"
     private val PERMISSIONS_CHANNEL = "com.nook/nearby_permissions"
+    private val MULTICAST_CHANNEL = "com.nook/multicast_lock"
     private val REQUEST_CODE_NEARBY = 1001
 
     private var pendingPermissionsResult: MethodChannel.Result? = null
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -35,6 +37,35 @@ class MainActivity : FlutterFragmentActivity() {
                 "clearFlags" -> {
                     val flags = call.argument<Int>("flags") ?: 0
                     window.clearFlags(flags)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // Multicast lock channel — mDNS discovery requires receiving multicast
+        // frames, which Android Wi-Fi drops unless a MulticastLock is held.
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            MULTICAST_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "acquire" -> {
+                    if (multicastLock?.isHeld != true) {
+                        val wifiManager =
+                            applicationContext.getSystemService(WIFI_SERVICE) as? WifiManager
+                        val lock = wifiManager?.createMulticastLock("nook-mdns")
+                        lock?.setReferenceCounted(false)
+                        lock?.acquire()
+                        multicastLock = lock
+                    }
+                    result.success(null)
+                }
+                "release" -> {
+                    multicastLock?.let {
+                        if (it.isHeld) it.release()
+                    }
+                    multicastLock = null
                     result.success(null)
                 }
                 else -> result.notImplemented()

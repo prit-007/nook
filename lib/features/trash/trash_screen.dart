@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/masked_reveal.dart';
 import '../../core/widgets/masked_reveal_text.dart';
+import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/note_repository.dart';
 
 /// Trash screen — high-contrast archive of deleted notes with glass dialogs.
@@ -35,19 +37,36 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   Future<void> _load() async {
     final db = ref.read(databaseProvider);
     final repo = NoteRepository(db);
+    final attachmentRepo = AttachmentRepository(db);
     final deleted = await repo.getDeletedNotes();
-    if (mounted) {
-      setState(() {
-        _notes = deleted
-            .map((n) => _DeletedNote(
-                  id: n.id,
-                  title: n.title,
-                  deletedAt: n.deletedAt,
-                ))
-            .toList();
-        _loading = false;
-      });
+    if (!mounted) return;
+
+    // Collect the soft-deleted attachments (deleted=true) for each note so the
+    // archive shows their thumbnails, not just the note title. The files on
+    // disk survive soft-delete, so only rows whose thumbnail still exists are
+    // listed.
+    final notes = <_DeletedNote>[];
+    for (final n in deleted) {
+      final attachments = await attachmentRepo.getDeletedForNote(n.id);
+      final thumbnails = <String>[];
+      for (final a in attachments) {
+        final path = a.thumbnailPath ?? a.filePath;
+        if (path.isNotEmpty && File(path).existsSync()) {
+          thumbnails.add(path);
+        }
+      }
+      notes.add(_DeletedNote(
+        id: n.id,
+        title: n.title,
+        deletedAt: n.deletedAt,
+        thumbnails: thumbnails,
+      ));
     }
+
+    setState(() {
+      _notes = notes;
+      _loading = false;
+    });
   }
 
   Future<void> _restore(String id) async {
@@ -246,6 +265,12 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                               horizontal: 20,
                               vertical: 8,
                             ),
+                            leading: note.thumbnails.isEmpty
+                                ? null
+                                : _TrashThumbnail(
+                                    path: note.thumbnails.first,
+                                    extraCount: note.thumbnails.length - 1,
+                                  ),
                             title: Text(
                               note.title.isEmpty
                                   ? 'Untitled Document'
@@ -258,7 +283,12 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             subtitle: Text(
-                              'Archived $age',
+                              note.thumbnails.isEmpty
+                                  ? 'Archived $age'
+                                  : 'Archived $age \u00b7 '
+                                      '${note.thumbnails.length} '
+                                      'attachment'
+                                      '${note.thumbnails.length == 1 ? '' : 's'}',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: scheme.onSurfaceVariant
@@ -343,9 +373,76 @@ class _DeletedNote {
     required this.id,
     required this.title,
     this.deletedAt,
+    this.thumbnails = const [],
   });
 
   final String id;
   final String title;
   final DateTime? deletedAt;
+
+  /// On-disk thumbnail paths of the note's soft-deleted attachments.
+  final List<String> thumbnails;
+}
+
+/// Renders the first deleted attachment thumbnail with a "+N" badge when a
+/// note has more media archived.
+class _TrashThumbnail extends StatelessWidget {
+  const _TrashThumbnail({required this.path, required this.extraCount});
+
+  final String path;
+  final int extraCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.file(
+              File(path),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: scheme.surfaceContainerHighest,
+                child: HugeIcon(
+                  icon: HugeIcons.strokeRoundedImage01,
+                  size: 20,
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+            if (extraCount > 0)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest.withValues(
+                      alpha: 0.9,
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(6),
+                      bottomRight: Radius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    '+$extraCount',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }

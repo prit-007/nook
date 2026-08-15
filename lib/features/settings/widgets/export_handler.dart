@@ -10,25 +10,35 @@ import 'package:uuid/uuid.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/attachment_repository.dart';
 import '../../../data/repositories/checklist_item_repository.dart';
+import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/note_repository.dart';
 import '../../../data/tables/attachments.dart';
 import '../../../data/tables/notes.dart';
+import '../../../core/providers/talker_provider.dart';
 
 /// Builds a `.nook` backup bundle: a zip with a manifest, one folder per note
 /// containing human-readable `note.md` and lossless `note.json`, plus raw
 /// attachment binaries so the archive stays openable even by tools that ignore
 /// the JSON — "no lock-in, made real".
+///
+/// The archive also carries `notebooks.json` (so `notes.notebook_id` foreign
+/// keys always resolve on a fresh device) and, per attachment, the original
+/// `filePath`/`thumbnailPath` plus base64 thumbnail bytes. An import uses those
+/// to re-write image urls and doodle thumbnails inside `deltaContent`, so
+/// restored media actually renders on the target device.
 class NookExporter {
   NookExporter({
     required NoteRepository noteRepository,
     required ChecklistItemRepository checklistItemRepository,
     required AttachmentRepository attachmentRepository,
+    required NotebookRepository notebookRepository,
     Directory? outputDirectory,
     DateTime Function()? clock,
     String? deviceOriginId,
   })  : _noteRepository = noteRepository,
         _checklistItemRepository = checklistItemRepository,
         _attachmentRepository = attachmentRepository,
+        _notebookRepository = notebookRepository,
         _outputDirectory = outputDirectory,
         _clock = clock ?? DateTime.now,
         _deviceOriginId = deviceOriginId ?? const Uuid().v4();
@@ -38,6 +48,7 @@ class NookExporter {
   final NoteRepository _noteRepository;
   final ChecklistItemRepository _checklistItemRepository;
   final AttachmentRepository _attachmentRepository;
+  final NotebookRepository _notebookRepository;
   final Directory? _outputDirectory;
   final DateTime Function() _clock;
   final String _deviceOriginId;
@@ -47,15 +58,26 @@ class NookExporter {
   Future<String> exportAll() async {
     final exportedAt = _clock();
     final notes = await _noteRepository.getAllNotes();
+    nookLog(
+      NookLogKey.database,
+      'Export started: ${notes.length} note(s) at '
+      '${exportedAt.toIso8601String()}',
+      LogLevel.info,
+    );
 
     final archive = Archive();
+    var totalAttachments = 0;
+    var totalThumbnails = 0;
     for (final note in notes) {
       final items = await _checklistItemRepository.getItems(note.id);
 
       final attachmentBytes = <Attachment, Uint8List?>{};
+      final attachmentThumbBytes = <Attachment, Uint8List?>{};
       final attachments = await _attachmentRepository.getAllForNote(note.id);
       for (final attachment in attachments) {
         attachmentBytes[attachment] = await _readAttachmentBytes(attachment);
+        attachmentThumbBytes[attachment] =
+            await _readThumbnailBytes(attachment);
       }
 
       final noteDir = 'notes/${note.id}';
@@ -65,19 +87,51 @@ class NookExporter {
       ));
       archive.addFile(ArchiveFile.string(
         '$noteDir/note.json',
-        jsonEncode(_buildNoteJson(note, items, attachmentBytes, exportedAt)),
+        jsonEncode(_buildNoteJson(
+            note, items, attachmentBytes, attachmentThumbBytes, exportedAt)),
       ));
 
+      var noteAttachments = 0;
       for (final attachment in attachments) {
         final bytes = attachmentBytes[attachment];
-        if (bytes == null) continue;
-        final fileName = '${attachment.id}.${_extensionFor(attachment.type)}';
+        if (bytes == null) {
+          nookLog(
+            NookLogKey.database,
+            'Attachment ${attachment.id} missing on disk during export: '
+            '${attachment.filePath}',
+            LogLevel.warning,
+          );
+          continue;
+        }
+        final fileName = '${attachment.id}.${_fileExtensionFor(attachment)}';
         archive.addFile(ArchiveFile(
           '$noteDir/attachments/$fileName',
           bytes.length,
           bytes,
         ));
+
+        // Bundle thumbnail binaries too: doodle thumbnails are rendered from
+        // strokes + theme colors on the source device and cannot be regenerated
+        // offline on the target.
+        final thumbBytes = attachmentThumbBytes[attachment];
+        final thumbPath = attachment.thumbnailPath;
+        if (thumbBytes != null && thumbPath != null && thumbPath.isNotEmpty) {
+          archive.addFile(ArchiveFile(
+            '$noteDir/attachments/${p.basename(thumbPath)}',
+            thumbBytes.length,
+            thumbBytes,
+          ));
+          totalThumbnails++;
+        }
+        noteAttachments++;
       }
+      totalAttachments += noteAttachments;
+      nookLog(
+        NookLogKey.database,
+        'Exported note ${note.id} "${note.title}": '
+        '${items.length} checklist item(s), $noteAttachments attachment(s)',
+        LogLevel.debug,
+      );
     }
 
     archive.addFile(ArchiveFile.string(
@@ -90,6 +144,28 @@ class NookExporter {
       }),
     ));
 
+    // Notebooks travel with the vault so an import never hits a missing
+    // `notes.notebook_id` foreign key on a fresh device.
+    final notebooks = await _notebookRepository.getAllNotebooks();
+    archive.addFile(ArchiveFile.string(
+      'notebooks.json',
+      jsonEncode([
+        for (final notebook in notebooks)
+          {
+            'id': notebook.id,
+            'name': notebook.name,
+            'colorSeed': notebook.colorSeed,
+            'icon': notebook.icon,
+            'sortOrder': notebook.sortOrder,
+          },
+      ]),
+    ));
+    nookLog(
+      NookLogKey.database,
+      'Export bundled ${notebooks.length} notebook(s) into vault',
+      LogLevel.debug,
+    );
+
     final zipBytes = ZipEncoder().encode(archive);
     if (zipBytes == null) {
       throw StateError('Could not compress vault');
@@ -101,6 +177,13 @@ class NookExporter {
       p.join(targetDir.path, 'nook-export-${_timestamp(exportedAt)}.nook'),
     );
     await file.writeAsBytes(zipBytes, flush: true);
+    nookLog(
+      NookLogKey.database,
+      'Export complete: ${notes.length} note(s), '
+      '$totalAttachments attachment(s), $totalThumbnails thumbnail(s) -> '
+      '${file.path} (${zipBytes.length} bytes)',
+      LogLevel.info,
+    );
     return file.path;
   }
 
@@ -111,6 +194,7 @@ class NookExporter {
     Note note,
     List<ChecklistItem> items,
     Map<Attachment, Uint8List?> attachmentBytes,
+    Map<Attachment, Uint8List?> attachmentThumbBytes,
     DateTime exportedAt,
   ) {
     return {
@@ -145,8 +229,14 @@ class NookExporter {
             'id': attachment.id,
             'type': attachment.type.name,
             'sortOrder': attachment.sortOrder,
-            'fileName': '${attachment.id}.${_extensionFor(attachment.type)}',
+            'fileName': '${attachment.id}.${_fileExtensionFor(attachment)}',
+            // Original absolute paths so an import can re-map the delta's
+            // image urls / doodle thumbnail paths to the restored files.
+            'filePath': attachment.filePath,
+            'thumbnailPath': attachment.thumbnailPath,
             'bytes': base64Encode(attachmentBytes[attachment] ?? Uint8List(0)),
+            'thumbnailBytes':
+                base64Encode(attachmentThumbBytes[attachment] ?? Uint8List(0)),
           },
       ],
       'exportedAt': exportedAt.toIso8601String(),
@@ -182,7 +272,7 @@ class NookExporter {
 
     for (final entry in attachmentBytes.entries) {
       if (entry.value == null) continue;
-      final fileName = '${entry.key.id}.${_extensionFor(entry.key.type)}';
+      final fileName = '${entry.key.id}.${_fileExtensionFor(entry.key)}';
       if (entry.key.type == AttachmentType.doodleLayer) {
         buffer.writeln('[doodle: ${entry.key.id}]'
             '(attachments/$fileName)');
@@ -201,8 +291,25 @@ class NookExporter {
     return file.readAsBytes();
   }
 
-  static String _extensionFor(AttachmentType type) =>
-      type == AttachmentType.doodleLayer ? 'drawn' : 'img';
+  Future<Uint8List?> _readThumbnailBytes(Attachment attachment) async {
+    final path = attachment.thumbnailPath;
+    if (path == null || path.isEmpty) return null;
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    return file.readAsBytes();
+  }
+
+  /// Extension used for the raw attachment file in the archive and in the
+  /// JSON `fileName`. Doodles keep the `.drawn` marker; images keep their real
+  /// extension so the archive stays directly openable.
+  static String _fileExtensionFor(Attachment attachment) {
+    if (attachment.type == AttachmentType.doodleLayer) return 'drawn';
+    if (attachment.filePath.isNotEmpty) {
+      final ext = p.extension(attachment.filePath);
+      if (ext.isNotEmpty) return ext.substring(1);
+    }
+    return 'img';
+  }
 
   static String _timestamp(DateTime time) {
     String two(int v) => v.toString().padLeft(2, '0');

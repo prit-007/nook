@@ -24,6 +24,10 @@ runs:
       shell: bash
       run: dart run tool/patch_talker_flutter.dart
 
+    - name: Patch mdns_dart (query socket leak)
+      shell: bash
+      run: dart run tool/patch_mdns_dart.dart
+
     - name: Patch local_auth_windows (MSVC coroutine deprecation)
       if: ${{ inputs.patch-local-auth == 'true' }}
       shell: bash

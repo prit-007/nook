@@ -1,8 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/data/database.dart';
+import 'package:nook/data/repositories/attachment_repository.dart';
 import 'package:nook/data/repositories/note_repository.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/sync/crypto/identity_store.dart';
@@ -24,23 +29,26 @@ void main() {
   late AppDatabase db;
   late MockSyncTransport mockTransport;
   late ProviderContainer container;
+  late Directory tempDir;
 
-  setUp(() {
+  setUp(() async {
     db = createTestDb();
     mockTransport = MockSyncTransport();
+    tempDir = await Directory.systemTemp.createTemp('nook-sync-test');
   });
 
   tearDown(() async {
     container.dispose();
     await db.close();
+    await tempDir.delete(recursive: true);
   });
 
-  ProviderContainer makeContainer() {
+  ProviderContainer makeContainer({Directory? restoreDir}) {
     return ProviderContainer(
       overrides: [
         databaseProvider.overrideWithValue(db),
         syncOrchestratorProvider.overrideWith(
-          () => _TestSyncOrchestrator(mockTransport),
+          () => _TestSyncOrchestrator(mockTransport, restoreDir: restoreDir),
         ),
       ],
     );
@@ -636,6 +644,155 @@ void main() {
       expect(state.pendingPairing, isNull);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Media fidelity: restored attachments + delta path rewriting
+  // -------------------------------------------------------------------------
+
+  group('receiving notes with media', () {
+    test('restores attachments in canonical layout and rewrites delta paths',
+        () async {
+      final restoreDir = Directory('${tempDir.path}/sync-restore');
+      container = makeContainer(restoreDir: restoreDir);
+      final notifier = container.read(syncOrchestratorProvider.notifier);
+      await notifier.initializeTransport();
+      await notifier.startAdvertising();
+
+      // Sender is a Windows device: the delta references C:\ paths that do not
+      // exist here. The receiver must restore the bytes and re-point the delta
+      // at the local files, keeping the doodle sidecar where DoodleStorage
+      // expects it.
+      const winImagePath = r'C:\Users\Me\Pictures\photo.png';
+      const winImageThumb = r'C:\Users\Me\Pictures\photo_thumb.png';
+      const winDoodleSidecar = r'C:\Users\Me\Doodles\sketch.doodle.json';
+      const winDoodleThumb = r'C:\Users\Me\Doodles\sketch_thumb.png';
+      final imageBytes = Uint8List.fromList(List.generate(32, (i) => i % 251));
+      final doodleBytes = Uint8List.fromList(List.generate(40, (i) => i + 1));
+      final doodleThumbBytes =
+          Uint8List.fromList(List.generate(16, (i) => (i * 3) % 251));
+
+      final senderDelta = jsonEncode({
+        'document': {
+          'type': 'page',
+          'children': [
+            {
+              'type': 'image',
+              'data': {'url': winImagePath, 'align': 'center'}
+            },
+            {
+              'type': 'doodle',
+              'data': {
+                'attachment_id': 'doodle-1',
+                'thumbnail_path': winDoodleThumb,
+                'aspect_ratio': 1.333,
+                'background_template': 'dotted',
+              },
+            },
+          ],
+        },
+      });
+
+      final bundle = SyncBundle(
+        protocolVersion: '1.0',
+        senderDeviceId: 'device-windows',
+        senderDeviceName: 'Windows PC',
+        sentAt: DateTime.utc(2026, 8, 12),
+        notes: [
+          SyncNoteEntry(
+            noteId: 'note-media',
+            syncVersion: 2,
+            updatedAt: DateTime.utc(2026, 8, 12, 1),
+            deviceOriginId: 'device-windows',
+            noteFields: {
+              'title': 'Media Note',
+              'type': 'text',
+              'deltaContent': senderDelta,
+              'plainText': 'Media body',
+            },
+            attachments: [
+              SyncAttachment(
+                id: 'img-1',
+                type: 'image',
+                sortOrder: 0,
+                bytes: imageBytes,
+                filePath: winImagePath,
+                thumbnailPath: winImageThumb,
+              ),
+              SyncAttachment(
+                id: 'doodle-1',
+                type: 'doodleLayer',
+                sortOrder: 1,
+                bytes: doodleBytes,
+                filePath: winDoodleSidecar,
+                thumbnailPath: winDoodleThumb,
+                thumbnailBytes: doodleThumbBytes,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      mockTransport.emitBytesReceived(bundle.toCbor());
+      await waitFor(() =>
+          container.read(syncOrchestratorProvider).phase == SyncPhase.complete);
+
+      // Note was inserted and its delta re-pointed at local files.
+      final note = await NoteRepository(db).getNoteById('note-media');
+      expect(note, isNotNull);
+      expect(note!.title, 'Media Note');
+      expect(note.plainText, 'Media body');
+      expect(note.deltaContent, isNot(contains('C:')));
+
+      final restoredDoc =
+          jsonDecode(note.deltaContent!) as Map<String, dynamic>;
+      final children =
+          ((restoredDoc['document'] as Map)['children'] as List).cast<Map>();
+      final imageNode = children[0];
+      final doodleNode = children[1];
+      expect(imageNode['data']['url'], startsWith(restoreDir.path));
+      expect(doodleNode['data']['thumbnail_path'], startsWith(restoreDir.path));
+      expect(doodleNode['data']['attachment_id'], 'doodle-1');
+
+      // Doodle sidecar sits at the canonical DoodleStorage location, so strokes
+      // stay editable after sync.
+      final attachments =
+          await AttachmentRepository(db).getAllForNote('note-media');
+      expect(attachments, hasLength(2));
+      final restoredDoodle =
+          attachments.firstWhere((a) => a.type.name == 'doodleLayer');
+      expect(restoredDoodle.filePath, endsWith('doodle-1.doodle.json'));
+      expect(
+        await File(restoredDoodle.filePath).readAsBytes(),
+        orderedEquals(doodleBytes),
+      );
+      expect(restoredDoodle.thumbnailPath, endsWith('doodle-1_thumb.png'));
+      expect(
+        await File(restoredDoodle.thumbnailPath!).readAsBytes(),
+        orderedEquals(doodleThumbBytes),
+      );
+
+      final restoredImage =
+          attachments.firstWhere((a) => a.type.name == 'image');
+      expect(
+        await File(restoredImage.filePath).readAsBytes(),
+        orderedEquals(imageBytes),
+      );
+    });
+  });
+}
+
+/// Polls [condition] until it returns true or [timeout] elapses. Throws on
+/// timeout so a failing async pipeline fails the test loudly.
+Future<void> waitFor(
+  bool Function() condition, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    if (condition()) return;
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  expect(condition(), isTrue);
 }
 
 // ---------------------------------------------------------------------------
@@ -645,15 +802,19 @@ void main() {
 class _TestSyncOrchestrator extends SyncOrchestrator {
   final MockSyncTransport _mockTransport;
 
-  _TestSyncOrchestrator(this._mockTransport);
+  _TestSyncOrchestrator(this._mockTransport, {Directory? restoreDir}) {
+    restoredAttachmentsDirectoryOverride = restoreDir;
+  }
 
   @override
-  Future<void> initializeTransport(
-      {SyncTransport? testTransport,
-      String? localDeviceName,
-      bool useTcpFallback = false,
-      IdentityStore? identityStore,
-      String? listenAddress}) async {
+  Future<void> initializeTransport({
+    SyncTransport? testTransport,
+    String? localDeviceName,
+    bool useTcpFallback = false,
+    IdentityStore? identityStore,
+    String? listenAddress,
+    bool discoveryNetworkEnabled = true,
+  }) async {
     await super.initializeTransport(testTransport: _mockTransport);
   }
 }

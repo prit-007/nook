@@ -10,12 +10,27 @@ class SyncAttachment {
     required this.type,
     required this.sortOrder,
     required this.bytes,
+    this.filePath,
+    this.thumbnailPath,
+    this.thumbnailBytes,
   });
 
   final String id;
   final String type; // 'image' | 'doodleLayer'
   final int sortOrder;
   final Uint8List bytes;
+
+  /// Absolute path the attachment lived at on the sending device. Carried so
+  /// the receiver can re-map the delta's image urls / doodle thumbnail paths
+  /// onto the files it restores locally. Absent for legacy senders.
+  final String? filePath;
+
+  /// Absolute path of the attachment's thumbnail on the sending device.
+  final String? thumbnailPath;
+
+  /// Thumbnail bytes (doodle thumbnails cannot be regenerated offline on the
+  /// receiver). Absent for legacy senders.
+  final Uint8List? thumbnailBytes;
 
   /// Reads a [SyncAttachment] from a CBOR map, tolerating a legacy single
   /// attachment payload where only raw bytes were stored. Malformed input
@@ -31,11 +46,26 @@ class SyncAttachment {
       bytes = Uint8List(0);
     }
 
+    final rawThumb = map['thumbnailBytes'];
+    final thumbBytes = rawThumb is Uint8List
+        ? rawThumb
+        : (rawThumb is List<int> ? Uint8List.fromList(rawThumb) : null);
+
+    final rawFilePath = map['filePath'] as String?;
+    final rawThumbPath = map['thumbnailPath'] as String?;
+
     return SyncAttachment(
       id: (map['id'] as String?) ?? '',
       type: (map['type'] as String?) ?? 'image',
       sortOrder: (map['sortOrder'] as int?) ?? 0,
       bytes: bytes,
+      filePath: (rawFilePath == null || rawFilePath.isEmpty)
+          ? null
+          : rawFilePath,
+      thumbnailPath: (rawThumbPath == null || rawThumbPath.isEmpty)
+          ? null
+          : rawThumbPath,
+      thumbnailBytes: thumbBytes,
     );
   }
 
@@ -44,6 +74,10 @@ class SyncAttachment {
         'type': type,
         'sortOrder': sortOrder,
         'bytes': bytes,
+        if (filePath != null && filePath!.isNotEmpty) 'filePath': filePath,
+        if (thumbnailPath != null && thumbnailPath!.isNotEmpty)
+          'thumbnailPath': thumbnailPath,
+        if (thumbnailBytes != null) 'thumbnailBytes': thumbnailBytes,
       };
 }
 

@@ -12,6 +12,7 @@ import '../../core/providers/talker_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/checklist_item_repository.dart';
+import '../../data/repositories/notebook_repository.dart';
 import '../../data/repositories/note_repository.dart';
 import 'providers/vault_stats_provider.dart';
 import 'widgets/export_handler.dart';
@@ -45,6 +46,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
         noteRepository: NoteRepository(db),
         checklistItemRepository: ChecklistItemRepository(db),
         attachmentRepository: AttachmentRepository(db),
+        notebookRepository: NotebookRepository(db),
       ).exportAll();
 
       if (!mounted) return;
@@ -105,7 +107,11 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                     'kept as copies)' : ''}'
                 ' \u00b7 ${result.attachmentsRestored} '
                 'attachment${result.attachmentsRestored == 1 ? '' : 's'} '
-                'restored';
+                'restored'
+                '${result.notebooksRestored > 0 ? ' \u00b7 '
+                    '${result.notebooksRestored} '
+                    'notebook${result.notebooksRestored == 1 ? '' : 's'} '
+                    'created' : ''}';
       });
     } catch (e) {
       nookLog(NookLogKey.database, 'Import failed: $e', LogLevel.error);

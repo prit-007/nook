@@ -95,6 +95,59 @@ void main() {
       expect(decoded.attachments![1].sortOrder, 1);
       expect(decoded.attachments![1].bytes, fakeBytes2);
     });
+
+    test('round-trips filePath/thumbnailPath/thumbnailBytes', () {
+      final thumb = Uint8List.fromList([7, 8, 9]);
+      final entry = SyncNoteEntry(
+        noteId: 'note-4',
+        syncVersion: 1,
+        updatedAt: DateTime.utc(2026, 8, 11),
+        deviceOriginId: 'device-c',
+        noteFields: {'title': 'With Media'},
+        attachments: [
+          SyncAttachment(
+            id: 'att-9',
+            type: 'image',
+            sortOrder: 0,
+            bytes: Uint8List.fromList([1, 2]),
+            filePath: r'C:\Users\Me\Pictures\photo.png',
+            thumbnailPath: r'C:\Users\Me\Pictures\photo_thumb.png',
+            thumbnailBytes: thumb,
+          ),
+        ],
+      );
+
+      final decoded = SyncNoteEntry.fromCbor(entry.toCbor());
+      final att = decoded.attachments!.single;
+      expect(att.id, 'att-9');
+      expect(att.filePath, r'C:\Users\Me\Pictures\photo.png');
+      expect(att.thumbnailPath, r'C:\Users\Me\Pictures\photo_thumb.png');
+      expect(att.thumbnailBytes, thumb);
+    });
+
+    test('legacy attachments without paths decode with null path fields', () {
+      final entry = SyncNoteEntry(
+        noteId: 'note-5',
+        syncVersion: 1,
+        updatedAt: DateTime.utc(2026, 8, 11),
+        deviceOriginId: 'device-c',
+        noteFields: {'title': 'Legacy'},
+        attachments: [
+          SyncAttachment(
+            id: 'att-old',
+            type: 'doodleLayer',
+            sortOrder: 0,
+            bytes: Uint8List.fromList([3]),
+          ),
+        ],
+      );
+
+      final decoded = SyncNoteEntry.fromCbor(entry.toCbor());
+      final att = decoded.attachments!.single;
+      expect(att.filePath, isNull);
+      expect(att.thumbnailPath, isNull);
+      expect(att.thumbnailBytes, isNull);
+    });
   });
 
   group('SyncBundle', () {
