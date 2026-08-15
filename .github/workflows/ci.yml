@@ -44,6 +44,8 @@ jobs:
     needs: analyze-and-test
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      HAS_KEYSTORE: ${{ secrets.NOOK_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -59,7 +61,7 @@ jobs:
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Configure release signing (from secrets)
-        if: ${{ secrets.NOOK_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.NOOK_KEYSTORE_BASE64 }}
