@@ -8,6 +8,7 @@ import 'package:dart_libp2p/core/peer/addr_info.dart';
 import 'package:dart_libp2p/core/peer/peer_id.dart';
 import 'package:mdns_dart/mdns_dart.dart';
 
+import '../../core/platform/multicast_lock.dart';
 import '../../core/providers/talker_provider.dart';
 
 /// Constants for Nook's mDNS service.
@@ -93,6 +94,12 @@ class NookMdnsDiscovery {
   MDNSServer? _server;
   MDNSService? _service;
 
+  // Announcements: unsolicited multicast broadcasts so peers discover this
+  // device even if their one-shot query fires while we were off.
+  Timer? _announceTimer;
+  RawDatagramSocket? _announceSocket;
+  String? _announcedServiceAddr;
+
   // Discover state.
   StreamSubscription<ServiceEntry>? _discoverySubscription;
   Timer? _discoveryTimer;
@@ -142,12 +149,20 @@ class NookMdnsDiscovery {
     _discoveredServices.clear();
     _isDiscovering = false;
 
+    _announceTimer?.cancel();
+    _announceTimer = null;
+    _announceSocket?.close();
+    _announceSocket = null;
+    _announcedServiceAddr = null;
+
     if (_server != null) {
       await _server!.stop();
       _server = null;
     }
     _service = null;
     _isAdvertising = false;
+
+    await MulticastLock.release();
   }
 
   /// Advertises the host on mDNS, adding one `dnsaddr=` record per listen
@@ -158,6 +173,8 @@ class NookMdnsDiscovery {
     if (addresses.isEmpty) return;
 
     try {
+      await MulticastLock.acquire();
+
       final txtRecords = <String>[];
       for (final addr in addresses) {
         final fullAddr = '${addr.toString()}/p2p/${_host.id.toString()}';
@@ -182,6 +199,11 @@ class NookMdnsDiscovery {
       final config = MDNSServerConfig(zone: _service!);
       _server = MDNSServer(config);
       await _server!.start();
+
+      // Actively broadcast our records every few seconds in addition to
+      // answering PTR queries, so a discoverer whose query falls in a gap
+      // still finds us — mDNS on Android is otherwise pull-only and picky.
+      _startAnnouncements();
       nookLog(NookLogKey.sync, 'mDNS advertising started', LogLevel.info);
     } catch (_) {
       // mDNS advertising is best-effort; discovery still works.
@@ -193,11 +215,52 @@ class NookMdnsDiscovery {
     }
   }
 
+  /// Sends the full record set (PTR + SRV + TXT + A) as an unsolicited
+  /// multicast response on a repeating timer.
+  void _startAnnouncements() {
+    final service = _service;
+    if (service == null) return;
+    _announcedServiceAddr = '$service.service.${service.domain}';
+
+    _announceTimer?.cancel();
+    _announceTimer = Timer.periodic(
+      const Duration(seconds: 4),
+      (_) => _sendAnnouncement(),
+    );
+    // Fire once immediately so a peer that just started discovering sees us
+    // without waiting a full cycle.
+    _sendAnnouncement();
+  }
+
+  Future<void> _sendAnnouncement() async {
+    final service = _service;
+    final serviceAddr = _announcedServiceAddr;
+    if (service == null || serviceAddr == null) return;
+    try {
+      final socket = _announceSocket ??=
+          await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+      final records = service.records(
+        DNSQuestion(
+          name: serviceAddr,
+          type: DNSType.ANY,
+          dnsClass: DNSClass.IN,
+        ),
+      );
+      if (records.isEmpty) return;
+      final data = DNSMessage.response(id: 0, answers: records).pack();
+      socket.send(data, InternetAddress(ipv4mDNS), mDNSPort);
+    } catch (_) {
+      // Announcements are best-effort; responding to queries still works.
+    }
+  }
+
   /// Queries for other Nook devices on mDNS. The query runs immediately and
   /// repeats every few seconds because MDNSClient.query is a one-shot lookup.
   Future<void> _startDiscovery() async {
     if (!networkEnabled) return;
     try {
+      await MulticastLock.acquire();
+
       final serviceOnly = _serviceName.replaceAll('.local', '');
       final params = QueryParams(
         service: serviceOnly,
@@ -216,11 +279,12 @@ class NookMdnsDiscovery {
         (_) async => _performDiscoveryQuery(params),
       );
       nookLog(NookLogKey.sync, 'mDNS discovery started', LogLevel.info);
-    } catch (_) {
-      // Discovery is best-effort.
+    } catch (e) {
+      // Discovery is best-effort — but log the real reason so the "Searching
+      // for devices..." state never stays mysteriously stuck.
       nookLog(
         NookLogKey.sync,
-        'mDNS discovery failed to start (best-effort)',
+        'mDNS discovery failed to start: $e',
         LogLevel.warning,
       );
     }
@@ -232,11 +296,11 @@ class NookMdnsDiscovery {
       await for (final serviceEntry in stream) {
         _processDiscoveredService(serviceEntry);
       }
-    } catch (_) {
-      // Best-effort.
+    } catch (e) {
+      // Best-effort — a transient failure must not kill the periodic loop.
       nookLog(
         NookLogKey.sync,
-        'mDNS discovery query failed (best-effort)',
+        'mDNS discovery query failed: $e',
         LogLevel.warning,
       );
     }
@@ -253,9 +317,22 @@ class NookMdnsDiscovery {
 
       // Never discover ourselves.
       final peerId = parsed.peerId;
-      if (peerId != null && peerId == _host.id) return;
+      if (peerId != null && peerId == _host.id) {
+        nookLog(
+          NookLogKey.sync,
+          'mDNS: ignoring our own advertisement (${_host.id})',
+          LogLevel.debug,
+        );
+        return;
+      }
 
       if (parsed.addresses.isNotEmpty && peerId != null) {
+        nookLog(
+          NookLogKey.sync,
+          'Device found: "${parsed.deviceName}" '
+          '($peerId @ ${parsed.addresses.first})',
+          LogLevel.info,
+        );
         _notifee?.handlePeerFound(NookDiscoveredPeer(
           addrInfo: AddrInfo(peerId, parsed.addresses),
           deviceName: parsed.deviceName,

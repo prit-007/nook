@@ -25,7 +25,8 @@ class _StubSyncOrchestrator extends SyncOrchestrator {
       String? localDeviceName,
       bool useTcpFallback = false,
       IdentityStore? identityStore,
-      String? listenAddress}) async {}
+      String? listenAddress,
+      bool discoveryNetworkEnabled = true}) async {}
 
   @override
   Future<void> startDiscovery() async {}

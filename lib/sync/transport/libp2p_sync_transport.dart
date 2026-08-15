@@ -47,6 +47,7 @@ class Libp2pSyncTransport implements SyncTransport {
     Duration ackTimeout = const Duration(seconds: 60),
     this.heldStreamTimeout = const Duration(seconds: 120),
     this.listenAddress = '/ip4/0.0.0.0/udp/0/udx',
+    this.discoveryNetworkEnabled = true,
   })  : _configuredDeviceName = localDeviceName ?? 'Nook',
         _pairingTimeout = pairingTimeout,
         _ackTimeout = ackTimeout {
@@ -60,6 +61,11 @@ class Libp2pSyncTransport implements SyncTransport {
   /// Multiaddr the libp2p host binds to. Defaults to all interfaces (port 0 =
   /// ephemeral). Tests override with a loopback address.
   final String listenAddress;
+
+  /// When false, the mDNS advertise/discover layers become pure state changes
+  /// and never touch the network. Keeps discovery hermetic (no multicast) in
+  /// tests while still exercising real dials, pairing, and transfer.
+  final bool discoveryNetworkEnabled;
 
   /// How long the receiver holds an undecided pairing stream before closing it.
   final Duration heldStreamTimeout;
@@ -158,9 +164,16 @@ class Libp2pSyncTransport implements SyncTransport {
       host,
       port: _udxListenPort(host),
       deviceName: _localDeviceName,
+      networkEnabled: discoveryNetworkEnabled,
     );
 
     _initialized = true;
+    nookLog(
+      NookLogKey.sync,
+      'libp2p host started (peer $_localDeviceId) on '
+      '${host.network.listenAddresses.map((a) => a.toString()).join(', ')}',
+      LogLevel.info,
+    );
   }
 
   /// Returns the current device info (the libp2p peer id, stable per install).
@@ -179,6 +192,23 @@ class Libp2pSyncTransport implements SyncTransport {
     return host.network.listenAddresses.map((a) => a.toString()).toList();
   }
 
+  /// Test hook: simulate discovering [device] without multicast by injecting it
+  /// into the mDNS discovery pipeline, which fans out through
+  /// [deviceFoundStream] exactly as a real discovery would. Requires
+  /// [startDiscovery] to have installed the discovery notifee.
+  Future<void> debugInjectDiscoveredPeer(SyncDevice device) async {
+    await initialize();
+    final discovery = _discovery;
+    if (discovery == null) return;
+    final addrs = (device.multiaddresses ?? const [])
+        .map((raw) => MultiAddr(raw))
+        .toList();
+    discovery.debugInjectPeer(
+      AddrInfo(PeerId.fromString(device.deviceId), addrs),
+      deviceName: device.deviceName,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Advertising (receiver mode)
   // ---------------------------------------------------------------------------
@@ -186,6 +216,8 @@ class Libp2pSyncTransport implements SyncTransport {
   @override
   Future<void> startAdvertising() async {
     await initialize();
+    nookLog(NookLogKey.sync, 'Advertising on mDNS (_syncnotenet._udp)',
+        LogLevel.info);
     _emitState(const SyncSessionState.advertising());
     await _discovery!.advertiseOnly();
   }
@@ -193,6 +225,7 @@ class Libp2pSyncTransport implements SyncTransport {
   @override
   Future<void> stopAdvertising() async {
     await _discovery?.stop();
+    nookLog(NookLogKey.sync, 'Advertising stopped', LogLevel.info);
     _emitState(const SyncSessionState.idle());
   }
 
@@ -203,6 +236,7 @@ class Libp2pSyncTransport implements SyncTransport {
   @override
   Future<void> startDiscovery() async {
     await initialize();
+    nookLog(NookLogKey.sync, 'Discovering peers over mDNS', LogLevel.info);
     _emitState(const SyncSessionState.discovering());
     _discovery!.notifee = _DiscoveryNotifee(
       _deviceFoundController,
@@ -214,6 +248,7 @@ class Libp2pSyncTransport implements SyncTransport {
   @override
   Future<void> stopDiscovery() async {
     await _discovery?.stop();
+    nookLog(NookLogKey.sync, 'Discovery stopped', LogLevel.info);
   }
 
   // ---------------------------------------------------------------------------
@@ -235,10 +270,20 @@ class Libp2pSyncTransport implements SyncTransport {
     try {
       final peerId = PeerId.fromString(device.deviceId);
       final addrs = _parseAddrs(multiaddresses, peerId);
+      nookLog(
+        NookLogKey.sync,
+        'Dialing ${device.deviceName} via ${addrs.map((a) => a.toString()).join(', ')}',
+        LogLevel.info,
+      );
 
       await _host!.connect(
         AddrInfo(peerId, addrs),
         context: Context(timeout: _pairingTimeout),
+      );
+      nookLog(
+        NookLogKey.sync,
+        'Transport connected to ${device.deviceName}; opening sync stream',
+        LogLevel.debug,
       );
 
       final stream = await _host!.newStream(
@@ -256,6 +301,11 @@ class Libp2pSyncTransport implements SyncTransport {
         pairingCode: pairingCode,
       )));
       await stream.closeWrite();
+      nookLog(
+        NookLogKey.sync,
+        'Pairing request sent to ${device.deviceName}',
+        LogLevel.debug,
+      );
 
       final response = await _readMessageToEof(stream, _pairingTimeout);
 
@@ -264,18 +314,28 @@ class Libp2pSyncTransport implements SyncTransport {
           _connectedPeerId = peerId;
           nookLog(
             NookLogKey.sync,
-            'Connection established with ${device.deviceName}',
+            'Pairing accepted by ${device.deviceName}',
             LogLevel.info,
           );
           _emitState(const SyncSessionState.connected());
           return true;
         case SyncMessageType.pairingRejected:
+          nookLog(
+            NookLogKey.sync,
+            'Pairing rejected by ${device.deviceName}',
+            LogLevel.warning,
+          );
           _emitState(const SyncSessionState.error(
             'Pairing rejected',
             outcome: SyncOutcomeCategory.rejected,
           ));
           return false;
         default:
+          nookLog(
+            NookLogKey.sync,
+            'Unexpected pairing response from ${device.deviceName}',
+            LogLevel.error,
+          );
           _emitState(const SyncSessionState.error(
             'Unexpected pairing response',
             outcome: SyncOutcomeCategory.protocol,
@@ -283,6 +343,8 @@ class Libp2pSyncTransport implements SyncTransport {
           return false;
       }
     } on TimeoutException {
+      nookLog(NookLogKey.sync, 'Pairing with ${device.deviceName} timed out',
+          LogLevel.warning);
       _emitState(const SyncSessionState.error(
         'Pairing timed out',
         outcome: SyncOutcomeCategory.timedOut,
@@ -290,15 +352,21 @@ class Libp2pSyncTransport implements SyncTransport {
       return false;
     } on YamuxException catch (e) {
       if (_isYamuxTimeout(e)) {
+        nookLog(NookLogKey.sync, 'Pairing with ${device.deviceName} timed out',
+            LogLevel.warning);
         _emitState(const SyncSessionState.error(
           'Pairing timed out',
           outcome: SyncOutcomeCategory.timedOut,
         ));
         return false;
       }
+      nookLog(NookLogKey.sync, 'Connection to ${device.deviceName} failed: $e',
+          LogLevel.error);
       _emitState(SyncSessionState.error('Connection failed: $e'));
       return false;
     } catch (e) {
+      nookLog(NookLogKey.sync, 'Connection to ${device.deviceName} failed: $e',
+          LogLevel.error);
       _emitState(SyncSessionState.error('Connection failed: $e'));
       return false;
     }
@@ -313,6 +381,13 @@ class Libp2pSyncTransport implements SyncTransport {
     final stream = _heldStreams.remove(request.connectionId);
     _heldStreamTimers.remove(request.connectionId)?.cancel();
     if (stream == null) return;
+
+    nookLog(
+      NookLogKey.sync,
+      'Responding to pairing from ${request.remoteDeviceName}: '
+      '${approve ? 'approve' : 'reject'}',
+      LogLevel.info,
+    );
 
     try {
       await stream.write(SyncMessageCodec.encode(SyncMessage(
@@ -330,6 +405,11 @@ class Libp2pSyncTransport implements SyncTransport {
         _emitState(const SyncSessionState.idle());
       }
     } catch (e) {
+      nookLog(
+        NookLogKey.sync,
+        'Failed to respond to pairing from ${request.remoteDeviceName}: $e',
+        LogLevel.error,
+      );
       await stream.close().catchError((_) {});
       _emitState(SyncSessionState.error('Failed to respond to pairing: $e'));
     }
@@ -357,6 +437,11 @@ class Libp2pSyncTransport implements SyncTransport {
         [kSyncNotenetProtocol],
         Context(timeout: _ackTimeout),
       );
+      nookLog(
+        NookLogKey.sync,
+        'Opening data stream to send ${data.length} bytes',
+        LogLevel.info,
+      );
 
       final bytes = Uint8List.fromList(data);
       await stream.write(SyncMessageCodec.encode(SyncMessage(
@@ -367,21 +452,35 @@ class Libp2pSyncTransport implements SyncTransport {
       )));
       _emitProgress(0.5);
       await stream.closeWrite();
+      nookLog(
+          NookLogKey.sync, 'Data bundle sent; awaiting ack', LogLevel.debug);
 
       final response = await _readMessageToEof(stream, _ackTimeout);
 
       if (response.type == SyncMessageType.ack && response.ack != null) {
         _emitProgress(1.0);
         _emitState(const SyncSessionState.complete());
+        nookLog(
+          NookLogKey.sync,
+          'Ack received: ${response.ack!.receivedNoteIds.length} kept, '
+          '${response.ack!.rejectedNoteIds.length} rejected',
+          LogLevel.info,
+        );
         return response.ack;
       }
 
+      nookLog(
+        NookLogKey.sync,
+        'Unexpected response from peer (expected ack)',
+        LogLevel.error,
+      );
       _emitState(const SyncSessionState.error(
         'Unexpected response from peer',
         outcome: SyncOutcomeCategory.protocol,
       ));
       return null;
     } on TimeoutException {
+      nookLog(NookLogKey.sync, 'Timed out waiting for ack', LogLevel.warning);
       _emitState(const SyncSessionState.error(
         'Timed out waiting for ack',
         outcome: SyncOutcomeCategory.timedOut,
@@ -389,15 +488,18 @@ class Libp2pSyncTransport implements SyncTransport {
       return null;
     } on YamuxException catch (e) {
       if (_isYamuxTimeout(e)) {
+        nookLog(NookLogKey.sync, 'Timed out waiting for ack', LogLevel.warning);
         _emitState(const SyncSessionState.error(
           'Timed out waiting for ack',
           outcome: SyncOutcomeCategory.timedOut,
         ));
         return null;
       }
+      nookLog(NookLogKey.sync, 'Send failed: $e', LogLevel.error);
       _emitState(SyncSessionState.error('Send failed: $e'));
       return null;
     } catch (e) {
+      nookLog(NookLogKey.sync, 'Send failed: $e', LogLevel.error);
       _emitState(SyncSessionState.error('Send failed: $e'));
       return null;
     }
@@ -422,7 +524,9 @@ class Libp2pSyncTransport implements SyncTransport {
       )));
       await stream.closeWrite();
       await stream.close();
+      nookLog(NookLogKey.sync, 'Ack sent to sender', LogLevel.info);
     } catch (e) {
+      nookLog(NookLogKey.sync, 'Failed to send ack: $e', LogLevel.error);
       _emitState(SyncSessionState.error('Failed to send ack: $e'));
     }
   }
@@ -497,6 +601,13 @@ class Libp2pSyncTransport implements SyncTransport {
       unawaited(held?.close());
     });
 
+    nookLog(
+      NookLogKey.sync,
+      'Incoming pairing request from ${message.senderDeviceName} '
+      '(code ${message.pairingCode ?? 'none'})',
+      LogLevel.info,
+    );
+
     _pairingRequestController.add(PairingRequest(
       remoteDeviceId: message.senderDeviceId,
       remoteDeviceName: message.senderDeviceName,
@@ -530,6 +641,11 @@ class Libp2pSyncTransport implements SyncTransport {
       unawaited(stream.close());
     });
 
+    nookLog(
+      NookLogKey.sync,
+      'Data bundle received: ${bundleBytes.length} bytes; waiting for ack',
+      LogLevel.info,
+    );
     _bytesReceivedController.add(bundleBytes);
   }
 

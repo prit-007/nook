@@ -29,6 +29,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
   Future<List<Note>>? _notesFuture;
 
   late AnimationController _pulseController;
+  SyncOrchestrator? _notifier;
 
   @override
   void initState() {
@@ -37,11 +38,12 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+    _notifier = ref.read(syncOrchestratorProvider.notifier);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _refreshNotes();
-        ref.read(syncOrchestratorProvider.notifier).startDiscovery();
+        _notifier?.startDiscovery();
       }
     });
   }
@@ -64,6 +66,9 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
   @override
   void dispose() {
     _pulseController.dispose();
+    // Leaving the sender must stop discovery — the periodic mDNS queries keep
+    // sockets alive and advertising would otherwise run forever.
+    unawaited(_notifier?.stop());
     super.dispose();
   }
 

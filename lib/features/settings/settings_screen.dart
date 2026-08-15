@@ -13,6 +13,8 @@ import '../../core/providers/screenshot_blocker_provider.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../sync/sync_orchestrator.dart';
+import '../updates/update_provider.dart';
+import '../updates/widgets/update_dialog.dart';
 import 'providers/vault_stats_provider.dart';
 
 /// Settings root screen.
@@ -37,6 +39,7 @@ class SettingsScreen extends ConsumerWidget {
           data: (info) => info.version,
           orElse: () => '',
         );
+    final updateStatus = ref.watch(updateStatusProvider);
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -223,6 +226,15 @@ class SettingsScreen extends ConsumerWidget {
                   context.push('/settings/about');
                 },
               ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedRefresh,
+                title: 'Check for Updates',
+                value: _updateLabel(updateStatus),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  unawaited(_checkForUpdates(context, ref));
+                },
+              ),
             ],
           ),
           const SizedBox(height: 48),
@@ -239,6 +251,21 @@ String _autoLockLabel(AutoLockDuration duration) => switch (duration) {
       AutoLockDuration.fifteenMinutes => '15 minutes',
       AutoLockDuration.never => 'Never',
     };
+
+String _updateLabel(UpdateStatus status) {
+  if (status.checking) return 'Checking\u2026';
+  if (status.hasUpdate) return 'v${status.available!.latestVersion}';
+  if (status.hasError) return 'Update failed';
+  if (status.latestChecked != null) return 'Up to date';
+  return '\u2014';
+}
+
+Future<void> _checkForUpdates(BuildContext context, WidgetRef ref) async {
+  final notifier = ref.read(updateStatusProvider.notifier);
+  final status = await notifier.check(force: true);
+  if (!context.mounted) return;
+  await showUpdateDialog(context, ref, status);
+}
 
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});

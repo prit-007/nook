@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appflowy_editor/appflowy_editor.dart';
@@ -10,6 +12,7 @@ import 'core/providers/theme_provider.dart';
 import 'core/router.dart';
 import 'core/widgets/keyboard_shortcuts.dart';
 import 'features/security/frosted_shield.dart';
+import 'features/updates/update_provider.dart';
 
 class NookApp extends ConsumerStatefulWidget {
   const NookApp({super.key});
@@ -38,6 +41,9 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         gate.onAppResumed();
+        unawaited(
+          ref.read(updateStatusProvider.notifier).checkIfStale(),
+        );
       case AppLifecycleState.paused:
         gate.onAppPaused();
       case AppLifecycleState.inactive:
