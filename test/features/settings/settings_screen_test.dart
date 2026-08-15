@@ -106,6 +106,12 @@ void main() {
     expect(find.text('0.7.9'), findsOneWidget);
   });
 
+  testWidgets('renders check for updates tile', (tester) async {
+    await tester.pumpWidget(buildScreen());
+    await tester.scrollUntilVisible(find.text('Check for Updates'), 100);
+    expect(find.text('Check for Updates'), findsOneWidget);
+  });
+
   testWidgets('renders two switches', (tester) async {
     await tester.pumpWidget(buildScreen());
     // biometric lock on, screenshot blocking off

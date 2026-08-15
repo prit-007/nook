@@ -14,6 +14,7 @@ import '../../core/widgets/parallax_card.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../data/database.dart';
 import '../../data/tables/notes.dart';
+import '../updates/widgets/update_banner.dart';
 import 'providers/notes_list_provider.dart';
 import 'widgets/empty_home.dart';
 import 'widgets/filter_pill_bar.dart';
@@ -298,6 +299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           SliverToBoxAdapter(
             child: searchPill,
           ),
+          const SliverToBoxAdapter(child: UpdateBanner()),
           SliverToBoxAdapter(
             child: FilterPillBar(
               selectedType: _selectedType,

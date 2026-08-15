@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-15
+
+### In-app update notifications
+- Nook now checks the GitHub releases feed and lets you know when a new version
+  is published — no more guessing whether the build you have is current.
+- A glass **"Update available"** banner appears on Home when a newer release
+  exists, with one-tap **Update** (opens the release page) and **Later** to
+  dismiss it.
+- **Settings → About → "Check for Updates"** runs a manual check and shows the
+  release notes; the tile reports *Checking…* / *vX.Y.Z* / *Up to date*.
+- Checks are throttled (once per 6 hours) and re-run on app resume; your
+  dismissal is remembered per version and clears when a newer release appears.
+- Tagged with the new `updates` domain in the in-app log viewer.
+
 ## [0.8.0] - 2026-08-15
 
 ### Lossless media sync, export & import

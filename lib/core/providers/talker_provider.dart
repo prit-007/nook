@@ -13,6 +13,7 @@ abstract final class NookLogKey {
   static const database = 'database';
   static const editor = 'editor';
   static const security = 'security';
+  static const updates = 'updates';
 }
 
 /// The single shared Talker instance.
@@ -27,12 +28,14 @@ final Talker talker = TalkerFlutter.init(
       NookLogKey.database: 'database',
       NookLogKey.editor: 'editor',
       NookLogKey.security: 'security',
+      NookLogKey.updates: 'updates',
     },
     colors: {
       NookLogKey.sync: AnsiPen()..xterm(141), // blue-purple
       NookLogKey.database: AnsiPen()..xterm(44), // teal
       NookLogKey.editor: AnsiPen()..xterm(214), // amber
       NookLogKey.security: AnsiPen()..xterm(205), // rose
+      NookLogKey.updates: AnsiPen()..xterm(220), // gold
     },
   ),
 );
