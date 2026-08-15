@@ -186,8 +186,10 @@ String _legacyStringRewrite(
   Map<String, RestoredMedia> byId,
 ) {
   var out = delta;
-  exactPaths.forEach((oldPath, newPath) => out = out.replaceAll(oldPath, newPath));
-  exactThumbs.forEach((oldPath, newPath) => out = out.replaceAll(oldPath, newPath));
+  exactPaths
+      .forEach((oldPath, newPath) => out = out.replaceAll(oldPath, newPath));
+  exactThumbs
+      .forEach((oldPath, newPath) => out = out.replaceAll(oldPath, newPath));
 
   for (final r in byId.values) {
     final thumb = r.newThumbnailPath;
@@ -203,8 +205,8 @@ String _legacyStringRewrite(
       final urlRe = RegExp(
         '("url"\\s*:\\s*")[^"]*${RegExp.escape(fileName)}(")',
       );
-      out = out.replaceAllMapped(
-          urlRe, (m) => '${m[1]}${r.newFilePath}${m[2]}');
+      out =
+          out.replaceAllMapped(urlRe, (m) => '${m[1]}${r.newFilePath}${m[2]}');
     }
   }
   return out;

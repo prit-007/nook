@@ -59,12 +59,10 @@ class SyncAttachment {
       type: (map['type'] as String?) ?? 'image',
       sortOrder: (map['sortOrder'] as int?) ?? 0,
       bytes: bytes,
-      filePath: (rawFilePath == null || rawFilePath.isEmpty)
-          ? null
-          : rawFilePath,
-      thumbnailPath: (rawThumbPath == null || rawThumbPath.isEmpty)
-          ? null
-          : rawThumbPath,
+      filePath:
+          (rawFilePath == null || rawFilePath.isEmpty) ? null : rawFilePath,
+      thumbnailPath:
+          (rawThumbPath == null || rawThumbPath.isEmpty) ? null : rawThumbPath,
       thumbnailBytes: thumbBytes,
     );
   }

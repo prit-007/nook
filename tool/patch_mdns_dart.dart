@@ -95,7 +95,8 @@ String? _resolveMdnsDartRoot() {
     try {
       final config =
           jsonDecode(packageConfig.readAsStringSync()) as Map<String, dynamic>;
-      final packages = (config['packages'] as List).cast<Map<String, dynamic>>();
+      final packages =
+          (config['packages'] as List).cast<Map<String, dynamic>>();
       for (final package in packages) {
         if (package['name'] == 'mdns_dart') {
           final rootUri = package['rootUri'] as String;
