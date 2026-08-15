@@ -17,7 +17,7 @@ class AppInfo {
   final String version;
   final String buildNumber;
 
-  /// e.g. `0.7.9+2`
+  /// e.g. `0.8.2+3`
   String get versionLabel => '$version+$buildNumber';
 }
 

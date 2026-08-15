@@ -1,0 +1,24 @@
+Your notes. Your device. Yours.
+
+Nook is a private, local-first, free and open-source note-taking app built with Flutter. No account. No cloud. No telemetry. Ever.
+
+Every big note app makes you trade data ownership for good design. Nook refuses that tradeoff:
+
+- Local-first, not local-only as an afterthought. Nook works fully offline, forever. There is no sign-in screen, no account, no "continue to use in a browser."
+- Notes are encrypted at rest on your device, with your keys in the platform keystore and an optional biometric gate.
+- Sync is a feature you opt into — direct, peer-to-peer, over your own Wi-Fi. Your notes travel from one of your devices to another, byte-for-byte, with no relay in between. Nothing ever leaves your devices unless you say so.
+- Free software with teeth. Nook is GPL-3.0. Anyone can read it, change it, and build on it.
+
+Features:
+
+- Notes: create, edit, delete, pin, lock, color, and add cover images.
+- Organization: notebooks, tags, multi-tag filtering, and fast full-text search.
+- Checklists: toggle items, drag to reorder, live progress bar.
+- Doodles: freehand drawing saved with your notes.
+- Editor: block-based rich editing — headings, lists, quotes, images, and more.
+- Theming: Material You dynamic color, per-note color overrides, light and dark modes.
+- Security: SQLCipher encryption at rest, biometric lock, per-note lock, screenshot blocking.
+- Trash: soft-delete with automatic expiry.
+- Nearby sync: libp2p device-to-device sync with discovery, pairing, transfer, and conflict resolution (currently in testing).
+
+Your notes belong to you — not to a service.

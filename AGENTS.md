@@ -4,7 +4,7 @@
 - Single-package Flutter app (not a monorepo).
 - SDK constraint: Dart `>=3.5.0 <4.0.0`, Flutter stable.
 - Entry point: `lib/main.dart`.
-- Status: Pre-alpha, Phase 0 (foundation) — very little app code exists yet.
+- Status: Alpha — v0.8.2 (store-ready builds, in-app update checker).
 - Docs: `docs/notes-app-masterplan.md` (product/roadmap), `docs/notes-app-detailed-plan.md` (schema/architecture/protocols), `docs/SYNC-LIBP2P-TRANSPORT.md` (current sync transport reference), `docs/adr/` (architecture decision records).
 
 ## Code generation
