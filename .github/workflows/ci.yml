@@ -44,6 +44,8 @@ jobs:
     needs: analyze-and-test
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      HAS_KEYSTORE: ${{ secrets.NOOK_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -55,11 +57,31 @@ jobs:
 
       - name: Extract App Version
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r' | sed -E 's/\+[0-9]+$//')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Configure release signing (from secrets)
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.NOOK_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.NOOK_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.NOOK_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NOOK_KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          {
+            echo "storeFile=upload-keystore.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/key.properties
 
       - name: Build release APKs (split per ABI)
         run: flutter build apk --release --split-per-abi
+
+      - name: Build universal release APK
+        run: flutter build apk --release
 
       - name: Upload APK Artifacts (Workflow Summary)
         uses: actions/upload-artifact@v4
@@ -86,7 +108,7 @@ jobs:
       - name: Extract App Version
         shell: bash
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r' | sed -E 's/\+[0-9]+$//')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build release Windows
@@ -139,7 +161,7 @@ jobs:
 
       - name: Extract App Version
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r' | sed -E 's/\+[0-9]+$//')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build release iOS (unsigned)
@@ -173,7 +195,7 @@ jobs:
 
       - name: Extract App Version
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r' | sed -E 's/\+[0-9]+$//')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build release macOS (unsigned)
@@ -212,7 +234,7 @@ jobs:
 
       - name: Extract App Version
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r' | sed -E 's/\+[0-9]+$//')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build release Linux

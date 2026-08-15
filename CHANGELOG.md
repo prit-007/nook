@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-08-15
+
+### Store-ready builds
+- Restored the monotonic version scheme (`version: 0.8.2+3`), so every release
+  carries a strictly increasing `versionCode` for F-Droid and IzzyOnDroid.
+- Release APKs are now signed with a real release keystore (stored as CI
+  secrets, never committed), and CI publishes a **universal** signed APK in
+  addition to the split-per-ABI ones — ready for store distribution.
+- Added `fastlane/metadata` (title, short/full descriptions, per-version
+  changelogs) used by both IzzyOnDroid and F-Droid to list the app.
+
 ## [0.8.1] - 2026-08-15
 
 ### In-app update notifications

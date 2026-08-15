@@ -61,6 +61,7 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
     final seed = themePref.seedColor;
 
     return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
       title: 'Nook',
       theme: buildLightTheme(seed),
       darkTheme: buildDarkTheme(seed, amoled: themePref.amoledDark),

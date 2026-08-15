@@ -25,6 +25,27 @@ server, never through us.
 
 ---
 
+<div align="center">
+
+<table>
+<tr>
+<td><img src="assets/screenshots/01.png" width="140" /></td>
+<td><img src="assets/screenshots/02.png" width="140" /></td>
+<td><img src="assets/screenshots/03.png" width="140" /></td>
+<td><img src="assets/screenshots/04.png" width="140" /></td>
+<td><img src="assets/screenshots/05.png" width="140" /></td>
+<td><img src="assets/screenshots/06.png" width="140" /></td>
+<td><img src="assets/screenshots/07.png" width="140" /></td>
+<td><img src="assets/screenshots/08.png" width="140" /></td>
+<td><img src="assets/screenshots/09.png" width="140" /></td>
+<td><img src="assets/screenshots/10.png" width="140" /></td>
+</tr>
+</table>
+
+</div>
+
+---
+
 ## What is Nook?
 
 Nook is a note-taking app built around one simple belief:
@@ -59,7 +80,7 @@ Three clauses, three promises:
 
 ## Status
 
-🚧 **Alpha — v0.7.9** — Phases 0–4 complete (foundation, core notes,
+🚧 **Alpha — v0.8.2** — Phases 0–4 complete (foundation, core notes,
 checklists + doodles, theming, security). Phase 5 (nearby sync) is implemented:
 the transport was rebuilt on **libp2p over UDX** with a stable keystore identity,
 an own mDNS discovery fork, and categorized failure outcomes. Legacy TCP remains
@@ -70,9 +91,9 @@ as a fallback.
 > validated on real hardware, and mDNS discovery is unproven on some Android
 > stacks. Do not rely on sync for anything you cannot afford to lose.
 
-v0.7.9 adds a single-source-of-truth app version (`package_info_plus`), a
-responsive rewrite of the in-app log viewer, and the fully responsive editor
-app bar. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
+v0.8.2 restores monotonic versioning (`version: 0.8.2+3`), ships release-signed
+APKs via CI, and adds an in-app update checker. See
+[`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
 
 ## Features
 
@@ -93,14 +114,12 @@ app bar. See [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.
 
 ## Downloads & releases
 
-There are **no official release binaries yet**. GitHub Actions builds unsigned
-Android APKs, an unsigned iOS/macOS build, a Linux tarball, and the Windows
-installer on every tagged release, but a pre-alpha product means you should
-expect rough edges and frequent breaking changes between versions. Watch the
-[releases page](https://github.com/prit-007/nook/releases) — official binaries
-land once the alpha stabilizes and sync passes physical-device testing.
+Signed release binaries are published to the
+[releases page](https://github.com/prit-007/nook/releases) on every tagged
+release via GitHub Actions. Watch the releases page or use the in-app update
+checker (Settings → About → Check for Updates).
 
-Until binaries are published, build from source:
+Build from source if you prefer:
 
 - **Android**: build an APK yourself (see [Build a release APK](#build-a-release-apk)).
 - **Linux**: build from source on a Linux host (see [Run it](#run-it)).
@@ -109,14 +128,14 @@ Until binaries are published, build from source:
 - **macOS/iOS**: unsigned builds only — a code-signing certificate is required
   to run them on real hardware.
 
-### What CI ships per release (v0.7.9.2+)
+### What CI ships per release (v0.8.2+)
 
 Every tagged release triggers `CI & Release` (`.github/workflows/ci.yml`),
 which uploads all of these to the GitHub release when their builds succeed:
 
 | Platform | Artifact |
 |---|---|
-| Android | split-per-ABI `*-release.apk` files |
+| Android | universal signed `app-release.apk` + split-per-ABI `*-release.apk` files |
 | Windows | `nook-windows-<version>.zip` + `nook_setup_<version>.exe` (Inno Setup) |
 | macOS | `nook-macos-<version>.zip` (unsigned `.app`) |
 | Linux | `nook-linux-<version>.tar.gz` (release bundle) |

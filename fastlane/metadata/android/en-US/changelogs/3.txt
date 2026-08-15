@@ -1,0 +1,5 @@
+Nook 0.8.2 — store-ready builds and the in-app update checker.
+
+- Release APKs are now signed with the official release key and CI publishes a universal APK for store distribution.
+- Restored the monotonic version scheme required by F-Droid and IzzyOnDroid.
+- Settings → About → Check for Updates: see when a newer version is published and open the release page in one tap.
