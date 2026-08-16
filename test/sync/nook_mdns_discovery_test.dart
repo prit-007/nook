@@ -121,6 +121,19 @@ void main() {
 
       await discovery.stop();
     });
+
+    test('stop is safe to repeat and discovery can restart', () async {
+      final discovery = NookMdnsDiscovery(host, networkEnabled: false);
+
+      await discovery.discoverOnly();
+      await discovery.stop();
+      await discovery.stop();
+      await discovery.discoverOnly();
+
+      expect(discovery.isDiscovering, isTrue);
+      await discovery.stop();
+      expect(discovery.isDiscovering, isFalse);
+    });
   });
 
   group('NookMdnsDiscovery self-exclusion', () {

@@ -9,6 +9,8 @@
     <!-- Android 13+ nearby devices (Wi-Fi) -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
                      android:usesPermissionFlags="neverForLocation"/>
+    <!-- Camera for QR code scanning during sync pairing -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <application
         android:label="nook"
         android:name="${applicationName}"

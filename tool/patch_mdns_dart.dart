@@ -34,10 +34,31 @@ Future<void> main() async {
   }
 
   var source = file.readAsStringSync();
-  if (source.contains('nook: close client sockets on query completion')) {
+  if (source.contains('nook: guard message controller after close')) {
     stdout.writeln('mdns_dart: client.dart already patched.');
     return;
   }
+
+  const unguardedMessageAdd = '''            messageController.add(
+              _MessageAddr(message, packet.address, packet.port),
+            );''';
+  const guardedMessageAdd =
+      '''            // nook: guard message controller after close.
+            // A socket event can be queued after query cleanup closes the
+            // controller; never deliver that late packet into a closed stream.
+            if (!messageController.isClosed) {
+              messageController.add(
+                _MessageAddr(message, packet.address, packet.port),
+              );
+            }''';
+
+  if (!source.contains(unguardedMessageAdd)) {
+    stderr.writeln('mdns_dart: message-controller anchor not found in '
+        '${file.path}; refusing to patch.');
+    exitCode = 1;
+    return;
+  }
+  source = source.replaceFirst(unguardedMessageAdd, guardedMessageAdd);
 
   const anchor = '''    try {
       await client._initialize(params.networkInterface);
@@ -73,15 +94,17 @@ Future<void> main() async {
     }
   }''';
 
-  final index = source.indexOf(anchor);
-  if (index == -1) {
-    stderr.writeln('mdns_dart: client.dart anchor not found in ${file.path}; '
-        'refusing to patch.');
-    exitCode = 1;
-    return;
-  }
+  if (!source.contains('nook: close client sockets on query completion')) {
+    final index = source.indexOf(anchor);
+    if (index == -1) {
+      stderr.writeln('mdns_dart: client.dart anchor not found in ${file.path}; '
+          'refusing to patch.');
+      exitCode = 1;
+      return;
+    }
 
-  source = source.replaceFirst(anchor, patched);
+    source = source.replaceFirst(anchor, patched);
+  }
   file.writeAsStringSync(source);
   stdout.writeln('mdns_dart: patched client socket cleanup (${file.path}).');
 }

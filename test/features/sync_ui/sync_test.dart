@@ -18,6 +18,7 @@ import 'package:nook/features/sync_ui/widgets/conflict_card.dart';
 import 'package:nook/sync/crypto/identity_store.dart';
 import 'package:nook/sync/sync_orchestrator.dart';
 import 'package:nook/sync/transport/sync_transport.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
 
@@ -63,13 +64,20 @@ Widget _wrapSendWithState(SyncOrchestratorState state, {AppDatabase? db}) {
 }
 
 /// Wraps the [SyncReceiveScreen] with an orchestrator pinned to [state].
-Widget _wrapReceiveWithState(SyncOrchestratorState state, {AppDatabase? db}) {
+Widget _wrapReceiveWithState(
+  SyncOrchestratorState state, {
+  AppDatabase? db,
+  List<String> localMultiaddresses = const [],
+}) {
   final testDb = db ?? createTestDb();
   return ProviderScope(
     overrides: [
       databaseProvider.overrideWithValue(testDb),
       syncOrchestratorProvider.overrideWith(
-        () => _FixedStateOrchestrator(state),
+        () => _FixedStateOrchestrator(
+          state,
+          localMultiaddresses: localMultiaddresses,
+        ),
       ),
     ],
     child: const MaterialApp(home: SyncReceiveScreen()),
@@ -78,9 +86,14 @@ Widget _wrapReceiveWithState(SyncOrchestratorState state, {AppDatabase? db}) {
 
 /// An orchestrator that always reports a fixed state.
 class _FixedStateOrchestrator extends SyncOrchestrator {
-  _FixedStateOrchestrator(this._fixedState);
+  _FixedStateOrchestrator(
+    this._fixedState, {
+    this.localMultiaddresses = const [],
+  });
 
   final SyncOrchestratorState _fixedState;
+  @override
+  final List<String> localMultiaddresses;
 
   @override
   SyncOrchestratorState build() => _fixedState;
@@ -256,6 +269,27 @@ void main() {
       );
     });
 
+    testWidgets(
+        'manual connection dialog exposes QR scanning on camera platforms',
+        (tester) async {
+      await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
+      await tester.pump();
+
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedLink01,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Add device manually'), findsOneWidget);
+      if (qrScannerSupported) {
+        expect(find.text('Scan QR'), findsOneWidget);
+      } else {
+        expect(find.text('Scan QR'), findsNothing);
+      }
+    });
+
     testWidgets('shows discovered peers as floating orbs', (tester) async {
       await tester.pumpWidget(
         _wrapSendWithState(
@@ -398,6 +432,35 @@ void main() {
             (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedWifi01),
         findsOneWidget,
       );
+    });
+
+    testWidgets('shows a QR code for the receiver multiaddr', (tester) async {
+      const address = '/ip4/192.168.1.20/udp/52341/udx/p2p/12D3KooWQrReceiver';
+      await tester.pumpWidget(
+        _wrapReceiveWithState(
+          const SyncOrchestratorState(),
+          db: db,
+          localMultiaddresses: [address],
+        ),
+      );
+      await tester.pump();
+
+      // Start advertising so the receive screen copies addresses from the
+      // transport and reveals the QR action.
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedWifiOff01,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('QR Code'), findsOneWidget);
+      await tester.tap(find.text('QR Code'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Scan to connect'), findsOneWidget);
+      expect(find.byType(QrImageView), findsOneWidget);
+      expect(find.text(address), findsNWidgets(2));
     });
 
     testWidgets('tapping the beacon does not crash', (tester) async {

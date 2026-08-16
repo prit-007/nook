@@ -4,11 +4,13 @@ import 'dart:math' show Random;
 import 'dart:ui';
 
 import 'package:drift/drift.dart' hide Column, isNotNull;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/platform/wifi_direct.dart';
 import '../../core/providers/database_provider.dart';
@@ -16,6 +18,18 @@ import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
+
+/// Camera scanning is available on mobile_scanner's supported platforms.
+bool get qrScannerSupported {
+  if (kIsWeb) return true;
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android ||
+    TargetPlatform.iOS ||
+    TargetPlatform.macOS =>
+      true,
+    _ => false,
+  };
+}
 
 class SyncSendScreen extends ConsumerStatefulWidget {
   const SyncSendScreen({super.key});
@@ -543,53 +557,10 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
   /// reliable path when multicast is blocked (AP client isolation, Windows
   /// firewall, VPN/multi-NIC).
   Future<void> _showManualAddressDialog(BuildContext context) async {
-    final controller = TextEditingController();
     final address = await showDialog<String>(
       context: context,
-      builder: (context) {
-        final scheme = Theme.of(context).colorScheme;
-        return AlertDialog(
-          title: const Text('Add device manually'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Paste the receiver\'s address shown on its "Receive Notes" '
-                'screen. It ends with /p2p/<peer id>.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.url,
-                decoration: const InputDecoration(
-                  hintText: '/ip4/192.168.1.20/udp/52341/udx/'
-                      'p2p/12D3KooW...',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('Connect'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => const _ManualAddressDialog(),
     );
-    controller.dispose();
 
     if (address == null || address.trim().isEmpty) return;
     final device = SyncDevice.fromManualAddress(address);
@@ -698,6 +669,209 @@ class _FloatingPeerOrb extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Dialog that lets the user paste a receiver's multiaddr to dial it directly.
+///
+/// The [TextEditingController] is owned by this [StatefulWidget] so it is only
+/// disposed once the dialog route has been fully removed. Disposing it in the
+/// caller right after `await showDialog` completes — while the exit transition
+/// and the keyboard dismissal are still animating — makes the still-mounted
+/// [TextField]'s hint animation re-attach to a disposed controller and throws
+/// "TextEditingController used after being disposed", corrupting the frame.
+class _ManualAddressDialog extends StatefulWidget {
+  const _ManualAddressDialog();
+
+  @override
+  State<_ManualAddressDialog> createState() => _ManualAddressDialogState();
+}
+
+class _ManualAddressDialogState extends State<_ManualAddressDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Opens the full-screen QR scanner. Returns the scanned multiaddr string
+  /// or null if the user cancelled / the platform doesn't support scanning.
+  Future<String?> _openQrScanner(BuildContext context) async {
+    if (!qrScannerSupported) {
+      // Camera scanning not available on this platform.
+      return null;
+    }
+    return Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _QrScanScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('Add device manually'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Paste the receiver\'s address, or scan its QR code.',
+            style: TextStyle(
+              fontSize: 13,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              hintText: '/ip4/192.168.1.20/udp/52341/udx/'
+                  'p2p/12D3KooW...',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        // QR scan button (only on platforms with camera support)
+        if (qrScannerSupported)
+          OutlinedButton.icon(
+            onPressed: () async {
+              final scanned = await _openQrScanner(context);
+              if (scanned != null && scanned.isNotEmpty) {
+                // Return the scanned address to the caller.
+                if (context.mounted) {
+                  Navigator.of(context).pop(scanned);
+                }
+              }
+            },
+            icon: const HugeIcon(
+              icon: HugeIcons.strokeRoundedQrCodeScan,
+              size: 18,
+            ),
+            label: const Text('Scan QR'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Connect'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Full-screen QR code scanner using the device camera.
+class _QrScanScreen extends StatefulWidget {
+  const _QrScanScreen();
+
+  @override
+  State<_QrScanScreen> createState() => _QrScanScreenState();
+}
+
+class _QrScanScreenState extends State<_QrScanScreen> {
+  MobileScannerController? _controller;
+  bool _handled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      facing: CameraFacing.back,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+    final barcode = capture.barcodes.firstOrNull;
+    final value = barcode?.rawValue;
+    if (value == null || value.isEmpty) return;
+    _handled = true;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Scan QR Code'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.flash_on),
+            onPressed: () => _controller?.toggleTorch(),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          if (_controller != null)
+            MobileScanner(
+              controller: _controller!,
+              onDetect: _onDetect,
+            ),
+          // Overlay with scan window guide
+          Center(
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: scheme.primary,
+                  width: 3,
+                ),
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+          ),
+          // Instruction text
+          Positioned(
+            bottom: 80,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Point camera at the receiver\'s QR code',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

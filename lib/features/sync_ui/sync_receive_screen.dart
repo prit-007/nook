@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../sync/sync_orchestrator.dart';
 import 'widgets/conflict_card.dart';
@@ -69,6 +70,87 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
       const SnackBar(
         content: Text('Address copied — paste it into the sender.'),
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showQrCodeDialog(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // Use the first address (primary multiaddr with /p2p/<peer id> suffix).
+    final primaryAddress = _ownAddresses.first;
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Scan to connect'),
+        content: SizedBox(
+          width: 260,
+          height: 360,
+          child: Column(
+            children: [
+              Text(
+                'Show this QR code to the sender.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: QrImageView(
+                  data: primaryAddress,
+                  version: QrVersions.auto,
+                  size: 220,
+                  backgroundColor: Colors.white,
+                  eyeStyle: QrEyeStyle(
+                    color: scheme.primary,
+                    eyeShape: QrEyeShape.circle,
+                  ),
+                  dataModuleStyle: QrDataModuleStyle(
+                    color: scheme.onSurface,
+                    dataModuleShape: QrDataModuleShape.circle,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                primaryAddress,
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          FilledButton.tonal(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: primaryAddress));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Address copied to clipboard'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            child: const Text('Copy Address'),
+          ),
+        ],
       ),
     );
   }
@@ -395,17 +477,35 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Manual address',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Connect manually',
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                // QR code button (all platforms support display)
+                                FilledButton.tonalIcon(
+                                  onPressed: () => _showQrCodeDialog(context),
+                                  icon: HugeIcon(
+                                    icon: HugeIcons.strokeRoundedQrCode,
+                                    size: 18,
+                                    color: scheme.primary,
+                                  ),
+                                  label: const Text('QR Code'),
+                                  style: FilledButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'If the sender cannot discover this device, tap '
-                              'an address to copy it and paste it under "Add '
-                              'device manually" on their device.',
+                              'Show the QR code to the sender, or tap an '
+                              'address to copy it.',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
                               ),
