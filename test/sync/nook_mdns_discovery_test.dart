@@ -162,6 +162,23 @@ void main() {
     });
   });
 
+  group('NookMdnsDiscovery interface selection', () {
+    test('resolveActiveInterface returns a usable LAN interface or null',
+        () async {
+      final iface = await NookMdnsDiscovery.resolveActiveInterface();
+      // Never throws, even headless/offline. When a candidate exists it must
+      // carry a real (non-loopback) IPv4 address so multicast can leave the
+      // box on the active adapter.
+      if (iface != null) {
+        expect(
+          iface.addresses.any((a) => !a.isLoopback),
+          isTrue,
+          reason: 'selected interface must have a LAN IPv4 address',
+        );
+      }
+    });
+  });
+
   group('NookMdnsDiscovery real mDNS', () {
     test(
       'discovers an advertising device on the real network',

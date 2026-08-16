@@ -138,6 +138,12 @@ class TcpSyncTransport implements SyncTransport {
     return _localDeviceId;
   }
 
+  /// Manual dial-in is only exposed by the libp2p/UDX transport (the default);
+  /// the legacy TCP transport reports none so the send screen's manual-entry
+  /// path never proposes a non-dialable address.
+  @override
+  List<String> get localMultiaddresses => const [];
+
   // ---------------------------------------------------------------------------
   // Advertising (receiver mode)
   // ---------------------------------------------------------------------------

@@ -183,13 +183,19 @@ class Libp2pSyncTransport implements SyncTransport {
     return _localDeviceId;
   }
 
-  /// This device's own dialable multiaddrs (raw listen addresses), populated
-  /// after [initialize]. Useful for surfacing the device address in the UI or
-  /// for wiring up direct dials in tests.
+  /// Dialable multiaddrs with the peer id suffixed, e.g.
+  /// `/ip4/192.168.1.20/udp/52341/udx/p2p/12D3KooW...` — the addresses a sender
+  /// can enter manually (see [SyncDevice.fromManualAddress]) to bypass mDNS
+  /// discovery entirely. Uses `host.addrs` so the unspecified `0.0.0.0` bind
+  /// resolves to the device's real LAN addresses. Empty until [initialize].
+  @override
   List<String> get localMultiaddresses {
     final host = _host;
     if (host == null) return const [];
-    return host.network.listenAddresses.map((a) => a.toString()).toList();
+    return host.addrs
+        .map((a) => '${a.toString()}/p2p/${host.id.toString()}')
+        .toSet()
+        .toList();
   }
 
   /// Test hook: simulate discovering [device] without multicast by injecting it

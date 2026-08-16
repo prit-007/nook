@@ -48,6 +48,34 @@ Widget _wrapWithOrchestrator(SyncOrchestratorState state, {AppDatabase? db}) {
   );
 }
 
+/// Wraps the [SyncSendScreen] with an orchestrator pinned to [state].
+Widget _wrapSendWithState(SyncOrchestratorState state, {AppDatabase? db}) {
+  final testDb = db ?? createTestDb();
+  return ProviderScope(
+    overrides: [
+      databaseProvider.overrideWithValue(testDb),
+      syncOrchestratorProvider.overrideWith(
+        () => _FixedStateOrchestrator(state),
+      ),
+    ],
+    child: const MaterialApp(home: SyncSendScreen()),
+  );
+}
+
+/// Wraps the [SyncReceiveScreen] with an orchestrator pinned to [state].
+Widget _wrapReceiveWithState(SyncOrchestratorState state, {AppDatabase? db}) {
+  final testDb = db ?? createTestDb();
+  return ProviderScope(
+    overrides: [
+      databaseProvider.overrideWithValue(testDb),
+      syncOrchestratorProvider.overrideWith(
+        () => _FixedStateOrchestrator(state),
+      ),
+    ],
+    child: const MaterialApp(home: SyncReceiveScreen()),
+  );
+}
+
 /// An orchestrator that always reports a fixed state.
 class _FixedStateOrchestrator extends SyncOrchestrator {
   _FixedStateOrchestrator(this._fixedState);
@@ -56,6 +84,15 @@ class _FixedStateOrchestrator extends SyncOrchestrator {
 
   @override
   SyncOrchestratorState build() => _fixedState;
+
+  @override
+  Future<void> startDiscovery() async {}
+
+  @override
+  Future<void> startAdvertising() async {}
+
+  @override
+  Future<void> stop() async {}
 }
 
 /// A stub orchestrator that does nothing (for widget tests).
@@ -193,11 +230,11 @@ void main() {
   });
 
   group('SyncSendScreen', () {
-    testWidgets('renders with note selection list', (tester) async {
+    testWidgets('renders with radar title', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
       await tester.pump();
 
-      expect(find.text('Select Notes'), findsOneWidget);
+      expect(find.text('Radar'), findsOneWidget);
     });
 
     testWidgets('shows empty state when no notes', (tester) async {
@@ -205,24 +242,99 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
 
-      expect(find.text('No notes found.'), findsOneWidget);
+      expect(find.text('Vault is empty.'), findsOneWidget);
     });
 
-    testWidgets('shows search bar for filtering notes', (tester) async {
+    testWidgets('shows manual connection action', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
       await tester.pump();
 
       expect(
-          find.byWidgetPredicate((w) =>
-              w is HugeIcon && w.icon == HugeIcons.strokeRoundedSearch01),
-          findsOneWidget);
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedLink01),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows discovered peers as floating orbs', (tester) async {
+      await tester.pumpWidget(
+        _wrapSendWithState(
+          const SyncOrchestratorState(
+            phase: SyncPhase.discovering,
+            devices: [
+              SyncDevice(
+                deviceId: 'peer-1',
+                deviceName: 'Galaxy S24',
+                isOnline: true,
+              ),
+              SyncDevice(
+                deviceId: 'peer-2',
+                deviceName: 'MacBook',
+                isOnline: true,
+              ),
+            ],
+          ),
+          db: db,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Galaxy S24'), findsOneWidget);
+      expect(find.text('MacBook'), findsOneWidget);
+      expect(find.text('Tap a device to send'), findsOneWidget);
+    });
+
+    testWidgets('tapping a peer with no selection shows a snackbar',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrapSendWithState(
+          const SyncOrchestratorState(
+            phase: SyncPhase.discovering,
+            devices: [
+              SyncDevice(
+                deviceId: 'peer-1',
+                deviceName: 'Galaxy S24',
+                isOnline: true,
+              ),
+            ],
+          ),
+          db: db,
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Galaxy S24'));
+      await tester.pump();
+
+      expect(find.text('Select at least one note below.'), findsOneWidget);
+    });
+
+    testWidgets('shows payload count when notes are selected', (tester) async {
+      for (var i = 0; i < 2; i++) {
+        await db.into(db.notes).insert(
+              NotesCompanion.insert(
+                id: Value('sel-note-$i'),
+                type: NoteType.text,
+                title: Value('Selected Note $i'),
+                deviceOriginId: 'device-1',
+              ),
+            );
+      }
+
+      await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('2 Notes Ready'), findsOneWidget);
+      expect(find.text('Selected Note 0'), findsOneWidget);
     });
 
     testWidgets('note list tiles keep ink splashes visible', (tester) async {
-      // The note list lives inside a colored scroll region. Regression guard:
-      // the region must be a Material (not a ColoredBox) so ListTiles can paint
-      // their ink/selection highlights — otherwise Flutter throws the
-      // "ListTile background color or ink splashes may be invisible" assertion.
+      // The note list lives inside a frosted, colored scroll region. Regression
+      // guard: the region must place a Material between the tiles and the
+      // translucent DecoratedBox so ListTiles can paint their ink/selection
+      // highlights — otherwise Flutter throws the "ListTile background color or
+      // ink splashes may be invisible" assertion.
       for (var i = 0; i < 4; i++) {
         await db.into(db.notes).insert(
               NotesCompanion.insert(
@@ -256,22 +368,49 @@ void main() {
   });
 
   group('SyncReceiveScreen', () {
-    testWidgets('renders with discoverable toggle', (tester) async {
+    testWidgets('renders with the broadcasting beacon when idle',
+        (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncReceiveScreen(), db: db));
       await tester.pump();
 
-      expect(find.text('Make this device visible'), findsOneWidget);
-      expect(find.byType(SwitchListTile), findsOneWidget);
+      expect(find.text('Invisible'), findsOneWidget);
+      expect(find.text('Tap the icon to start broadcasting.'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedWifiOff01),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('shows device name', (tester) async {
+    testWidgets('shows visible beacon while discoverable', (tester) async {
+      await tester.pumpWidget(
+        _wrapReceiveWithState(
+          const SyncOrchestratorState(phase: SyncPhase.complete),
+          db: db,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Visible to nearby devices'), findsOneWidget);
+      expect(find.text('Waiting for incoming transfers...'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedWifi01),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping the beacon does not crash', (tester) async {
       await tester.pumpWidget(wrapInApp(const SyncReceiveScreen(), db: db));
       await tester.pump();
 
-      expect(
-          find.byWidgetPredicate((w) =>
-              w is HugeIcon && w.icon == HugeIcons.strokeRoundedSmartPhone01),
-          findsOneWidget);
+      await tester.tap(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedWifiOff01),
+      );
+      await tester.pump();
+
+      expect(find.text('Invisible'), findsOneWidget);
     });
   });
 
