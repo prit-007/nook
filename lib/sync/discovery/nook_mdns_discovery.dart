@@ -109,7 +109,6 @@ class NookMdnsDiscovery {
 
   // Discover state.
   StreamSubscription<ServiceEntry>? _discoverySubscription;
-  Timer? _discoveryTimer;
   bool _isDiscovering = false;
   bool _isAdvertising = false;
   final Set<String> _discoveredServices = <String>{};
@@ -141,17 +140,14 @@ class NookMdnsDiscovery {
   /// Starts discovery only. Safe to call repeatedly.
   Future<void> discoverOnly() async {
     if (_isDiscovering) return;
-    await _startDiscovery();
     _isDiscovering = true;
+    await _startDiscovery();
   }
 
   /// Stops advertising and discovery.
   Future<void> stop() async {
     await _discoverySubscription?.cancel();
     _discoverySubscription = null;
-
-    _discoveryTimer?.cancel();
-    _discoveryTimer = null;
 
     _discoveredServices.clear();
     _isDiscovering = false;
@@ -296,7 +292,8 @@ class NookMdnsDiscovery {
   }
 
   /// Queries for other Nook devices on mDNS. The query runs immediately and
-  /// repeats every few seconds because MDNSClient.query is a one-shot lookup.
+  /// re-runs after each one completes, because MDNSClient.query is a one-shot
+  /// lookup that holds the mDNS port for its full timeout.
   Future<void> _startDiscovery() async {
     if (!networkEnabled) return;
     try {
@@ -317,21 +314,30 @@ class NookMdnsDiscovery {
         multicastHops: 1,
       );
 
-      await _performDiscoveryQuery(params);
-
-      _discoveryTimer = Timer.periodic(
-        const Duration(seconds: 5),
-        (_) async => _performDiscoveryQuery(params),
-      );
+      // Never overlap queries: each MDNSClient.query holds the mDNS port for
+      // its whole timeout, so a fixed-period timer would re-bind while the
+      // previous query is still listening and fail (especially on Android,
+      // where reusePort is off). Run the next query only after the previous
+      // one has fully completed.
+      unawaited(_runDiscoveryLoop(params));
       nookLog(NookLogKey.sync, 'mDNS discovery started', LogLevel.info);
     } catch (e) {
       // Discovery is best-effort — but log the real reason so the "Searching
       // for devices..." state never stays mysteriously stuck.
+      _isDiscovering = false;
       nookLog(
         NookLogKey.sync,
         'mDNS discovery failed to start: $e',
         LogLevel.error,
       );
+    }
+  }
+
+  Future<void> _runDiscoveryLoop(QueryParams params) async {
+    while (_isDiscovering) {
+      await _performDiscoveryQuery(params);
+      if (!_isDiscovering) break;
+      await Future<void>.delayed(const Duration(seconds: 5));
     }
   }
 

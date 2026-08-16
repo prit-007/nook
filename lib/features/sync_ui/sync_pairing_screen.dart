@@ -4,15 +4,34 @@ import 'package:hugeicons/hugeicons.dart';
 
 import 'widgets/pairing_code_field.dart';
 
+/// The mutual-confirmation pairing screen shown on BOTH devices while a
+/// transfer is being set up.
+///
+/// - Sender: shows the code it generated; the user taps **Confirm**, which
+///   dials the receiver and keeps THIS screen visible in a "Waiting for
+///   [deviceName]…" state. It only pops with `true` once the receiver has
+///   also accepted the same code.
+/// - When [onConfirm] is null (e.g. a standalone preview) tapping Confirm
+///   pops immediately with `true`.
+///
+/// This guarantees both users see the same PIN at the same time and a
+/// connection is only established after BOTH accept.
 class SyncPairingScreen extends StatefulWidget {
   const SyncPairingScreen({
     super.key,
     required this.pairingCode,
     required this.deviceName,
+    this.onConfirm,
   });
 
   final String pairingCode;
   final String deviceName;
+
+  /// Optional callback that establishes the connection (e.g. dials the
+  /// receiver). When provided, tapping Confirm runs it and the screen stays
+  /// open until it resolves: `true` pops the screen with `true`, `false`
+  /// keeps the screen open with an error so the user can retry or cancel.
+  final Future<bool> Function()? onConfirm;
 
   @override
   State<SyncPairingScreen> createState() => _SyncPairingScreenState();
@@ -20,6 +39,8 @@ class SyncPairingScreen extends StatefulWidget {
 
 class _SyncPairingScreenState extends State<SyncPairingScreen> {
   bool _isCopied = false;
+  bool _connecting = false;
+  String? _error;
 
   void _copyCode() {
     HapticFeedback.lightImpact();
@@ -30,6 +51,29 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
     });
   }
 
+  Future<void> _handleConfirm() async {
+    final onConfirm = widget.onConfirm;
+    if (onConfirm == null) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() {
+      _connecting = true;
+      _error = null;
+    });
+    final ok = await onConfirm();
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _connecting = false;
+        _error = 'Connection failed. The other device may have rejected the '
+            'code or is out of reach.';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -38,7 +82,7 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
       backgroundColor: scheme.surface,
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -66,7 +110,11 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Verify this code on ${widget.deviceName} to establish a secure connection.',
+                _connecting
+                    ? 'Waiting for ${widget.deviceName} to confirm the same '
+                        'code…'
+                    : 'Verify this code on ${widget.deviceName} to establish a '
+                        'secure connection.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
@@ -95,7 +143,37 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
                 ),
               ),
 
-              const Spacer(),
+              if (_error != null) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: scheme.errorContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedAlertCircle,
+                        size: 20,
+                        color: scheme.error,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: scheme.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 48),
               Row(
                 children: [
                   Expanded(
@@ -106,7 +184,9 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: _connecting
+                          ? null
+                          : () => Navigator.of(context).pop(false),
                       child: const Text(
                         'Cancel',
                         style: TextStyle(fontWeight: FontWeight.w700),
@@ -122,11 +202,20 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: const Text(
-                        'Confirm',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
+                      onPressed: _connecting ? null : _handleConfirm,
+                      child: _connecting
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Confirm',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
                     ),
                   ),
                 ],

@@ -44,19 +44,25 @@ class QrDisplayCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.black12,
+                  width: 1,
+                ),
               ),
               child: QrImageView(
                 data: data,
                 version: QrVersions.auto,
                 size: 220,
                 backgroundColor: Colors.white,
-                eyeStyle: QrEyeStyle(
-                  color: scheme.primary,
-                  eyeShape: QrEyeShape.circle,
+                // High-contrast black-on-white, square modules: crisp edges
+                // that scan reliably and stay sharp on small phone screens.
+                eyeStyle: const QrEyeStyle(
+                  color: Colors.black,
+                  eyeShape: QrEyeShape.square,
                 ),
-                dataModuleStyle: QrDataModuleStyle(
-                  color: scheme.onSurface,
-                  dataModuleShape: QrDataModuleShape.circle,
+                dataModuleStyle: const QrDataModuleStyle(
+                  color: Colors.black,
+                  dataModuleShape: QrDataModuleShape.square,
                 ),
               ),
             ),

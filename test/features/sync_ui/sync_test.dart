@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -484,26 +486,12 @@ void main() {
     });
 
     testWidgets('shows a Scan QR action for camera platforms', (tester) async {
-      const address = '/ip4/192.168.1.20/udp/52341/udx/p2p/12D3KooWQrReceiver';
-      await tester.pumpWidget(
-        _wrapReceiveWithState(
-          const SyncOrchestratorState(),
-          db: db,
-          localMultiaddresses: [address],
-        ),
-      );
+      await tester.pumpWidget(wrapInApp(const SyncReceiveScreen(), db: db));
       await tester.pump();
 
-      // Start advertising so the receive screen copies addresses from the
-      // transport and reveals the Connect manually section.
-      await tester.tap(
-        find.byWidgetPredicate(
-          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedWifiOff01,
-        ),
-      );
-      await tester.pump();
-
-      expect(find.text('Scan QR'), findsOneWidget);
+      // The prominent "scan a sender's QR code" action sits right under the
+      // beacon on camera platforms — no advertising needed to reveal it.
+      expect(find.text("Scan a sender's QR code"), findsOneWidget);
     });
   });
 
@@ -534,6 +522,62 @@ void main() {
 
       expect(find.text('Confirm'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
+    });
+
+    testWidgets(
+        'keeps the PIN visible and waits while onConfirm is in flight '
+        '(mutual confirmation)', (tester) async {
+      var confirmCalls = 0;
+      final completer = Completer<bool>();
+      await tester.pumpWidget(wrapInApp(
+        SyncPairingScreen(
+          pairingCode: '123456',
+          deviceName: 'Galaxy S24',
+          onConfirm: () {
+            confirmCalls++;
+            return completer.future;
+          },
+        ),
+        db: db,
+      ));
+      await tester.pump();
+
+      await tester.tap(find.text('Confirm'));
+      await tester.pump();
+
+      // The code stays visible and the screen reports waiting — it must not
+      // disappear just because the sender confirmed.
+      expect(confirmCalls, 1);
+      expect(find.text('123456'), findsOneWidget);
+      expect(find.textContaining('Waiting for'), findsOneWidget);
+      expect(find.text('Confirm'), findsNothing,
+          reason: 'confirm is replaced by a spinner while waiting');
+
+      // Both devices accept the same code → the screen pops with true.
+      completer.complete(true);
+      await tester.pumpAndSettle();
+      expect(find.byType(SyncPairingScreen), findsNothing);
+    });
+
+    testWidgets('shows an error and stays open when onConfirm fails',
+        (tester) async {
+      await tester.pumpWidget(wrapInApp(
+        SyncPairingScreen(
+          pairingCode: '123456',
+          deviceName: 'Galaxy S24',
+          onConfirm: () async => false,
+        ),
+        db: db,
+      ));
+      await tester.pump();
+
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('123456'), findsOneWidget);
+      expect(find.textContaining('Connection failed'), findsOneWidget);
+      expect(find.text('Confirm'), findsOneWidget,
+          reason: 'the user can retry after a failed connection');
     });
   });
 

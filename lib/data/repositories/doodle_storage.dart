@@ -39,7 +39,12 @@ class DoodleStorage {
       DoodleStrokesCodec.encode(strokes, background: background),
     );
 
-    if (attachmentId == null) {
+    final existing =
+        attachmentId == null ? null : await attachments.getById(attachmentId);
+    if (existing == null) {
+      // Insert the row. This also covers inline editor doodles that were
+      // created with only a document node (no row yet) — without it they would
+      // never be packed into a sync bundle and the strokes would be lost.
       await attachments.addDoodle(
         noteId: noteId,
         filePath: file.path,
