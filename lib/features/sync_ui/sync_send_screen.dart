@@ -4,13 +4,11 @@ import 'dart:math' show Random;
 import 'dart:ui';
 
 import 'package:drift/drift.dart' hide Column, isNotNull;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/platform/wifi_direct.dart';
 import '../../core/providers/database_provider.dart';
@@ -18,18 +16,8 @@ import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
-
-/// Camera scanning is available on mobile_scanner's supported platforms.
-bool get qrScannerSupported {
-  if (kIsWeb) return true;
-  return switch (defaultTargetPlatform) {
-    TargetPlatform.android ||
-    TargetPlatform.iOS ||
-    TargetPlatform.macOS =>
-      true,
-    _ => false,
-  };
-}
+import 'widgets/qr_scan_screen.dart';
+import 'widgets/send_via_qr_dialog.dart';
 
 class SyncSendScreen extends ConsumerStatefulWidget {
   const SyncSendScreen({super.key});
@@ -107,6 +95,14 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedQrCode,
+              color: scheme.onSurface,
+            ),
+            tooltip: 'Send via QR',
+            onPressed: () => _showSendViaQr(context),
+          ),
           IconButton(
             icon: HugeIcon(
               icon: HugeIcons.strokeRoundedLink01,
@@ -552,6 +548,34 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     await notifier.sendNotes(_selectedNoteIds.toList());
   }
 
+  /// Desktop "send to mobile" flow: show this device's QR for the mobile to
+  /// scan, then push the selected notes once the mobile pairs. On platforms
+  /// with a camera the mobile can also just scan us; this is the desktop
+  /// equivalent (Windows/Linux have no camera scan path).
+  Future<void> _showSendViaQr(BuildContext context) async {
+    if (_selectedNoteIds.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Select at least one note to send.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+    unawaited(HapticFeedback.mediumImpact());
+    final sent = await showSendViaQrDialog(
+      context,
+      noteIds: _selectedNoteIds.toList(),
+    );
+    if (!sent || !context.mounted) return;
+    unawaited(context.push('/sync/transfer/local-send'));
+    await ref
+        .read(syncOrchestratorProvider.notifier)
+        .sendNotes(_selectedNoteIds.toList());
+  }
+
   /// Lets the user paste the receiver's multiaddr (shown on its "Receive
   /// Notes" screen) to dial it directly, bypassing mDNS discovery — the
   /// reliable path when multicast is blocked (AP client isolation, Windows
@@ -701,12 +725,12 @@ class _ManualAddressDialogState extends State<_ManualAddressDialog> {
   /// Opens the full-screen QR scanner. Returns the scanned multiaddr string
   /// or null if the user cancelled / the platform doesn't support scanning.
   Future<String?> _openQrScanner(BuildContext context) async {
-    if (!qrScannerSupported) {
+    if (!qrCameraSupported) {
       // Camera scanning not available on this platform.
       return null;
     }
     return Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const _QrScanScreen()),
+      MaterialPageRoute(builder: (_) => const QrScanScreen()),
     );
   }
 
@@ -742,7 +766,7 @@ class _ManualAddressDialogState extends State<_ManualAddressDialog> {
       ),
       actions: [
         // QR scan button (only on platforms with camera support)
-        if (qrScannerSupported)
+        if (qrCameraSupported)
           OutlinedButton.icon(
             onPressed: () async {
               final scanned = await _openQrScanner(context);
@@ -768,111 +792,6 @@ class _ManualAddressDialogState extends State<_ManualAddressDialog> {
           child: const Text('Connect'),
         ),
       ],
-    );
-  }
-}
-
-/// Full-screen QR code scanner using the device camera.
-class _QrScanScreen extends StatefulWidget {
-  const _QrScanScreen();
-
-  @override
-  State<_QrScanScreen> createState() => _QrScanScreenState();
-}
-
-class _QrScanScreenState extends State<_QrScanScreen> {
-  MobileScannerController? _controller;
-  bool _handled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.normal,
-      facing: CameraFacing.back,
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  void _onDetect(BarcodeCapture capture) {
-    if (_handled) return;
-    final barcode = capture.barcodes.firstOrNull;
-    final value = barcode?.rawValue;
-    if (value == null || value.isEmpty) return;
-    _handled = true;
-    Navigator.of(context).pop(value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('Scan QR Code'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.flash_on),
-            onPressed: () => _controller?.toggleTorch(),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          if (_controller != null)
-            MobileScanner(
-              controller: _controller!,
-              onDetect: _onDetect,
-            ),
-          // Overlay with scan window guide
-          Center(
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: scheme.primary,
-                  width: 3,
-                ),
-                borderRadius: BorderRadius.circular(24),
-              ),
-            ),
-          ),
-          // Instruction text
-          Positioned(
-            bottom: 80,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Point camera at the receiver\'s QR code',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

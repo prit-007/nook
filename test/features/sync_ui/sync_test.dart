@@ -269,6 +269,17 @@ void main() {
       );
     });
 
+    testWidgets('shows the Send via QR action', (tester) async {
+      await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
+      await tester.pump();
+
+      expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedQrCode),
+        findsOneWidget,
+      );
+    });
+
     testWidgets(
         'manual connection dialog exposes QR scanning on camera platforms',
         (tester) async {
@@ -283,11 +294,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('Add device manually'), findsOneWidget);
-      if (qrScannerSupported) {
-        expect(find.text('Scan QR'), findsOneWidget);
-      } else {
-        expect(find.text('Scan QR'), findsNothing);
-      }
+      expect(find.text('Scan QR'), findsOneWidget);
     });
 
     testWidgets('shows discovered peers as floating orbs', (tester) async {
@@ -474,6 +481,29 @@ void main() {
       await tester.pump();
 
       expect(find.text('Invisible'), findsOneWidget);
+    });
+
+    testWidgets('shows a Scan QR action for camera platforms', (tester) async {
+      const address = '/ip4/192.168.1.20/udp/52341/udx/p2p/12D3KooWQrReceiver';
+      await tester.pumpWidget(
+        _wrapReceiveWithState(
+          const SyncOrchestratorState(),
+          db: db,
+          localMultiaddresses: [address],
+        ),
+      );
+      await tester.pump();
+
+      // Start advertising so the receive screen copies addresses from the
+      // transport and reveals the Connect manually section.
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedWifiOff01,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Scan QR'), findsOneWidget);
     });
   });
 

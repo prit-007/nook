@@ -1,14 +1,18 @@
 import 'dart:async' show unawaited;
+import 'dart:math' show Random;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../sync/sync_orchestrator.dart';
+import '../../sync/transport/sync_transport.dart';
+import 'widgets/incoming_pairing_card.dart';
+import 'widgets/qr_display_card.dart';
+import 'widgets/qr_scan_screen.dart';
 import 'widgets/conflict_card.dart';
-import 'widgets/pairing_code_field.dart';
 
 /// Sync receive screen — an immersive "Broadcasting" beacon + incoming requests.
 class SyncReceiveScreen extends ConsumerStatefulWidget {
@@ -75,84 +79,56 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
   }
 
   void _showQrCodeDialog(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     // Use the first address (primary multiaddr with /p2p/<peer id> suffix).
     final primaryAddress = _ownAddresses.first;
     showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Scan to connect'),
-        content: SizedBox(
-          width: 260,
-          height: 360,
-          child: Column(
-            children: [
-              Text(
-                'Show this QR code to the sender.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: QrImageView(
-                  data: primaryAddress,
-                  version: QrVersions.auto,
-                  size: 220,
-                  backgroundColor: Colors.white,
-                  eyeStyle: QrEyeStyle(
-                    color: scheme.primary,
-                    eyeShape: QrEyeShape.circle,
-                  ),
-                  dataModuleStyle: QrDataModuleStyle(
-                    color: scheme.onSurface,
-                    dataModuleShape: QrDataModuleShape.circle,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                primaryAddress,
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-          FilledButton.tonal(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: primaryAddress));
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Address copied to clipboard'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-            child: const Text('Copy Address'),
-          ),
-        ],
+      builder: (_) => QrDisplayCard(
+        data: primaryAddress,
+        caption: 'Show this QR code to the sender.',
       ),
     );
+  }
+
+  /// Mobile "receive from desktop" path: scans the desktop's QR (shown on its
+  /// send screen), dials it, and waits for the desktop to push the notes.
+  Future<void> _scanAndReceive(BuildContext context) async {
+    if (!qrCameraSupported) return;
+    unawaited(HapticFeedback.mediumImpact());
+
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const QrScanScreen()),
+    );
+    if (scanned == null || scanned.trim().isEmpty) return;
+
+    final device = SyncDevice.fromManualAddress(scanned);
+    if (device == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('That QR code is not a valid Nook address.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Both devices verify the same 6-digit code before any data moves.
+    final pairingCode = (Random().nextInt(900000) + 100000).toString();
+    if (!context.mounted) return;
+    final confirmed = await context.push<bool>(
+      '/sync/pairing',
+      extra: {
+        'pairingCode': pairingCode,
+        'deviceName': device.deviceName,
+      },
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    await ref
+        .read(syncOrchestratorProvider.notifier)
+        .connectToDevice(device, pairingCode: pairingCode);
   }
 
   @override
@@ -294,68 +270,8 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
                   children: [
                     if (syncState.pendingPairing != null) ...[
                       // Incoming request card.
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: scheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: scheme.primary.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              '${syncState.pendingPairing!.remoteDeviceName} '
-                              'wants to connect',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: scheme.onPrimaryContainer,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Confirm this code matches the one shown on '
-                              'their device.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: scheme.onPrimaryContainer.withValues(
-                                  alpha: 0.8,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            PairingCodeField(
-                              code: syncState.pendingPairing!.pairingCode,
-                            ),
-                            const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: FilledButton.tonal(
-                                    onPressed: () => ref
-                                        .read(syncOrchestratorProvider.notifier)
-                                        .rejectPairing(),
-                                    child: const Text('Reject'),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: FilledButton(
-                                    onPressed: () => ref
-                                        .read(syncOrchestratorProvider.notifier)
-                                        .confirmPairing(),
-                                    child: const Text('Accept'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+                      const IncomingPairingCard(),
+                      const SizedBox(height: 20),
                     ],
                     if (syncState.phase == SyncPhase.receiving) ...[
                       const SizedBox(height: 20),
@@ -487,6 +403,21 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
                                     ),
                                   ),
                                 ),
+                                // Camera platforms can dial a desktop that is
+                                // showing its QR on the send screen.
+                                if (qrCameraSupported)
+                                  FilledButton.tonalIcon(
+                                    onPressed: () => _scanAndReceive(context),
+                                    icon: HugeIcon(
+                                      icon: HugeIcons.strokeRoundedQrCodeScan,
+                                      size: 18,
+                                      color: scheme.primary,
+                                    ),
+                                    label: const Text('Scan QR'),
+                                    style: FilledButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ),
                                 // QR code button (all platforms support display)
                                 FilledButton.tonalIcon(
                                   onPressed: () => _showQrCodeDialog(context),

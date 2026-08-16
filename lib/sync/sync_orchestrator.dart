@@ -502,7 +502,17 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     final request = state.pendingPairing;
     if (request == null) return;
     await _transport?.respondToPairing(request, true);
-    state = state.copyWith(clearPendingPairing: true);
+    state = state.copyWith(
+      clearPendingPairing: true,
+      // The pairing was approved: remember who dialed us so this device can
+      // send notes back (ShareIt-style — mobile scans the PC's QR and dials
+      // it, then the PC pushes the selected notes to the mobile).
+      selectedDevice: SyncDevice(
+        deviceId: request.remoteDeviceId,
+        deviceName: request.remoteDeviceName,
+        isOnline: true,
+      ),
+    );
   }
 
   /// Rejects a pending incoming pairing request.

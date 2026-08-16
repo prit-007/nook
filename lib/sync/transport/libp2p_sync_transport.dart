@@ -90,6 +90,12 @@ class Libp2pSyncTransport implements SyncTransport {
   /// Peer the initiator has paired with (set on successful pairing).
   PeerId? _connectedPeerId;
 
+  /// Peer that dialed US and whose pairing we approved. Set on the acceptor
+  /// side when a pairing request is approved, so the acceptor can open a data
+  /// stream back to the dialer (ShareIt-style: mobile scans the PC's QR and
+  /// dials it, then the PC sends the selected notes).
+  PeerId? _acceptedFromPeerId;
+
   /// Streams held awaiting a receiver-side pairing decision, keyed by request id.
   final Map<String, P2PStream> _heldStreams = {};
   final Map<String, Timer> _heldStreamTimers = {};
@@ -388,6 +394,11 @@ class Libp2pSyncTransport implements SyncTransport {
     _heldStreamTimers.remove(request.connectionId)?.cancel();
     if (stream == null) return;
 
+    if (!approve) {
+      // A declined pairing is a distinct outcome — clear the remembered peer.
+      _acceptedFromPeerId = null;
+    }
+
     nookLog(
       NookLogKey.sync,
       'Responding to pairing from ${request.remoteDeviceName}: '
@@ -429,7 +440,9 @@ class Libp2pSyncTransport implements SyncTransport {
   Future<SyncAck?> sendData(List<int> data) async {
     await initialize();
 
-    final peerId = _connectedPeerId;
+    // The initiator dials and sends; the acceptor (who approved an incoming
+    // pairing) can also send back to whoever dialed it.
+    final peerId = _connectedPeerId ?? _acceptedFromPeerId;
     if (peerId == null) {
       _emitState(const SyncSessionState.error('No device connected'));
       return null;
@@ -547,7 +560,7 @@ class Libp2pSyncTransport implements SyncTransport {
 
       switch (message.type) {
         case SyncMessageType.pairingRequest:
-          _handleIncomingPairingRequest(stream, message);
+          _handleIncomingPairingRequest(stream, remotePeer, message);
         case SyncMessageType.dataBundle:
           _handleIncomingDataBundle(stream, message);
         case SyncMessageType.ack:
@@ -577,7 +590,11 @@ class Libp2pSyncTransport implements SyncTransport {
     }
   }
 
-  void _handleIncomingPairingRequest(P2PStream stream, SyncMessage message) {
+  void _handleIncomingPairingRequest(
+    P2PStream stream,
+    PeerId remotePeer,
+    SyncMessage message,
+  ) {
     if (message.requestId == null) {
       unawaited(stream.close());
       return;
@@ -601,9 +618,15 @@ class Libp2pSyncTransport implements SyncTransport {
     final requestId = message.requestId!;
     _heldStreams[requestId] = stream;
 
+    // Remember who dialed us so the acceptor can send back after approval.
+    _acceptedFromPeerId = remotePeer;
+
     _heldStreamTimers[requestId] = Timer(heldStreamTimeout, () {
       final held = _heldStreams.remove(requestId);
       _heldStreamTimers.remove(requestId);
+      if (_acceptedFromPeerId == remotePeer) {
+        _acceptedFromPeerId = null;
+      }
       unawaited(held?.close());
     });
 
@@ -665,6 +688,7 @@ class Libp2pSyncTransport implements SyncTransport {
     _discovery = null;
 
     _connectedPeerId = null;
+    _acceptedFromPeerId = null;
 
     for (final held in _heldStreams.values) {
       unawaited(held.close());

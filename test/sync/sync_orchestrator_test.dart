@@ -622,6 +622,32 @@ void main() {
       expect(state.pendingPairing, isNull);
     });
 
+    test(
+        'confirmPairing remembers the dialer as selectedDevice so the '
+        'acceptor can send notes back (ShareIt-style reverse send)', () async {
+      container = makeContainer();
+      final notifier = container.read(syncOrchestratorProvider.notifier);
+
+      await notifier.initializeTransport();
+      await notifier.startAdvertising();
+
+      mockTransport.emitPairingRequest(const PairingRequest(
+        remoteDeviceId: 'peer-1',
+        remoteDeviceName: 'Galaxy S24',
+        pairingCode: '654321',
+        connectionId: 'conn-1',
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      await notifier.confirmPairing();
+
+      final state = container.read(syncOrchestratorProvider);
+      expect(state.selectedDevice, isNotNull,
+          reason: 'acceptor must know who dialed it to send back');
+      expect(state.selectedDevice!.deviceId, 'peer-1');
+      expect(state.selectedDevice!.deviceName, 'Galaxy S24');
+    });
+
     test('rejectPairing denies the request and clears it', () async {
       container = makeContainer();
       final notifier = container.read(syncOrchestratorProvider.notifier);
