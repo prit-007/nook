@@ -172,8 +172,8 @@ class NookMdnsDiscovery {
     await MulticastLock.release();
   }
 
-  /// Advertises the host on mDNS, adding one `dnsaddr=` record per listen
-  /// address (with the peer id) plus a URL-encoded `devicename=` record.
+  /// Advertises the host on mDNS, adding one `dnsaddr=` record per dialable
+  /// listen address (with the peer id) plus a URL-encoded `devicename=` record.
   Future<void> _startAdvertising() async {
     if (!networkEnabled) return;
     final addresses = _host.addrs;
@@ -183,8 +183,18 @@ class NookMdnsDiscovery {
       await MulticastLock.acquire();
       _activeInterface ??= await _resolveActiveInterface();
 
+      final virtualIps = await virtualAdapterAddresses();
+      final dialable = filterDialableAddrs(
+        addresses,
+        virtualInterfaceIps: virtualIps,
+      );
+      // Advertise only addresses a peer can actually dial (skip Tailscale ULA,
+      // Docker/VPN virtual adapters); fall back to the full set when nothing
+      // survives (hermetic loopback tests).
+      final advertised = dialable.isNotEmpty ? dialable : addresses;
+
       final txtRecords = <String>[];
-      for (final addr in addresses) {
+      for (final addr in advertised) {
         final fullAddr = '${addr.toString()}/p2p/${_host.id.toString()}';
         txtRecords.add('${NookMdnsConstants.dnsaddrPrefix}$fullAddr');
       }
@@ -475,6 +485,70 @@ class NookMdnsDiscovery {
     candidates.sort(
         (a, b) => _interfaceScore(b.name).compareTo(_interfaceScore(a.name)));
     return candidates.first;
+  }
+
+  /// Filters [addrs] down to the addresses a peer on the same LAN can actually
+  /// dial: keeps LAN unicast addresses, drops loopback, link-local, IPv6 ULA
+  /// (fc00::/7 — the range Tailscale/ZeroTier use), multicast, and any address
+  /// that lives on a known virtual adapter (VPN, Docker, Tailscale, ...).
+  ///
+  /// [virtualInterfaceIps] is the set of IPs assigned to virtual adapters on
+  /// this host (from [virtualAdapterAddresses]); tests inject it directly.
+  /// Package-visible so the libp2p transport can advertise only dialable
+  /// addresses (a phone cannot route to a Docker or Tailscale address).
+  static List<MultiAddr> filterDialableAddrs(
+    List<MultiAddr> addrs, {
+    Set<String> virtualInterfaceIps = const {},
+  }) {
+    final dialable = <MultiAddr>[];
+    for (final addr in addrs) {
+      final v4 = addr.ip4;
+      if (v4 != null) {
+        final ip = InternetAddress.tryParse(v4);
+        if (ip == null) continue;
+        if (ip.isLoopback || ip.isLinkLocal || ip.isMulticast) continue;
+        if (virtualInterfaceIps.contains(ip.address)) continue;
+        dialable.add(addr);
+        continue;
+      }
+      final v6 = addr.ip6;
+      if (v6 != null) {
+        final ip = InternetAddress.tryParse(v6);
+        if (ip == null) continue;
+        if (ip.isLoopback || ip.isLinkLocal || ip.isMulticast) continue;
+        if (_isIpv6Ula(ip)) continue;
+        if (virtualInterfaceIps.contains(ip.address)) continue;
+        dialable.add(addr);
+      }
+    }
+    return dialable;
+  }
+
+  /// Returns the set of IPv4/IPv6 addresses assigned to virtual adapters on
+  /// this host (VPN, Docker, Tailscale, tunnels, ...). Addresses on these
+  /// adapters are reachable only from the virtual network, never from a phone
+  /// on the real LAN.
+  static Future<Set<String>> virtualAdapterAddresses() async {
+    final interfaces = await NetworkInterface.list();
+    final ips = <String>{};
+    for (final iface in interfaces) {
+      if (!_isVirtualAdapter(iface.name)) continue;
+      for (final addr in iface.addresses) {
+        ips.add(addr.address);
+      }
+    }
+    return ips;
+  }
+
+  /// Whether [ip] falls in the IPv6 unique-local range fc00::/7 (the range
+  /// used by Tailscale, ZeroTier, and site-local VPNs — not reachable from a
+  /// phone on the LAN).
+  static bool _isIpv6Ula(InternetAddress ip) {
+    if (ip.type != InternetAddressType.IPv6) return false;
+    final bytes = ip.rawAddress;
+    if (bytes.isEmpty) return false;
+    // fc00::/7 → the first byte is 0xfc or 0xfd.
+    return (bytes[0] & 0xfe) == 0xfc;
   }
 
   /// Convenience instance wrapper for [_resolveActiveInterface] usage in

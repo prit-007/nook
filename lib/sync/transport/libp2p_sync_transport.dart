@@ -173,6 +173,22 @@ class Libp2pSyncTransport implements SyncTransport {
       networkEnabled: discoveryNetworkEnabled,
     );
 
+    // Cache the LAN-reachable addresses once. Filtering here (instead of in
+    // the getter) keeps the getter sync for the UI while still excluding
+    // non-routable addresses (Tailscale ULA, Docker, VPN) from the QR code and
+    // manual-address list. Tests bound to loopback fall back to the raw addrs.
+    final virtualIps = await NookMdnsDiscovery.virtualAdapterAddresses();
+    final dialable = NookMdnsDiscovery.filterDialableAddrs(
+      host.addrs,
+      virtualInterfaceIps: virtualIps,
+    );
+    if (dialable.isNotEmpty) {
+      _dialableLocalMultiaddresses = dialable
+          .map((a) => '${a.toString()}/p2p/${host.id.toString()}')
+          .toSet()
+          .toList();
+    }
+
     _initialized = true;
     nookLog(
       NookLogKey.sync,
@@ -192,17 +208,29 @@ class Libp2pSyncTransport implements SyncTransport {
   /// Dialable multiaddrs with the peer id suffixed, e.g.
   /// `/ip4/192.168.1.20/udp/52341/udx/p2p/12D3KooW...` — the addresses a sender
   /// can enter manually (see [SyncDevice.fromManualAddress]) to bypass mDNS
-  /// discovery entirely. Uses `host.addrs` so the unspecified `0.0.0.0` bind
-  /// resolves to the device's real LAN addresses. Empty until [initialize].
+  /// discovery entirely.
+  ///
+  /// Only LAN-reachable addresses are returned (loopback, link-local, IPv6
+  /// ULA, multicast, and virtual-adapter addresses such as Docker/Tailscale
+  /// are filtered out — a phone cannot route to them). Uses `host.addrs` so
+  /// the unspecified `0.0.0.0` bind resolves to the device's real LAN
+  /// addresses. Empty until [initialize]. In hermetic tests bound to loopback
+  /// the raw addrs are returned so loopback dials keep working.
   @override
   List<String> get localMultiaddresses {
     final host = _host;
     if (host == null) return const [];
+    final dialable = _dialableLocalMultiaddresses;
+    if (dialable != null) return dialable;
     return host.addrs
         .map((a) => '${a.toString()}/p2p/${host.id.toString()}')
         .toSet()
         .toList();
   }
+
+  /// Cached [localMultiaddresses] restricted to LAN-reachable addrs, computed
+  /// after [initialize]. Null until computed so the loopback fallback applies.
+  List<String>? _dialableLocalMultiaddresses;
 
   /// Test hook: simulate discovering [device] without multicast by injecting it
   /// into the mDNS discovery pipeline, which fans out through
