@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-08-16
+
+### Quick Share-style cross-device sync
+
+- **QR code pairing**. The receiver's "Receive Notes" screen now shows its
+  connection address as a scannable QR code; the sender's camera scans it and
+  dials straight in — no mDNS needed. Manual address entry is still there for
+  firewalled or client-isolated networks.
+- **Send to phone from desktop**. On Windows/Linux the Send screen gains a
+  **"Send via QR"** action: it shows this device's QR code, the phone scans it
+  with its camera, and the desktop pushes the selected notes back after
+  pairing. The phone's Receive screen also has a **Scan QR** option to dial a
+  desktop directly.
+- The QR-scanning device is no longer forced to be the sender: whoever approves
+  pairing can transfer, so pairing direction and data direction are now
+  independent.
+- **Wi-Fi Direct discovery (Android)**. Receivers create a Wi-Fi Direct group
+  and advertise over DNS-SD, so devices on different Wi-Fi networks can still
+  find and connect (the Quick Share mechanism). Senders join the group and dial
+  over the P2P link; a manual "Add device by address" fallback remains when
+  multicast or P2P is blocked.
+
+### Discovery reliability
+- mDNS now pins the active network interface, binds the multicast socket to it,
+  and disables `SO_REUSEPORT` on Android — fixing discovery on devices where
+  the default interface binding picked the wrong NIC.
+- Fixed a shutdown race that crashed discovery with
+  `Bad state: Cannot add event after closing` when stopping/restarting.
+
+### Other
+- Notebook and Tag creation sheets were refactored into stateful widgets that
+  own their controllers.
+- Android now declares the camera permission and iOS/macOS the camera usage
+  string for QR scanning.
+
 ## [0.8.2.3] - 2026-08-15
 
 ### F-Droid compatibility
