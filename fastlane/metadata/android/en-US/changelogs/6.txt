@@ -1,0 +1,8 @@
+Nook 0.8.4 — sync reliability fixes.
+
+- Doodles are no longer lost when syncing — strokes survive the transfer.
+- Pairing now needs both devices to accept the same PIN before anything moves,
+  and a failed connection offers a retry instead of silently proceeding.
+- mDNS discovery fixed so nearby devices actually show up on the Send screen.
+- Sharper, higher-contrast QR codes and a prominent "Scan a sender's QR code"
+  action on the receive screen.

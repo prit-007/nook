@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-08-16
+
+### Sync reliability
+- **Doodles are no longer lost in sync.** Inline editor doodles were created
+  with only a document node and never an attachment row, so they were skipped
+  when packing a sync bundle and the receiver got an empty doodle. Saving a
+  doodle now also creates its attachment row.
+- **Pairing now requires both devices to accept the same code.** The PIN stays
+  visible on the sender in a "waiting for the receiver…" state while it dials,
+  and the transfer only starts once both sides confirm. A failed connection
+  keeps the PIN on screen with a retry instead of silently proceeding.
+- **mDNS discovery now actually finds devices.** The periodic query re-fired
+  every 5s while each lookup held the mDNS port for its full 10s timeout, so
+  overlapping queries failed to bind (especially on Android). Queries now run
+  back-to-back, one at a time.
+- **QR codes are high-contrast black-on-white** with square modules — crisp
+  edges that scan reliably on small phone screens.
+- The receive screen gains a prominent **"Scan a sender's QR code"** action,
+  and the send/receive screens stop stretching absurdly on large displays.
+
 ## [0.8.3] - 2026-08-16
 
 ### Quick Share-style cross-device sync

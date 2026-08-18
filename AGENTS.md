@@ -41,6 +41,25 @@ flutter test --coverage -x network
   artifact that built successfully. Release body is extracted from CHANGELOG
   by tag name — a `## [x.y.z]` entry must exist for each tagged version.
 
+## Android ABI splits & version codes (F-Droid)
+- Release builds are split per ABI: `flutter build apk --release --split-per-abi`
+  produces `app-armeabi-v7a/arm64-v8a/x86_64-release.apk`. The gradle block in
+  `android/app/build.gradle.kts` re-encodes each ABI's version code as
+  `base × 10 + offset` (v7a=1, arm64=2, x86_64=3) — **base 6 → 61/62/63** — so
+  F-Droid's `VercodeOperation: ['%c * 10 + 1', '%c * 10 + 2', '%c * 10 + 3']`
+  matches. Bump the base code in `pubspec.yaml` (version `x.y.z+N`) for every
+  release; the offsets stay fixed.
+- The override MUST be `android.applicationVariants.configureEach` (registered
+  after the Flutter Gradle plugin's own `abi*1000+base` override at
+  `FlutterPlugin.kt`), because `configureEach` runs in registration order and
+  the later block wins. `androidComponents.onVariants` is overwritten by the
+  plugin and yields `1xxx/2xxx/4xxx` codes — do not switch back.
+- Release builds use `--obfuscate --split-debug-info=build/symbols` (smaller
+  `libapp.so`; symbols archived by CI for `flutter symbolize`). The F-Droid
+  metadata (`metadata/com.devparadise.nook.yml` in the fdroiddata repo) uses
+  `srclibs: flutter@3.44.8`, `ndk: r28c` (= 28.2.13676358), and three per-ABI
+  build blocks with `--split-per-abi --target-platform=android-arm|arm64|x64`.
+
 ## Lint / format
 - Includes `flutter_lints/flutter.yaml` plus custom rules in `analysis_options.yaml`.
 - Single quotes preferred; `avoid_print: true`; generated files excluded.
