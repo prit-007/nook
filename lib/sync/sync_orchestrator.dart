@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/platform/nearby_permissions.dart';
+import '../core/platform/wifi_direct.dart';
 import '../core/providers/database_provider.dart';
 import '../core/providers/talker_provider.dart';
 import '../data/repositories/attachment_repository.dart';
@@ -127,12 +129,50 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   StreamSubscription? _bytesSub;
   StreamSubscription? _progressSub;
   StreamSubscription? _pairingSub;
+  StreamSubscription? _wifiDirectServiceSub;
+  StreamSubscription? _wifiDirectGroupSub;
+  StreamSubscription? _wifiDirectErrorSub;
   String _localDeviceId = '';
   String _localDeviceName = '';
   bool _stopped = false;
 
   /// Whether a transport has been initialized (test hook).
   bool get isTransportInitialized => _transport?.isInitialized ?? false;
+
+  /// This device's own dialable multiaddrs (peer id suffixed), e.g.
+  /// `/ip4/192.168.1.20/udp/52341/udx/p2p/12D3KooW...`. Populated once the
+  /// transport initializes; shown on the receive screen so a sender can add
+  /// this device manually when mDNS discovery is unavailable.
+  List<String> get localMultiaddresses =>
+      _transport?.localMultiaddresses ?? const [];
+
+  /// Connects to a device entered manually as a full multiaddr (must include
+  /// the `/p2p/<peer id>` suffix), bypassing mDNS discovery entirely.
+  Future<void> connectToManualAddress(
+    String address, {
+    String? pairingCode,
+  }) async {
+    final device = SyncDevice.fromManualAddress(address);
+    if (device == null) {
+      nookLog(
+        NookLogKey.sync,
+        'Manual connect rejected: invalid address "$address"',
+        LogLevel.warning,
+      );
+      state = state.copyWith(
+        phase: SyncPhase.error,
+        error: 'Invalid address — it must end with /p2p/<peer id>',
+        outcome: SyncOutcomeCategory.internal,
+      );
+      return;
+    }
+    nookLog(
+      NookLogKey.sync,
+      'Manual connect to ${device.deviceId} via ${device.multiaddresses}',
+      LogLevel.info,
+    );
+    await connectToDevice(device, pairingCode: pairingCode);
+  }
 
   /// Serializes received bundles so two frames delivered back-to-back over a
   /// broadcast stream can never interleave DB writes / acks.
@@ -257,6 +297,69 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     });
 
     await _transport!.startDiscovery();
+    await _startWifiDirectDiscovery();
+  }
+
+  /// Starts Wi-Fi Direct DNS-SD discovery alongside mDNS. Finds Nook
+  /// receivers that are NOT on the same Wi-Fi network (the Quick Share
+  /// mechanism, on the existing transport). Best-effort: mDNS still runs.
+  Future<void> _startWifiDirectDiscovery() async {
+    if (!Platform.isAndroid || !WifiDirect.isSupportedPlatform) return;
+    if (!await _ensureWifiDirectPermissions()) return;
+
+    unawaited(_wifiDirectServiceSub?.cancel());
+    _wifiDirectServiceSub =
+        WifiDirect.serviceStream.listen(_onWifiDirectService);
+
+    unawaited(_wifiDirectErrorSub?.cancel());
+    _wifiDirectErrorSub = WifiDirect.errorStream.listen((message) {
+      nookLog(NookLogKey.sync, 'Wi-Fi Direct: $message', LogLevel.warning);
+    });
+
+    await WifiDirect.discoverServices();
+    nookLog(
+      NookLogKey.sync,
+      'Wi-Fi Direct discovery started',
+      LogLevel.info,
+    );
+  }
+
+  void _onWifiDirectService(WifiDirectService service) {
+    final device = SyncDevice.fromWifiDirectService(
+      instanceName: service.instanceName,
+      deviceAddress: service.deviceAddress,
+      txt: service.txt,
+    );
+    if (device == null) {
+      // A non-Nook Wi-Fi Direct service — ignore.
+      return;
+    }
+    if (device.deviceId == _localDeviceId) return;
+
+    nookLog(
+      NookLogKey.sync,
+      'Wi-Fi Direct device found: "${device.deviceName}" '
+      '(${device.deviceId} @ ${device.multiaddresses?.first})',
+      LogLevel.info,
+    );
+    final existing = state.devices;
+    final match = existing.indexWhere((d) =>
+        d.deviceId == device.deviceId &&
+        d.transportType == device.transportType);
+    if (match == -1) {
+      state = state.copyWith(devices: [...existing, device]);
+    }
+  }
+
+  Future<bool> _ensureWifiDirectPermissions() async {
+    final granted = await NearbyPermissions.check();
+    if (granted) return true;
+    nookLog(
+      NookLogKey.sync,
+      'Requesting nearby permissions for Wi-Fi Direct',
+      LogLevel.info,
+    );
+    return NearbyPermissions.request();
   }
 
   /// Starts advertising for incoming connections (receiver mode).
@@ -272,6 +375,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       clearOutcome: true,
     );
     await _transport!.startAdvertising();
+    await _startWifiDirectAdvertising();
 
     _ensureStateSubscription();
 
@@ -299,12 +403,116 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     });
   }
 
+  /// Creates a Wi-Fi Direct group and registers Nook's DNS-SD service on it,
+  /// so receivers are discoverable (and dialable) by senders on a different
+  /// Wi-Fi network. Best-effort: mDNS advertising still runs.
+  Future<void> _startWifiDirectAdvertising() async {
+    if (!Platform.isAndroid || !WifiDirect.isSupportedPlatform) return;
+    if (!await _ensureWifiDirectPermissions()) return;
+
+    unawaited(_wifiDirectErrorSub?.cancel());
+    _wifiDirectErrorSub = WifiDirect.errorStream.listen((message) {
+      nookLog(NookLogKey.sync, 'Wi-Fi Direct: $message', LogLevel.warning);
+    });
+
+    final group = await WifiDirect.createGroup();
+    if (group == null) {
+      nookLog(
+        NookLogKey.sync,
+        'Wi-Fi Direct group creation failed; mDNS-only',
+        LogLevel.warning,
+      );
+      return;
+    }
+    nookLog(
+      NookLogKey.sync,
+      'Wi-Fi Direct group ready (${group.networkName}, owner ${group.ownerAddress})',
+      LogLevel.info,
+    );
+
+    await _registerWifiDirectService(ownerAddress: group.ownerAddress);
+
+    // Re-register once the framework reports the real group-owner address
+    // (some devices only expose it after the group is fully formed).
+    unawaited(_wifiDirectGroupSub?.cancel());
+    _wifiDirectGroupSub = WifiDirect.groupStream.listen((g) {
+      if (g.ownerAddress.isNotEmpty) {
+        nookLog(
+          NookLogKey.sync,
+          'Wi-Fi Direct owner address resolved: ${g.ownerAddress}',
+          LogLevel.debug,
+        );
+        unawaited(_registerWifiDirectService(ownerAddress: g.ownerAddress));
+      }
+    });
+  }
+
+  /// Registers (or replaces) Nook's `_syncnotenet._tcp` service on the active
+  /// Wi-Fi Direct group with this device's dialable multiaddr in `dnsaddr`.
+  Future<void> _registerWifiDirectService(
+      {required String ownerAddress}) async {
+    // The UDX host binds 0.0.0.0 with the same port on every interface, so the
+    // P2P link dials the owner address + the advertised UDX port.
+    String? udxPort;
+    for (final addr in localMultiaddresses) {
+      final portMatch = RegExp(r'/udp/(\d+)/udx').firstMatch(addr);
+      if (portMatch != null) {
+        udxPort = portMatch.group(1);
+        break;
+      }
+    }
+    if (udxPort == null) {
+      nookLog(
+        NookLogKey.sync,
+        'Wi-Fi Direct: no UDX port available yet, skipping service',
+        LogLevel.warning,
+      );
+      return;
+    }
+    final resolvedOwner =
+        ownerAddress.isNotEmpty ? ownerAddress : _defaultP2pOwnerAddress;
+    final dnsaddr = WifiDirect.buildDnsaddr(
+      ownerAddress: resolvedOwner,
+      udxPort: udxPort,
+      peerId: _localDeviceId,
+    );
+    final instanceName = 'nook-$_localDeviceName';
+
+    final ok = await WifiDirect.registerService(
+      instanceName: instanceName,
+      txt: {
+        'dnsaddr': dnsaddr,
+        'name': _localDeviceName,
+      },
+    );
+    nookLog(
+      NookLogKey.sync,
+      ok
+          ? 'Wi-Fi Direct service registered ($instanceName → $dnsaddr)'
+          : 'Wi-Fi Direct service registration failed',
+      ok ? LogLevel.info : LogLevel.error,
+    );
+  }
+
+  /// Android's standard Wi-Fi Direct group-owner subnet address.
+  static const String _defaultP2pOwnerAddress = '192.168.49.1';
+
   /// Confirms a pending incoming pairing request.
   Future<void> confirmPairing() async {
     final request = state.pendingPairing;
     if (request == null) return;
     await _transport?.respondToPairing(request, true);
-    state = state.copyWith(clearPendingPairing: true);
+    state = state.copyWith(
+      clearPendingPairing: true,
+      // The pairing was approved: remember who dialed us so this device can
+      // send notes back (ShareIt-style — mobile scans the PC's QR and dials
+      // it, then the PC pushes the selected notes to the mobile).
+      selectedDevice: SyncDevice(
+        deviceId: request.remoteDeviceId,
+        deviceName: request.remoteDeviceName,
+        isOnline: true,
+      ),
+    );
   }
 
   /// Rejects a pending incoming pairing request.
@@ -770,11 +978,19 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     unawaited(_bytesSub?.cancel());
     unawaited(_progressSub?.cancel());
     unawaited(_pairingSub?.cancel());
+    unawaited(_wifiDirectServiceSub?.cancel());
+    unawaited(_wifiDirectGroupSub?.cancel());
+    unawaited(_wifiDirectErrorSub?.cancel());
     _deviceSub = null;
     _stateSub = null;
     _bytesSub = null;
     _progressSub = null;
     _pairingSub = null;
+    _wifiDirectServiceSub = null;
+    _wifiDirectGroupSub = null;
+    _wifiDirectErrorSub = null;
+
+    unawaited(WifiDirect.cleanup());
 
     await _transport?.disconnect();
     state = const SyncOrchestratorState();
@@ -786,6 +1002,9 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     unawaited(_bytesSub?.cancel());
     unawaited(_progressSub?.cancel());
     unawaited(_pairingSub?.cancel());
+    unawaited(_wifiDirectServiceSub?.cancel());
+    unawaited(_wifiDirectGroupSub?.cancel());
+    unawaited(_wifiDirectErrorSub?.cancel());
     _transport?.dispose();
   }
 

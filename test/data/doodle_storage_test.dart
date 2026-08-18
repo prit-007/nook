@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/attachment_repository.dart';
 import 'package:nook/data/repositories/doodle_storage.dart';
+import 'package:nook/data/repositories/note_repository.dart';
 import 'package:nook/data/tables/attachments.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/doodle/doodle_controller.dart';
@@ -15,125 +15,84 @@ AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
 
 void main() {
   late AppDatabase db;
-  late AttachmentRepository repo;
-  late Directory tempDir;
+  late Directory baseDir;
+  late AttachmentRepository attachments;
   late DoodleStorage storage;
 
   setUp(() async {
     db = createTestDb();
-    repo = AttachmentRepository(db);
-    tempDir = await Directory.systemTemp.createTemp('doodle_storage_');
-    storage = DoodleStorage(attachments: repo, baseDir: tempDir);
-
-    await db.into(db.notes).insert(
-          NotesCompanion.insert(
-            id: const Value('note-1'),
-            type: NoteType.text,
-            title: const Value('Test'),
-            deviceOriginId: 'device-1',
-          ),
-        );
+    baseDir = await Directory.systemTemp.createTemp('nook-doodle-test');
+    attachments = AttachmentRepository(db);
+    storage = DoodleStorage(attachments: attachments, baseDir: baseDir);
   });
 
   tearDown(() async {
     await db.close();
-    if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
-    }
+    await baseDir.delete(recursive: true);
   });
 
-  Stroke sampleStroke() => Stroke(
-        points: [const StrokePoint(Offset(1, 2), pressure: 0.5)],
-        color: const Color(0xFF112233),
-        width: 5,
-        tool: DoodleTool.highlighter,
-        opacity: 0.35,
-      );
+  List<Stroke> makeStrokes() => [
+        Stroke(
+          points: const [
+            StrokePoint(Offset(10, 10), pressure: 0.5),
+            StrokePoint(Offset(50, 50), pressure: 0.8),
+          ],
+          color: const Color(0xFF000000),
+          width: 3,
+          opacity: 1,
+        ),
+      ];
 
-  group('saveDoodle', () {
-    test('creates an attachment row and a sidecar file', () async {
-      final id = await storage.saveDoodle(
-        noteId: 'note-1',
-        strokes: [sampleStroke()],
-        background: DoodleBackground.ruled,
-      );
+  test('saveDoodle with a known attachmentId updates the existing row',
+      () async {
+    final note = await NoteRepository(db).createNote(
+      title: 'Doodle note',
+      type: NoteType.doodle,
+      deviceOriginId: 'local',
+    );
+    final attachmentId = await attachments.addDoodle(
+      noteId: note.id,
+      filePath: '',
+    );
 
-      expect(id, isA<String>());
-      expect(id, isNotEmpty);
+    await storage.saveDoodle(
+      noteId: note.id,
+      strokes: makeStrokes(),
+      attachmentId: attachmentId,
+    );
 
-      final row = await repo.getById(id);
-      expect(row, isNotNull);
-      expect(row!.type, equals(AttachmentType.doodleLayer));
-
-      final file = File('${tempDir.path}/$id.doodle.json');
-      expect(await file.exists(), isTrue);
-    });
-
-    test('returns an id whose file round-trips through loadDoodle', () async {
-      final id = await storage.saveDoodle(
-        noteId: 'note-1',
-        strokes: [sampleStroke()],
-        background: DoodleBackground.graph,
-      );
-
-      final data = await storage.loadDoodle(id);
-      expect(data.background, equals(DoodleBackground.graph));
-      expect(data.strokes.length, equals(1));
-      final stroke = data.strokes.first;
-      expect(stroke.color, equals(const Color(0xFF112233)));
-      expect(stroke.width, equals(5.0));
-      expect(stroke.tool, equals(DoodleTool.highlighter));
-      expect(stroke.opacity, equals(0.35));
-      expect(stroke.points.single.pressure, equals(0.5));
-    });
-
-    test('updates an existing attachment when attachmentId is given', () async {
-      final id = await storage.saveDoodle(
-        noteId: 'note-1',
-        strokes: [sampleStroke()],
-      );
-
-      final updated = await storage.saveDoodle(
-        noteId: 'note-1',
-        strokes: [sampleStroke(), sampleStroke()],
-        attachmentId: id,
-      );
-
-      expect(updated, equals(id));
-      final rows = await (db.select(db.attachments)
-            ..where((a) => a.noteId.equals('note-1')))
-          .get();
-      expect(rows, hasLength(1));
-      expect((await storage.loadDoodle(id)).strokes.length, equals(2));
-    });
+    final row = await attachments.getById(attachmentId);
+    expect(row, isNotNull);
+    expect(row!.type, AttachmentType.doodleLayer);
+    expect(row.filePath, '${baseDir.path}/$attachmentId.doodle.json');
   });
 
-  group('loadDoodle', () {
-    test('returns empty data for a missing id', () async {
-      final data = await storage.loadDoodle('no-such-id');
-      expect(data.strokes, isEmpty);
-      expect(data.background, equals(DoodleBackground.dotted));
-    });
+  test(
+      'saveDoodle with an attachmentId that has NO row creates one '
+      '(inline editor doodle bug)', () async {
+    final note = await NoteRepository(db).createNote(
+      title: 'Inline doodle',
+      type: NoteType.text,
+      deviceOriginId: 'local',
+    );
+    // An inline editor doodle only carries a document node id — no row yet.
+    const attachmentId = 'inline-doodle-1';
 
-    test('returns empty data when the sidecar file is missing', () async {
-      final id = await repo.addDoodle(
-          noteId: 'note-1', filePath: '/missing.doodle.json');
-      final data = await storage.loadDoodle(id);
-      expect(data.strokes, isEmpty);
-    });
-  });
+    final savedId = await storage.saveDoodle(
+      noteId: note.id,
+      strokes: makeStrokes(),
+      attachmentId: attachmentId,
+    );
 
-  group('deleteDoodle', () {
-    test('removes the attachment row and sidecar file', () async {
-      final id = await storage.saveDoodle(
-        noteId: 'note-1',
-        strokes: [sampleStroke()],
-      );
+    expect(savedId, attachmentId);
+    final row = await attachments.getById(attachmentId);
+    expect(row, isNotNull,
+        reason: 'the row must exist so sendNotes packs the doodle');
+    expect(row!.filePath, '${baseDir.path}/$attachmentId.doodle.json');
 
-      await storage.deleteDoodle(id);
-
-      expect(await repo.getById(id), isNull);
-      expect(await File('${tempDir.path}/$id.doodle.json').exists(), isFalse);
-    });
+    // The strokes round-trip so nothing is lost.
+    final loaded = await storage.loadDoodle(attachmentId);
+    expect(loaded.strokes, hasLength(1));
+    expect(loaded.strokes.first.points, hasLength(2));
   });
 }

@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Nook discovers and syncs with your other devices over your local Wi-Fi network.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Nook scans QR codes to quickly connect with nearby devices for syncing.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_syncnotenet._udp</string>

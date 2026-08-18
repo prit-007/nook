@@ -94,6 +94,13 @@ class NookMdnsDiscovery {
   MDNSServer? _server;
   MDNSService? _service;
 
+  /// The LAN interface multicast is bound to, resolved once and reused by
+  /// advertising and discovery. Keeps mDNS traffic on the active adapter
+  /// instead of silently going out the wrong NIC (Wi-Fi vs cellular on
+  /// Android, VPN/multi-NIC on Windows). Null when it cannot be resolved
+  /// (offline, tests).
+  NetworkInterface? _activeInterface;
+
   // Announcements: unsolicited multicast broadcasts so peers discover this
   // device even if their one-shot query fires while we were off.
   Timer? _announceTimer;
@@ -102,7 +109,6 @@ class NookMdnsDiscovery {
 
   // Discover state.
   StreamSubscription<ServiceEntry>? _discoverySubscription;
-  Timer? _discoveryTimer;
   bool _isDiscovering = false;
   bool _isAdvertising = false;
   final Set<String> _discoveredServices = <String>{};
@@ -134,17 +140,14 @@ class NookMdnsDiscovery {
   /// Starts discovery only. Safe to call repeatedly.
   Future<void> discoverOnly() async {
     if (_isDiscovering) return;
-    await _startDiscovery();
     _isDiscovering = true;
+    await _startDiscovery();
   }
 
   /// Stops advertising and discovery.
   Future<void> stop() async {
     await _discoverySubscription?.cancel();
     _discoverySubscription = null;
-
-    _discoveryTimer?.cancel();
-    _discoveryTimer = null;
 
     _discoveredServices.clear();
     _isDiscovering = false;
@@ -165,8 +168,8 @@ class NookMdnsDiscovery {
     await MulticastLock.release();
   }
 
-  /// Advertises the host on mDNS, adding one `dnsaddr=` record per listen
-  /// address (with the peer id) plus a URL-encoded `devicename=` record.
+  /// Advertises the host on mDNS, adding one `dnsaddr=` record per dialable
+  /// listen address (with the peer id) plus a URL-encoded `devicename=` record.
   Future<void> _startAdvertising() async {
     if (!networkEnabled) return;
     final addresses = _host.addrs;
@@ -174,9 +177,20 @@ class NookMdnsDiscovery {
 
     try {
       await MulticastLock.acquire();
+      _activeInterface ??= await _resolveActiveInterface();
+
+      final virtualIps = await virtualAdapterAddresses();
+      final dialable = filterDialableAddrs(
+        addresses,
+        virtualInterfaceIps: virtualIps,
+      );
+      // Advertise only addresses a peer can actually dial (skip Tailscale ULA,
+      // Docker/VPN virtual adapters); fall back to the full set when nothing
+      // survives (hermetic loopback tests).
+      final advertised = dialable.isNotEmpty ? dialable : addresses;
 
       final txtRecords = <String>[];
-      for (final addr in addresses) {
+      for (final addr in advertised) {
         final fullAddr = '${addr.toString()}/p2p/${_host.id.toString()}';
         txtRecords.add('${NookMdnsConstants.dnsaddrPrefix}$fullAddr');
       }
@@ -196,7 +210,12 @@ class NookMdnsDiscovery {
         txt: txtRecords,
       );
 
-      final config = MDNSServerConfig(zone: _service!);
+      final config = MDNSServerConfig(
+        zone: _service!,
+        networkInterface: _activeInterface,
+        reusePort: !Platform.isAndroid,
+        reuseAddress: true,
+      );
       _server = MDNSServer(config);
       await _server!.start();
 
@@ -205,12 +224,14 @@ class NookMdnsDiscovery {
       // still finds us — mDNS on Android is otherwise pull-only and picky.
       _startAnnouncements();
       nookLog(NookLogKey.sync, 'mDNS advertising started', LogLevel.info);
-    } catch (_) {
-      // mDNS advertising is best-effort; discovery still works.
+    } catch (e) {
+      // mDNS advertising is best-effort (discovery still works), but a silent
+      // failure leaves the receiver invisible — log the real reason so the
+      // sync logs can explain "no device found".
       nookLog(
         NookLogKey.sync,
-        'mDNS advertising failed (best-effort)',
-        LogLevel.warning,
+        'mDNS advertising failed: $e',
+        LogLevel.error,
       );
     }
   }
@@ -239,6 +260,22 @@ class NookMdnsDiscovery {
     try {
       final socket = _announceSocket ??=
           await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+      final iface = _activeInterface;
+      if (iface != null) {
+        // Route the unsolicited announcements out the active LAN interface so
+        // they reach the subnet instead of the default-route adapter. Dart's
+        // RawDatagramSocket has no setMulticastInterface; set the raw option
+        // directly (mirrors mdns_dart's own extension in src/utils.dart).
+        final level = RawSocketOption.levelIPv4;
+        final option = RawSocketOption.IPv4MulticastInterface;
+        for (final addr in iface.addresses) {
+          if (addr.type == InternetAddressType.IPv4) {
+            socket
+                .setRawOption(RawSocketOption(level, option, addr.rawAddress));
+            break;
+          }
+        }
+      }
       final records = service.records(
         DNSQuestion(
           name: serviceAddr,
@@ -255,11 +292,13 @@ class NookMdnsDiscovery {
   }
 
   /// Queries for other Nook devices on mDNS. The query runs immediately and
-  /// repeats every few seconds because MDNSClient.query is a one-shot lookup.
+  /// re-runs after each one completes, because MDNSClient.query is a one-shot
+  /// lookup that holds the mDNS port for its full timeout.
   Future<void> _startDiscovery() async {
     if (!networkEnabled) return;
     try {
       await MulticastLock.acquire();
+      _activeInterface ??= await _resolveActiveInterface();
 
       final serviceOnly = _serviceName.replaceAll('.local', '');
       final params = QueryParams(
@@ -267,26 +306,38 @@ class NookMdnsDiscovery {
         domain: NookMdnsConstants.mdnsDomain,
         timeout: const Duration(seconds: 10),
         wantUnicastResponse: false,
-        reusePort: true,
+        networkInterface: _activeInterface,
+        // Android has documented bind issues with SO_REUSEPORT on the mDNS
+        // port; reuseAddress alone is enough for multicast there.
+        reusePort: !Platform.isAndroid,
         reuseAddress: true,
         multicastHops: 1,
       );
 
-      await _performDiscoveryQuery(params);
-
-      _discoveryTimer = Timer.periodic(
-        const Duration(seconds: 5),
-        (_) async => _performDiscoveryQuery(params),
-      );
+      // Never overlap queries: each MDNSClient.query holds the mDNS port for
+      // its whole timeout, so a fixed-period timer would re-bind while the
+      // previous query is still listening and fail (especially on Android,
+      // where reusePort is off). Run the next query only after the previous
+      // one has fully completed.
+      unawaited(_runDiscoveryLoop(params));
       nookLog(NookLogKey.sync, 'mDNS discovery started', LogLevel.info);
     } catch (e) {
       // Discovery is best-effort — but log the real reason so the "Searching
       // for devices..." state never stays mysteriously stuck.
+      _isDiscovering = false;
       nookLog(
         NookLogKey.sync,
         'mDNS discovery failed to start: $e',
-        LogLevel.warning,
+        LogLevel.error,
       );
+    }
+  }
+
+  Future<void> _runDiscoveryLoop(QueryParams params) async {
+    while (_isDiscovering) {
+      await _performDiscoveryQuery(params);
+      if (!_isDiscovering) break;
+      await Future<void>.delayed(const Duration(seconds: 5));
     }
   }
 
@@ -297,11 +348,13 @@ class NookMdnsDiscovery {
         _processDiscoveredService(serviceEntry);
       }
     } catch (e) {
-      // Best-effort — a transient failure must not kill the periodic loop.
+      // Best-effort — a transient failure must not kill the periodic loop, but
+      // the real reason must surface in the sync logs so "no device found" is
+      // explainable.
       nookLog(
         NookLogKey.sync,
         'mDNS discovery query failed: $e',
-        LogLevel.warning,
+        LogLevel.error,
       );
     }
   }
@@ -413,6 +466,135 @@ class NookMdnsDiscovery {
     }
 
     return addresses;
+  }
+
+  /// Picks the LAN interface multicast should use, preferring a WiFi or
+  /// Ethernet adapter that carries a real (non-loopback, non-link-local)
+  /// IPv4 address, and skipping obvious virtual adapters (VPN, Docker,
+  /// Tailscale, etc.). Returns null when no usable interface exists.
+  ///
+  /// Package-visible (static) so it can be tested without a live network.
+  static Future<NetworkInterface?> resolveActiveInterface() async {
+    final interfaces =
+        await NetworkInterface.list(type: InternetAddressType.IPv4);
+    final candidates = <NetworkInterface>[];
+    for (final iface in interfaces) {
+      final hasLanIp = iface.addresses.any(
+        (a) => !a.isLoopback && !a.isLinkLocal,
+      );
+      if (!hasLanIp) continue;
+      if (_isVirtualAdapter(iface.name)) continue;
+      candidates.add(iface);
+    }
+    if (candidates.isEmpty) return null;
+    if (candidates.length == 1) return candidates.first;
+    candidates.sort(
+        (a, b) => _interfaceScore(b.name).compareTo(_interfaceScore(a.name)));
+    return candidates.first;
+  }
+
+  /// Filters [addrs] down to the addresses a peer on the same LAN can actually
+  /// dial: keeps LAN unicast addresses, drops loopback, link-local, IPv6 ULA
+  /// (fc00::/7 — the range Tailscale/ZeroTier use), multicast, and any address
+  /// that lives on a known virtual adapter (VPN, Docker, Tailscale, ...).
+  ///
+  /// [virtualInterfaceIps] is the set of IPs assigned to virtual adapters on
+  /// this host (from [virtualAdapterAddresses]); tests inject it directly.
+  /// Package-visible so the libp2p transport can advertise only dialable
+  /// addresses (a phone cannot route to a Docker or Tailscale address).
+  static List<MultiAddr> filterDialableAddrs(
+    List<MultiAddr> addrs, {
+    Set<String> virtualInterfaceIps = const {},
+  }) {
+    final dialable = <MultiAddr>[];
+    for (final addr in addrs) {
+      final v4 = addr.ip4;
+      if (v4 != null) {
+        final ip = InternetAddress.tryParse(v4);
+        if (ip == null) continue;
+        if (ip.isLoopback || ip.isLinkLocal || ip.isMulticast) continue;
+        if (virtualInterfaceIps.contains(ip.address)) continue;
+        dialable.add(addr);
+        continue;
+      }
+      final v6 = addr.ip6;
+      if (v6 != null) {
+        final ip = InternetAddress.tryParse(v6);
+        if (ip == null) continue;
+        if (ip.isLoopback || ip.isLinkLocal || ip.isMulticast) continue;
+        if (_isIpv6Ula(ip)) continue;
+        if (virtualInterfaceIps.contains(ip.address)) continue;
+        dialable.add(addr);
+      }
+    }
+    return dialable;
+  }
+
+  /// Returns the set of IPv4/IPv6 addresses assigned to virtual adapters on
+  /// this host (VPN, Docker, Tailscale, tunnels, ...). Addresses on these
+  /// adapters are reachable only from the virtual network, never from a phone
+  /// on the real LAN.
+  static Future<Set<String>> virtualAdapterAddresses() async {
+    final interfaces = await NetworkInterface.list();
+    final ips = <String>{};
+    for (final iface in interfaces) {
+      if (!_isVirtualAdapter(iface.name)) continue;
+      for (final addr in iface.addresses) {
+        ips.add(addr.address);
+      }
+    }
+    return ips;
+  }
+
+  /// Whether [ip] falls in the IPv6 unique-local range fc00::/7 (the range
+  /// used by Tailscale, ZeroTier, and site-local VPNs — not reachable from a
+  /// phone on the LAN).
+  static bool _isIpv6Ula(InternetAddress ip) {
+    if (ip.type != InternetAddressType.IPv6) return false;
+    final bytes = ip.rawAddress;
+    if (bytes.isEmpty) return false;
+    // fc00::/7 → the first byte is 0xfc or 0xfd.
+    return (bytes[0] & 0xfe) == 0xfc;
+  }
+
+  /// Convenience instance wrapper for [_resolveActiveInterface] usage in
+  /// [NookMdnsDiscovery].
+  Future<NetworkInterface?> _resolveActiveInterface() =>
+      resolveActiveInterface();
+
+  static bool _isVirtualAdapter(String name) {
+    final lower = name.toLowerCase();
+    return [
+      'vpn',
+      'tun',
+      'tap',
+      'veth',
+      'docker',
+      'vmnet',
+      'vmware',
+      'virtualbox',
+      'utun',
+      'tailscale',
+      'zerotier',
+      'wintun',
+      'ppp'
+    ].any(lower.contains);
+  }
+
+  static int _interfaceScore(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('wlan') ||
+        lower.contains('wifi') ||
+        lower.contains('wi-fi') ||
+        lower.contains('wireless')) {
+      return 3;
+    }
+    if (lower.contains('eth') ||
+        lower.contains('en') ||
+        lower.contains('ethernet')) {
+      return 2;
+    }
+    return 1;
   }
 
   String _randomInstance() {

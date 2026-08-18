@@ -90,6 +90,12 @@ class Libp2pSyncTransport implements SyncTransport {
   /// Peer the initiator has paired with (set on successful pairing).
   PeerId? _connectedPeerId;
 
+  /// Peer that dialed US and whose pairing we approved. Set on the acceptor
+  /// side when a pairing request is approved, so the acceptor can open a data
+  /// stream back to the dialer (ShareIt-style: mobile scans the PC's QR and
+  /// dials it, then the PC sends the selected notes).
+  PeerId? _acceptedFromPeerId;
+
   /// Streams held awaiting a receiver-side pairing decision, keyed by request id.
   final Map<String, P2PStream> _heldStreams = {};
   final Map<String, Timer> _heldStreamTimers = {};
@@ -167,6 +173,22 @@ class Libp2pSyncTransport implements SyncTransport {
       networkEnabled: discoveryNetworkEnabled,
     );
 
+    // Cache the LAN-reachable addresses once. Filtering here (instead of in
+    // the getter) keeps the getter sync for the UI while still excluding
+    // non-routable addresses (Tailscale ULA, Docker, VPN) from the QR code and
+    // manual-address list. Tests bound to loopback fall back to the raw addrs.
+    final virtualIps = await NookMdnsDiscovery.virtualAdapterAddresses();
+    final dialable = NookMdnsDiscovery.filterDialableAddrs(
+      host.addrs,
+      virtualInterfaceIps: virtualIps,
+    );
+    if (dialable.isNotEmpty) {
+      _dialableLocalMultiaddresses = dialable
+          .map((a) => '${a.toString()}/p2p/${host.id.toString()}')
+          .toSet()
+          .toList();
+    }
+
     _initialized = true;
     nookLog(
       NookLogKey.sync,
@@ -183,14 +205,32 @@ class Libp2pSyncTransport implements SyncTransport {
     return _localDeviceId;
   }
 
-  /// This device's own dialable multiaddrs (raw listen addresses), populated
-  /// after [initialize]. Useful for surfacing the device address in the UI or
-  /// for wiring up direct dials in tests.
+  /// Dialable multiaddrs with the peer id suffixed, e.g.
+  /// `/ip4/192.168.1.20/udp/52341/udx/p2p/12D3KooW...` — the addresses a sender
+  /// can enter manually (see [SyncDevice.fromManualAddress]) to bypass mDNS
+  /// discovery entirely.
+  ///
+  /// Only LAN-reachable addresses are returned (loopback, link-local, IPv6
+  /// ULA, multicast, and virtual-adapter addresses such as Docker/Tailscale
+  /// are filtered out — a phone cannot route to them). Uses `host.addrs` so
+  /// the unspecified `0.0.0.0` bind resolves to the device's real LAN
+  /// addresses. Empty until [initialize]. In hermetic tests bound to loopback
+  /// the raw addrs are returned so loopback dials keep working.
+  @override
   List<String> get localMultiaddresses {
     final host = _host;
     if (host == null) return const [];
-    return host.network.listenAddresses.map((a) => a.toString()).toList();
+    final dialable = _dialableLocalMultiaddresses;
+    if (dialable != null) return dialable;
+    return host.addrs
+        .map((a) => '${a.toString()}/p2p/${host.id.toString()}')
+        .toSet()
+        .toList();
   }
+
+  /// Cached [localMultiaddresses] restricted to LAN-reachable addrs, computed
+  /// after [initialize]. Null until computed so the loopback fallback applies.
+  List<String>? _dialableLocalMultiaddresses;
 
   /// Test hook: simulate discovering [device] without multicast by injecting it
   /// into the mDNS discovery pipeline, which fans out through
@@ -382,6 +422,11 @@ class Libp2pSyncTransport implements SyncTransport {
     _heldStreamTimers.remove(request.connectionId)?.cancel();
     if (stream == null) return;
 
+    if (!approve) {
+      // A declined pairing is a distinct outcome — clear the remembered peer.
+      _acceptedFromPeerId = null;
+    }
+
     nookLog(
       NookLogKey.sync,
       'Responding to pairing from ${request.remoteDeviceName}: '
@@ -423,7 +468,9 @@ class Libp2pSyncTransport implements SyncTransport {
   Future<SyncAck?> sendData(List<int> data) async {
     await initialize();
 
-    final peerId = _connectedPeerId;
+    // The initiator dials and sends; the acceptor (who approved an incoming
+    // pairing) can also send back to whoever dialed it.
+    final peerId = _connectedPeerId ?? _acceptedFromPeerId;
     if (peerId == null) {
       _emitState(const SyncSessionState.error('No device connected'));
       return null;
@@ -541,7 +588,7 @@ class Libp2pSyncTransport implements SyncTransport {
 
       switch (message.type) {
         case SyncMessageType.pairingRequest:
-          _handleIncomingPairingRequest(stream, message);
+          _handleIncomingPairingRequest(stream, remotePeer, message);
         case SyncMessageType.dataBundle:
           _handleIncomingDataBundle(stream, message);
         case SyncMessageType.ack:
@@ -571,7 +618,11 @@ class Libp2pSyncTransport implements SyncTransport {
     }
   }
 
-  void _handleIncomingPairingRequest(P2PStream stream, SyncMessage message) {
+  void _handleIncomingPairingRequest(
+    P2PStream stream,
+    PeerId remotePeer,
+    SyncMessage message,
+  ) {
     if (message.requestId == null) {
       unawaited(stream.close());
       return;
@@ -595,9 +646,15 @@ class Libp2pSyncTransport implements SyncTransport {
     final requestId = message.requestId!;
     _heldStreams[requestId] = stream;
 
+    // Remember who dialed us so the acceptor can send back after approval.
+    _acceptedFromPeerId = remotePeer;
+
     _heldStreamTimers[requestId] = Timer(heldStreamTimeout, () {
       final held = _heldStreams.remove(requestId);
       _heldStreamTimers.remove(requestId);
+      if (_acceptedFromPeerId == remotePeer) {
+        _acceptedFromPeerId = null;
+      }
       unawaited(held?.close());
     });
 
@@ -659,6 +716,7 @@ class Libp2pSyncTransport implements SyncTransport {
     _discovery = null;
 
     _connectedPeerId = null;
+    _acceptedFromPeerId = null;
 
     for (final held in _heldStreams.values) {
       unawaited(held.close());

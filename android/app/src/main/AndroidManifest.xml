@@ -3,9 +3,14 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
+    <!-- Wi-Fi Direct (Quick Share-style cross-network sync) -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <!-- Android 13+ nearby devices (Wi-Fi) -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
                      android:usesPermissionFlags="neverForLocation"/>
+    <!-- Camera for QR code scanning during sync pairing -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <application
         android:label="nook"
         android:name="${applicationName}"

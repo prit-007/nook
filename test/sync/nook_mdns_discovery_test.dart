@@ -1,4 +1,5 @@
 import 'package:dart_libp2p/core/host/host.dart';
+import 'package:dart_libp2p/core/multiaddr.dart';
 import 'package:dart_libp2p/core/peer/addr_info.dart';
 import 'package:dart_libp2p/core/peer/peer_id.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -121,6 +122,19 @@ void main() {
 
       await discovery.stop();
     });
+
+    test('stop is safe to repeat and discovery can restart', () async {
+      final discovery = NookMdnsDiscovery(host, networkEnabled: false);
+
+      await discovery.discoverOnly();
+      await discovery.stop();
+      await discovery.stop();
+      await discovery.discoverOnly();
+
+      expect(discovery.isDiscovering, isTrue);
+      await discovery.stop();
+      expect(discovery.isDiscovering, isFalse);
+    });
   });
 
   group('NookMdnsDiscovery self-exclusion', () {
@@ -159,6 +173,98 @@ void main() {
 
       expect(peers, hasLength(1));
       expect(peers.first.addrInfo.id, other);
+    });
+  });
+
+  group('NookMdnsDiscovery interface selection', () {
+    test('resolveActiveInterface returns a usable LAN interface or null',
+        () async {
+      final iface = await NookMdnsDiscovery.resolveActiveInterface();
+      // Never throws, even headless/offline. When a candidate exists it must
+      // carry a real (non-loopback) IPv4 address so multicast can leave the
+      // box on the active adapter.
+      if (iface != null) {
+        expect(
+          iface.addresses.any((a) => !a.isLoopback),
+          isTrue,
+          reason: 'selected interface must have a LAN IPv4 address',
+        );
+      }
+    });
+  });
+
+  group('NookMdnsDiscovery dialable address filter', () {
+    MultiAddr lan(String ip) => MultiAddr('/ip4/$ip/udp/4001/udx');
+    MultiAddr lan6(String ip) => MultiAddr('/ip6/$ip/udp/4001/udx');
+
+    test('keeps real LAN addresses', () {
+      final filtered = NookMdnsDiscovery.filterDialableAddrs([
+        lan('192.168.1.50'),
+        lan('10.0.0.5'),
+      ]);
+
+      expect(filtered, hasLength(2));
+    });
+
+    test('drops IPv6 ULA addresses (Tailscale fd7a:115c:a1e0::/48)', () {
+      final filtered = NookMdnsDiscovery.filterDialableAddrs([
+        lan6('fd7a:115c:a1e0::d633:964e'),
+        lan('192.168.1.50'),
+      ]);
+
+      expect(filtered, hasLength(1));
+      expect(filtered.single.ip4, '192.168.1.50');
+    });
+
+    test('drops link-local and loopback addresses', () {
+      final filtered = NookMdnsDiscovery.filterDialableAddrs([
+        lan6('fe80::1'),
+        lan('169.254.1.1'),
+        lan('127.0.0.1'),
+        lan6('::1'),
+        lan('192.168.1.50'),
+      ]);
+
+      expect(filtered, hasLength(1));
+      expect(filtered.single.ip4, '192.168.1.50');
+    });
+
+    test('drops multicast addresses', () {
+      final filtered = NookMdnsDiscovery.filterDialableAddrs([
+        lan('224.0.0.251'),
+        lan('192.168.1.50'),
+      ]);
+
+      expect(filtered, hasLength(1));
+      expect(filtered.single.ip4, '192.168.1.50');
+    });
+
+    test('drops addresses on virtual adapters (Docker 172.20.x)', () {
+      final filtered = NookMdnsDiscovery.filterDialableAddrs(
+        [lan('172.20.208.1'), lan('192.168.1.50')],
+        virtualInterfaceIps: const {'172.20.208.1'},
+      );
+
+      expect(filtered, hasLength(1));
+      expect(filtered.single.ip4, '192.168.1.50');
+    });
+
+    test('keeps the LAN address when the only address is a LAN address', () {
+      final filtered =
+          NookMdnsDiscovery.filterDialableAddrs([lan('192.168.1.50')]);
+
+      expect(filtered, hasLength(1));
+    });
+
+    test('returns empty when every address is non-dialable', () {
+      final filtered = NookMdnsDiscovery.filterDialableAddrs([
+        lan6('fd7a:115c:a1e0::d633:964e'),
+        lan('172.20.208.1'),
+      ], virtualInterfaceIps: const {
+        '172.20.208.1'
+      });
+
+      expect(filtered, isEmpty);
     });
   });
 

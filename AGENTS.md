@@ -41,6 +41,25 @@ flutter test --coverage -x network
   artifact that built successfully. Release body is extracted from CHANGELOG
   by tag name — a `## [x.y.z]` entry must exist for each tagged version.
 
+## Android ABI splits & version codes (F-Droid)
+- Release builds are split per ABI: `flutter build apk --release --split-per-abi`
+  produces `app-armeabi-v7a/arm64-v8a/x86_64-release.apk`. The gradle block in
+  `android/app/build.gradle.kts` re-encodes each ABI's version code as
+  `base × 10 + offset` (v7a=1, arm64=2, x86_64=3) — **base 6 → 61/62/63** — so
+  F-Droid's `VercodeOperation: ['%c * 10 + 1', '%c * 10 + 2', '%c * 10 + 3']`
+  matches. Bump the base code in `pubspec.yaml` (version `x.y.z+N`) for every
+  release; the offsets stay fixed.
+- The override MUST be `android.applicationVariants.configureEach` (registered
+  after the Flutter Gradle plugin's own `abi*1000+base` override at
+  `FlutterPlugin.kt`), because `configureEach` runs in registration order and
+  the later block wins. `androidComponents.onVariants` is overwritten by the
+  plugin and yields `1xxx/2xxx/4xxx` codes — do not switch back.
+- Release builds use `--obfuscate --split-debug-info=build/symbols` (smaller
+  `libapp.so`; symbols archived by CI for `flutter symbolize`). The F-Droid
+  metadata (`metadata/com.devparadise.nook.yml` in the fdroiddata repo) uses
+  `srclibs: flutter@3.44.8`, `ndk: r28c` (= 28.2.13676358), and three per-ABI
+  build blocks with `--split-per-abi --target-platform=android-arm|arm64|x64`.
+
 ## Lint / format
 - Includes `flutter_lints/flutter.yaml` plus custom rules in `analysis_options.yaml`.
 - Single quotes preferred; `avoid_print: true`; generated files excluded.
@@ -72,7 +91,7 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 - The receiver holds a pairing stream until the user decides (`respondToPairing`), with a 120s cleanup deadline so undecided requests don't leak; a rejected pairing is a distinct outcome from a timeout.
 - `SyncOutcomeCategory` (`rejected | timedOut | connectionLost | cancelled | protocol | internal`) drives distinct UI treatments in `sync_transfer_screen.dart` — a decline is NOT shown as a generic red error.
 - AutoNAT: `applyDefaults()` hard-sets `enableAutoNAT = true` after options run, so the transport forces `Reachability.private` (skips ambient probing dials) instead — a LAN-only app must never dial public peers.
-- AutoNAT stray dials / Android MulticastLock (pure Dart can't hold one) are known open items; mDNS works but is unproven on some Android stacks.
+- AutoNAT stray dials are a known open item. mDNS on physical devices is handled by `NookMdnsDiscovery.resolveActiveInterface()` (pins the active LAN NIC), `reusePort: false` on Android, an Android `WifiManager.MulticastLock` held via the `com.nook/multicast_lock` channel (`MainActivity.kt`), and a manual "Add device by address" fallback (`SyncDevice.fromManualAddress`) when multicast is blocked. **Cross-network discovery** uses Android Wi-Fi Direct (`WifiDirect` in `lib/core/platform/wifi_direct.dart` + `com.nook/wifi_direct` channels) to join the receiver's P2P group and dial it over the P2P link — Android-only and safely a no-op on other platforms. Real-device mDNS/Wi-Fi Direct is still worth re-validating per Android stack.
 
 ## Editor
 - Uses `appflowy_editor` (node-tree document model, not Delta-based flutter_quill).

@@ -51,219 +51,12 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
 
   void _showCreateSheet() {
     HapticFeedback.mediumImpact();
-    final nameController = TextEditingController();
-    Color selectedColor = NookColors.defaultSeed;
-
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) {
-          final scheme = Theme.of(context).colorScheme;
-          bool isSelected(Color seed) => seed == selectedColor;
-          return SafeArea(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                16,
-                16,
-                MediaQuery.of(ctx).viewInsets.bottom + 16,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(32),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHighest
-                          .withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(
-                        color: scheme.outlineVariant.withValues(alpha: 0.2),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Center(
-                          child: Container(
-                            width: 36,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: scheme.onSurfaceVariant
-                                  .withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'New Tag',
-                          style: TextStyle(
-                            fontFamily: 'Playfair Display',
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                            color: scheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        TextField(
-                          controller: nameController,
-                          autofocus: true,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                            color: scheme.onSurface,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'e.g. Ideas, Journal, Work',
-                            hintStyle: TextStyle(
-                              color: scheme.onSurfaceVariant
-                                  .withValues(alpha: 0.5),
-                            ),
-                            filled: true,
-                            fillColor: scheme.surface.withValues(alpha: 0.6),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 18,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'COLOR THEME',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 2.0,
-                            color:
-                                scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            for (final seed in NookColors.seeds)
-                              GestureDetector(
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  setModalState(() => selectedColor = seed);
-                                },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 250),
-                                  curve: Curves.easeOutBack,
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    color: seed,
-                                    shape: BoxShape.circle,
-                                    boxShadow: isSelected(seed)
-                                        ? [
-                                            BoxShadow(
-                                              color:
-                                                  seed.withValues(alpha: 0.5),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                  child: isSelected(seed)
-                                      ? const HugeIcon(
-                                          icon: HugeIcons
-                                              .strokeRoundedCheckmarkCircle01,
-                                          color: Colors.white,
-                                          size: 20,
-                                        )
-                                      : null,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextButton(
-                                style: TextButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                                onPressed: () => Navigator.pop(ctx),
-                                child: Text(
-                                  'Cancel',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: scheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: FilledButton(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: selectedColor,
-                                  foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                onPressed: () async {
-                                  if (nameController.text.trim().isEmpty) {
-                                    return;
-                                  }
-                                  unawaited(HapticFeedback.lightImpact());
-                                  final repo = TagRepository(
-                                    ref.read(databaseProvider),
-                                  );
-                                  await repo.createTag(
-                                    name: nameController.text.trim(),
-                                    colorSeed: _hexFromColor(selectedColor),
-                                  );
-                                  if (ctx.mounted) Navigator.pop(ctx);
-                                  await _load();
-                                },
-                                child: const Text(
-                                  'Create Tag',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (_) => _CreateTagSheet(onCreated: _load),
     );
   }
 
@@ -525,6 +318,228 @@ class _TagPillState extends State<_TagPill> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet for creating a new tag.
+///
+/// Owns its [TextEditingController] (disposed with the sheet) so the field's
+/// lifetime matches the sheet's route — it is neither leaked nor disposed
+/// while the sheet's exit transition is still animating.
+class _CreateTagSheet extends ConsumerStatefulWidget {
+  const _CreateTagSheet({required this.onCreated});
+
+  final VoidCallback onCreated;
+
+  @override
+  ConsumerState<_CreateTagSheet> createState() => _CreateTagSheetState();
+}
+
+class _CreateTagSheetState extends ConsumerState<_CreateTagSheet> {
+  final _nameController = TextEditingController();
+  Color _selectedColor = NookColors.defaultSeed;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  bool _isSelected(Color seed) => seed == _selectedColor;
+
+  Future<void> _create() async {
+    if (_nameController.text.trim().isEmpty) return;
+    unawaited(HapticFeedback.lightImpact());
+    final repo = TagRepository(ref.read(databaseProvider));
+    await repo.createTag(
+      name: _nameController.text.trim(),
+      colorSeed: _hexFromColor(_selectedColor),
+    );
+    if (mounted) Navigator.pop(context);
+    widget.onCreated();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.2),
+                  width: 0.5,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'New Tag',
+                    style: TextStyle(
+                      fontFamily: 'Playfair Display',
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _nameController,
+                    autofocus: true,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: scheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Ideas, Journal, Work',
+                      hintStyle: TextStyle(
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                      filled: true,
+                      fillColor: scheme.surface.withValues(alpha: 0.6),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 18,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'COLOR THEME',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2.0,
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      for (final seed in NookColors.seeds)
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _selectedColor = seed);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutBack,
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: seed,
+                              shape: BoxShape.circle,
+                              boxShadow: _isSelected(seed)
+                                  ? [
+                                      BoxShadow(
+                                        color: seed.withValues(alpha: 0.5),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: _isSelected(seed)
+                                ? const HugeIcon(
+                                    icon: HugeIcons
+                                        .strokeRoundedCheckmarkCircle01,
+                                    color: Colors.white,
+                                    size: 20,
+                                  )
+                                : null,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _selectedColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: _create,
+                          child: const Text(
+                            'Create Tag',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

@@ -1,0 +1,7 @@
+Nook 0.8.3 — Quick Share-style cross-device sync.
+
+- Scan the receiver's QR code to connect instantly — no more typing addresses.
+- Desktop "Send via QR": Windows/Linux shows its QR, your phone scans it, and
+  the PC pushes the selected notes back.
+- Android Wi-Fi Direct discovery: find devices on different Wi-Fi networks.
+- mDNS discovery reliability fixes and a crash fix when stopping discovery.

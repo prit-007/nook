@@ -69,6 +69,77 @@ in-memory fake instead of the platform keystore.
 The transport owns one discovery instance, constructed after the host starts so
 the advertised port is the host's real bound UDX port.
 
+### 3.1 LAN interface selection & multicast reliability
+
+Discovery and advertising run on physical devices only, and mDNS multicast is
+the one component the loopback test suite never exercises. Three rules keep it
+working on real networks:
+
+- **Pin the active LAN interface.** `NookMdnsDiscovery.resolveActiveInterface()`
+  picks a WiFi/Ethernet IPv4 adapter (skipping VPN/Docker/Tailscale-style
+  virtual adapters) and passes it to `MDNSClient.query(...)`, the
+  `MDNSServerConfig`, and the announce socket. Without this, multicast can go
+  out the wrong NIC (Wi-Fi vs cellular on Android, VPN/multi-NIC on Windows).
+- **`reusePort: false` on Android.** mdns_dart documents Android socket-bind
+  issues with `SO_REUSEPORT` on port 5353; `reuseAddress: true` is enough there.
+  Windows keeps `reusePort: true`.
+- **Fail loudly.** mDNS start/bind/query failures are logged at `error` in the
+  `sync` domain (not swallowed), so "Searching for devices..." that never finds
+  anything is diagnosable from `Settings → Developer → App Logs`.
+
+### 3.2 Manual dial-in (mDNS bypass)
+
+When multicast is blocked — AP client isolation, a Windows firewall rule, or a
+VPN — discovery cannot work. Nook's receive screen shows the device's own
+dialable multiaddr (peer id suffixed, from `Libp2pSyncTransport.localMultiaddresses`)
+with tap-to-copy; the send screen's **"Add device manually"** pastes it straight
+into `connectToDevice` via `SyncDevice.fromManualAddress`. No mDNS involved.
+
+LAN requirements for mDNS + UDX:
+
+- Both devices on the **same subnet** (mDNS TTL 1, no routing).
+- **AP client isolation OFF** — guest networks silently block device-to-device
+  unicast and multicast.
+- **Windows**: allow Nook through the inbound firewall the first time it runs
+  (UDP 5353 for mDNS and the app's UDX port). A permanent rule:
+  `netsh advfirewall firewall add rule name="Nook sync" dir=in action=allow protocol=UDP localport=5353 profile=private`
+- **Android**: `CHANGE_WIFI_MULTICAST_STATE` is held as a `WifiManager.MulticastLock`
+  while advertising/discovering (see `lib/core/platform/multicast_lock.dart` +
+  the `com.nook/multicast_lock` channel in `MainActivity.kt`).
+
+### 3.3 Cross-network discovery — Wi-Fi Direct (Quick Share mechanism)
+
+When the sender and receiver are **not on the same Wi-Fi network**, mDNS cannot
+reach across subnets. Nook reproduces Quick Share's approach **without the
+deprecated Nearby Connections API**: an Android Wi-Fi Direct P2P link.
+
+- **Receiver (advertise):** creates a Wi-Fi Direct group (group owner = soft
+  AP, `WifiP2pManager.createGroup`) and registers Nook's `_syncnotenet._tcp`
+  DNS-SD service carrying its dialable multiaddr in the `dnsaddr` TXT record
+  (`WifiDirect.buildDnsaddr` → `/ip4/<owner>/udp/<udxPort>/udx/p2p/<peerId>`).
+  The UDX host binds `0.0.0.0`, so the same port is reachable on the P2P
+  subnet (owner default `192.168.49.1`).
+- **Sender (discover):** Wi-Fi Direct DNS-SD discovery (`discoverServices`)
+  surfaces the receiver as a `SyncDevice` with `transportType: 'wifi-direct'`
+  and `wifiDirectAddress`. On connect, the sender `WifiDirect.joinGroup()`s the
+  peer, waits for the group-owner IP, then dials `/ip4/<owner>/udp/<port>/udx`
+  over the established P2P link — everything after that is the normal
+  UDX + Noise/Yamux + pairing flow.
+- **Native bridge:** `WifiDirect` (`lib/core/platform/wifi_direct.dart`) →
+  `com.nook/wifi_direct` + `com.nook/wifi_direct/events` channels in
+  `MainActivity.kt`.
+
+**Platform support is tiered and safe:**
+`WifiDirect.isSupportedPlatform` is `true` only on Android. On **Linux, iOS,
+macOS, Windows and Web** every Wi-Fi Direct call is a no-op and the transport
+falls back to the same-network mDNS path (or manual entry). Wi-Fi Direct itself
+is Android-only because the other OSes provide no equivalent cross-network P2P
+link API; keep the tiered behavior in mind when adding discovery features.
+
+Requirements for Wi-Fi Direct sync: both devices nearby, Wi-Fi on, nearby
+permissions granted, and Location on (Android's P2P framework requires it, same
+as Nearby Connections).
+
 ## 4. Wire protocol — `lib/sync/protocol/sync_message.dart`
 
 ### 4.1 Envelope

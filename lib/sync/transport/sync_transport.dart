@@ -11,6 +11,8 @@ class SyncDevice {
     this.hostAddress,
     this.port,
     this.multiaddresses,
+    this.transportType = 'libp2p',
+    this.wifiDirectAddress,
   });
 
   final String deviceId;
@@ -23,15 +25,77 @@ class SyncDevice {
   /// the peer. Null for transports that only expose [hostAddress]/[port].
   final List<String>? multiaddresses;
 
+  /// Which transport dials this device: `libp2p` (mDNS/UDX on the same
+  /// network) or `wifi-direct` (found over a Wi-Fi Direct P2P link — requires
+  /// joining the peer's group before dialing).
+  final String transportType;
+
+  /// The peer's Wi-Fi Direct device address; required to join its P2P group
+  /// before dialing when [transportType] is `wifi-direct`.
+  final String? wifiDirectAddress;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is SyncDevice &&
           runtimeType == other.runtimeType &&
-          deviceId == other.deviceId;
+          deviceId == other.deviceId &&
+          transportType == other.transportType;
 
   @override
-  int get hashCode => deviceId.hashCode;
+  int get hashCode => Object.hash(deviceId, transportType);
+
+  /// Builds a [SyncDevice] from a user-entered libp2p multiaddr such as
+  /// `/ip4/192.168.1.20/udp/52341/udx/p2p/12D3KooW...`. The `/p2p/<peer id>`
+  /// suffix is required — it identifies the peer to dial. Returns null for
+  /// malformed or incomplete addresses so the caller can surface an error.
+  static SyncDevice? fromManualAddress(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    const p2pMarker = '/p2p/';
+    final p2pIdx = trimmed.indexOf(p2pMarker);
+    if (p2pIdx == -1) return null;
+    final peerId = trimmed.substring(p2pIdx + p2pMarker.length);
+    if (peerId.isEmpty) return null;
+    final addr = trimmed.substring(0, p2pIdx);
+    if (addr.isEmpty) return null;
+    return SyncDevice(
+      deviceId: peerId,
+      deviceName: 'Manual device',
+      isOnline: true,
+      multiaddresses: [addr],
+    );
+  }
+
+  /// Builds a [SyncDevice] from a Wi-Fi Direct DNS-SD service entry.
+  ///
+  /// The receiver registers `_syncnotenet._tcp` over the P2P link with its
+  /// dialable multiaddr in the `dnsaddr` TXT record (see
+  /// `lib/core/platform/wifi_direct.dart`). Returns null for non-Nook or
+  /// malformed services so discovery can ignore them.
+  static SyncDevice? fromWifiDirectService({
+    required String instanceName,
+    required String deviceAddress,
+    required Map<String, String> txt,
+  }) {
+    final dnsaddr = txt['dnsaddr'];
+    final name = txt['name'] ?? instanceName;
+    if (dnsaddr == null) return null;
+    const p2pMarker = '/p2p/';
+    final p2pIdx = dnsaddr.indexOf(p2pMarker);
+    if (p2pIdx == -1) return null;
+    final peerId = dnsaddr.substring(p2pIdx + p2pMarker.length);
+    final addr = dnsaddr.substring(0, p2pIdx);
+    if (peerId.isEmpty || addr.isEmpty) return null;
+    return SyncDevice(
+      deviceId: peerId,
+      deviceName: name,
+      isOnline: true,
+      transportType: 'wifi-direct',
+      wifiDirectAddress: deviceAddress,
+      multiaddresses: [addr],
+    );
+  }
 }
 
 /// An incoming connection that requests pairing confirmation on the receiver.
@@ -132,6 +196,11 @@ abstract class SyncTransport {
   /// Stable identifier for this device, stable across restarts.
   Future<String?> getCurrentDeviceId();
 
+  /// Multiaddrs this device is listening on (peer id suffixed), for manual
+  /// dial-in when network discovery is unavailable. Empty until
+  /// [initialize] has bound the listener.
+  List<String> get localMultiaddresses;
+
   Future<void> startAdvertising();
   Future<void> stopAdvertising();
   Future<void> startDiscovery();
@@ -187,6 +256,9 @@ class MockSyncTransport implements SyncTransport {
     await initialize();
     return deviceId;
   }
+
+  @override
+  List<String> get localMultiaddresses => const [];
 
   @override
   Stream<SyncDevice> get deviceFoundStream => _deviceFoundController.stream;

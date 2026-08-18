@@ -1,4 +1,9 @@
+import com.android.build.gradle.api.ApkVariantOutput
 import java.util.Properties
+
+// Per-ABI version codes (F-Droid's required scheme): base versionCode ×10 +
+// ABI offset → base 6 = 61 (armeabi-v7a), 62 (arm64-v8a), 63 (x86_64).
+val abiCodes = mapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86_64" to 3)
 
 plugins {
     id("com.android.application")
@@ -58,11 +63,36 @@ android {
             }
         }
     }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 }
 
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+// F-Droid/Play ABI split version codes, matching the `%c * 10 + {1,2,3}` scheme:
+// base versionCode 6 → 61 (armeabi-v7a), 62 (arm64-v8a), 63 (x86_64).
+//
+// This MUST be `applicationVariants.configureEach` (registered after the Flutter
+// plugin's own configureEach at FlutterPlugin.kt, which sets `abi*1000+base`):
+// configureEach actions run in registration order, so this block runs last and
+// wins. `androidComponents.onVariants` runs at a different point in AGP 9 and
+// ends up overwritten by the plugin's `abi*1000+base`.
+@Suppress("DEPRECATION")
+android.applicationVariants.configureEach {
+    val variant = this
+    variant.outputs.forEach { output ->
+        val abiVersionCode = abiCodes[output.filters.find { it.filterType == "ABI" }?.identifier]
+        if (abiVersionCode != null) {
+            (output as ApkVariantOutput).versionCodeOverride =
+                variant.versionCode * 10 + abiVersionCode
+        }
     }
 }
 

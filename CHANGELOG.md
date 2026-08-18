@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-08-16
+
+### Sync reliability
+- **Doodles are no longer lost in sync.** Inline editor doodles were created
+  with only a document node and never an attachment row, so they were skipped
+  when packing a sync bundle and the receiver got an empty doodle. Saving a
+  doodle now also creates its attachment row.
+- **Pairing now requires both devices to accept the same code.** The PIN stays
+  visible on the sender in a "waiting for the receiver…" state while it dials,
+  and the transfer only starts once both sides confirm. A failed connection
+  keeps the PIN on screen with a retry instead of silently proceeding.
+- **mDNS discovery now actually finds devices.** The periodic query re-fired
+  every 5s while each lookup held the mDNS port for its full 10s timeout, so
+  overlapping queries failed to bind (especially on Android). Queries now run
+  back-to-back, one at a time.
+- **QR codes are high-contrast black-on-white** with square modules — crisp
+  edges that scan reliably on small phone screens.
+- The receive screen gains a prominent **"Scan a sender's QR code"** action,
+  and the send/receive screens stop stretching absurdly on large displays.
+
+## [0.8.3] - 2026-08-16
+
+### Quick Share-style cross-device sync
+
+- **QR code pairing**. The receiver's "Receive Notes" screen now shows its
+  connection address as a scannable QR code; the sender's camera scans it and
+  dials straight in — no mDNS needed. Manual address entry is still there for
+  firewalled or client-isolated networks.
+- **Send to phone from desktop**. On Windows/Linux the Send screen gains a
+  **"Send via QR"** action: it shows this device's QR code, the phone scans it
+  with its camera, and the desktop pushes the selected notes back after
+  pairing. The phone's Receive screen also has a **Scan QR** option to dial a
+  desktop directly.
+- The QR-scanning device is no longer forced to be the sender: whoever approves
+  pairing can transfer, so pairing direction and data direction are now
+  independent.
+- **Wi-Fi Direct discovery (Android)**. Receivers create a Wi-Fi Direct group
+  and advertise over DNS-SD, so devices on different Wi-Fi networks can still
+  find and connect (the Quick Share mechanism). Senders join the group and dial
+  over the P2P link; a manual "Add device by address" fallback remains when
+  multicast or P2P is blocked.
+
+### Discovery reliability
+- mDNS now pins the active network interface, binds the multicast socket to it,
+  and disables `SO_REUSEPORT` on Android — fixing discovery on devices where
+  the default interface binding picked the wrong NIC.
+- Fixed a shutdown race that crashed discovery with
+  `Bad state: Cannot add event after closing` when stopping/restarting.
+
+### Other
+- Notebook and Tag creation sheets were refactored into stateful widgets that
+  own their controllers.
+- Android now declares the camera permission and iOS/macOS the camera usage
+  string for QR scanning.
+
+## [0.8.2.3] - 2026-08-15
+
+### F-Droid compatibility
+- Disabled the `Dependency metadata` APK signing block AGP adds by default
+  (`dependenciesInfo { includeInApk = false; includeInBundle = false }`). The
+  block is encrypted with a Google Play key, so F-Droid's APK scanner rejects
+  any APK that carries it.
+- Version bumped to `0.8.2+4` so the fixed APK is built and published.
+
+## [0.8.2.2] - 2026-08-15
+
+### Reproducible F-Droid builds
+- Committed `pubspec.lock` (previously gitignored) so F-Droid resolves the
+  exact dependency set from the manifest instead of the latest compatible
+  versions.
+
+## [0.8.2.1] - 2026-08-15
+
+### CI
+- The signing step now reads its secrets from job-level `env` so the real
+  keystore password is never interpolated into the workflow file.
+
 ## [0.8.2] - 2026-08-15
 
 ### Store-ready builds

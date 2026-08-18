@@ -1,0 +1,5 @@
+Nook 0.8.2.3 — F-Droid compatibility fix.
+
+- Disabled the `Dependency metadata` APK signing block so F-Droid's scanner accepts the release APK.
+- Fixed mDNS discovery on Android: active network interface pinning, multicast interface binding, and no SO_REUSEPORT.
+- New "Add device manually" option to dial a device by its libp2p address when mDNS is blocked.

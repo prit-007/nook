@@ -442,4 +442,52 @@ void main() {
       isNull,
     );
   });
+
+  test(
+      'acceptor (PC) can send data to the dialer (mobile) after approving '
+      'pairing — the ShareIt-style reverse send', () async {
+    // Both devices are in receive/advertise mode: the mobile scans the PC's QR
+    // and dials it; the PC accepts, then pushes notes back to the mobile.
+    await receiver.startAdvertising();
+    await sender.startAdvertising();
+
+    // The mobile "scans the PC's QR" = dials the PC's local address directly.
+    final pcDevice = SyncDevice(
+      deviceId: (await receiverTransport.getCurrentDeviceId())!,
+      deviceName: 'PC',
+      isOnline: true,
+      multiaddresses: receiverTransport.localMultiaddresses,
+    );
+    final connectFuture =
+        sender.connectToDevice(pcDevice, pairingCode: '112233');
+    await waitFor(
+      () =>
+          receiverContainer.read(syncOrchestratorProvider).pendingPairing !=
+          null,
+    );
+    await receiver.confirmPairing();
+    await connectFuture;
+
+    // The PC (which was dialed) sends a note back to the mobile (which
+    // dialed). This is the exact reverse of the normal send.
+    final noteId = await seedSenderMediaNote(receiverDb, senderMediaDir);
+    await receiver.sendNotes([noteId]);
+
+    await waitFor(
+      () =>
+          receiverContainer.read(syncOrchestratorProvider).phase ==
+          SyncPhase.complete,
+    );
+
+    // The mobile side must have received the note.
+    await waitFor(
+      () =>
+          senderContainer.read(syncOrchestratorProvider).phase ==
+          SyncPhase.complete,
+    );
+    final receivedNote = await NoteRepository(senderDb).getNoteById(noteId);
+    expect(receivedNote, isNotNull);
+    expect(receivedNote!.title, 'E2E Media Note');
+    expect(receivedNote.plainText, 'Body from the sender device');
+  });
 }
