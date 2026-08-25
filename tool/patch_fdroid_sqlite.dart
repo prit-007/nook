@@ -113,5 +113,26 @@ int HMAC_Final(HMAC_CTX *ctx, unsigned char *md, unsigned int *len);
 #endif
 ''');
 
+  File('${opensslDir.path}/rand.h').writeAsStringSync('''
+#ifndef OPENSSL_RAND_H
+#define OPENSSL_RAND_H
+int RAND_bytes(unsigned char *buf, int num);
+#endif
+''');
+
+  File('${opensslDir.path}/err.h').writeAsStringSync('''
+#ifndef OPENSSL_ERR_H
+#define OPENSSL_ERR_H
+unsigned long ERR_get_error(void);
+void ERR_clear_error(void);
+#endif
+''');
+
+  File('${opensslDir.path}/objects.h').writeAsStringSync('''
+#ifndef OPENSSL_OBJECTS_H
+#define OPENSSL_OBJECTS_H
+#endif
+''');
+
   stdout.writeln('Created stub OpenSSL headers in ${opensslDir.path}');
 }
