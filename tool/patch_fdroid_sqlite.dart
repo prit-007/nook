@@ -8,9 +8,8 @@ import 'dart:io';
 ///   source: sqlcipher → source: source
 /// Adding the path to the SQLCipher amalgamation and the SQLITE_HAS_CODEC define.
 void main(List<String> args) {
-  final sqlcipherPath = args.isNotEmpty
-      ? args[0]
-      : Platform.environment['SQLCIPHER_PATH'] ?? '';
+  final sqlcipherPath =
+      args.isNotEmpty ? args[0] : Platform.environment['SQLCIPHER_PATH'] ?? '';
 
   if (sqlcipherPath.isEmpty) {
     stderr.writeln(
@@ -43,5 +42,6 @@ void main(List<String> args) {
   content = content.replaceFirst(old, newContent);
   pubspec.writeAsStringSync(content);
 
-  stdout.writeln('Patched pubspec.yaml: sqlite3 source → source (from $newPath)');
+  stdout
+      .writeln('Patched pubspec.yaml: sqlite3 source → source (from $newPath)');
 }
