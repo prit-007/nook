@@ -26,13 +26,15 @@ void main(List<String> args) {
 
   var content = pubspec.readAsStringSync();
 
-  // Replace source: sqlcipher with source: source + path + defines
+  // Replace source: sqlcipher with source: source + path + defines + includes
   final old = '      source: sqlcipher';
   final newPath = '$sqlcipherPath/sqlite3.c';
   final newContent = '''      source: source
       path: $newPath
       defines:
-        - SQLITE_HAS_CODEC''';
+        - SQLITE_HAS_CODEC
+      additional_includes:
+        - /usr/include''';
 
   if (!content.contains(old)) {
     stderr.writeln('Could not find "$old" in pubspec.yaml');
