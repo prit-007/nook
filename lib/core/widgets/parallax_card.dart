@@ -30,7 +30,7 @@ class ParallaxCard extends StatefulWidget {
 
 class _ParallaxCardState extends State<ParallaxCard> {
   ScrollPosition? _position;
-  double _offsetDy = 0;
+  final ValueNotifier<double> _offsetDyNotifier = ValueNotifier(0);
 
   @override
   void didChangeDependencies() {
@@ -47,13 +47,14 @@ class _ParallaxCardState extends State<ParallaxCard> {
   @override
   void dispose() {
     _position?.removeListener(_updateParallax);
+    _offsetDyNotifier.dispose();
     super.dispose();
   }
 
   void _updateParallax() {
     if (!mounted) return;
     if (!widget.enabled) {
-      if (_offsetDy != 0) setState(() => _offsetDy = 0);
+      if (_offsetDyNotifier.value != 0) _offsetDyNotifier.value = 0;
       return;
     }
     final position = _position;
@@ -76,16 +77,22 @@ class _ParallaxCardState extends State<ParallaxCard> {
 
     final maxTranslate = widget.intensity * renderObject.size.height;
     final dy = -factor * 2 * maxTranslate;
-    if ((dy - _offsetDy).abs() > 0.01) {
-      setState(() => _offsetDy = dy);
+    if ((dy - _offsetDyNotifier.value).abs() > 0.01) {
+      _offsetDyNotifier.value = dy;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (!widget.enabled) return widget.child;
-    return Transform.translate(
-      offset: Offset(0, _offsetDy),
+    return ValueListenableBuilder<double>(
+      valueListenable: _offsetDyNotifier,
+      builder: (context, offsetDy, child) {
+        return Transform.translate(
+          offset: Offset(0, offsetDy),
+          child: child,
+        );
+      },
       child: widget.child,
     );
   }

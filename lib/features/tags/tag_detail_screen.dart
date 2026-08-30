@@ -132,7 +132,7 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                       16,
                       8,
                       16,
-                      DockSafeArea.bottomOf(context) + 72,
+                      DockSafeArea.bottomOf(context) + 16,
                     ),
                     sliver: SliverGrid(
                       gridDelegate:
@@ -165,7 +165,7 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                       ),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
               ],
             ),
     );

@@ -1013,8 +1013,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         deltaContent: snapshot.deltaJson,
         plainText: snapshot.plainText,
       );
-    } catch (_) {
-      // Best-effort — app is navigating away.
+      nookLog(
+        NookLogKey.editor,
+        'Dispose-save persisted: ${snapshot.noteId}',
+        LogLevel.info,
+      );
+    } catch (e) {
+      nookLog(
+        NookLogKey.editor,
+        'Dispose-save failed for ${snapshot.noteId}: $e',
+        LogLevel.error,
+      );
     }
   }
 
@@ -1038,9 +1047,38 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       return Scaffold(
         backgroundColor: scheme.surface,
         body: Center(
-          child: Text(
-            'Failed to load note',
-            style: TextStyle(color: scheme.onSurface),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedNote01,
+                size: 48,
+                color: scheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load note',
+                style: TextStyle(
+                  color: scheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'The note may have been deleted or is corrupted.',
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => context.pop(),
+                icon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowLeft01,
+                  size: 18,
+                ),
+                label: const Text('Go back'),
+              ),
+            ],
           ),
         ),
       );
@@ -1063,13 +1101,19 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           )
         : const SizedBox.shrink();
 
-    return Stack(
-      children: [
-        heroChild,
-        NoteThemeScope(
-          colorScheme: noteScheme,
-          textTheme: dynamicTextTheme,
-          child: Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleSystemBack();
+      },
+      child: Stack(
+        children: [
+          heroChild,
+          NoteThemeScope(
+            colorScheme: noteScheme,
+            textTheme: dynamicTextTheme,
+            child: Scaffold(
             resizeToAvoidBottomInset: false,
             backgroundColor: noteScheme.surfaceContainerLowest,
             body: Stack(
@@ -1199,8 +1243,41 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           ),
         ),
       ],
+    ),
     );
   }
+
+  void _handleSystemBack() {
+    final router = GoRouter.of(context);
+    unawaited(HapticFeedback.lightImpact());
+    // Delete newly-created blank notes on exit.
+    if (_dirty) {
+      final nodes = _editorState!.document.root.children;
+      String plainText = '';
+      for (final node in nodes) {
+        if (node.delta != null) {
+          for (final op in node.delta!.toList()) {
+            if (op is TextInsert) plainText += op.text;
+          }
+          plainText += '\n';
+        }
+      }
+      plainText = plainText.trim();
+      if (plainText.isEmpty && _title.isEmpty && widget.noteId == null) {
+        NoteRepository(_db!).permanentlyDelete(_note!.id).then((_) {
+          if (mounted) router.pop();
+        });
+        return;
+      } else {
+        _save().then((_) {
+          if (mounted) router.pop();
+        });
+        return;
+      }
+    }
+    router.pop();
+  }
+
 }
 
 class _ResponsiveEditorAppBar extends StatelessWidget {

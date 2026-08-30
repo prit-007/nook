@@ -235,7 +235,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                     20,
                     16,
                     20,
-                    DockSafeArea.bottomOf(context) + 72,
+                    DockSafeArea.bottomOf(context) + 80,
                   ),
                   itemCount: _notes.length,
                   itemBuilder: (context, index) {

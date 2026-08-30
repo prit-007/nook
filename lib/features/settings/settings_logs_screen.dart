@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../core/providers/talker_provider.dart';
+import '../../core/widgets/dock_safe_area.dart';
 
 /// In-app log viewer powered by talker_flutter's [TalkerScreen].
 class SettingsLogsScreen extends ConsumerStatefulWidget {
@@ -47,20 +48,25 @@ class _SettingsLogsScreenState extends ConsumerState<SettingsLogsScreen> {
       backgroundColor: scheme.surface,
       body: Stack(
         children: [
-          // The core developer tool
+          // The core developer tool — pad bottom so content clears the dock.
           Positioned.fill(
-            child: TalkerScreen(
-              talker: talker,
-              appBarTitle: 'Diagnostic Logs',
-              theme: TalkerScreenTheme(
-                backgroundColor: scheme.surface,
-                textColor: scheme.onSurface,
-                cardColor:
-                    scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                logColors: _logColors(scheme),
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: DockSafeArea.bottomOf(context),
               ),
-              isLogOrderReversed: true,
-              isLogsExpanded: true,
+              child: TalkerScreen(
+                talker: talker,
+                appBarTitle: 'Diagnostic Logs',
+                theme: TalkerScreenTheme(
+                  backgroundColor: scheme.surface,
+                  textColor: scheme.onSurface,
+                  cardColor:
+                      scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  logColors: _logColors(scheme),
+                ),
+                isLogOrderReversed: true,
+                isLogsExpanded: true,
+              ),
             ),
           ),
 
@@ -303,7 +309,7 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: MediaQuery.paddingOf(context).bottom + 32,
+            bottom: DockSafeArea.bottomOf(context) + 16,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(steps.length, (i) {

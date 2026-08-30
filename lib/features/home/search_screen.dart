@@ -104,21 +104,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       subtitle: 'No notes found for "$_query"',
                       animate: false,
                     )
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
-                        childAspectRatio: 0.75,
-                      ),
-                      itemCount: _results.length,
-                      itemBuilder: (context, index) => NoteCard(
-                        note: _results[index],
-                        onTap: () =>
-                            context.push('/note/${_results[index].id}'),
-                      ),
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                        return GridView.builder(
+                          padding: const EdgeInsets.all(12),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                            childAspectRatio: 0.75,
+                          ),
+                          itemCount: _results.length,
+                          itemBuilder: (context, index) => NoteCard(
+                            note: _results[index],
+                            onTap: () =>
+                                context.push('/note/${_results[index].id}'),
+                          ),
+                        );
+                      },
                     ),
     );
   }

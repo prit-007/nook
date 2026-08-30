@@ -114,9 +114,17 @@ class UpdateBanner extends ConsumerWidget {
 
   Future<void> _openRelease(BuildContext context, UpdateInfo info) async {
     await HapticFeedback.mediumImpact();
-    final uri = Uri.parse(info.releaseUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (info.releaseUrl.isEmpty) return;
+    try {
+      final uri = Uri.parse(info.releaseUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open update link: $e')),
+      );
     }
   }
 }

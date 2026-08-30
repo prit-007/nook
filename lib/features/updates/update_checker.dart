@@ -84,6 +84,8 @@ class UpdateChecker {
       if (entry is! Map<String, dynamic>) continue;
       final draft = entry['draft'] == true;
       if (draft) continue;
+      final prerelease = entry['prerelease'] == true;
+      if (prerelease) continue;
       return GithubRelease(
         tagName: entry['tag_name'] as String? ?? '',
         name: entry['name'] as String? ?? '',

@@ -54,9 +54,17 @@ class NoteExporter {
   }
 
   /// Shares the PNG file at [filePath] via the platform share sheet.
-  static Future<void> sharePng(String filePath) async {
-    final params = ShareParams(files: [XFile(filePath)]);
-    await SharePlus.instance.share(params);
+  ///
+  /// Returns `true` if sharing succeeded, `false` on error.
+  static Future<bool> sharePng(String filePath) async {
+    try {
+      if (!File(filePath).existsSync()) return false;
+      final params = ShareParams(files: [XFile(filePath)]);
+      await SharePlus.instance.share(params);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Generates a sanitized file name from a note [title].

@@ -71,9 +71,9 @@ void main() async {
   try {
     db = await openEncryptedDatabase();
     talker.info('DB opened');
-  } catch (_) {
+  } catch (e) {
     db = AppDatabase(NativeDatabase.memory());
-    talker.warning('DB fallback to memory');
+    talker.warning('DB fallback to memory: $e');
   }
 
   runApp(
