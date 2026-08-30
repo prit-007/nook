@@ -368,14 +368,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _buildAnimatedCard(
-                      context, leftPair.$1, leftPair.$2),
+                  child: _buildAnimatedCard(context, leftPair.$1, leftPair.$2),
                 ),
                 const SizedBox(width: 20),
                 if (rightPair != null)
                   Expanded(
-                    child: _buildAnimatedCard(
-                        context, rightPair.$1, rightPair.$2),
+                    child:
+                        _buildAnimatedCard(context, rightPair.$1, rightPair.$2),
                   )
                 else
                   const Spacer(),

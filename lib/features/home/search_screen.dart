@@ -106,7 +106,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     )
                   : LayoutBuilder(
                       builder: (context, constraints) {
-                        final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                        final crossAxisCount =
+                            constraints.maxWidth > 600 ? 3 : 2;
                         return GridView.builder(
                           padding: const EdgeInsets.all(12),
                           gridDelegate:

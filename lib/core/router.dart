@@ -146,7 +146,8 @@ class _ErrorPage extends StatelessWidget {
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: ref.read(navigationPreferenceProvider.notifier).route,
-    errorBuilder: (context, state) => _ErrorPage(state.error ?? 'Unknown error'),
+    errorBuilder: (context, state) =>
+        _ErrorPage(state.error ?? 'Unknown error'),
     redirect: (context, state) {
       // Auto-persist every navigated route so the app can restore it on
       // cold start.  Only top-level and first-level sub-routes are saved;

@@ -246,8 +246,8 @@ class _DockItemState extends State<_DockItem>
                     AnimatedContainer(
                       duration: _selectionDuration,
                       curve: Curves.easeOutCubic,
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
                         color: widget.isSelected
                             ? scheme.primary.withValues(alpha: 0.15)
@@ -290,7 +290,8 @@ class _DockItemState extends State<_DockItem>
                                 : FontWeight.w600,
                             color: widget.isSelected
                                 ? scheme.primary
-                                : scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                : scheme.onSurfaceVariant
+                                    .withValues(alpha: 0.7),
                             letterSpacing: 0.3,
                           ),
                           child: Text(widget.label, maxLines: 1),

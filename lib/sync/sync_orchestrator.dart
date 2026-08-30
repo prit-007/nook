@@ -861,7 +861,10 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       // Send ack back to sender.
       final ack = SyncAck(
         receivedNoteIds: receivedIds,
-        rejectedNoteIds: [...rejectedIds, ...conflicts.map((c) => c.incoming.noteId)],
+        rejectedNoteIds: [
+          ...rejectedIds,
+          ...conflicts.map((c) => c.incoming.noteId)
+        ],
       );
       nookLog(
         NookLogKey.sync,
