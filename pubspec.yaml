@@ -92,7 +92,6 @@ dependencies:
   url_launcher: ^6.3.2
 
   # Desktop: system tray, global hotkeys, multi-window
-  system_tray: ^0.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

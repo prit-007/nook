@@ -9,7 +9,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   gal
   local_auth_windows
   share_plus
-  system_tray
   url_launcher_windows
 )
 
