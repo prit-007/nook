@@ -121,6 +121,8 @@ class UpdateNotifier extends Notifier<UpdateStatus> {
             releaseName: release.name,
             notes: release.body,
             publishedAt: release.publishedAt,
+            apkUrl: release.apkUrl,
+            changelog: _parseChangelog(release.body),
           ),
           latestChecked: latest,
           dismissed: dismissed,
@@ -193,6 +195,22 @@ class UpdateNotifier extends Notifier<UpdateStatus> {
     } catch (_) {
       // Non-fatal: the app just re-checks sooner than the throttle.
     }
+  }
+
+  /// Parses release body markdown into changelog lines.
+  static List<String> _parseChangelog(String body) {
+    if (body.trim().isEmpty) return [];
+    final lines = body.split('\n');
+    final changelog = <String>[];
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        changelog.add(trimmed.substring(2));
+      } else if (trimmed.startsWith('#')) {
+        continue; // skip headers
+      }
+    }
+    return changelog.isEmpty ? [body.trim()] : changelog;
   }
 }
 

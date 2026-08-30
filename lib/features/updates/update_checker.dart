@@ -23,6 +23,7 @@ class GithubRelease {
     required this.publishedAt,
     required this.draft,
     required this.prerelease,
+    this.apkUrl,
   });
 
   final String tagName;
@@ -32,6 +33,9 @@ class GithubRelease {
   final DateTime? publishedAt;
   final bool draft;
   final bool prerelease;
+
+  /// Direct APK download URL, extracted from release assets.
+  final String? apkUrl;
 }
 
 /// Contacts the `prit-007/nook` GitHub releases feed to find the newest
@@ -94,7 +98,21 @@ class UpdateChecker {
         publishedAt: DateTime.tryParse(entry['published_at'] as String? ?? ''),
         draft: draft,
         prerelease: entry['prerelease'] == true,
+        apkUrl: _findApkUrl(entry['assets'] as List<dynamic>?),
       );
+    }
+    return null;
+  }
+
+  /// Finds the APK download URL from a list of GitHub release assets.
+  static String? _findApkUrl(List<dynamic>? assets) {
+    if (assets == null) return null;
+    for (final asset in assets) {
+      if (asset is! Map<String, dynamic>) continue;
+      final name = asset['name'] as String? ?? '';
+      final url = asset['browser_download_url'] as String? ?? '';
+      // Match APK files: nook_X.Y.Z.apk, app-armeabi-v7a-release.apk, etc.
+      if (name.endsWith('.apk') && url.isNotEmpty) return url;
     }
     return null;
   }
