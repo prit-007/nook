@@ -25,13 +25,20 @@ void main(List<String> args) {
 
   var content = pubspec.readAsStringSync();
 
-  // Replace source: sqlcipher with source: source + path + defines
+  // Replace source: sqlcipher with source: source + path + defines + flags
+  // The -Wno flags suppress errors from dead OpenSSL code paths that have
+  // incomplete stub headers (SQLCipher amalgamation includes all crypto
+  // backends even with --with-crypto-lib=none).
   final old = '      source: sqlcipher';
   final newPath = '$sqlcipherPath/sqlite3.c';
   final newContent = '''      source: source
       path: $newPath
       defines:
-        - SQLITE_HAS_CODEC''';
+        - SQLITE_HAS_CODEC
+      additional_flags:
+        - -Wno-implicit-function-declaration
+        - -Wno-int-conversion
+        - -Wno-incompatible-function-pointer-types''';
 
   if (!content.contains(old)) {
     stderr.writeln('Could not find "$old" in pubspec.yaml');
@@ -78,8 +85,16 @@ int RAND_bytes(unsigned char *buf, int num);
 const EVP_CIPHER *EVP_aes_256_cbc(void);
 const EVP_CIPHER *EVP_aes_128_cbc(void);
 const EVP_CIPHER *EVP_aes_256_ecb(void);
+const EVP_MD *EVP_sha1(void);
 const EVP_MD *EVP_sha256(void);
 const EVP_MD *EVP_sha512(void);
+EVP_CIPHER_CTX *EVP_CIPHER_CTX_new(void);
+void EVP_CIPHER_CTX_free(EVP_CIPHER_CTX *ctx);
+int EVP_CIPHER_CTX_set_padding(EVP_CIPHER_CTX *ctx, int padding);
+int EVP_CIPHER_nid(const EVP_CIPHER *cipher);
+int EVP_CIPHER_key_length(const EVP_CIPHER *cipher);
+int EVP_CIPHER_iv_length(const EVP_CIPHER *cipher);
+int EVP_CIPHER_block_size(const EVP_CIPHER *cipher);
 int EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher,
     ENGINE *impl, const unsigned char *key, const unsigned char *iv, int enc);
 int EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl,
@@ -87,9 +102,14 @@ int EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl,
 int EVP_CipherFinal_ex(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl);
 EVP_MD_CTX *EVP_MD_CTX_new(void);
 void EVP_MD_CTX_free(EVP_MD_CTX *ctx);
+int EVP_MD_size(const EVP_MD *md);
 int EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl);
 int EVP_DigestUpdate(EVP_MD_CTX *ctx, const void *d, size_t cnt);
 int EVP_DigestFinal_ex(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *s);
+int PKCS5_PBKDF2_HMAC(const char *pass, int passlen,
+    const unsigned char *salt, int saltlen, int iter,
+    const EVP_MD *digest, int keylen, unsigned char *out);
+const char *OpenSSL_version(int type);
 #endif
 ''');
 
@@ -110,6 +130,7 @@ int HMAC_Final(HMAC_CTX *ctx, unsigned char *md, unsigned int *len);
 #ifndef OPENSSL_OPENSSLV_H
 #define OPENSSL_OPENSSLV_H
 #define OPENSSL_VERSION_NUMBER 0x10100000L
+#define OPENSSL_VERSION 0
 #endif
 ''');
 
@@ -117,6 +138,7 @@ int HMAC_Final(HMAC_CTX *ctx, unsigned char *md, unsigned int *len);
 #ifndef OPENSSL_RAND_H
 #define OPENSSL_RAND_H
 int RAND_bytes(unsigned char *buf, int num);
+void RAND_add(const void *buf, int num, double entropy);
 #endif
 ''');
 
@@ -125,12 +147,14 @@ int RAND_bytes(unsigned char *buf, int num);
 #define OPENSSL_ERR_H
 unsigned long ERR_get_error(void);
 void ERR_clear_error(void);
+char *ERR_error_string(unsigned long e, char *buf);
 #endif
 ''');
 
   File('${opensslDir.path}/objects.h').writeAsStringSync('''
 #ifndef OPENSSL_OBJECTS_H
 #define OPENSSL_OBJECTS_H
+const char *OBJ_nid2sn(int n);
 #endif
 ''');
 
