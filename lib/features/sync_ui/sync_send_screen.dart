@@ -30,8 +30,6 @@ class SyncSendScreen extends ConsumerStatefulWidget {
 class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     with TickerProviderStateMixin {
   final Set<String> _selectedNoteIds = {};
-  final bool _selectAll = true;
-  final String _searchQuery = '';
   Future<List<Note>>? _notesFuture;
 
   late AnimationController _radarController;
@@ -62,7 +60,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     });
     // Select all notes by default when they load.
     _notesFuture?.then((notes) {
-      if (_selectAll && mounted) {
+      if (mounted) {
         setState(() {
           _selectedNoteIds.addAll(notes.map((n) => n.id));
         });
@@ -478,7 +476,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
   }
 
   Future<List<Note>> _fetchNotes(AppDatabase db) async {
-    final notes = await (db.select(
+    return (db.select(
       db.notes,
     )
           ..where((t) => t.deleted.equals(false))
@@ -487,15 +485,6 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
             (t) => OrderingTerm.desc(t.updatedAt),
           ]))
         .get();
-    if (_searchQuery.isEmpty) return notes;
-    final q = _searchQuery.toLowerCase();
-    return notes
-        .where(
-          (n) =>
-              n.title.toLowerCase().contains(q) ||
-              (n.plainText?.toLowerCase().contains(q) == true),
-        )
-        .toList();
   }
 
   Future<void> _connectAndSend(

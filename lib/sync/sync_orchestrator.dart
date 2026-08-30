@@ -241,6 +241,10 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   /// so the UI can render a distinct treatment per failure mode.
   void _onTransportState(SyncSessionState sessionState) {
     if (sessionState.error != null) {
+      // Don't overwrite an error that is already set — a delayed/queued
+      // transport error arriving after the orchestrator already entered the
+      // error phase would flicker the UI with a different message.
+      if (state.phase == SyncPhase.error) return;
       nookLog(
         NookLogKey.sync,
         'Sync error: ${sessionState.error}',
@@ -859,12 +863,12 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       }
 
       // Send ack back to sender.
+      // Conflicts are NOT included in rejectedNoteIds — the user has not
+      // decided yet. The sender learns the outcome only when the user resolves
+      // each conflict (via a follow-up ack in resolveConflict()).
       final ack = SyncAck(
         receivedNoteIds: receivedIds,
-        rejectedNoteIds: [
-          ...rejectedIds,
-          ...conflicts.map((c) => c.incoming.noteId)
-        ],
+        rejectedNoteIds: rejectedIds,
       );
       nookLog(
         NookLogKey.sync,
@@ -875,9 +879,15 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       await _transport?.sendAck(ack.toCbor());
 
       if (conflicts.isNotEmpty) {
+        // Deduplicate: only add conflicts for notes not already in the list.
+        final existingConflictIds =
+            state.conflicts.map((c) => c.incoming.noteId).toSet();
+        final newConflicts = conflicts
+            .where((c) => !existingConflictIds.contains(c.incoming.noteId))
+            .toList();
         state = state.copyWith(
           phase: SyncPhase.resolving,
-          conflicts: [...state.conflicts, ...conflicts],
+          conflicts: [...state.conflicts, ...newConflicts],
         );
       } else {
         state = state.copyWith(phase: SyncPhase.complete);
@@ -1002,6 +1012,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   }
 
   void dispose() {
+    _stopped = true;
+    _bytesQueue.clear();
     unawaited(_deviceSub?.cancel());
     unawaited(_stateSub?.cancel());
     unawaited(_bytesSub?.cancel());
@@ -1010,7 +1022,15 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     unawaited(_wifiDirectServiceSub?.cancel());
     unawaited(_wifiDirectGroupSub?.cancel());
     unawaited(_wifiDirectErrorSub?.cancel());
-    _transport?.disconnect();
+    _deviceSub = null;
+    _stateSub = null;
+    _bytesSub = null;
+    _progressSub = null;
+    _pairingSub = null;
+    _wifiDirectServiceSub = null;
+    _wifiDirectGroupSub = null;
+    _wifiDirectErrorSub = null;
+    unawaited(_transport?.disconnect());
     _transport?.dispose();
   }
 

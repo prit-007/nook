@@ -646,9 +646,41 @@ void main() {
   });
 
   group('Regression fixtures — lock in known-good real recordings', () {
-    test('placeholder for first real-device capture', () {
-      // final realStroke = [Offset(12.3, 44.1), ...];
-      // expect(recognizeShape(realStroke).shape, RecognizedShape.rectangle);
-    }, skip: 'Add real captures here as you find edge cases on-device');
+    test('slightly rotated rectangle is recognized as rectangle', () {
+      final stroke = generateRectangle(
+        const Rect.fromLTWH(10, 10, 180, 100),
+        noise: 3,
+        rotationDeg: 4,
+        seed: 77,
+      );
+      final match = recognizeShape(stroke);
+      expect(match.shape, RecognizedShape.rectangle,
+          reason: 'A 4-deg rotated noisy rectangle must still be a rectangle');
+    });
+
+    test('imperfect circle with center wobble is recognized', () {
+      final stroke = generateCircle(
+        const Offset(120, 80),
+        55,
+        noise: 5,
+        seed: 33,
+      );
+      final match = recognizeShape(stroke);
+      expect(match.isRecognized, isTrue,
+          reason: 'A noisy circle should still be recognized');
+    });
+
+    test('hand-drawn diagonal line is recognized', () {
+      final stroke = generateLine(
+        const Offset(50, 200),
+        const Offset(250, 80),
+        noise: 3,
+        points: 35,
+        seed: 91,
+      );
+      final match = recognizeShape(stroke);
+      expect(match.isRecognized, isTrue,
+          reason: 'A diagonal line should be recognized');
+    });
   });
 }

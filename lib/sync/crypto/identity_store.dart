@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -63,23 +64,43 @@ class IdentityStore {
   final SeedStorage _storage;
   Uint8List? _cachedSeed;
 
+  /// Serializes concurrent callers so only one seed is generated/stored.
+  Completer<Uint8List>? _pending;
+
   /// Returns the 32-byte Ed25519 seed, generating and persisting it on first
   /// use. The result is cached in memory for the process lifetime.
+  ///
+  /// Thread-safe: concurrent callers share a single in-flight
+  /// [Completer] so two callers cannot race to generate different seeds.
   Future<Uint8List> getOrCreateSeed() async {
     if (_cachedSeed != null) return _cachedSeed!;
 
-    final stored = await _storage.read(seedKey);
-    final seed = stored != null ? _decodeSeed(stored) : _generateSeed();
-
-    if (stored == null) {
-      await _storage.write(seedKey, _encodeSeed(seed));
-      nookLog(NookLogKey.sync, 'Device identity seed generated', LogLevel.info);
-    } else {
-      nookLog(NookLogKey.sync, 'Device identity seed loaded', LogLevel.debug);
+    if (_pending != null && !_pending!.isCompleted) {
+      return _pending!.future;
     }
 
-    _cachedSeed = seed;
-    return seed;
+    _pending = Completer<Uint8List>();
+    try {
+      final stored = await _storage.read(seedKey);
+      final seed = stored != null ? _decodeSeed(stored) : _generateSeed();
+
+      if (stored == null) {
+        await _storage.write(seedKey, _encodeSeed(seed));
+        nookLog(
+            NookLogKey.sync, 'Device identity seed generated', LogLevel.info);
+      } else {
+        nookLog(NookLogKey.sync, 'Device identity seed loaded', LogLevel.debug);
+      }
+
+      _cachedSeed = seed;
+      _pending!.complete(seed);
+      return seed;
+    } catch (e) {
+      _pending!.completeError(e);
+      rethrow;
+    } finally {
+      _pending = null;
+    }
   }
 
   /// Derives a deterministic libp2p [KeyPair] from the persisted seed.
@@ -92,6 +113,7 @@ class IdentityStore {
   Future<void> clear() async {
     await _storage.delete(seedKey);
     _cachedSeed = null;
+    _pending = null;
     nookLog(NookLogKey.sync, 'Device identity reset', LogLevel.info);
   }
 

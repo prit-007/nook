@@ -335,7 +335,15 @@ class NookMdnsDiscovery {
 
   Future<void> _runDiscoveryLoop(QueryParams params) async {
     while (_isDiscovering) {
-      await _performDiscoveryQuery(params);
+      try {
+        await _performDiscoveryQuery(params);
+      } catch (e) {
+        nookLog(
+          NookLogKey.sync,
+          'mDNS discovery loop iteration failed: $e',
+          LogLevel.error,
+        );
+      }
       if (!_isDiscovering) break;
       await Future<void>.delayed(const Duration(seconds: 5));
     }
@@ -391,8 +399,12 @@ class NookMdnsDiscovery {
           deviceName: parsed.deviceName,
         ));
       }
-    } catch (_) {
-      // Best-effort.
+    } catch (e) {
+      nookLog(
+        NookLogKey.sync,
+        'Failed to process mDNS service entry: $e',
+        LogLevel.error,
+      );
     }
   }
 
@@ -599,7 +611,7 @@ class NookMdnsDiscovery {
 
   String _randomInstance() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    final random = Random();
+    final random = Random.secure();
     return String.fromCharCodes(
       List.generate(
         32 + random.nextInt(32),

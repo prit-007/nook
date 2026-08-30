@@ -42,6 +42,12 @@ class SyncCipher {
   ///
   /// Throws if authentication fails (tampered data) or the frame is malformed.
   Future<List<int>> decrypt(List<int> frame) async {
+    // Minimum frame: 12 nonce + 0 ciphertext + 16 mac = 28 bytes.
+    if (frame.length < 28) {
+      throw ArgumentError(
+        'Encrypted frame too short: ${frame.length} bytes (minimum 28)',
+      );
+    }
     final secretBox = SecretBox.fromConcatenation(
       frame,
       nonceLength: 12,

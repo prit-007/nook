@@ -92,6 +92,7 @@ class NoteRepository {
   Future<void> updateNote(
     String id, {
     String? title,
+    NoteType? type,
     String? colorSeed,
     bool? pinned,
     bool? locked,
@@ -102,6 +103,7 @@ class NoteRepository {
     await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
       NotesCompanion(
         title: title != null ? Value(title) : const Value.absent(),
+        type: type != null ? Value(type) : const Value.absent(),
         colorSeed: colorSeed != null ? Value(colorSeed) : const Value.absent(),
         pinned: pinned != null ? Value(pinned) : const Value.absent(),
         locked: locked != null ? Value(locked) : const Value.absent(),

@@ -13,6 +13,7 @@ import 'core/router.dart';
 import 'core/widgets/keyboard_shortcuts.dart';
 import 'features/security/frosted_shield.dart';
 import 'features/updates/update_provider.dart';
+import 'sync/sync_orchestrator.dart';
 
 class NookApp extends ConsumerStatefulWidget {
   const NookApp({super.key});
@@ -51,11 +52,28 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
         );
       case AppLifecycleState.paused:
         gate.onAppPaused();
+        // Stop any active sync when the app is backgrounded — discovery
+        // sockets, Wi-Fi Direct groups, and in-flight transfers would
+        // otherwise leak resources or break silently when the OS suspends
+        // network access.
+        unawaited(_stopSyncIfActive());
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
         gate.onAppPaused();
       default:
         break;
+    }
+  }
+
+  Future<void> _stopSyncIfActive() async {
+    try {
+      final syncState = ref.read(syncOrchestratorProvider);
+      if (syncState.phase != SyncPhase.idle) {
+        talker.info('Stopping active sync on app background');
+        await ref.read(syncOrchestratorProvider.notifier).stop();
+      }
+    } catch (e) {
+      talker.warning('Failed to stop sync on background: $e');
     }
   }
 

@@ -121,7 +121,7 @@ class MergeResolver {
     final existing = await _noteRepo.getNoteById(incoming.noteId);
     if (existing != null && !existing.deleted) {
       // ID collision — generate a new ID for the duplicate
-      await _noteRepo.createNote(
+      final newNote = await _noteRepo.createNote(
         title: incoming.noteFields['title'] as String? ?? '',
         type: _parseNoteType(incoming.noteFields['type'] as String?),
         deviceOriginId: originIdOverride ?? incoming.deviceOriginId,
@@ -131,6 +131,18 @@ class MergeResolver {
         syncVersion: incoming.syncVersion,
         notebookId: incoming.noteFields['notebookId'] as String?,
       );
+      // Preserve pinned/locked from the incoming note — the base createNote
+      // does not accept these params, so apply them in a follow-up update.
+      final pinned = incoming.noteFields['pinned'] as bool?;
+      final locked = incoming.noteFields['locked'] as bool?;
+      if (pinned != null || locked != null) {
+        await _noteRepo.updateNote(
+          newNote.id,
+          pinned: pinned,
+          locked: locked,
+          updatedAt: incoming.updatedAt,
+        );
+      }
     } else {
       await _insertAsNew(incoming, originIdOverride: originIdOverride);
     }
@@ -178,9 +190,12 @@ class MergeResolver {
 
   /// Overwrites a local note with the remote version (same lineage).
   Future<void> _overwrite(SyncNoteEntry incoming) async {
+    final noteType = _parseNoteType(incoming.noteFields['type'] as String?);
+
     await _noteRepo.updateNote(
       incoming.noteId,
       title: incoming.noteFields['title'] as String?,
+      type: noteType,
       colorSeed: incoming.noteFields['colorSeed'] as String?,
       pinned: incoming.noteFields['pinned'] as bool?,
       locked: incoming.noteFields['locked'] as bool?,
@@ -191,14 +206,24 @@ class MergeResolver {
 
     // Always write content (even when both fields are null) so a remote that
     // intentionally cleared a note's content actually clears it locally.
-    final deltaContent = incoming.noteFields['deltaContent'] as String?;
-    final plainText = incoming.noteFields['plainText'] as String?;
-    await _noteRepo.updateContent(
-      incoming.noteId,
-      deltaContent: deltaContent,
-      plainText: plainText,
-      updatedAt: incoming.updatedAt,
-    );
+    // Guard: only update content when the incoming bundle actually carries
+    // content keys — CBOR omits null-valued map entries, so a sender that
+    // did not set deltaContent/plainText produces a map without those keys.
+    final noteFields = incoming.noteFields;
+    final hasDeltaContent = noteFields.containsKey('deltaContent');
+    final hasPlainText = noteFields.containsKey('plainText');
+    if (hasDeltaContent || hasPlainText) {
+      final deltaContent =
+          hasDeltaContent ? noteFields['deltaContent'] as String? : null;
+      final plainText =
+          hasPlainText ? noteFields['plainText'] as String? : null;
+      await _noteRepo.updateContent(
+        incoming.noteId,
+        deltaContent: deltaContent,
+        plainText: plainText,
+        updatedAt: incoming.updatedAt,
+      );
+    }
   }
 
   NoteType _parseNoteType(String? type) {
