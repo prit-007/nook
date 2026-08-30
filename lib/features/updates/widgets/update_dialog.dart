@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -147,11 +148,17 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
   Future<void> _installApk(String apkPath) async {
     try {
-      final uri = Uri.file(apkPath);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final result = await OpenFilex.open(apkPath);
+      if (result.type == ResultType.done) {
+        if (mounted) Navigator.of(context).pop();
+      } else {
+        // Fallback: try url_launcher with file:// URI.
+        final uri = Uri.file(apkPath);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+        if (mounted) Navigator.of(context).pop();
       }
-      if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
         setState(() {
