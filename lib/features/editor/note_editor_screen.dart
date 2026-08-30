@@ -172,6 +172,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         } catch (e) {
           _editorState = EditorState.blank(withInitialText: true);
           _corruptedDelta = true;
+          // Preserve the raw corrupted JSON so the user can recover it.
+          // We keep _note.deltaContent intact (don't overwrite with blank)
+          // until the user makes their first real edit, at which point the
+          // blank document takes over.
         }
       } else {
         _editorState = EditorState.blank(withInitialText: true);
@@ -247,10 +251,28 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Note content was corrupted. A fresh note was started.'),
+          SnackBar(
+            content: const Text(
+              'Note content was corrupted. A fresh document was started.',
+            ),
             behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Copy raw',
+              onPressed: () {
+                final raw = _note?.deltaContent;
+                if (raw != null) {
+                  Clipboard.setData(ClipboardData(text: raw));
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Raw JSON copied to clipboard'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
           ),
         );
       });
@@ -261,6 +283,24 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   void _cleanupInit() {
     _editorState?.dispose();
     _editorState = null;
+  }
+
+  /// Returns `true` if the editor content is effectively empty (no text and
+  /// no title). Used to decide whether to delete a newly-created blank note
+  /// on exit.
+  bool _isEffectivelyEmpty() {
+    if (_editorState == null) return true;
+    final nodes = _editorState!.document.root.children;
+    String plainText = '';
+    for (final node in nodes) {
+      if (node.delta != null) {
+        for (final op in node.delta!.toList()) {
+          if (op is TextInsert) plainText += op.text;
+        }
+        plainText += '\n';
+      }
+    }
+    return plainText.trim().isEmpty && _title.isEmpty;
   }
 
   void _scheduleAutosave() {
@@ -830,6 +870,16 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     await WidgetsBinding.instance.endOfFrame;
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
+    // Shutter flash — brief white overlay to confirm the capture.
+    if (mounted) {
+      final flashEntry = OverlayEntry(
+        builder: (_) => const ColoredBox(color: Colors.white70),
+      );
+      Overlay.of(context).insert(flashEntry);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      flashEntry.remove();
+    }
+
     try {
       final boundary = boundaryKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
@@ -879,9 +929,14 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     await File(filePath).writeAsBytes(bytes);
 
     if (result == 'share') {
-      await NoteExporter.sharePng(filePath);
+      final exportResult = await NoteExporter.sharePng(filePath);
+      if (mounted && !exportResult.isSuccess) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text(exportResult.message)),
+        );
+      }
     } else if (result == 'gallery') {
-      final saved = await NoteExporter.saveToGallery(
+      final exportResult = await NoteExporter.saveToGallery(
         bytes,
         name: NoteExporter.generateFileName(_title),
       );
@@ -889,9 +944,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text(
-              saved ? 'Saved to gallery' : 'Gallery permission denied',
+              exportResult.isSuccess
+                  ? 'Saved to gallery'
+                  : exportResult.message,
             ),
-            action: saved
+            action: exportResult.isSuccess
                 ? SnackBarAction(
                     label: 'Share',
                     onPressed: () => NoteExporter.sharePng(filePath),
@@ -1191,24 +1248,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                 onBack: () async {
                                   final router = GoRouter.of(context);
                                   unawaited(HapticFeedback.lightImpact());
-                                  // Delete newly-created blank notes on exit.
                                   if (_dirty) {
-                                    final nodes =
-                                        _editorState!.document.root.children;
-                                    String plainText = '';
-                                    for (final node in nodes) {
-                                      if (node.delta != null) {
-                                        for (final op in node.delta!.toList()) {
-                                          if (op is TextInsert) {
-                                            plainText += op.text;
-                                          }
-                                        }
-                                        plainText += '\n';
-                                      }
-                                    }
-                                    plainText = plainText.trim();
-                                    if (plainText.isEmpty &&
-                                        _title.isEmpty &&
+                                    if (_isEffectivelyEmpty() &&
                                         widget.noteId == null) {
                                       await NoteRepository(_db!)
                                           .permanentlyDelete(_note!.id);
@@ -1251,20 +1292,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   void _handleSystemBack() {
     final router = GoRouter.of(context);
     unawaited(HapticFeedback.lightImpact());
-    // Delete newly-created blank notes on exit.
     if (_dirty) {
-      final nodes = _editorState!.document.root.children;
-      String plainText = '';
-      for (final node in nodes) {
-        if (node.delta != null) {
-          for (final op in node.delta!.toList()) {
-            if (op is TextInsert) plainText += op.text;
-          }
-          plainText += '\n';
-        }
-      }
-      plainText = plainText.trim();
-      if (plainText.isEmpty && _title.isEmpty && widget.noteId == null) {
+      if (_isEffectivelyEmpty() && widget.noteId == null) {
         NoteRepository(_db!).permanentlyDelete(_note!.id).then((_) {
           if (mounted) router.pop();
         });
@@ -1369,20 +1398,6 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
               ),
             ),
             if (isNarrow) ...[
-              IconButton(
-                tooltip: 'Undo',
-                onPressed: canUndo ? onUndo : null,
-                icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedUndo02,
-                    color: noteScheme.onSurface),
-              ),
-              IconButton(
-                tooltip: 'Redo',
-                onPressed: canRedo ? onRedo : null,
-                icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedRedo02,
-                    color: noteScheme.onSurface),
-              ),
               PopupMenuButton<String>(
                 icon: HugeIcon(
                   icon: HugeIcons.strokeRoundedMore01,
@@ -1390,6 +1405,10 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                 ),
                 onSelected: (value) {
                   switch (value) {
+                    case 'undo':
+                      onUndo();
+                    case 'redo':
+                      onRedo();
                     case 'image':
                       onInsertImage();
                     case 'doodle':
@@ -1403,6 +1422,35 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                   }
                 },
                 itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'undo',
+                    enabled: canUndo,
+                    child: Row(
+                      children: [
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedUndo02,
+                            size: 20,
+                            color: noteScheme.onSurface),
+                        const SizedBox(width: 12),
+                        const Text('Undo'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'redo',
+                    enabled: canRedo,
+                    child: Row(
+                      children: [
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedRedo02,
+                            size: 20,
+                            color: noteScheme.onSurface),
+                        const SizedBox(width: 12),
+                        const Text('Redo'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
                   PopupMenuItem(
                     value: 'image',
                     child: Row(
@@ -1734,14 +1782,29 @@ class NoteExportCapture extends StatelessWidget {
             const SizedBox(height: 32),
             Divider(color: scheme.outlineVariant.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
-            Text(
-              'nook. / 2026',
-              style: TextStyle(
-                fontFamily: 'Playfair Display',
-                fontSize: 10,
-                color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
-                letterSpacing: 2.0,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'nook.',
+                  style: TextStyle(
+                    fontFamily: 'Playfair Display',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.primary.withValues(alpha: 0.4),
+                    letterSpacing: 2.0,
+                  ),
+                ),
+                Text(
+                  DateFormat('yyyy').format(note.updatedAt),
+                  style: TextStyle(
+                    fontFamily: 'Playfair Display',
+                    fontSize: 10,
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
+                    letterSpacing: 2.0,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

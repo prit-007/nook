@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -6,9 +7,42 @@ import 'package:flutter/rendering.dart';
 import 'package:gal/gal.dart';
 import 'package:share_plus/share_plus.dart';
 
+/// Distinguishable export failure reasons for better user feedback.
+enum ExportFailure {
+  permissionDenied,
+  fileNotFound,
+  unknown,
+}
+
+/// Result of an export operation.
+class ExportResult {
+  const ExportResult.success() : failure = null;
+  const ExportResult.failure(this.failure);
+
+  final ExportFailure? failure;
+  bool get isSuccess => failure == null;
+
+  String get message {
+    switch (failure) {
+      case ExportFailure.permissionDenied:
+        return 'Enable photo access in Settings to save exports.';
+      case ExportFailure.fileNotFound:
+        return 'Export file could not be created.';
+      case ExportFailure.unknown:
+        return 'Export failed. Please try again.';
+      case null:
+        return 'Exported successfully.';
+    }
+  }
+}
+
 /// Exports a note's rendered content as a PNG image.
 class NoteExporter {
   NoteExporter._();
+
+  /// Maximum dimension (width or height) before downscaling. Prevents
+  /// multi-megabyte PNGs for very long notes.
+  static const int maxDimension = 2400;
 
   /// Converts a [ui.Image] to PNG bytes.
   static Future<Uint8List> imageToPng(ui.Image image) async {
@@ -17,14 +51,45 @@ class NoteExporter {
   }
 
   /// Captures a [RenderRepaintBoundary] as PNG bytes at [pixelRatio].
+  ///
+  /// If the resulting image exceeds [maxDimension] in either dimension, it is
+  /// downscaled to fit, keeping the aspect ratio.
   static Future<Uint8List> captureBoundaryToPng(
     RenderRepaintBoundary boundary, {
     double pixelRatio = 3.0,
   }) async {
-    final image = await boundary.toImage(pixelRatio: pixelRatio);
+    var image = await boundary.toImage(pixelRatio: pixelRatio);
+
+    // Downscale if the captured image is very large.
+    if (image.width > maxDimension || image.height > maxDimension) {
+      final scaled = await _downscale(image, maxDimension);
+      image.dispose();
+      image = scaled;
+    }
+
     final bytes = await imageToPng(image);
     image.dispose();
     return bytes;
+  }
+
+  /// Downscale [source] so that neither dimension exceeds [maxDim].
+  static Future<ui.Image> _downscale(ui.Image source, int maxDim) async {
+    final srcW = source.width;
+    final srcH = source.height;
+    final scale = min(maxDim / srcW, maxDim / srcH);
+    final dstW = (srcW * scale).round();
+    final dstH = (srcH * scale).round();
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawImageRect(
+      source,
+      Rect.fromLTWH(0, 0, srcW.toDouble(), srcH.toDouble()),
+      Rect.fromLTWH(0, 0, dstW.toDouble(), dstH.toDouble()),
+      Paint()..filterQuality = FilterQuality.high,
+    );
+    final picture = recorder.endRecording();
+    return picture.toImage(dstW, dstH);
   }
 
   /// Saves a [ui.Image] as a PNG file at [filePath].
@@ -38,32 +103,36 @@ class NoteExporter {
   }
 
   /// Saves PNG [bytes] to the device gallery under the Nook album.
-  ///
-  /// Returns `true` if saved successfully.  Throws on permission denial.
-  static Future<bool> saveToGallery(
+  static Future<ExportResult> saveToGallery(
     Uint8List bytes, {
     String name = 'nook-export',
   }) async {
-    final hasAccess = await Gal.hasAccess();
-    if (!hasAccess) {
-      final granted = await Gal.requestAccess();
-      if (!granted) return false;
+    try {
+      final hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        final granted = await Gal.requestAccess();
+        if (!granted) {
+          return const ExportResult.failure(ExportFailure.permissionDenied);
+        }
+      }
+      await Gal.putImageBytes(bytes, name: name, album: 'Nook');
+      return const ExportResult.success();
+    } catch (_) {
+      return const ExportResult.failure(ExportFailure.unknown);
     }
-    await Gal.putImageBytes(bytes, name: name, album: 'Nook');
-    return true;
   }
 
   /// Shares the PNG file at [filePath] via the platform share sheet.
-  ///
-  /// Returns `true` if sharing succeeded, `false` on error.
-  static Future<bool> sharePng(String filePath) async {
+  static Future<ExportResult> sharePng(String filePath) async {
     try {
-      if (!File(filePath).existsSync()) return false;
+      if (!File(filePath).existsSync()) {
+        return const ExportResult.failure(ExportFailure.fileNotFound);
+      }
       final params = ShareParams(files: [XFile(filePath)]);
       await SharePlus.instance.share(params);
-      return true;
+      return const ExportResult.success();
     } catch (_) {
-      return false;
+      return const ExportResult.failure(ExportFailure.unknown);
     }
   }
 

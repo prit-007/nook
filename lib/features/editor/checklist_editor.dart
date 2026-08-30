@@ -54,9 +54,11 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   List<_ChecklistItemView> _items = [];
   List<_ChecklistItemView> _archivedItems = [];
   bool _loading = true;
+  bool _initialLoadDone = false;
   List<Attachment> _attachments = [];
   final List<List<_ChecklistItemView>> _undoStack = [];
   final List<List<_ChecklistItemView>> _redoStack = [];
+  bool _completedExpanded = true;
 
   @override
   void initState() {
@@ -100,6 +102,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final first = _items.firstOrNull;
     if (first == null) return;
     unawaited(HapticFeedback.selectionClick());
+    _recordHistory();
     _titleController.text = first.text;
     _titleDebounce?.cancel();
     widget.onTitleChanged?.call(first.text);
@@ -130,6 +133,11 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                   sortOrder: i.sortOrder,
                 ))
             .toList();
+        // Auto-collapse completed on first load if more than 5 items.
+        if (!_initialLoadDone && _archivedItems.length > 5) {
+          _completedExpanded = false;
+        }
+        _initialLoadDone = true;
         _loading = false;
       });
     }
@@ -395,9 +403,6 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                               itemBuilder: (context, index) {
                                 return _SwipeableTile(
                                   key: ValueKey(_items[index].id),
-                                  // Completing from either direction keeps the
-                                  // gesture forgiving; deletion remains an
-                                  // explicit action to avoid accidental loss.
                                   onSwipeRight: () =>
                                       _toggleItem(_items[index].id),
                                   onSwipeLeft: () =>
@@ -406,68 +411,113 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                     alignment: Alignment.centerRight,
                                     isChecked: false,
                                   ),
-                                  leftBackground: const _SwipeToCheckBackground(
+                                  leftBackground:
+                                      const _SwipeToCheckBackground(
                                     alignment: Alignment.centerLeft,
                                     isChecked: false,
                                   ),
-                                  child: _ChecklistTile(
-                                    key: ValueKey(_items[index].id),
-                                    index: index,
-                                    id: _items[index].id,
-                                    text: _items[index].text,
-                                    checked: false,
-                                    onToggle: () =>
-                                        _toggleItem(_items[index].id),
-                                    onDelete: () =>
-                                        _deleteItem(_items[index].id),
+                                  child: TweenAnimationBuilder<double>(
+                                    tween: Tween(
+                                      begin: _initialLoadDone ? 1.0 : 0.0,
+                                      end: 1.0,
+                                    ),
+                                    duration: Duration(
+                                      milliseconds:
+                                          80 + (index * 40).clamp(0, 400),
+                                    ),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, value, child) =>
+                                        Opacity(
+                                      opacity: value,
+                                      child: Transform.translate(
+                                        offset: Offset(0, 20 * (1 - value)),
+                                        child: child,
+                                      ),
+                                    ),
+                                    child: _ChecklistTile(
+                                      key: ValueKey(_items[index].id),
+                                      index: index,
+                                      id: _items[index].id,
+                                      text: _items[index].text,
+                                      checked: false,
+                                      onToggle: () =>
+                                          _toggleItem(_items[index].id),
+                                      onDelete: () =>
+                                          _deleteItem(_items[index].id),
+                                    ),
                                   ),
                                 );
                               },
                             ),
                           ),
 
-                          // Completed divider + archived items
+                          // Completed divider + archived items (collapsible)
                           if (_archivedItems.isNotEmpty) ...[
-                            SliverPadding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                              sliver: SliverToBoxAdapter(
-                                child: Text(
-                                  'COMPLETED',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.5,
-                                    color: scheme.onSurfaceVariant
-                                        .withValues(alpha: 0.5),
+                            SliverToBoxAdapter(
+                              child: GestureDetector(
+                                onTap: () => setState(
+                                    () => _completedExpanded =
+                                        !_completedExpanded),
+                                behavior: HitTestBehavior.opaque,
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                                  child: Row(
+                                    children: [
+                                      AnimatedRotation(
+                                        turns: _completedExpanded ? 0.25 : 0,
+                                        duration: const Duration(
+                                            milliseconds: 200),
+                                        child: HugeIcon(
+                                          icon: HugeIcons
+                                              .strokeRoundedArrowRight01,
+                                          size: 16,
+                                          color: scheme.onSurfaceVariant
+                                              .withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'COMPLETED \u00b7 ${_archivedItems.length}',
+                                        style: TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1.5,
+                                          color: scheme.onSurfaceVariant
+                                              .withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
-                            SliverPadding(
-                              padding: EdgeInsets.only(
-                                left: 20,
-                                right: 20,
-                                bottom: viewInsets.bottom + 100,
-                              ),
-                              sliver: SliverList(
-                                delegate: SliverChildBuilderDelegate(
-                                  (context, index) => _ChecklistTile(
-                                    key: ValueKey(_archivedItems[index].id),
-                                    index: index,
-                                    id: _archivedItems[index].id,
-                                    text: _archivedItems[index].text,
-                                    checked: true,
-                                    onToggle: () =>
-                                        _toggleItem(_archivedItems[index].id),
-                                    onDelete: () =>
-                                        _deleteItem(_archivedItems[index].id),
+                            if (_completedExpanded)
+                              SliverPadding(
+                                padding: EdgeInsets.only(
+                                  left: 20,
+                                  right: 20,
+                                  bottom: viewInsets.bottom + 100,
+                                ),
+                                sliver: SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) => _ChecklistTile(
+                                      key: ValueKey(
+                                          _archivedItems[index].id),
+                                      index: index,
+                                      id: _archivedItems[index].id,
+                                      text: _archivedItems[index].text,
+                                      checked: true,
+                                      onToggle: () => _toggleItem(
+                                          _archivedItems[index].id),
+                                      onDelete: () => _deleteItem(
+                                          _archivedItems[index].id),
+                                    ),
+                                    childCount: _archivedItems.length,
                                   ),
-                                  childCount: _archivedItems.length,
                                 ),
                               ),
-                            ),
                           ],
                         ],
                       ),
