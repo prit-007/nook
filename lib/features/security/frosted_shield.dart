@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,8 +17,8 @@ import 'pin_entry_screen.dart';
 /// [BackdropFilter]. On successful auth the blur animates down to sigma 0,
 /// letting the notes snap into focus like a camera lens.
 ///
-/// Uses a scrollable, constrained layout so it never overflows on extreme
-/// aspect ratios.
+/// Automatically triggers the biometric prompt the moment the shield appears,
+/// identical to WhatsApp's App Lock behavior.
 class FrostedShield extends ConsumerStatefulWidget {
   const FrostedShield({super.key});
 
@@ -45,6 +44,11 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
     _blur = Tween<double>(begin: 40, end: 0).animate(
       CurvedAnimation(parent: _focusController, curve: Curves.easeOutCubic),
     );
+
+    // Auto-trigger biometric prompt on load, identical to WhatsApp.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _unlock();
+    });
   }
 
   @override
@@ -56,15 +60,18 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
   Future<void> _unlock() async {
     if (_hasUnlocked) return;
     unawaited(HapticFeedback.mediumImpact());
+
     final gate = ref.read(biometricGateProvider);
     final ok = await gate.unlock();
 
     if (!ok || !mounted) {
-      if (mounted) setState(() => _error = 'Authentication failed.');
+      if (mounted) setState(() => _error = 'Authentication failed');
       return;
     }
-    setState(() => _error = null);
-    setState(() => _hasUnlocked = true);
+    setState(() {
+      _error = null;
+      _hasUnlocked = true;
+    });
     await _focusController.forward();
   }
 
@@ -85,26 +92,73 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
           return BackdropFilter(
             filter: ImageFilter.blur(sigmaX: _blur.value, sigmaY: _blur.value),
             child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: scheme.surface.withValues(alpha: 0.8),
-                child: SafeArea(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 360),
-                          child: _FrostedShieldButton(
-                            enabled: !gate.isAuthenticating,
-                            onTap: _unlock,
-                            error: _error,
-                          ),
+              color: scheme.surface.withValues(alpha: 0.85),
+              child: SafeArea(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedLock,
+                        size: 64,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'nook. is locked',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _error ?? 'Unlock to view your secure notes',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: _error != null
+                              ? scheme.error
+                              : scheme.onSurfaceVariant,
+                          fontWeight: _error != null
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      const SizedBox(height: 48),
+                      if (!gate.isAuthenticating)
+                        FilledButton.tonal(
+                          onPressed: _unlock,
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 32, vertical: 16),
+                          ),
+                          child: const Text('Unlock',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      const SizedBox(height: 16),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final pinProv = ref.watch(pinProvider);
+                          if (!pinProv.enabled || gate.isAuthenticating) {
+                            return const SizedBox.shrink();
+                          }
+                          return TextButton(
+                            onPressed: () async {
+                              final result =
+                                  await Navigator.of(context).push<bool>(
+                                MaterialPageRoute(
+                                    builder: (_) => const PinEntryScreen()),
+                              );
+                              if (result == true && context.mounted) {
+                                ref.read(biometricGateProvider).unlockWithPin();
+                              }
+                            },
+                            child: const Text('Use PIN'),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -112,107 +166,6 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
           );
         },
       ),
-    );
-  }
-}
-
-class _FrostedShieldButton extends StatelessWidget {
-  const _FrostedShieldButton({
-    required this.enabled,
-    required this.onTap,
-    this.error,
-  });
-
-  final bool enabled;
-  final VoidCallback onTap;
-  final String? error;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: enabled ? onTap : null,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(40),
-              border: Border.all(
-                color: scheme.outlineVariant.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Column(
-              children: [
-                HugeIcon(
-                    icon: HugeIcons.strokeRoundedShield01,
-                    size: 56,
-                    color: scheme.primary),
-                const SizedBox(height: 24),
-                const Text(
-                  'Vault Locked',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  defaultTargetPlatform == TargetPlatform.windows
-                      ? 'Use Windows Hello to continue'
-                      : 'Tap to unlock via biometrics',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (error != null) ...[
-          const SizedBox(height: 24),
-          Text(
-            error!,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: scheme.error,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-        const SizedBox(height: 24),
-        Consumer(
-          builder: (context, ref, _) {
-            final pinProv = ref.watch(pinProvider);
-            if (!pinProv.enabled) return const SizedBox.shrink();
-            return OutlinedButton.icon(
-              onPressed: () async {
-                final result = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (_) => const PinEntryScreen(),
-                  ),
-                );
-                if (result == true && context.mounted) {
-                  ref.read(biometricGateProvider).unlockWithPin();
-                }
-              },
-              icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedKey01,
-                  size: 24,
-                  color: scheme.onSurface),
-              label: const Text('Use PIN'),
-            );
-          },
-        ),
-      ],
     );
   }
 }

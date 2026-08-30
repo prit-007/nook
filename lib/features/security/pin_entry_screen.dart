@@ -7,13 +7,10 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/pin_provider.dart';
 
-/// Adaptive PIN entry screen — numeric keypad for PIN verification.
-/// Uses `CustomScrollView` + `SliverFillRemaining` so the layout never
-/// overflows on landscape or short screens.
+/// Native-style PIN entry screen — borderless keypad with clean,
+/// unbordered typography mimicking iOS and Android lock screens.
 class PinEntryScreen extends ConsumerStatefulWidget {
   const PinEntryScreen({super.key, this.isSetup = false});
-
-  /// When true, the screen is for setting a new PIN (two-step entry).
   final bool isSetup;
 
   @override
@@ -94,172 +91,111 @@ class _PinEntryScreenState extends ConsumerState<PinEntryScreen> {
     return Scaffold(
       backgroundColor: scheme.surface,
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: SafeArea(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: Column(
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (_error != null)
-                      Text(
-                        _error!,
-                        style: TextStyle(
-                          color: scheme.error,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      )
-                    else
-                      Text(
-                        widget.isSetup && _confirming
-                            ? 'Re-enter your PIN to confirm'
-                            : 'Secure vault access',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-
-                    const SizedBox(height: 48),
-
-                    // PIN Dots
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(_pinLength, (i) {
-                        final filled = i < _entered.length;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOutBack,
-                          width: filled ? 16 : 12,
-                          height: filled ? 16 : 12,
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: filled
-                                ? scheme.primary
-                                : scheme.surfaceContainerHighest,
-                          ),
-                        );
-                      }),
-                    ),
-
-                    const Spacer(),
-
-                    // Responsive Keypad
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 380),
-                      child: Column(
-                        children: [
-                          for (final row in [
-                            ['1', '2', '3'],
-                            ['4', '5', '6'],
-                            ['7', '8', '9'],
-                            ['', '0', '⌫'],
-                          ])
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: row.map((digit) {
-                                  if (digit.isEmpty) {
-                                    return const SizedBox(width: 80);
-                                  }
-
-                                  final isBackspace = digit == '⌫';
-                                  return _KeyButton(
-                                    onTap: isBackspace
-                                        ? _onBackspace
-                                        : () => _onKey(digit),
-                                    isBackspace: isBackspace,
-                                    child: isBackspace
-                                        ? HugeIcon(
-                                            icon: HugeIcons
-                                                .strokeRoundedBackward01,
-                                            color: scheme.onSurface,
-                                            size: 28,
-                                          )
-                                        : Text(
-                                            digit,
-                                            style: const TextStyle(
-                                              fontSize: 28,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 32),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+            if (_error != null)
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: scheme.error,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
+              )
+            else
+              Text(
+                widget.isSetup && _confirming
+                    ? 'Re-enter your PIN'
+                    : 'Enter your nook. PIN',
+                style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
+              ),
+            const SizedBox(height: 48),
+
+            // PIN Dots
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_pinLength, (i) {
+                final filled = i < _entered.length;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 14,
+                  height: 14,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: filled ? scheme.primary : Colors.transparent,
+                    border: Border.all(
+                      color: filled ? scheme.primary : scheme.outlineVariant,
+                      width: 1.5,
+                    ),
+                  ),
+                );
+              }),
+            ),
+
+            const Spacer(),
+
+            // WhatsApp/iOS Style Keypad (No borders)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Column(
+                children: [
+                  for (final row in [
+                    ['1', '2', '3'],
+                    ['4', '5', '6'],
+                    ['7', '8', '9'],
+                    ['', '0', '⌫'],
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: row.map((digit) {
+                          if (digit.isEmpty) {
+                            return const SizedBox(width: 72);
+                          }
+
+                          final isBackspace = digit == '⌫';
+                          return GestureDetector(
+                            onTap: isBackspace
+                                ? _onBackspace
+                                : () => _onKey(digit),
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              width: 72,
+                              height: 72,
+                              alignment: Alignment.center,
+                              child: isBackspace
+                                  ? HugeIcon(
+                                      icon: HugeIcons.strokeRoundedBackward01,
+                                      color: scheme.onSurface,
+                                      size: 28,
+                                    )
+                                  : Text(
+                                      digit,
+                                      style: TextStyle(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w400,
+                                        color: scheme.onSurface,
+                                      ),
+                                    ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _KeyButton extends StatefulWidget {
-  const _KeyButton({
-    required this.onTap,
-    required this.child,
-    required this.isBackspace,
-  });
-
-  final Widget child;
-  final VoidCallback onTap;
-  final bool isBackspace;
-
-  @override
-  State<_KeyButton> createState() => _KeyButtonState();
-}
-
-class _KeyButtonState extends State<_KeyButton> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.9 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: widget.isBackspace
-                ? Colors.transparent
-                : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          ),
-          alignment: Alignment.center,
-          child: widget.child,
+            const SizedBox(height: 48),
+          ],
         ),
       ),
     );

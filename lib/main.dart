@@ -52,6 +52,7 @@ void main() async {
     ScreenshotBlocker.load(),
     PinProvider.load(),
     NavigationPreference.load(),
+    NavigationPreference.isOnboardingCompleted(),
   ]);
 
   final themePref = results[0] as ThemePreference;
@@ -59,6 +60,12 @@ void main() async {
   final screenshotBlocker = results[2] as ScreenshotBlocker;
   final pinProv = results[3] as PinProvider;
   final navigationPreference = results[4] as NavigationPreference;
+  final onboardingCompleted = results[5] as bool;
+
+  // If onboarding hasn't been completed, force the initial route to onboarding.
+  if (!onboardingCompleted) {
+    navigationPreference.overrideRoute('/onboarding');
+  }
 
   talker.info('Preferences loaded');
 

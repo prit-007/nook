@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:hugeicons/hugeicons.dart';
+import '../../core/providers/navigation_preference.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/design_tokens.dart';
@@ -40,10 +41,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
-  void _finish() {
+  Future<void> _finish() async {
     ref.read(themePreferenceProvider).setSeedIndex(_selectedSeedIndex);
+    await NavigationPreference.completeOnboarding();
     talker.info('Onboarding completed (seed $_selectedSeedIndex)');
-    context.go('/home');
+    if (mounted) context.go('/home');
   }
 
   @override
