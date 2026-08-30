@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -329,29 +327,26 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
   Widget _lockedPreview(ColorScheme scheme) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          height: 44,
-          color: scheme.surface.withValues(alpha: 0.3),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              HugeIcon(
-                  icon: HugeIcons.strokeRoundedLock,
-                  size: 16,
-                  color: scheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                'Biometrics required',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.primary,
-                ),
+      child: Container(
+        height: 44,
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            HugeIcon(
+                icon: HugeIcons.strokeRoundedLock,
+                size: 16,
+                color: scheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Biometrics required',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: scheme.primary,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

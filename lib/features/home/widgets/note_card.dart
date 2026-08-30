@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -226,13 +224,10 @@ class _NoteCardState extends ConsumerState<NoteCard> {
 
   Widget _lockedPreview(ColorScheme scheme) {
     return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          decoration: BoxDecoration(
-            color: scheme.surface.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(8),
-          ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );

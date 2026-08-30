@@ -78,8 +78,13 @@ class DoodleController extends ChangeNotifier {
   ShapeMatch? _pendingSuggestion;
   Stroke? _pendingSuggestionStroke;
 
+  /// Increments on every stroke mutation so the painter can detect changes
+  /// even though the Stroke object is mutated in place.
+  int _activeStrokeVersion = 0;
+
   List<Stroke> get strokes => List.unmodifiable(_strokes);
   Stroke? get activeStroke => _activeStroke;
+  int get activeStrokeVersion => _activeStrokeVersion;
   Picture? get bakedPicture => _bakedPicture;
   DoodleTool get currentTool => _currentTool;
   Color get currentColor => _currentColor;
@@ -155,13 +160,15 @@ class DoodleController extends ChangeNotifier {
     _strokes.add(_activeStroke!);
     _redoStack.clear();
     _isDrawing = true;
+    _activeStrokeVersion++;
     notifyListeners();
   }
 
   void continueStroke(Offset point, {double pressure = 1.0}) {
     if (_activeStroke == null) return;
     _activeStroke!.points.add(StrokePoint(point, pressure: pressure));
-    notifyListeners(); // cheap: only the active stroke recomputes, see painter
+    _activeStrokeVersion++;
+    notifyListeners();
   }
 
   void endStroke() {

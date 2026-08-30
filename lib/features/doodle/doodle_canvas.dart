@@ -135,6 +135,7 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
             backgroundColor: gridColor,
             bakedPicture: widget.controller.bakedPicture,
             activeStroke: widget.controller.activeStroke,
+            activeStrokeVersion: widget.controller.activeStrokeVersion,
           ),
           size: Size.infinite,
         ),
@@ -154,12 +155,14 @@ class _DoodlePainter extends CustomPainter {
     required this.backgroundColor,
     required this.bakedPicture,
     required this.activeStroke,
+    required this.activeStrokeVersion,
   });
 
   final DoodleBackground background;
   final Color backgroundColor;
   final Picture? bakedPicture;
   final Stroke? activeStroke;
+  final int activeStrokeVersion;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -178,7 +181,7 @@ class _DoodlePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DoodlePainter oldDelegate) {
     return oldDelegate.bakedPicture != bakedPicture ||
-        oldDelegate.activeStroke != activeStroke ||
+        oldDelegate.activeStrokeVersion != activeStrokeVersion ||
         oldDelegate.background != background ||
         oldDelegate.backgroundColor != backgroundColor;
   }
