@@ -7,6 +7,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-08-30
+
+### Deep sync audit — 34 bugs fixed
+A comprehensive security and reliability audit of the sync stack (transport,
+protocol, merge resolver, orchestrator, UI) identified and fixed 34 issues
+across two rounds.
+
+#### Transport & protocol (Critical/High)
+- **TOCTOU race in `getOrCreateSeed()`.** Two concurrent callers could each
+  generate a different seed; the first caller's identity was silently lost.
+  Fixed with a `Completer` mutex — the second caller now awaits the first's
+  in-flight future instead of racing.
+- **Stream leak in `connectToDevice()`.** If `sendData` threw, the libp2p
+  stream was never closed. Wrapped the entire send block in `try/finally`
+  with `stream.close()`.
+- **`maxFrameLength` raised from 512 MB → 100 MB.** A 512 MB cap on an
+  in-memory buffer is a denial-of-service vector on resource-constrained
+  mobile devices.
+- **`reassembleChunks` validates total length.** Mismatched chunks now throw
+  `ArgumentError` with chunk count and expected vs actual byte counts.
+- **`verifyChecksum` uses constant-time comparison.** XOR each code unit and
+  OR into an accumulator to prevent timing side-channel attacks when
+  comparing checksums.
+- **`SyncNoteEntry.fromCbor` validates required fields.** Missing or
+  wrong-type `noteId`/`syncVersion`/`updatedAt`/`deviceOriginId` now throw
+  `FormatException` instead of raw `TypeError` killing the entire bundle.
+- **`SyncCipher.decrypt` enforces minimum frame length (28 bytes).** Frames
+  shorter than 12-byte nonce + 16-byte MAC now throw `ArgumentError`.
+
+#### Merge resolver
+- **`_overwrite` passes note `type` to `updateNote`.** Previously omitted,
+  causing overwrites to reset note type to the column default.
+- **`_overwrite` guards null content keys.** CBOR omits null-valued map
+  entries; a sender that did not set `deltaContent`/`plainText` no longer
+  clobbers the receiver's content. Explicit null values still clear it.
+- **Collision path preserves `pinned`/`locked`.** When `insertAsNew` detects
+  an ID collision and generates a new note, `pinned` and `locked` from the
+  incoming note are now applied in a follow-up update.
+
+#### Orchestrator
+- **Conflict resolution removes the card from state immediately.** Prevents
+  double-taps from triggering duplicate DB operations (e.g. "keep both"
+  calling `insertAsNew` twice).
+- **Busy ack on dropped bundles.** Incoming bundles that arrive while the
+  orchestrator is already processing are now acknowledged with a busy signal
+  instead of being silently dropped.
+- **Discovery loop self-recovery.** If the periodic mDNS discovery loop fails,
+  it now retries after a backoff instead of staying dead.
+- **Discovery exception logging.** Exceptions during mDNS discovery are now
+  logged instead of swallowed.
+
+#### Crypto
+- **`IdentityStore.getOrCreateSeed` uses `Random.secure()`** for mDNS
+  instance names instead of predictable `Random()`.
+- **`IdentityStore.clear()` resets the pending Completer.** A `clear()` call
+  during an in-flight `getOrCreateSeed()` no longer leaves a dangling
+  `Completer` that hangs subsequent callers.
+
+#### Mock transport
+- **`MockSyncTransport.dispose` closes all controllers safely.** Double-
+  dispose is now safe (checks `isClosed` before closing the pairing
+  controller).
+
+#### UI fixes (second audit round)
+- **QR dialog: stop advertising on confirm.** `_confirmed()` now calls
+  `stop()` before popping the dialog, fixing a resource leak.
+- **QR dialog: dismiss on system back.** `PopScope.onPopInvokedWithResult`
+  now stops advertising AND dismisses the dialog instead of leaving it
+  stranded.
+- **Conflict card: double-tap guard.** State is removed before the async
+  resolution begins, preventing duplicate operations.
+- **Settings sync devices: FutureBuilder flicker.** Converted from
+  `ConsumerWidget` to `ConsumerStatefulWidget`; the future is created in
+  `initState` instead of `build`.
+- **Receive screen: clear stale addresses.** `_ownAddresses` is now cleared
+  when stopping advertising.
+- **IncomingPairingCard: double-tap protection.** Accept/reject buttons are
+  disabled while the first tap is in-flight (`_busy` flag).
+- **Send screen: mounted check.** Added `mounted` check after the confirm
+  dialog before reading orchestrator state.
+
+### Test improvements
+- **21 new sync gap tests** covering:
+  - `SyncNoteEntry.fromCbor` validation (missing noteId, wrong syncVersion,
+    missing deviceOriginId, minimal valid)
+  - `reassembleChunks` integrity (mismatch throws, match succeeds)
+  - Overwrite with null content keys (no clobber, explicit null clears)
+  - `insertAsNew` collision preserving pinned/locked
+  - Concurrent `getOrCreateSeed` (Completer mutex correctness)
+  - `clear()` resetting the pending Completer
+  - `MockSyncTransport` dispose (closes controllers, double-dispose safe)
+  - Conflict deduplication (reapplied bundle resolves, then goes stale)
+  - `verifyChecksum` constant-time comparison edge cases
+  - Error overwrite guard (ignore preserves note)
+- **Shape recognizer skip fixed.** Replaced placeholder with 3 real
+  regression fixtures (rotated rectangle, noisy circle, diagonal line).
+- **Total: 896 tests pass** (was 875), 0 skipped, 0 failures.
+
 ## [0.8.5] - 2026-08-30
 
 ### Shape recognizer fix
