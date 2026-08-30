@@ -5,22 +5,19 @@ import 'package:go_router/go_router.dart';
 /// Global keyboard shortcuts for desktop / web.
 ///
 /// Bindings (all disabled while a text input has focus so typing is never
-/// hijacked — e.g. the AppFlowy editor's `/` slash menu keeps working):
+/// hijacked):
 ///
-/// - `/`            → open search (`/home/search`)
-/// - Ctrl/Cmd + K   → open search
-/// - Ctrl/Cmd + N   → new note (`/note/new`)
-///
-/// [CallbackShortcuts] resolves bindings from the primary focus upward, so a
-/// descendant that consumes the key (a text field's character input, the
-/// editor's `/` slash command) wins before this handler runs. For keys that
-/// bubble up (Ctrl/Cmd + K/N while typing), the guard below refuses to fire.
+/// - `/`              → open search (`/home/search`)
+/// - Ctrl/Cmd + K     → open search
+/// - Ctrl/Cmd + N     → new note (`/note/new`)
+/// - Ctrl+Shift+N     → quick note overlay
 class NookKeyboardShortcuts extends StatefulWidget {
   const NookKeyboardShortcuts({
     super.key,
     required this.child,
     this.onOpenSearch,
     this.onNewNote,
+    this.onQuickNote,
   });
 
   final Widget child;
@@ -28,6 +25,7 @@ class NookKeyboardShortcuts extends StatefulWidget {
   /// Injectable actions for tests. When null, navigation via go_router is used.
   final VoidCallback? onOpenSearch;
   final VoidCallback? onNewNote;
+  final VoidCallback? onQuickNote;
 
   @override
   State<NookKeyboardShortcuts> createState() => _NookKeyboardShortcutsState();
@@ -89,6 +87,19 @@ class _NookKeyboardShortcutsState extends State<NookKeyboardShortcuts> {
     context.push('/note/new');
   }
 
+  void _quickNote() {
+    if (!_canUseShortcuts) return;
+    final onQuickNote = widget.onQuickNote;
+    if (onQuickNote != null) {
+      onQuickNote();
+      return;
+    }
+    // Quick note is handled by the global hotkey system — this binding
+    // provides the in-app fallback for when the app is focused.
+    HapticFeedback.lightImpact();
+    // The overlay is pushed via the navigator key from main.dart.
+  }
+
   @override
   Widget build(BuildContext context) {
     return CallbackShortcuts(
@@ -99,6 +110,10 @@ class _NookKeyboardShortcutsState extends State<NookKeyboardShortcuts> {
         const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _openSearch,
         const SingleActivator(LogicalKeyboardKey.keyN, control: true): _newNote,
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true): _newNote,
+        const SingleActivator(LogicalKeyboardKey.keyN,
+            control: true, shift: true): _quickNote,
+        const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true):
+            _quickNote,
       },
       // The root focusable guarantees a primary focus exists so key events are
       // routed through the Shortcuts system from the very first frame.

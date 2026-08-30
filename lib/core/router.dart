@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../app.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/home/search_screen.dart';
 import '../../features/notebooks/notebook_detail_screen.dart';
@@ -145,6 +146,7 @@ class _ErrorPage extends StatelessWidget {
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: NookApp.navigatorKey,
     initialLocation: ref.read(navigationPreferenceProvider.notifier).route,
     errorBuilder: (context, state) =>
         _ErrorPage(state.error ?? 'Unknown error'),
