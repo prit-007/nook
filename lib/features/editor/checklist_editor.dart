@@ -112,7 +112,16 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     final attachmentRepo = AttachmentRepository(db);
-    final items = await repo.getItems(widget.noteId);
+
+    // Load items and attachments concurrently so the image strip is
+    // available on the first render (no flash of empty strip).
+    final results = await Future.wait([
+      repo.getItems(widget.noteId),
+      attachmentRepo.getAllForNote(widget.noteId),
+    ]);
+    final items = results[0] as List<ChecklistItem>;
+    final attachments = results[1] as List<Attachment>;
+
     if (mounted) {
       setState(() {
         _items = items
@@ -133,17 +142,13 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                   sortOrder: i.sortOrder,
                 ))
             .toList();
-        // Auto-collapse completed on first load if more than 5 items.
+        _attachments = attachments;
         if (!_initialLoadDone && _archivedItems.length > 5) {
           _completedExpanded = false;
         }
         _initialLoadDone = true;
         _loading = false;
       });
-    }
-    final attachments = await attachmentRepo.getAllForNote(widget.noteId);
-    if (mounted) {
-      setState(() => _attachments = attachments);
     }
   }
 
@@ -659,12 +664,15 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
                       ? MainAxisAlignment.center
                       : MainAxisAlignment.start,
                   children: [
-                    HugeIcon(
-                      icon: _expanded
-                          ? HugeIcons.strokeRoundedCancelCircle
-                          : HugeIcons.strokeRoundedAdd01,
-                      color: scheme.primary,
-                      size: 24,
+                    GestureDetector(
+                      onTap: _expanded ? _collapse : null,
+                      child: HugeIcon(
+                        icon: _expanded
+                            ? HugeIcons.strokeRoundedCancelCircle
+                            : HugeIcons.strokeRoundedAdd01,
+                        color: scheme.primary,
+                        size: 24,
+                      ),
                     ),
                     if (t > 0.1) ...[
                       const SizedBox(width: 4),
@@ -800,6 +808,8 @@ class _ChecklistTileState extends State<_ChecklistTile> {
   }
 
   void _startEditing() {
+    // Unfocus the add pill so it collapses while we edit this item.
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _editing = true;
       _editController.text = widget.text;

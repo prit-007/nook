@@ -163,37 +163,40 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                 )
               : grid,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: Padding(
-        padding: EdgeInsets.only(
-          bottom: DockSafeArea.bottomOf(context) + 16,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: FloatingActionButton.extended(
-              // Unique hero tag: TagsScreen stays alive next to NotebooksScreen
-              // inside the CollectionsScreen IndexedStack.
-              heroTag: 'fab-tags',
-              backgroundColor: scheme.primaryContainer.withValues(alpha: 0.8),
-              foregroundColor: scheme.onPrimaryContainer,
-              elevation: 0,
-              icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedAdd01,
-                  size: 24,
-                  color: scheme.onPrimaryContainer),
-              label: const Text(
-                'New Tag',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
+      floatingActionButton: widget.embedded
+          ? null
+          : Padding(
+              padding: EdgeInsets.only(
+                bottom: DockSafeArea.bottomOf(context) + 16,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: FloatingActionButton.extended(
+                    // Unique hero tag: TagsScreen stays alive next to NotebooksScreen
+                    // inside the CollectionsScreen IndexedStack.
+                    heroTag: 'fab-tags',
+                    backgroundColor:
+                        scheme.primaryContainer.withValues(alpha: 0.8),
+                    foregroundColor: scheme.onPrimaryContainer,
+                    elevation: 0,
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedAdd01,
+                        size: 24,
+                        color: scheme.onPrimaryContainer),
+                    label: const Text(
+                      'New Tag',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onPressed: _showCreateSheet,
+                  ),
                 ),
               ),
-              onPressed: _showCreateSheet,
             ),
-          ),
-        ),
-      ),
     );
   }
 

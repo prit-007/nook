@@ -1,7 +1,7 @@
 name: nook
 description: "A private, local-first note-taking app. Your notes, your device, yours."
 publish_to: 'none'
-version: 0.8.4+6
+version: 0.8.5+7
 license: GPL-3.0
 
 # Select a SQLCipher build for the sqlite3 native-assets hook so that

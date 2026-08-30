@@ -51,8 +51,11 @@ class Stroke {
 /// with a revertible "snap," and a cached baked-picture of committed strokes
 /// so drawing performance doesn't degrade as a doodle grows (see [_rebake]).
 class DoodleController extends ChangeNotifier {
-  DoodleController({Color defaultColor = Colors.black})
-      : _currentColor = defaultColor;
+  DoodleController({
+    Color defaultColor = Colors.black,
+    bool shapeAssistEnabled = true,
+  })  : _currentColor = defaultColor,
+        _shapeAssistEnabled = shapeAssistEnabled;
 
   final List<Stroke> _strokes = [];
   final List<Stroke> _redoStack = [];
@@ -63,7 +66,7 @@ class DoodleController extends ChangeNotifier {
   double _currentWidth = 4.0;
   DoodleBackground _background = DoodleBackground.dotted;
   bool _isDrawing = false;
-  bool _shapeAssistEnabled = true;
+  bool _shapeAssistEnabled;
 
   // Cached rendering of all committed strokes. Rebuilt only when strokes
   // are added/removed/reordered — never on every pointer move — so the
@@ -200,14 +203,14 @@ class DoodleController extends ChangeNotifier {
 
     _preSnapPoints = active.points;
 
-    if (match.confidence >= 0.75) {
+    if (match.confidence >= 0.60) {
       // High confidence: commit immediately, offer the usual undo chip.
       active.points = match.points.map((p) => StrokePoint(p)).toList();
       active.isPerfectShape = true;
       active.shapeType = match.shape;
       _lastSnappedStroke = active;
       HapticFeedback.mediumImpact();
-    } else if (match.confidence >= 0.45) {
+    } else if (match.confidence >= 0.38) {
       // Ambiguous: stash as a pending suggestion, don't mutate yet.
       _pendingSuggestion = match;
       _pendingSuggestionStroke = active;

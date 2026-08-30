@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_info.dart';
 import '../../core/providers/biometric_provider.dart';
@@ -233,6 +234,16 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () {
                   HapticFeedback.lightImpact();
                   unawaited(_checkForUpdates(context, ref));
+                },
+              ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedPlay,
+                title: 'Replay Onboarding',
+                onTap: () async {
+                  unawaited(HapticFeedback.lightImpact());
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('onboarding_completed', false);
+                  if (context.mounted) context.go('/onboarding');
                 },
               ),
             ],

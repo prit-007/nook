@@ -31,7 +31,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _nextPage() {
-    if (_currentPage < 2) {
+    if (_currentPage < 3) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -77,6 +77,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _currentPage = i),
                 children: [
                   _WelcomePage(scheme: scheme),
+                  _NoteTypesPage(scheme: scheme),
                   _VibePage(
                     scheme: scheme,
                     selectedIndex: _selectedSeedIndex,
@@ -93,7 +94,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (i) {
+                children: List.generate(4, (i) {
                   final isActive = i == _currentPage;
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
@@ -125,7 +126,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                   ),
                   child: Text(
-                    _currentPage == 2 ? 'Get Started' : 'Continue',
+                    _currentPage == 3 ? 'Get Started' : 'Continue',
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
@@ -215,7 +216,142 @@ class _WelcomePage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Page 2: Pick Your Vibe
+// Page 2: Note Types
+// ---------------------------------------------------------------------------
+
+class _NoteTypesPage extends StatelessWidget {
+  const _NoteTypesPage({required this.scheme});
+
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
+          Text(
+            'Three ways to capture',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Choose the format that fits your thought.',
+            style: TextStyle(
+              fontSize: 15,
+              color: scheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Expanded(
+            child: Column(
+              children: [
+                _NoteTypeCard(
+                  scheme: scheme,
+                  icon: HugeIcons.strokeRoundedNotebook01,
+                  title: 'Text Notes',
+                  description:
+                      'Rich text with headings, lists, and formatting. Your everyday journal.',
+                  color: scheme.primary,
+                ),
+                const SizedBox(height: 16),
+                _NoteTypeCard(
+                  scheme: scheme,
+                  icon: HugeIcons.strokeRoundedCheckList,
+                  title: 'Checklists',
+                  description:
+                      'Interactive task lists with drag-to-reorder and swipe-to-complete.',
+                  color: scheme.tertiary,
+                ),
+                const SizedBox(height: 16),
+                _NoteTypeCard(
+                  scheme: scheme,
+                  icon: HugeIcons.strokeRoundedDrawingMode,
+                  title: 'Doodles',
+                  description:
+                      'Freehand drawing with pressure sensitivity and shape recognition.',
+                  color: scheme.secondary,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoteTypeCard extends StatelessWidget {
+  const _NoteTypeCard({
+    required this.scheme,
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.color,
+  });
+
+  final ColorScheme scheme;
+  final List<List<dynamic>> icon;
+  final String title;
+  final String description;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: HugeIcon(icon: icon, size: 24, color: color),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: scheme.onSurfaceVariant,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Page 3: Pick Your Vibe
 // ---------------------------------------------------------------------------
 
 class _VibePage extends StatelessWidget {

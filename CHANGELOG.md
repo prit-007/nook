@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-08-30
+
+### Shape recognizer fix
+- **Mid-confidence suggestion UI now wired.** The controller had
+  `acceptPendingSuggestion()` / `dismissPendingSuggestion()` methods but no
+  widget ever called them — shapes drawn with moderate wobble (confidence
+  0.38–0.60) were silently dropped. A suggestion chip now appears offering
+  "Make it a rectangle?" with Yes/No, auto-dismissing after 4 seconds.
+- **Auto-snap threshold lowered from 0.75 → 0.60.** Most hand-drawn shapes
+  landed below the old threshold due to natural wobble, making the recognizer
+  feel broken. Shapes with ≥60% confidence now snap immediately.
+- **Suggestion threshold lowered from 0.45 → 0.38.** More shapes enter the
+  suggestion path instead of being silently ignored.
+
+### Compose FAB continuity
+- **MorphingEditorialFab added to Notebooks and Tags pages.** The compose
+  FAB (Quick Thought / Checklist / Doodle) now appears on all main
+  navigation tabs, not just Home. Inner-screen FABs are hidden when
+  embedded inside `CollectionsScreen`.
+
+### Test improvements
+- Shape recognizer test suite expanded from 20 → 58 tests covering every
+  shape type, edge cases, negative cases, boundary conditions, and
+  `ShapeMatch` properties.
+- Controller tests expanded with shape-snap integration tests (auto-snap,
+  revert, suggestion accept/dismiss, toggle, eraser guard).
+- Checklist strikethrough animation test fixed (was flaky due to async DB
+  toggle).
+- Onboarding tests updated for the 4-page flow (Welcome → Note Types →
+  Vibe → Ready).
+
 ## [0.8.4] - 2026-08-16
 
 ### Sync reliability

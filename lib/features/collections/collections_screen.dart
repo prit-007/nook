@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/widgets/dock_safe_area.dart';
+import '../home/widgets/morphing_editorial_fab.dart';
 import '../notebooks/notebooks_screen.dart';
 import '../tags/tags_screen.dart';
 
@@ -28,6 +31,8 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final safeBottom = DockSafeArea.bottomOf(context) + 16;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_selectedTab == 0 ? 'Library' : 'Tags'),
@@ -67,11 +72,24 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
           ),
         ),
       ),
-      body: IndexedStack(
-        index: _selectedTab,
-        children: const [
-          NotebooksScreen(embedded: true),
-          TagsScreen(embedded: true),
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedTab,
+            children: const [
+              NotebooksScreen(embedded: true),
+              TagsScreen(embedded: true),
+            ],
+          ),
+          MorphingEditorialFab(
+            mobileBottomOffset: safeBottom,
+            onCreateNote: (type) async {
+              await HapticFeedback.mediumImpact();
+              if (context.mounted) {
+                await context.push('/note/new?type=${type.name}');
+              }
+            },
+          ),
         ],
       ),
     );

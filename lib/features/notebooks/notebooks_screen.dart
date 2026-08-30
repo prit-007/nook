@@ -193,30 +193,32 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen> {
                 )
               : grid,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: Padding(
-        padding: EdgeInsets.only(
-          bottom: DockSafeArea.bottomOf(context) + 16,
-        ),
-        child: FloatingActionButton.extended(
-          // Unique hero tag: both NotebooksScreen and TagsScreen stay alive in
-          // the CollectionsScreen IndexedStack, so sharing the default FAB hero
-          // tag would throw "multiple heroes with the same tag" every build.
-          heroTag: 'fab-notebooks',
-          onPressed: _showCreateSheet,
-          tooltip: 'Create notebook',
-          icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedAdd01,
-              size: 24,
-              color: scheme.onPrimary),
-          label: const Text(
-            'New',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w700,
+      floatingActionButton: widget.embedded
+          ? null
+          : Padding(
+              padding: EdgeInsets.only(
+                bottom: DockSafeArea.bottomOf(context) + 16,
+              ),
+              child: FloatingActionButton.extended(
+                // Unique hero tag: both NotebooksScreen and TagsScreen stay alive in
+                // the CollectionsScreen IndexedStack, so sharing the default FAB hero
+                // tag would throw "multiple heroes with the same tag" every build.
+                heroTag: 'fab-notebooks',
+                onPressed: _showCreateSheet,
+                tooltip: 'Create notebook',
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedAdd01,
+                    size: 24,
+                    color: scheme.onPrimary),
+                label: const Text(
+                  'New',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
