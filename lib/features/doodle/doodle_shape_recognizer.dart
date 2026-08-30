@@ -10,12 +10,18 @@ enum RecognizedShape { none, line, arrow, triangle, rectangle, oval }
 /// hand-drawn points — never render [points] silently without giving the
 /// user a way to revert (see `DoodleController.revertLastSnap`).
 class ShapeMatch {
-  const ShapeMatch(this.shape, this.points);
+  const ShapeMatch(this.shape, this.points, this.confidence);
 
   final RecognizedShape shape;
   final List<Offset> points;
 
+  /// 0.0–1.0. Callers should auto-commit above ~0.75 and treat anything
+  /// lower as a suggestion the user should confirm, not an instant snap.
+  final double confidence;
+
   bool get isRecognized => shape != RecognizedShape.none;
+
+  static const ShapeMatch none = ShapeMatch(RecognizedShape.none, [], 0.0);
 }
 
 /// Recognizes a hand-drawn stroke as a line, arrow, triangle, rectangle
@@ -26,45 +32,100 @@ class ShapeMatch {
 /// Ramer–Douglas–Peucker, then classify by corner count + closedness, rather
 /// than matching path-length ratios directly against raw points (which only
 /// catches axis-aligned shapes and is fooled by drawing speed variance).
+///
+/// Every branch computes an actual confidence score from real geometric
+/// deviation (how close to exactly 90°, how low the circularity variance,
+/// how straight the line) instead of a binary match/no-match. This lets
+/// callers auto-commit high-confidence shapes instantly while routing
+/// ambiguous ones through a lighter-touch confirmation.
 ShapeMatch recognizeShape(List<Offset> raw) {
-  if (raw.length < 8) return const ShapeMatch(RecognizedShape.none, []);
+  if (raw.length < 8) return ShapeMatch.none;
 
   final first = raw.first;
   final last = raw.last;
   final bounds = _boundsOf(raw);
   final diagonal = Offset(bounds.width, bounds.height).distance;
-  if (diagonal < 12) return const ShapeMatch(RecognizedShape.none, []);
+  if (diagonal < 12) return ShapeMatch.none;
 
-  final closed = (last - first).distance < diagonal * 0.15;
+  final closedGap = (last - first).distance;
+  final closed = closedGap < diagonal * 0.15;
 
   final simplified = _mergeCollinear(_simplifyRDP(raw, diagonal * 0.03));
   final cornerCount = closed ? simplified.length - 1 : simplified.length;
 
   // --- Open path: line or arrow ---
-  if (!closed && cornerCount <= 2) {
+  if (!closed && cornerCount <= 3) {
+    final pathLength = _pathLength(raw);
+    final directDistance = (last - first).distance;
+    // Straightness: 1.0 for a perfectly direct path, drops as it wanders.
+    final straightness = directDistance == 0
+        ? 0.0
+        : (directDistance / pathLength).clamp(0.0, 1.0);
+
+    // For 2-corner paths (line or simple arrow), check the tail bend.
+    // For 3-corner paths, the middle corner IS the arrow's elbow.
+    if (cornerCount == 3) {
+      // The middle corner is the elbow of the arrow.
+      final elbow = simplified[1];
+      final beforeElbow = (elbow - first).direction;
+      final afterElbow = (last - elbow).direction;
+      final elbowAngle = (beforeElbow - afterElbow).abs();
+      final elbowDeg = elbowAngle * 180 / math.pi;
+      // An arrow elbow is typically 20-160° (a sharp hook).
+      if (elbowDeg > 20 && elbowDeg < 160) {
+        final idealBend = 45.0;
+        final bendConfidence =
+            1.0 - ((elbowDeg - idealBend).abs() / 60).clamp(0.0, 1.0);
+        return ShapeMatch(
+          RecognizedShape.arrow,
+          [first, last],
+          straightness * 0.3 + bendConfidence * 0.7,
+        );
+      }
+    }
+
     final tailIndex = (raw.length * 0.85).floor().clamp(0, raw.length - 2);
     final tailVec = last - raw[tailIndex];
     final shaftVec = last - first;
     final bendDeg = _angleBetweenDeg(tailVec, shaftVec);
+
     if (bendDeg > 25 && bendDeg < 155) {
-      return ShapeMatch(RecognizedShape.arrow, [first, last]);
+      // Arrow confidence peaks around a 30-60° bend — a sharp, deliberate hook.
+      final idealBend = 45.0;
+      final bendConfidence =
+          1.0 - ((bendDeg - idealBend).abs() / 60).clamp(0.0, 1.0);
+      return ShapeMatch(
+        RecognizedShape.arrow,
+        [first, last],
+        straightness * 0.4 + bendConfidence * 0.6,
+      );
     }
-    return ShapeMatch(RecognizedShape.line, [first, last]);
+    return ShapeMatch(RecognizedShape.line, [first, last], straightness);
   }
 
   // --- Closed path: triangle ---
   if (closed && cornerCount == 3) {
+    final corners = simplified.take(3).toList();
+    final angleSum = _interiorAngleSumDeg(corners);
+    final angleConfidence = 1.0 - ((angleSum - 180).abs() / 60).clamp(0.0, 1.0);
+    final closureConfidence = 1.0 - (closedGap / diagonal).clamp(0.0, 1.0);
     return ShapeMatch(
       RecognizedShape.triangle,
-      [...simplified.take(3), simplified.first],
+      [...corners, corners.first],
+      angleConfidence * 0.7 + closureConfidence * 0.3,
     );
   }
 
-  // --- Closed path: rectangle (rotated-aware) ---
+  // --- Closed path: rectangle (rotation-aware) ---
   if (closed && cornerCount == 4) {
+    final corners = simplified.take(4).toList();
+    final maxAngleDeviation = _maxCornerAngleDeviationFrom90(corners);
+    final angleConfidence = 1.0 - (maxAngleDeviation / 30).clamp(0.0, 1.0);
+    final closureConfidence = 1.0 - (closedGap / diagonal).clamp(0.0, 1.0);
     return ShapeMatch(
       RecognizedShape.rectangle,
-      _fitRotatedRectangle(simplified.take(4).toList()),
+      _fitRotatedRectangle(corners),
+      angleConfidence * 0.75 + closureConfidence * 0.25,
     );
   }
 
@@ -73,20 +134,58 @@ ShapeMatch recognizeShape(List<Offset> raw) {
     final centroid = _centroidOf(raw);
     final radii = raw.map((p) => (p - centroid).distance).toList();
     final meanR = radii.reduce((a, b) => a + b) / radii.length;
-    if (meanR < 1) return const ShapeMatch(RecognizedShape.none, []);
+    if (meanR < 1) return ShapeMatch.none;
     final variance =
         radii.map((r) => math.pow(r - meanR, 2)).reduce((a, b) => a + b) /
             radii.length;
     final coeffOfVariation = math.sqrt(variance) / meanR;
-    if (coeffOfVariation < 0.25) {
-      return ShapeMatch(RecognizedShape.oval, _generateOvalFromBounds(bounds));
+    final circularityConfidence =
+        1.0 - (coeffOfVariation / 0.45).clamp(0.0, 1.0);
+    if (circularityConfidence > 0.2) {
+      return ShapeMatch(
+        RecognizedShape.oval,
+        _generateOvalFromBounds(bounds),
+        circularityConfidence,
+      );
     }
   }
 
-  return const ShapeMatch(RecognizedShape.none, []);
+  return ShapeMatch.none;
 }
 
 // --- Geometry helpers ---
+
+double _pathLength(List<Offset> points) {
+  double sum = 0;
+  for (int i = 1; i < points.length; i++) {
+    sum += (points[i] - points[i - 1]).distance;
+  }
+  return sum;
+}
+
+double _interiorAngleSumDeg(List<Offset> corners) {
+  double sum = 0;
+  for (int i = 0; i < corners.length; i++) {
+    final a = corners[(i - 1) % corners.length];
+    final b = corners[i];
+    final c = corners[(i + 1) % corners.length];
+    sum += _angleBetweenDeg(a - b, c - b);
+  }
+  return sum;
+}
+
+double _maxCornerAngleDeviationFrom90(List<Offset> corners) {
+  double maxDev = 0;
+  for (int i = 0; i < corners.length; i++) {
+    final a = corners[(i - 1) % corners.length];
+    final b = corners[i];
+    final c = corners[(i + 1) % corners.length];
+    final angle = _angleBetweenDeg(a - b, c - b);
+    final dev = (angle - 90).abs();
+    if (dev > maxDev) maxDev = dev;
+  }
+  return maxDev;
+}
 
 /// Ramer–Douglas–Peucker polyline simplification: collapses a noisy stroke
 /// down to the minimal set of points that still traces its essential shape.

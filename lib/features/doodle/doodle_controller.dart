@@ -74,6 +74,10 @@ class DoodleController extends ChangeNotifier {
   Stroke? _lastSnappedStroke;
   List<StrokePoint>? _preSnapPoints;
 
+  // Ambiguous suggestion: stashed when confidence is in [0.45, 0.75).
+  ShapeMatch? _pendingSuggestion;
+  Stroke? _pendingSuggestionStroke;
+
   List<Stroke> get strokes => List.unmodifiable(_strokes);
   Stroke? get activeStroke => _activeStroke;
   Picture? get bakedPicture => _bakedPicture;
@@ -89,6 +93,12 @@ class DoodleController extends ChangeNotifier {
   /// True right after a shape snap fires — UI can show a transient
   /// "Shape recognized · tap to undo" affordance while this is true.
   bool get hasPendingSnapToUndo => _lastSnappedStroke != null;
+
+  /// True when a mid-confidence shape match is waiting for user confirmation.
+  bool get hasPendingSuggestion => _pendingSuggestion != null;
+
+  /// The pending suggestion's recognized shape, for the UI to display.
+  RecognizedShape? get pendingSuggestionShape => _pendingSuggestion?.shape;
 
   void toggleShapeAssist() {
     _shapeAssistEnabled = !_shapeAssistEnabled;
@@ -116,10 +126,12 @@ class DoodleController extends ChangeNotifier {
   }
 
   void startStroke(Offset point, {double pressure = 1.0}) {
-    // Starting a new stroke retires any pending snap-undo affordance —
-    // the user has moved on, so the chip shouldn't linger.
+    // Starting a new stroke retires any pending snap-undo affordance and
+    // any pending suggestion — the user has moved on.
     _lastSnappedStroke = null;
     _preSnapPoints = null;
+    _pendingSuggestion = null;
+    _pendingSuggestionStroke = null;
 
     double opacity = 1.0;
     double actualWidth = _currentWidth;
@@ -180,12 +192,21 @@ class DoodleController extends ChangeNotifier {
     if (!match.isRecognized) return;
 
     _preSnapPoints = active.points;
-    active.points = match.points.map((p) => StrokePoint(p)).toList();
-    active.isPerfectShape = true;
-    active.shapeType = match.shape;
-    _lastSnappedStroke = active;
 
-    HapticFeedback.mediumImpact();
+    if (match.confidence >= 0.75) {
+      // High confidence: commit immediately, offer the usual undo chip.
+      active.points = match.points.map((p) => StrokePoint(p)).toList();
+      active.isPerfectShape = true;
+      active.shapeType = match.shape;
+      _lastSnappedStroke = active;
+      HapticFeedback.mediumImpact();
+    } else if (match.confidence >= 0.45) {
+      // Ambiguous: stash as a pending suggestion, don't mutate yet.
+      _pendingSuggestion = match;
+      _pendingSuggestionStroke = active;
+      HapticFeedback.selectionClick(); // lighter tick — "noticed", not "did"
+    }
+    // Below 0.45: leave the freehand stroke alone entirely, no feedback.
   }
 
   /// Reverts the most recent shape snap back to the original hand-drawn
@@ -209,6 +230,27 @@ class DoodleController extends ChangeNotifier {
   void dismissSnapNotice() {
     _lastSnappedStroke = null;
     _preSnapPoints = null;
+    notifyListeners();
+  }
+
+  /// Accepts a pending mid-confidence suggestion and applies it to the stroke.
+  void acceptPendingSuggestion() {
+    final stroke = _pendingSuggestionStroke;
+    final match = _pendingSuggestion;
+    if (stroke == null || match == null) return;
+    stroke.points = match.points.map((p) => StrokePoint(p)).toList();
+    stroke.isPerfectShape = true;
+    stroke.shapeType = match.shape;
+    _pendingSuggestion = null;
+    _pendingSuggestionStroke = null;
+    _rebake();
+    notifyListeners();
+  }
+
+  /// Dismisses a pending mid-confidence suggestion without applying it.
+  void dismissPendingSuggestion() {
+    _pendingSuggestion = null;
+    _pendingSuggestionStroke = null;
     notifyListeners();
   }
 
