@@ -38,7 +38,9 @@ void main(List<String> args) {
       additional_flags:
         - -Wno-implicit-function-declaration
         - -Wno-int-conversion
-        - -Wno-incompatible-function-pointer-types''';
+        - -Wno-incompatible-function-pointer-types
+        - -DOPENSSL_VERSION=0
+        - -DOPENSSL_VERSION_NUMBER=0x10100000L''';
 
   if (!content.contains(old)) {
     stderr.writeln('Could not find "$old" in pubspec.yaml');
