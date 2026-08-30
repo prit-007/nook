@@ -81,8 +81,8 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
       return;
     }
     _lastFocalDelta = event.localPosition;
-    widget.controller.startStroke(event.localPosition,
-        pressure: event.pressure);
+    widget.controller
+        .startStroke(event.localPosition, pressure: event.pressure);
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
@@ -96,8 +96,8 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
       widget.onTwoFingerPan?.call(delta.dy);
       return;
     }
-    widget.controller.continueStroke(event.localPosition,
-        pressure: event.pressure);
+    widget.controller
+        .continueStroke(event.localPosition, pressure: event.pressure);
   }
 
   void _handlePointerEnd(int pointer) {

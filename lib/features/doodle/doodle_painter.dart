@@ -50,8 +50,7 @@ void paintDoodleStrokes(Canvas canvas, Size size, List<Stroke> strokes) {
         ..moveTo(
             stroke.points.first.position.dx, stroke.points.first.position.dy);
       for (int i = 1; i < stroke.points.length; i++) {
-        path.lineTo(
-            stroke.points[i].position.dx, stroke.points[i].position.dy);
+        path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
       }
       canvas.drawPath(path, paint);
 
@@ -85,8 +84,7 @@ void paintDoodleStrokes(Canvas canvas, Size size, List<Stroke> strokes) {
     );
     if (outlinePoints.isEmpty) continue;
 
-    final path = Path()
-      ..moveTo(outlinePoints.first.dx, outlinePoints.first.dy);
+    final path = Path()..moveTo(outlinePoints.first.dx, outlinePoints.first.dy);
     for (int i = 1; i < outlinePoints.length; i++) {
       path.lineTo(outlinePoints[i].dx, outlinePoints[i].dy);
     }
@@ -95,8 +93,7 @@ void paintDoodleStrokes(Canvas canvas, Size size, List<Stroke> strokes) {
   }
 }
 
-void _drawArrowhead(
-    Canvas canvas, Paint linePaint, Offset from, Offset to) {
+void _drawArrowhead(Canvas canvas, Paint linePaint, Offset from, Offset to) {
   const headLengthFraction = 0.18;
   const headAngle = 0.5; // radians, ~28.6°
 

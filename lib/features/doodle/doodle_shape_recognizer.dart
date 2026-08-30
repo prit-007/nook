@@ -74,10 +74,9 @@ ShapeMatch recognizeShape(List<Offset> raw) {
     final radii = raw.map((p) => (p - centroid).distance).toList();
     final meanR = radii.reduce((a, b) => a + b) / radii.length;
     if (meanR < 1) return const ShapeMatch(RecognizedShape.none, []);
-    final variance = radii
-            .map((r) => math.pow(r - meanR, 2))
-            .reduce((a, b) => a + b) /
-        radii.length;
+    final variance =
+        radii.map((r) => math.pow(r - meanR, 2)).reduce((a, b) => a + b) /
+            radii.length;
     final coeffOfVariation = math.sqrt(variance) / meanR;
     if (coeffOfVariation < 0.25) {
       return ShapeMatch(RecognizedShape.oval, _generateOvalFromBounds(bounds));
@@ -115,14 +114,13 @@ List<Offset> _simplifyRDP(List<Offset> points, double epsilon) {
   return [start, end];
 }
 
-double _perpendicularDistance(
-    Offset p, Offset lineStart, Offset lineEnd) {
+double _perpendicularDistance(Offset p, Offset lineStart, Offset lineEnd) {
   final dx = lineEnd.dx - lineStart.dx;
   final dy = lineEnd.dy - lineStart.dy;
   final lengthSq = dx * dx + dy * dy;
   if (lengthSq == 0) return (p - lineStart).distance;
-  final t = ((p.dx - lineStart.dx) * dx + (p.dy - lineStart.dy) * dy) /
-      lengthSq;
+  final t =
+      ((p.dx - lineStart.dx) * dx + (p.dy - lineStart.dy) * dy) / lengthSq;
   final proj = Offset(lineStart.dx + t * dx, lineStart.dy + t * dy);
   return (p - proj).distance;
 }

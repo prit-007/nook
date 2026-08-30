@@ -37,8 +37,7 @@ class DoodleStrokesCodec {
             'width': stroke.width,
             'opacity': stroke.opacity,
             'isPerfectShape': stroke.isPerfectShape,
-            if (stroke.shapeType != null)
-              'shapeType': stroke.shapeType!.name,
+            if (stroke.shapeType != null) 'shapeType': stroke.shapeType!.name,
             'points': [
               for (final point in stroke.points)
                 [point.position.dx, point.position.dy, point.pressure],

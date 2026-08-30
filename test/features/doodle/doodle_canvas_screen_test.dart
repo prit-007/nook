@@ -117,11 +117,7 @@ void main() {
     await tester.pump();
 
     // The canvas now uses a merged painter, so background state is in the
-    // controller. Verify the initial background is dotted.
-    final controller = tester.state<State>(
-        find.byType(DoodleCanvas).first,
-    ) as dynamic;
-    // Access via the widget tree: the CustomPaint should exist.
+    // controller. Verify the initial state renders correctly.
     expect(find.byType(CustomPaint), findsWidgets);
 
     await tester.tap(find.byWidgetPredicate(

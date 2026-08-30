@@ -411,8 +411,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                     alignment: Alignment.centerRight,
                                     isChecked: false,
                                   ),
-                                  leftBackground:
-                                      const _SwipeToCheckBackground(
+                                  leftBackground: const _SwipeToCheckBackground(
                                     alignment: Alignment.centerLeft,
                                     isChecked: false,
                                   ),
@@ -426,8 +425,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                           80 + (index * 40).clamp(0, 400),
                                     ),
                                     curve: Curves.easeOutCubic,
-                                    builder: (context, value, child) =>
-                                        Opacity(
+                                    builder: (context, value, child) => Opacity(
                                       opacity: value,
                                       child: Transform.translate(
                                         offset: Offset(0, 20 * (1 - value)),
@@ -455,9 +453,8 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                           if (_archivedItems.isNotEmpty) ...[
                             SliverToBoxAdapter(
                               child: GestureDetector(
-                                onTap: () => setState(
-                                    () => _completedExpanded =
-                                        !_completedExpanded),
+                                onTap: () => setState(() =>
+                                    _completedExpanded = !_completedExpanded),
                                 behavior: HitTestBehavior.opaque,
                                 child: Padding(
                                   padding:
@@ -466,8 +463,8 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                     children: [
                                       AnimatedRotation(
                                         turns: _completedExpanded ? 0.25 : 0,
-                                        duration: const Duration(
-                                            milliseconds: 200),
+                                        duration:
+                                            const Duration(milliseconds: 200),
                                         child: HugeIcon(
                                           icon: HugeIcons
                                               .strokeRoundedArrowRight01,
@@ -503,16 +500,15 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                 sliver: SliverList(
                                   delegate: SliverChildBuilderDelegate(
                                     (context, index) => _ChecklistTile(
-                                      key: ValueKey(
-                                          _archivedItems[index].id),
+                                      key: ValueKey(_archivedItems[index].id),
                                       index: index,
                                       id: _archivedItems[index].id,
                                       text: _archivedItems[index].text,
                                       checked: true,
-                                      onToggle: () => _toggleItem(
-                                          _archivedItems[index].id),
-                                      onDelete: () => _deleteItem(
-                                          _archivedItems[index].id),
+                                      onToggle: () =>
+                                          _toggleItem(_archivedItems[index].id),
+                                      onDelete: () =>
+                                          _deleteItem(_archivedItems[index].id),
                                     ),
                                     childCount: _archivedItems.length,
                                   ),
