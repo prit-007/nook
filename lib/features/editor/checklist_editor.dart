@@ -642,6 +642,9 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
                   ),
                 ),
                 child: Row(
+                  mainAxisAlignment: isCircle
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
                   children: [
                     HugeIcon(
                       icon: _expanded
