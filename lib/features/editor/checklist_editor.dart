@@ -189,6 +189,15 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     await _load();
   }
 
+  Future<void> _editItem(String id, String newText) async {
+    if (newText.trim().isEmpty) return;
+    _recordHistory();
+    final db = ref.read(databaseProvider);
+    final repo = ChecklistItemRepository(db);
+    await repo.updateText(id, newText.trim());
+    await _load();
+  }
+
   Future<void> _deleteItem(String id) async {
     final item = [..._items, ..._archivedItems].firstWhere(
       (i) => i.id == id,
@@ -442,6 +451,8 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                           _toggleItem(_items[index].id),
                                       onDelete: () =>
                                           _deleteItem(_items[index].id),
+                                      onEdit: (text) =>
+                                          _editItem(_items[index].id, text),
                                     ),
                                   ),
                                 );
@@ -509,6 +520,8 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                           _toggleItem(_archivedItems[index].id),
                                       onDelete: () =>
                                           _deleteItem(_archivedItems[index].id),
+                                      onEdit: (text) => _editItem(
+                                          _archivedItems[index].id, text),
                                     ),
                                     childCount: _archivedItems.length,
                                   ),
@@ -738,7 +751,7 @@ class _ChecklistItemView {
       );
 }
 
-class _ChecklistTile extends StatelessWidget {
+class _ChecklistTile extends StatefulWidget {
   const _ChecklistTile({
     super.key,
     required this.index,
@@ -747,6 +760,7 @@ class _ChecklistTile extends StatelessWidget {
     required this.checked,
     required this.onToggle,
     required this.onDelete,
+    required this.onEdit,
   });
 
   final int index;
@@ -755,6 +769,50 @@ class _ChecklistTile extends StatelessWidget {
   final bool checked;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  final ValueChanged<String> onEdit;
+
+  @override
+  State<_ChecklistTile> createState() => _ChecklistTileState();
+}
+
+class _ChecklistTileState extends State<_ChecklistTile> {
+  bool _editing = false;
+  late TextEditingController _editController;
+
+  @override
+  void initState() {
+    super.initState();
+    _editController = TextEditingController(text: widget.text);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChecklistTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text && !_editing) {
+      _editController.text = widget.text;
+    }
+  }
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    setState(() {
+      _editing = true;
+      _editController.text = widget.text;
+    });
+  }
+
+  void _finishEditing() {
+    final newText = _editController.text.trim();
+    setState(() => _editing = false);
+    if (newText != widget.text && newText.isNotEmpty) {
+      widget.onEdit(newText);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -765,7 +823,7 @@ class _ChecklistTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: checked
+        color: widget.checked
             ? scheme.surfaceContainerLow.withValues(alpha: 0.4)
             : scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
@@ -773,7 +831,7 @@ class _ChecklistTile extends StatelessWidget {
       child: Row(
         children: [
           GestureDetector(
-            onTap: onToggle,
+            onTap: widget.onToggle,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutBack,
@@ -781,13 +839,13 @@ class _ChecklistTile extends StatelessWidget {
               height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: checked ? scheme.primary : Colors.transparent,
+                color: widget.checked ? scheme.primary : Colors.transparent,
                 border: Border.all(
-                  color: checked ? scheme.primary : scheme.outline,
+                  color: widget.checked ? scheme.primary : scheme.outline,
                   width: 2,
                 ),
               ),
-              child: checked
+              child: widget.checked
                   ? HugeIcon(
                       icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                       size: 16,
@@ -797,41 +855,65 @@ class _ChecklistTile extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Stack(
-              alignment: Alignment.centerLeft,
-              children: [
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 250),
-                  style: (textTheme.bodyLarge ?? const TextStyle()).copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: checked
-                        ? scheme.onSurface.withValues(alpha: 0.3)
-                        : scheme.onSurface,
-                  ),
-                  child: Text(text),
-                ),
-                Positioned.fill(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: checked ? 1.0 : 0.0),
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, _) => FractionallySizedBox(
-                        widthFactor: value,
-                        child: Opacity(
-                          opacity: value, // Fades in as it expands
-                          child: Container(
-                            height: 1.5,
-                            color: scheme.primary.withValues(alpha: 0.8),
+            child: _editing
+                ? TextField(
+                    controller: _editController,
+                    autofocus: true,
+                    style: (textTheme.bodyLarge ?? const TextStyle()).copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurface,
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _finishEditing(),
+                    onEditingComplete: _finishEditing,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  )
+                : GestureDetector(
+                    onTap: _startEditing,
+                    child: Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 250),
+                          style: (textTheme.bodyLarge ?? const TextStyle())
+                              .copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: widget.checked
+                                ? scheme.onSurface.withValues(alpha: 0.3)
+                                : scheme.onSurface,
+                          ),
+                          child: Text(widget.text),
+                        ),
+                        Positioned.fill(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(
+                                  begin: 0, end: widget.checked ? 1.0 : 0.0),
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, _) =>
+                                  FractionallySizedBox(
+                                widthFactor: value,
+                                child: Opacity(
+                                  opacity: value,
+                                  child: Container(
+                                    height: 1.5,
+                                    color:
+                                        scheme.primary.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
           ),
           IconButton(
             icon: HugeIcon(
@@ -839,15 +921,15 @@ class _ChecklistTile extends StatelessWidget {
                 size: 20,
                 color: scheme.onSurface.withValues(alpha: 0.3)),
             tooltip: 'Delete item',
-            onPressed: onDelete,
+            onPressed: widget.onDelete,
             visualDensity: VisualDensity.compact,
           ),
           ReorderableDragStartListener(
-            index: index,
+            index: widget.index,
             child: HugeIcon(
                 icon: HugeIcons.strokeRoundedDrag01,
                 size: 22,
-                color: scheme.onSurface.withValues(alpha: 0.2)),
+                color: scheme.onSurface.withValues(alpha: 0.35)),
           ),
         ],
       ),
