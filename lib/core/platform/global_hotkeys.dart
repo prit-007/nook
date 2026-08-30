@@ -2,19 +2,18 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../../core/providers/talker_provider.dart';
 
 /// Registers and manages global keyboard shortcuts for desktop platforms.
 ///
-/// The primary binding is Ctrl+Shift+N (Cmd+Shift+N on macOS) which opens
-/// the Quick Note overlay. This works even when the app is not focused,
-/// allowing users to capture thoughts from any application.
+/// Currently a placeholder — the primary shortcut (Ctrl+Shift+N) works
+/// in-app via `NookKeyboardShortcuts`. Global hotkeys (when the app is
+/// unfocused) require system-level dependencies that aren't available on
+/// all Linux builds. This can be re-enabled when `keybinder-3.0` is
+/// guaranteed to be present.
 ///
-/// Only active on desktop platforms (Linux, macOS, Windows). No-op on
-/// mobile/web where system-wide hotkeys are not available.
+/// See: https://github.com/leanflutter/hotkey_manager#linux-requirements
 class NookGlobalHotkeys {
   NookGlobalHotkeys._();
 
@@ -23,7 +22,8 @@ class NookGlobalHotkeys {
   /// Callback invoked when Ctrl+Shift+N is pressed.
   static VoidCallback? onQuickNote;
 
-  /// Initializes global hotkeys. No-op on mobile/web.
+  /// Initializes global hotkeys. No-op on mobile/web and currently
+  /// a no-op on desktop until system dependencies are guaranteed.
   static Future<void> initialize({VoidCallback? onQuickNote}) async {
     if (_initialized) return;
     if (!kIsWeb &&
@@ -34,44 +34,18 @@ class NookGlobalHotkeys {
     }
 
     NookGlobalHotkeys.onQuickNote = onQuickNote;
+    _initialized = true;
 
-    try {
-      // Register Ctrl+Shift+N (Cmd+Shift+N on macOS) for Quick Note.
-      final quickNoteHotKey = HotKey(
-        key: LogicalKeyboardKey.keyN,
-        modifiers: [
-          HotKeyModifier.control,
-          HotKeyModifier.shift,
-        ],
-        scope: HotKeyScope.inapp,
-      );
-
-      await HotKeyManager.instance.register(
-        quickNoteHotKey,
-        keyDownHandler: (hotKey) {
-          nookLog(NookLogKey.editor, 'Global hotkey triggered: Quick Note',
-              LogLevel.info);
-          onQuickNote?.call();
-        },
-      );
-
-      _initialized = true;
-      nookLog(NookLogKey.security, 'Global hotkeys registered (Ctrl+Shift+N)',
-          LogLevel.info);
-    } catch (e) {
-      nookLog(NookLogKey.security, 'Global hotkey init failed: $e',
-          LogLevel.warning);
-    }
+    nookLog(
+      NookLogKey.security,
+      'Global hotkeys placeholder registered '
+      '(Ctrl+Shift+N via in-app shortcuts)',
+      LogLevel.info,
+    );
   }
 
   /// Unregisters all hotkeys.
   static Future<void> dispose() async {
-    if (!_initialized) return;
-    try {
-      await HotKeyManager.instance.unregisterAll();
-    } catch (_) {
-      // Best-effort.
-    }
     _initialized = false;
   }
 }

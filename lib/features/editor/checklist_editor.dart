@@ -866,7 +866,7 @@ class _ChecklistTileState extends State<_ChecklistTile> {
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _finishEditing(),
                     onEditingComplete: _finishEditing,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
