@@ -37,7 +37,7 @@ class SettingsSecurityScreen extends ConsumerWidget {
           20,
           12,
           20,
-          DockSafeArea.bottomOf(context) + 72,
+          DockSafeArea.bottomOf(context) + 16,
         ),
         children: [
           _buildGlassCard(

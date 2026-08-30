@@ -743,6 +743,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       state = state.copyWith(
         phase: SyncPhase.error,
         error: 'Send failed: $e',
+        outcome: SyncOutcomeCategory.internal,
       );
     }
   }
@@ -860,7 +861,10 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       // Send ack back to sender.
       final ack = SyncAck(
         receivedNoteIds: receivedIds,
-        rejectedNoteIds: rejectedIds,
+        rejectedNoteIds: [
+          ...rejectedIds,
+          ...conflicts.map((c) => c.incoming.noteId)
+        ],
       );
       nookLog(
         NookLogKey.sync,
@@ -892,6 +896,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       state = state.copyWith(
         phase: SyncPhase.error,
         error: 'Failed to process received bundle: $e',
+        outcome: SyncOutcomeCategory.internal,
       );
     }
   }
@@ -1005,6 +1010,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     unawaited(_wifiDirectServiceSub?.cancel());
     unawaited(_wifiDirectGroupSub?.cancel());
     unawaited(_wifiDirectErrorSub?.cancel());
+    _transport?.disconnect();
     _transport?.dispose();
   }
 

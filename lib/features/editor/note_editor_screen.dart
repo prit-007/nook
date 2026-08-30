@@ -1013,8 +1013,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         deltaContent: snapshot.deltaJson,
         plainText: snapshot.plainText,
       );
-    } catch (_) {
-      // Best-effort — app is navigating away.
+      nookLog(
+        NookLogKey.editor,
+        'Dispose-save persisted: ${snapshot.noteId}',
+        LogLevel.info,
+      );
+    } catch (e) {
+      nookLog(
+        NookLogKey.editor,
+        'Dispose-save failed for ${snapshot.noteId}: $e',
+        LogLevel.error,
+      );
     }
   }
 
@@ -1038,9 +1047,38 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       return Scaffold(
         backgroundColor: scheme.surface,
         body: Center(
-          child: Text(
-            'Failed to load note',
-            style: TextStyle(color: scheme.onSurface),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedNote01,
+                size: 48,
+                color: scheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load note',
+                style: TextStyle(
+                  color: scheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'The note may have been deleted or is corrupted.',
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => context.pop(),
+                icon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowLeft01,
+                  size: 18,
+                ),
+                label: const Text('Go back'),
+              ),
+            ],
           ),
         ),
       );
@@ -1063,143 +1101,182 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           )
         : const SizedBox.shrink();
 
-    return Stack(
-      children: [
-        heroChild,
-        NoteThemeScope(
-          colorScheme: noteScheme,
-          textTheme: dynamicTextTheme,
-          child: Scaffold(
-            resizeToAvoidBottomInset: false,
-            backgroundColor: noteScheme.surfaceContainerLowest,
-            body: Stack(
-              children: [
-                CustomScrollView(
-                  slivers: [
-                    SliverPadding(
-                      padding: EdgeInsets.only(
-                        top: topPadding + 90,
-                        bottom: keyboardHeight + 120,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleSystemBack();
+      },
+      child: Stack(
+        children: [
+          heroChild,
+          NoteThemeScope(
+            colorScheme: noteScheme,
+            textTheme: dynamicTextTheme,
+            child: Scaffold(
+              resizeToAvoidBottomInset: false,
+              backgroundColor: noteScheme.surfaceContainerLowest,
+              body: Stack(
+                children: [
+                  CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.only(
+                          top: topPadding + 90,
+                          bottom: keyboardHeight + 120,
+                        ),
+                        sliver: SliverFillRemaining(
+                          hasScrollBody: true,
+                          child: _note?.type == NoteType.checklist
+                              ? ChecklistEditor(
+                                  noteId: _note!.id,
+                                  title: _title,
+                                  initialAttachments: _checklistAttachments,
+                                  onTitleChanged: _updateChecklistTitle,
+                                  onInsertImage: _note != null
+                                      ? _insertChecklistImage
+                                      : null,
+                                  onInsertDoodle: _note != null
+                                      ? _insertChecklistDoodle
+                                      : null,
+                                  onOpenAttachment: _note != null
+                                      ? _openChecklistAttachment
+                                      : null,
+                                  onDeleteAttachment: _note != null
+                                      ? _deleteChecklistAttachment
+                                      : null,
+                                )
+                              : _buildEditorForPlatform(
+                                  noteScheme: noteScheme,
+                                  dynamicTextTheme: dynamicTextTheme,
+                                ),
+                        ),
                       ),
-                      sliver: SliverFillRemaining(
-                        hasScrollBody: true,
-                        child: _note?.type == NoteType.checklist
-                            ? ChecklistEditor(
-                                noteId: _note!.id,
-                                title: _title,
-                                initialAttachments: _checklistAttachments,
-                                onTitleChanged: _updateChecklistTitle,
-                                onInsertImage: _note != null
-                                    ? _insertChecklistImage
-                                    : null,
-                                onInsertDoodle: _note != null
-                                    ? _insertChecklistDoodle
-                                    : null,
-                                onOpenAttachment: _note != null
-                                    ? _openChecklistAttachment
-                                    : null,
-                                onDeleteAttachment: _note != null
-                                    ? _deleteChecklistAttachment
-                                    : null,
-                              )
-                            : _buildEditorForPlatform(
+                    ],
+                  ),
+
+                  // 2. Auto-Hiding Glass App Bar (Zen Mode)
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeOutBack,
+                    top: isKeyboardVisible ? -100 : topPadding + 12,
+                    left: 20,
+                    right: 20,
+                    child: RepaintBoundary(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 250),
+                        opacity: isKeyboardVisible ? 0.0 : 1.0,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(32),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                            child: Container(
+                              height: 60,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: noteScheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(32),
+                              ),
+                              child: _ResponsiveEditorAppBar(
                                 noteScheme: noteScheme,
                                 dynamicTextTheme: dynamicTextTheme,
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // 2. Auto-Hiding Glass App Bar (Zen Mode)
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeOutBack,
-                  top: isKeyboardVisible ? -100 : topPadding + 12,
-                  left: 20,
-                  right: 20,
-                  child: RepaintBoundary(
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 250),
-                      opacity: isKeyboardVisible ? 0.0 : 1.0,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(32),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                          child: Container(
-                            height: 60,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              color: noteScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(32),
-                            ),
-                            child: _ResponsiveEditorAppBar(
-                              noteScheme: noteScheme,
-                              dynamicTextTheme: dynamicTextTheme,
-                              title: _title,
-                              saving: _saving,
-                              pinned: _pinned,
-                              note: _note,
-                              notebookName: _notebookName,
-                              tagNames: _tagNames,
-                              onBack: () async {
-                                final router = GoRouter.of(context);
-                                unawaited(HapticFeedback.lightImpact());
-                                // Delete newly-created blank notes on exit.
-                                if (_dirty) {
-                                  final nodes =
-                                      _editorState!.document.root.children;
-                                  String plainText = '';
-                                  for (final node in nodes) {
-                                    if (node.delta != null) {
-                                      for (final op in node.delta!.toList()) {
-                                        if (op is TextInsert) {
-                                          plainText += op.text;
+                                title: _title,
+                                saving: _saving,
+                                pinned: _pinned,
+                                note: _note,
+                                notebookName: _notebookName,
+                                tagNames: _tagNames,
+                                onBack: () async {
+                                  final router = GoRouter.of(context);
+                                  unawaited(HapticFeedback.lightImpact());
+                                  // Delete newly-created blank notes on exit.
+                                  if (_dirty) {
+                                    final nodes =
+                                        _editorState!.document.root.children;
+                                    String plainText = '';
+                                    for (final node in nodes) {
+                                      if (node.delta != null) {
+                                        for (final op in node.delta!.toList()) {
+                                          if (op is TextInsert) {
+                                            plainText += op.text;
+                                          }
                                         }
+                                        plainText += '\n';
                                       }
-                                      plainText += '\n';
+                                    }
+                                    plainText = plainText.trim();
+                                    if (plainText.isEmpty &&
+                                        _title.isEmpty &&
+                                        widget.noteId == null) {
+                                      await NoteRepository(_db!)
+                                          .permanentlyDelete(_note!.id);
+                                    } else {
+                                      await _save();
                                     }
                                   }
-                                  plainText = plainText.trim();
-                                  if (plainText.isEmpty &&
-                                      _title.isEmpty &&
-                                      widget.noteId == null) {
-                                    await NoteRepository(_db!)
-                                        .permanentlyDelete(_note!.id);
-                                  } else {
-                                    await _save();
-                                  }
-                                }
-                                if (mounted) router.pop();
-                              },
-                              onInsertImage: _insertImage,
-                              onInsertDoodle: _insertDoodle,
-                              onTogglePin: _togglePin,
-                              onExport: _exportNote,
-                              onMoreOptions: _showNoteOptions,
-                              canUndo: _editorState!
-                                  .undoManager.undoStack.isNonEmpty,
-                              canRedo: _editorState!
-                                  .undoManager.redoStack.isNonEmpty,
-                              onUndo: _undoEditor,
-                              onRedo: _redoEditor,
+                                  if (mounted) router.pop();
+                                },
+                                onInsertImage: _insertImage,
+                                onInsertDoodle: _insertDoodle,
+                                onTogglePin: _togglePin,
+                                onExport: _exportNote,
+                                onMoreOptions: _showNoteOptions,
+                                canUndo: _editorState!
+                                    .undoManager.undoStack.isNonEmpty,
+                                canRedo: _editorState!
+                                    .undoManager.redoStack.isNonEmpty,
+                                onUndo: _undoEditor,
+                                onRedo: _redoEditor,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
 
-                // 3. (removed) Floating Formatting Pill — superseded by the
-                // MobileToolbarV2 keyboard toolbar (see _buildMobileToolbarItems).
-              ],
+                  // 3. (removed) Floating Formatting Pill — superseded by the
+                  // MobileToolbarV2 keyboard toolbar (see _buildMobileToolbarItems).
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  void _handleSystemBack() {
+    final router = GoRouter.of(context);
+    unawaited(HapticFeedback.lightImpact());
+    // Delete newly-created blank notes on exit.
+    if (_dirty) {
+      final nodes = _editorState!.document.root.children;
+      String plainText = '';
+      for (final node in nodes) {
+        if (node.delta != null) {
+          for (final op in node.delta!.toList()) {
+            if (op is TextInsert) plainText += op.text;
+          }
+          plainText += '\n';
+        }
+      }
+      plainText = plainText.trim();
+      if (plainText.isEmpty && _title.isEmpty && widget.noteId == null) {
+        NoteRepository(_db!).permanentlyDelete(_note!.id).then((_) {
+          if (mounted) router.pop();
+        });
+        return;
+      } else {
+        _save().then((_) {
+          if (mounted) router.pop();
+        });
+        return;
+      }
+    }
+    router.pop();
   }
 }
 

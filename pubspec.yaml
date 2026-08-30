@@ -66,7 +66,8 @@ dependencies:
 
   # QR code generation + camera scanning for cross-device pairing
   qr_flutter: ^4.1.0
-  mobile_scanner: ^7.4.0
+  camera: ^0.11.2
+  zxing2: ^0.2.4
 
   # Small delight, low effort
   flutter_animate: ^4.5.2

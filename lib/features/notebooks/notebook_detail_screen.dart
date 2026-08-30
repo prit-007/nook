@@ -93,7 +93,7 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
                     16,
                     16,
                     16,
-                    DockSafeArea.bottomOf(context) + 72,
+                    DockSafeArea.bottomOf(context) + 16,
                   ),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,

@@ -32,7 +32,8 @@ include(":app")
 // settings evaluation — before Gradle reads any subproject build scripts.
 // Remove once appflowy_editor bumps keyboard_height_plugin to >=0.3.0.
 run {
-    val pubCache = file(System.getProperty("user.home") + "/.pub-cache/hosted/pub.dev")
+    val pubCacheBase = System.getenv("PUB_CACHE") ?: (System.getProperty("user.home") + "/.pub-cache")
+    val pubCache = file("$pubCacheBase/hosted/pub.dev")
     if (pubCache.isDirectory) {
         pubCache.listFiles()
             ?.filter { it.isDirectory && it.name.startsWith("keyboard_height_plugin-") }

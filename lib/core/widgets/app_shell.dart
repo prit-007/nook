@@ -224,78 +224,85 @@ class _DockItemState extends State<_DockItem>
     final icon = widget.isSelected ? widget.activeIcon : widget.icon;
 
     return Expanded(
-      child: GestureDetector(
-        onTapDown: _handleTapDown,
-        onTapUp: _handleTapUp,
-        onTapCancel: _handleTapCancel,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedBuilder(
-          animation: _scaleAnimation,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: _scaleAnimation.value,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedContainer(
-                    duration: _selectionDuration,
-                    curve: Curves.easeOutCubic,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: widget.isSelected
-                          ? scheme.primary.withValues(alpha: 0.15)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: _iconSwapDuration,
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeIn,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(
-                          scale: Tween<double>(begin: 0.7, end: 1.0)
-                              .animate(animation),
-                          child: child,
-                        ),
-                      ),
-                      child: HugeIcon(
-                        key: ValueKey(icon),
-                        icon: icon,
-                        size: 24,
+      child: Semantics(
+        label: widget.label,
+        button: true,
+        selected: widget.isSelected,
+        onTap: widget.onTap,
+        child: GestureDetector(
+          onTapDown: _handleTapDown,
+          onTapUp: _handleTapUp,
+          onTapCancel: _handleTapCancel,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedBuilder(
+            animation: _scaleAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _scaleAnimation.value,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedContainer(
+                      duration: _selectionDuration,
+                      curve: Curves.easeOutCubic,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(
                         color: widget.isSelected
-                            ? scheme.primary
-                            : scheme.onSurfaceVariant,
+                            ? scheme.primary.withValues(alpha: 0.15)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: AnimatedDefaultTextStyle(
-                        duration: _selectionDuration,
-                        curve: Curves.easeOutCubic,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: widget.isSelected
-                              ? FontWeight.w800
-                              : FontWeight.w600,
+                      child: AnimatedSwitcher(
+                        duration: _iconSwapDuration,
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: Tween<double>(begin: 0.7, end: 1.0)
+                                .animate(animation),
+                            child: child,
+                          ),
+                        ),
+                        child: HugeIcon(
+                          key: ValueKey(icon),
+                          icon: icon,
+                          size: 24,
                           color: widget.isSelected
                               ? scheme.primary
-                              : scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                          letterSpacing: 0.3,
+                              : scheme.onSurfaceVariant,
                         ),
-                        child: Text(widget.label, maxLines: 1),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                    const SizedBox(height: 4),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: AnimatedDefaultTextStyle(
+                          duration: _selectionDuration,
+                          curve: Curves.easeOutCubic,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: widget.isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: widget.isSelected
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant
+                                    .withValues(alpha: 0.7),
+                            letterSpacing: 0.3,
+                          ),
+                          child: Text(widget.label, maxLines: 1),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

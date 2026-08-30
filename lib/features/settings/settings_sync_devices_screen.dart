@@ -63,7 +63,7 @@ class SettingsSyncDevicesScreen extends ConsumerWidget {
 
                 return ListView.builder(
                   padding: EdgeInsets.only(
-                    bottom: DockSafeArea.bottomOf(context) + 72,
+                    bottom: DockSafeArea.bottomOf(context) + 16,
                   ),
                   itemCount: deviceList.length,
                   itemBuilder: (context, index) {

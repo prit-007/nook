@@ -73,29 +73,10 @@ CustomTransitionPage<void> _slideUpTransition(
   GoRouterState state,
   Widget child,
 ) {
-  return CustomTransitionPage<void>(
-    key: state.pageKey,
+  return buildEditorialTransition<void>(
+    context: context,
+    state: state,
     child: child,
-    transitionDuration: const Duration(milliseconds: 500),
-    reverseTransitionDuration: const Duration(milliseconds: 350),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curve = CurvedAnimation(
-        parent: animation,
-        curve: Curves.fastLinearToSlowEaseIn,
-        reverseCurve: Curves.easeOut,
-      );
-
-      return FadeTransition(
-        opacity: curve,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.05),
-            end: Offset.zero,
-          ).animate(curve),
-          child: RepaintBoundary(child: child),
-        ),
-      );
-    },
   );
 }
 
@@ -120,9 +101,53 @@ CustomTransitionPage<void> _fadeTransition(
   );
 }
 
+/// Error page shown for undefined routes.
+class _ErrorPage extends StatelessWidget {
+  const _ErrorPage(this.error);
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: scheme.surface,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: scheme.error),
+            const SizedBox(height: 16),
+            Text(
+              'Page not found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$error',
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: () => context.go('/home'),
+              child: const Text('Go home'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: ref.read(navigationPreferenceProvider.notifier).route,
+    errorBuilder: (context, state) =>
+        _ErrorPage(state.error ?? 'Unknown error'),
     redirect: (context, state) {
       // Auto-persist every navigated route so the app can restore it on
       // cold start.  Only top-level and first-level sub-routes are saved;

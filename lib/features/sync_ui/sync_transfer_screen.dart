@@ -381,7 +381,9 @@ class SyncTransferScreen extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                         ),
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () {
+                          Navigator.of(context).pop('retry');
+                        },
                         child: const Text(
                           'Try Again',
                           style: TextStyle(fontWeight: FontWeight.w800),

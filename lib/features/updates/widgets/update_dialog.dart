@@ -50,9 +50,14 @@ Future<void> showUpdateDialog(
           FilledButton(
             onPressed: () async {
               Navigator.of(dialogContext).pop();
-              final uri = Uri.parse(info.releaseUrl);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              if (info.releaseUrl.isEmpty) return;
+              try {
+                final uri = Uri.parse(info.releaseUrl);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              } catch (_) {
+                // Best-effort — user can download manually.
               }
             },
             child: const Text('Update'),

@@ -339,6 +339,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildWideGrid(List<Note> filtered) {
+    // Interleave notes into two columns for a masonry-like layout.
     final left = <(Note, int)>[];
     final right = <(Note, int)>[];
     for (var i = 0; i < filtered.length; i++) {
@@ -349,31 +350,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     }
 
+    // Build rows lazily — each row is one left + one right card (or just left
+    // if the list has odd length).
+    final rowCount = left.length;
+
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      sliver: SliverToBoxAdapter(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                children: [
-                  for (final pair in left)
-                    _buildAnimatedCard(context, pair.$1, pair.$2),
-                ],
-              ),
+      sliver: SliverList.builder(
+        itemCount: rowCount,
+        itemBuilder: (context, rowIndex) {
+          final leftPair = left[rowIndex];
+          final rightPair = rowIndex < right.length ? right[rowIndex] : null;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildAnimatedCard(context, leftPair.$1, leftPair.$2),
+                ),
+                const SizedBox(width: 20),
+                if (rightPair != null)
+                  Expanded(
+                    child:
+                        _buildAnimatedCard(context, rightPair.$1, rightPair.$2),
+                  )
+                else
+                  const Spacer(),
+              ],
             ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                children: [
-                  for (final pair in right)
-                    _buildAnimatedCard(context, pair.$1, pair.$2),
-                ],
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

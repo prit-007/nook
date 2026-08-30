@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_info.dart';
+import '../../core/widgets/dock_safe_area.dart';
 
 /// Full editorial "About Us" screen for nook.
 ///
@@ -39,7 +40,12 @@ class SettingsAboutScreen extends ConsumerWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 64),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          24,
+          24,
+          DockSafeArea.bottomOf(context) + 16,
+        ),
         children: [
           // ── The Brand Hero ──────────────────────────────────────────
           const SizedBox(height: 32),

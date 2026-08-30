@@ -32,7 +32,7 @@ class SettingsAppearanceScreen extends ConsumerWidget {
           20,
           12,
           20,
-          DockSafeArea.bottomOf(context) + 72,
+          DockSafeArea.bottomOf(context) + 16,
         ),
         children: [
           const _SectionHeader(title: 'Seed Color Signature'),

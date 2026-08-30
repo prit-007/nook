@@ -80,10 +80,13 @@ Future<String> _readOrCreateEncryptionKey() async {
       );
       return existing;
     }
-  } on Exception {
+  } on Exception catch (e) {
+    // A read failure here is concerning — the key may be corrupted.
+    // Log the actual error so production issues are diagnosable.
     nookLog(
       NookLogKey.security,
-      'DB encryption key read failed; generating a new one',
+      'DB encryption key read failed ($e); generating a new one — '
+      'existing data may be inaccessible',
       LogLevel.warning,
     );
   }
