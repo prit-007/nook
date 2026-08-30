@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/painting.dart';
 
 import 'doodle_controller.dart';
+import 'doodle_shape_recognizer.dart';
 
 /// A saved doodle: its strokes plus the background template it was drawn on.
 class DoodleData {
@@ -36,6 +37,8 @@ class DoodleStrokesCodec {
             'width': stroke.width,
             'opacity': stroke.opacity,
             'isPerfectShape': stroke.isPerfectShape,
+            if (stroke.shapeType != null)
+              'shapeType': stroke.shapeType!.name,
             'points': [
               for (final point in stroke.points)
                 [point.position.dx, point.position.dy, point.pressure],
@@ -67,6 +70,13 @@ class DoodleStrokesCodec {
             map['perfectShape'] as bool? ??
             false;
 
+        // Deserialize shapeType if present (v2+).
+        RecognizedShape? shapeType;
+        final shapeName = map['shapeType'] as String?;
+        if (shapeName != null) {
+          shapeType = RecognizedShape.values.asNameMap()[shapeName];
+        }
+
         strokes.add(
           Stroke(
             points: points,
@@ -75,6 +85,7 @@ class DoodleStrokesCodec {
             tool: DoodleTool.values.byName(map['tool'] as String),
             opacity: (map['opacity'] as num).toDouble(),
             isPerfectShape: perfectShape,
+            shapeType: shapeType,
           ),
         );
       }

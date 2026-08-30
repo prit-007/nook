@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'doodle_controller.dart';
@@ -6,9 +8,11 @@ import 'doodle_painter.dart';
 /// Full-screen drawing canvas that renders organic, pressure-sensitive
 /// strokes via perfect_freehand and a selectable background template.
 ///
-/// Uses a [Listener] for raw pointer events (captures stylus pressure).
-/// The [Listener] does not participate in the gesture arena, so the parent
-/// scroll view can still handle 2-finger scrolling.
+/// Background, committed strokes, and the active stroke are all painted by
+/// one merged [_DoodlePainter] inside a single `saveLayer`/`restore` pair —
+/// this is what makes the eraser's `BlendMode.clear` reveal the background
+/// pattern predictably instead of depending on how Flutter happens to
+/// composite separate CustomPaint layers.
 class DoodleCanvas extends StatefulWidget {
   const DoodleCanvas({
     super.key,
@@ -60,9 +64,7 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
     super.dispose();
   }
 
-  void _onControllerUpdate() {
-    setState(() {});
-  }
+  void _onControllerUpdate() => setState(() {});
 
   Offset _focalPoint() {
     final points = _activePointers.values.toList();
@@ -79,10 +81,8 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
       return;
     }
     _lastFocalDelta = event.localPosition;
-    widget.controller.startStroke(
-      event.localPosition,
-      pressure: event.pressure,
-    );
+    widget.controller.startStroke(event.localPosition,
+        pressure: event.pressure);
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
@@ -96,10 +96,8 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
       widget.onTwoFingerPan?.call(delta.dy);
       return;
     }
-    widget.controller.continueStroke(
-      event.localPosition,
-      pressure: event.pressure,
-    );
+    widget.controller.continueStroke(event.localPosition,
+        pressure: event.pressure);
   }
 
   void _handlePointerEnd(int pointer) {
@@ -118,7 +116,6 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final noteScheme = widget.noteScheme;
-    final background = widget.controller.background;
     final baseGridColor = noteScheme?.outlineVariant ?? scheme.outlineVariant;
     final gridColor = baseGridColor.computeLuminance() < 0.2
         ? Colors.white.withValues(alpha: 0.2)
@@ -126,64 +123,63 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
 
     return RepaintBoundary(
       key: widget.boundaryKey,
-      child: CustomPaint(
-        key: ValueKey('doodle-bg-${background.name}'),
-        painter: _BackgroundPainter(
-          background: background,
-          color: gridColor,
-        ),
-        child: Listener(
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: _handlePointerDown,
-          onPointerMove: _handlePointerMove,
-          onPointerUp: (event) => _handlePointerEnd(event.pointer),
-          onPointerCancel: (event) => _handlePointerEnd(event.pointer),
-          child: CustomPaint(
-            painter: _StrokePainter(
-              strokes: widget.controller.strokes,
-            ),
-            size: Size.infinite,
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: (event) => _handlePointerEnd(event.pointer),
+        onPointerCancel: (event) => _handlePointerEnd(event.pointer),
+        child: CustomPaint(
+          painter: _DoodlePainter(
+            background: widget.controller.background,
+            backgroundColor: gridColor,
+            bakedPicture: widget.controller.bakedPicture,
+            activeStroke: widget.controller.activeStroke,
           ),
+          size: Size.infinite,
         ),
       ),
     );
   }
 }
 
-/// Renders the selected background template for the canvas.
-class _BackgroundPainter extends CustomPainter {
-  _BackgroundPainter({required this.background, required this.color});
+/// Merges background + committed (baked) strokes + the live active stroke
+/// into one paint pass, wrapped in a single `saveLayer`/`restore` so an
+/// eraser's `BlendMode.clear` is scoped to exactly this content — it reveals
+/// the background pattern, not whatever happens to sit behind this widget
+/// in the wider render tree.
+class _DoodlePainter extends CustomPainter {
+  _DoodlePainter({
+    required this.background,
+    required this.backgroundColor,
+    required this.bakedPicture,
+    required this.activeStroke,
+  });
 
   final DoodleBackground background;
-  final Color color;
+  final Color backgroundColor;
+  final Picture? bakedPicture;
+  final Stroke? activeStroke;
 
   @override
   void paint(Canvas canvas, Size size) {
-    paintDoodleBackground(
-      canvas,
-      size,
-      background: background,
-      color: color,
-    );
+    canvas.saveLayer(Offset.zero & size, Paint());
+
+    paintDoodleBackground(canvas, size,
+        background: background, color: backgroundColor);
+    if (bakedPicture != null) canvas.drawPicture(bakedPicture!);
+    if (activeStroke != null) {
+      paintDoodleStrokes(canvas, size, [activeStroke!]);
+    }
+
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _BackgroundPainter oldDelegate) {
-    return oldDelegate.background != background || oldDelegate.color != color;
+  bool shouldRepaint(covariant _DoodlePainter oldDelegate) {
+    return oldDelegate.bakedPicture != bakedPicture ||
+        oldDelegate.activeStroke != activeStroke ||
+        oldDelegate.background != background ||
+        oldDelegate.backgroundColor != backgroundColor;
   }
-}
-
-/// Uses perfect_freehand to render pressure-simulated strokes.
-class _StrokePainter extends CustomPainter {
-  _StrokePainter({required this.strokes});
-
-  final List<Stroke> strokes;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    paintDoodleStrokes(canvas, size, strokes);
-  }
-
-  @override
-  bool shouldRepaint(covariant _StrokePainter oldDelegate) => true;
 }

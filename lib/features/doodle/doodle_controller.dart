@@ -1,6 +1,10 @@
-import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'doodle_painter.dart';
+import 'doodle_shape_recognizer.dart';
 
 /// Drawing tools for the doodle canvas.
 enum DoodleTool { pen, eraser, highlighter, shapeAssist }
@@ -25,6 +29,7 @@ class Stroke {
     this.tool = DoodleTool.pen,
     this.opacity = 1.0,
     this.isPerfectShape = false,
+    this.shapeType,
   });
 
   List<StrokePoint> points;
@@ -33,11 +38,18 @@ class Stroke {
   final DoodleTool tool;
   final double opacity;
   bool isPerfectShape;
+
+  /// Set when [isPerfectShape] is true and the shape came from the
+  /// recognizer — lets the painter draw shape-specific extras (e.g. an
+  /// arrowhead) instead of just a generic polygon/line.
+  RecognizedShape? shapeType;
 }
 
 /// Controller for doodle drawing state.
-/// Manages strokes, undo/redo, tool/color/width selection, and hold-to-snap
-/// shape recognition.
+///
+/// Manages strokes, undo/redo, tool/color/width selection, shape recognition
+/// with a revertible "snap," and a cached baked-picture of committed strokes
+/// so drawing performance doesn't degrade as a doodle grows (see [_rebake]).
 class DoodleController extends ChangeNotifier {
   DoodleController({Color defaultColor = Colors.black})
       : _currentColor = defaultColor;
@@ -51,10 +63,20 @@ class DoodleController extends ChangeNotifier {
   double _currentWidth = 4.0;
   DoodleBackground _background = DoodleBackground.dotted;
   bool _isDrawing = false;
-
   bool _shapeAssistEnabled = true;
 
+  // Cached rendering of all committed strokes. Rebuilt only when strokes
+  // are added/removed/reordered — never on every pointer move — so the
+  // active stroke is the only thing recomputed at drawing frame-rate.
+  Picture? _bakedPicture;
+
+  // Revert affordance for the most recent shape snap.
+  Stroke? _lastSnappedStroke;
+  List<StrokePoint>? _preSnapPoints;
+
   List<Stroke> get strokes => List.unmodifiable(_strokes);
+  Stroke? get activeStroke => _activeStroke;
+  Picture? get bakedPicture => _bakedPicture;
   DoodleTool get currentTool => _currentTool;
   Color get currentColor => _currentColor;
   double get currentWidth => _currentWidth;
@@ -63,6 +85,10 @@ class DoodleController extends ChangeNotifier {
   bool get shapeAssistEnabled => _shapeAssistEnabled;
   bool get canUndo => _strokes.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
+
+  /// True right after a shape snap fires — UI can show a transient
+  /// "Shape recognized · tap to undo" affordance while this is true.
+  bool get hasPendingSnapToUndo => _lastSnappedStroke != null;
 
   void toggleShapeAssist() {
     _shapeAssistEnabled = !_shapeAssistEnabled;
@@ -90,6 +116,11 @@ class DoodleController extends ChangeNotifier {
   }
 
   void startStroke(Offset point, {double pressure = 1.0}) {
+    // Starting a new stroke retires any pending snap-undo affordance —
+    // the user has moved on, so the chip shouldn't linger.
+    _lastSnappedStroke = null;
+    _preSnapPoints = null;
+
     double opacity = 1.0;
     double actualWidth = _currentWidth;
 
@@ -117,23 +148,20 @@ class DoodleController extends ChangeNotifier {
 
   void continueStroke(Offset point, {double pressure = 1.0}) {
     if (_activeStroke == null) return;
-
     _activeStroke!.points.add(StrokePoint(point, pressure: pressure));
-    notifyListeners();
+    notifyListeners(); // cheap: only the active stroke recomputes, see painter
   }
 
   void endStroke() {
     if (_activeStroke == null) return;
-    _attemptShapeSnap();
+    if (_shapeAssistEnabled) _attemptShapeSnap();
     _activeStroke = null;
     _isDrawing = false;
+    _rebake();
     notifyListeners();
   }
 
   /// Discards the in-progress stroke without committing it to the canvas.
-  ///
-  /// Used when a second pointer lands while drawing (multi-touch scroll) so the
-  /// partial single-finger stroke is removed instead of left on the paper.
   void cancelStroke() {
     if (_activeStroke == null) return;
     _strokes.remove(_activeStroke);
@@ -143,92 +171,58 @@ class DoodleController extends ChangeNotifier {
   }
 
   void _attemptShapeSnap() {
-    if (_activeStroke == null || _activeStroke!.points.length < 15) return;
+    final active = _activeStroke;
+    if (active == null || active.tool == DoodleTool.eraser) return;
+    if (active.points.length < 8) return;
 
-    final points = _activeStroke!.points.map((p) => p.position).toList();
-    final first = points.first;
-    final last = points.last;
+    final raw = active.points.map((p) => p.position).toList();
+    final match = recognizeShape(raw);
+    if (!match.isRecognized) return;
 
-    final directDistance = (last - first).distance;
-    double pathLength = 0.0;
+    _preSnapPoints = active.points;
+    active.points = match.points.map((p) => StrokePoint(p)).toList();
+    active.isPerfectShape = true;
+    active.shapeType = match.shape;
+    _lastSnappedStroke = active;
 
-    double minX = first.dx, maxX = first.dx;
-    double minY = first.dy, maxY = first.dy;
-
-    for (int i = 1; i < points.length; i++) {
-      pathLength += (points[i] - points[i - 1]).distance;
-      if (points[i].dx < minX) minX = points[i].dx;
-      if (points[i].dx > maxX) maxX = points[i].dx;
-      if (points[i].dy < minY) minY = points[i].dy;
-      if (points[i].dy > maxY) maxY = points[i].dy;
-    }
-
-    final width = maxX - minX;
-    final height = maxY - minY;
-
-    // 1. Line Detection
-    if (pathLength < directDistance * 1.15) {
-      _activeStroke!.points = [
-        StrokePoint(first, pressure: 1.0),
-        StrokePoint(last, pressure: 1.0),
-      ];
-      _activeStroke!.isPerfectShape = true;
-      notifyListeners();
-      return;
-    }
-
-    // 2. Closed Shape Detection (Distance between start and end is small)
-    if (directDistance < 40.0 && width > 20 && height > 20) {
-      final perimeter = 2 * (width + height);
-      final circumference =
-          math.pi * math.max(width, height); // rough oval approx
-
-      // Rectangle check
-      if ((pathLength - perimeter).abs() < perimeter * 0.2) {
-        _activeStroke!.points = [
-          StrokePoint(Offset(minX, minY)),
-          StrokePoint(Offset(maxX, minY)),
-          StrokePoint(Offset(maxX, maxY)),
-          StrokePoint(Offset(minX, maxY)),
-          StrokePoint(Offset(minX, minY)), // close path
-        ];
-        _activeStroke!.isPerfectShape = true;
-        notifyListeners();
-        return;
-      }
-
-      // Oval check
-      if ((pathLength - circumference).abs() < circumference * 0.25) {
-        _activeStroke!.points = _generateOval(minX, minY, width, height);
-        _activeStroke!.isPerfectShape = true;
-        notifyListeners();
-        return;
-      }
-    }
+    HapticFeedback.mediumImpact();
   }
 
-  List<StrokePoint> _generateOval(double x, double y, double w, double h) {
-    final center = Offset(x + w / 2, y + h / 2);
-    final rx = w / 2;
-    final ry = h / 2;
-    final pts = <StrokePoint>[];
-    for (int i = 0; i <= 60; i++) {
-      final angle = (i / 60) * math.pi * 2;
-      pts.add(StrokePoint(Offset(
-          center.dx + rx * math.cos(angle), center.dy + ry * math.sin(angle))));
-    }
-    return pts;
+  /// Reverts the most recent shape snap back to the original hand-drawn
+  /// points. Call this from a "tap to undo" chip shown while
+  /// [hasPendingSnapToUndo] is true.
+  void revertLastSnap() {
+    final stroke = _lastSnappedStroke;
+    final original = _preSnapPoints;
+    if (stroke == null || original == null) return;
+    stroke.points = original;
+    stroke.isPerfectShape = false;
+    stroke.shapeType = null;
+    _lastSnappedStroke = null;
+    _preSnapPoints = null;
+    _rebake();
+    notifyListeners();
+  }
+
+  /// Dismisses the snap-undo affordance without reverting (e.g. after a
+  /// timeout, or once the user starts a new stroke).
+  void dismissSnapNotice() {
+    _lastSnappedStroke = null;
+    _preSnapPoints = null;
+    notifyListeners();
   }
 
   void undo() {
     if (_strokes.isEmpty) return;
     _redoStack.add(_strokes.removeLast());
+    _rebake();
     notifyListeners();
   }
 
   void redo() {
     if (_redoStack.isEmpty) return;
     _strokes.add(_redoStack.removeLast());
+    _rebake();
     notifyListeners();
   }
 
@@ -237,6 +231,8 @@ class DoodleController extends ChangeNotifier {
     _redoStack.clear();
     _activeStroke = null;
     _isDrawing = false;
+    _bakedPicture?.dispose();
+    _bakedPicture = null;
     notifyListeners();
   }
 
@@ -247,7 +243,26 @@ class DoodleController extends ChangeNotifier {
       ..addAll(strokes);
     _redoStack.clear();
     _activeStroke = null;
-    _isDrawing = false;
+    _rebake();
     notifyListeners();
+  }
+
+  /// Bakes every committed stroke into a single cached [Picture] so the
+  /// painter never has to recompute perfect_freehand geometry for old
+  /// strokes on every pointer-move frame — only the active stroke is
+  /// recomputed live. Called once per completed stroke / undo / redo /
+  /// load, never during an in-progress drag.
+  void _rebake() {
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder, Rect.largest);
+    paintDoodleStrokes(canvas, Size.infinite, _strokes);
+    _bakedPicture?.dispose();
+    _bakedPicture = recorder.endRecording();
+  }
+
+  @override
+  void dispose() {
+    _bakedPicture?.dispose();
+    super.dispose();
   }
 }
