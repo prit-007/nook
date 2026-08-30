@@ -54,7 +54,8 @@ class _SendViaQrDialogState extends ConsumerState<_SendViaQrDialog> {
 
   Future<void> _confirmed() async {
     if (!mounted) return;
-    Navigator.of(context).pop(true);
+    await ref.read(syncOrchestratorProvider.notifier).stop();
+    if (mounted) Navigator.of(context).pop(true);
   }
 
   @override
@@ -68,6 +69,7 @@ class _SendViaQrDialogState extends ConsumerState<_SendViaQrDialog> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         ref.read(syncOrchestratorProvider.notifier).stop();
+        if (context.mounted) Navigator.of(context).pop(false);
       },
       child: AlertDialog(
         title: const Text('Send to phone'),

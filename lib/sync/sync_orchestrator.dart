@@ -916,6 +916,17 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     SyncConflict conflict,
     String choice, // 'local', 'remote', or 'both'
   ) async {
+    // Remove the conflict from state immediately to prevent double-taps from
+    // triggering duplicate DB operations (e.g. "keep both" calling insertAsNew
+    // twice). The async work below still executes, but the UI removes the
+    // card before the DB round-trip completes.
+    final remaining = List<SyncConflict>.from(state.conflicts)
+      ..remove(conflict);
+    state = state.copyWith(
+      conflicts: remaining,
+      phase: remaining.isEmpty ? SyncPhase.complete : SyncPhase.resolving,
+    );
+
     final db = ref.read(databaseProvider);
     final noteRepo = NoteRepository(db);
     final attachmentRepo = AttachmentRepository(db);
@@ -973,13 +984,6 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         );
         break;
     }
-
-    final remaining = List<SyncConflict>.from(state.conflicts)
-      ..remove(conflict);
-    state = state.copyWith(
-      conflicts: remaining,
-      phase: remaining.isEmpty ? SyncPhase.complete : SyncPhase.resolving,
-    );
   }
 
   /// Stops the current sync operation and cleans up.

@@ -9,14 +9,28 @@ import '../../data/repositories/sync_log_repository.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
 
-class SettingsSyncDevicesScreen extends ConsumerWidget {
+class SettingsSyncDevicesScreen extends ConsumerStatefulWidget {
   const SettingsSyncDevicesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsSyncDevicesScreen> createState() =>
+      _SettingsSyncDevicesScreenState();
+}
+
+class _SettingsSyncDevicesScreenState
+    extends ConsumerState<SettingsSyncDevicesScreen> {
+  late Future _logsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final db = ref.read(databaseProvider);
+    _logsFuture = SyncLogRepository(db).getRecentLogs(limit: 30);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final syncState = ref.watch(syncOrchestratorProvider);
-    final db = ref.watch(databaseProvider);
-    final syncLogRepo = SyncLogRepository(db);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sync Devices')),
@@ -36,8 +50,13 @@ class SettingsSyncDevicesScreen extends ConsumerWidget {
             ),
           Expanded(
             child: FutureBuilder(
-              future: syncLogRepo.getRecentLogs(limit: 30),
+              future: _logsFuture,
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('Failed to load sync history'),
+                  );
+                }
                 final logs = snapshot.data ?? [];
                 if (logs.isEmpty) {
                   return const Center(

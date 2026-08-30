@@ -551,7 +551,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
         ),
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     final syncState = ref.read(syncOrchestratorProvider);
     if (syncState.phase == SyncPhase.error) {
