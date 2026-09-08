@@ -54,6 +54,8 @@ jobs:
           channel: 'stable'
           cache: true
       - uses: ./.github/actions/flutter-prep
+        with:
+          sqlcipher: 'true'
 
       - name: Extract App Version
         run: |
