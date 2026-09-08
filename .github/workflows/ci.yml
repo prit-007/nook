@@ -46,6 +46,7 @@ jobs:
     timeout-minutes: 45
     env:
       HAS_KEYSTORE: ${{ secrets.NOOK_KEYSTORE_BASE64 != '' }}
+      PUB_CACHE: ${{ github.workspace }}/.pub-cache
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
