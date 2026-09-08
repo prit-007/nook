@@ -3,20 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nook — your notes. your device. yours.</title>
-<meta name="description" content="Nook is a private, local-first, free-and-open-source note-taking app. No account, no cloud, no telemetry. Available for Android, iOS, Windows, macOS and Linux.">
+<title>nook. — your thoughts, unclouded.</title>
+<meta name="description" content="A private, local-first, free-and-open-source workspace. No cloud, no telemetry. Available for Android, iOS, Windows, macOS and Linux.">
 
-<!-- ============================================================
-     CONFIG — the only things you should need to edit for your own
-     fork/release. See HOSTING-GUIDE.md for the full explanation.
-     ============================================================ -->
 <script>
   window.NOOK_CONFIG = {
     githubOwner: "prit-007",
     githubRepo: "nook",
-    // Set this once Nook is accepted on F-Droid, e.g. "dev.nook.app"
-    // (the applicationId from android/app/build.gradle[.kts]).
-    // Leave as null to show a "coming soon" badge instead of a link.
     fdroidAppId: null
   };
 </script>
@@ -24,259 +17,254 @@
 <link rel="icon" href="https://raw.githubusercontent.com/prit-007/nook/main/assets/icons/favicon_full.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <style>
-  :root{
-    --ink-950:#181310;
-    --ink-900:#1E1814;
-    --ink-800:#2A231D;
-    --ink-700:#3A312A;
-    --paper:#F3EADA;
-    --paper-dim:#C9BBA3;
-    --brass:#C9A24B;
-    --brass-bright:#E0BE6E;
-    --moss:#5C6E52;
-    --moss-bright:#7C9270;
-    --rule: rgba(243,234,218,0.12);
-    --radius: 3px;
-    --serif: "Source Serif 4", Georgia, serif;
-    --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  :root {
+    --bg: #F8F7F4;
+    --surface: #FFFFFF;
+    --text: #1A1A1A;
+    --text-muted: #6B6B6B;
+    --accent: #2D6A4F;
+    --accent-light: rgba(45, 106, 79, 0.06);
+    --accent-hover: #1B4332;
+    --rule: rgba(0,0,0,0.08);
+    --radius: 20px;
+    --serif: 'Playfair Display', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 
-  *{box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
-  body{
-    margin:0;
-    background:var(--ink-950);
-    color:var(--paper);
-    font-family:var(--sans);
-    font-size:16px;
-    line-height:1.6;
-    -webkit-font-smoothing:antialiased;
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
-  a{color:inherit;}
-  img{max-width:100%;display:block;}
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; display: block; }
 
-  .wrap{max-width:1120px;margin:0 auto;padding:0 28px;}
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+  ::selection { background: var(--accent); color: #fff; }
 
-  ::selection{background:var(--brass);color:var(--ink-950);}
+  /* ---------- Header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(248,247,244,0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 32px; max-width: 1200px; margin: 0 auto;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 32px; height: 32px; border-radius: 8px; }
+  .brand span { font-family: var(--serif); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.04em; }
+  .nav-links { display: flex; gap: 32px; align-items: center; font-weight: 500; font-size: 0.95rem; }
+  .nav-links a { color: var(--text-muted); transition: color 0.2s; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-gh {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--accent-light); color: var(--accent) !important;
+    padding: 8px 18px; border-radius: 100px; font-weight: 600;
+    transition: background 0.2s;
+  }
+  .nav-gh:hover { background: rgba(45,106,79,0.12); }
+  @media (max-width: 768px) { .nav-links a:not(.nav-gh) { display: none; } }
 
-  a:focus-visible, button:focus-visible{
-    outline:2px solid var(--brass-bright);
-    outline-offset:3px;
+  /* ---------- Hero ---------- */
+  .hero { padding: 120px 0 100px; overflow: hidden; }
+  .hero-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 72px; align-items: center;
   }
+  @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; text-align: center; } }
 
-  /* ---------- header ---------- */
-  header{
-    position:sticky; top:0; z-index:40;
-    background:rgba(24,19,16,0.86);
-    backdrop-filter:blur(8px);
-    border-bottom:1px solid var(--rule);
+  .eyebrow {
+    font-size: 0.85rem; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 28px;
+    display: flex; align-items: center; gap: 10px;
   }
-  .nav{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:16px 28px; max-width:1120px; margin:0 auto;
-  }
-  .brand{display:flex; align-items:center; gap:10px; text-decoration:none;}
-  .brand img{width:26px; height:26px; border-radius:6px;}
-  .brand span{font-family:var(--serif); font-size:1.25rem; font-weight:600; color:var(--paper);}
-  .nav-links{display:flex; gap:28px; align-items:center;}
-  .nav-links a{
-    text-decoration:none; color:var(--paper-dim); font-size:0.94rem;
-    transition:color .15s ease;
-  }
-  .nav-links a:hover{color:var(--paper);}
-  .nav-gh{
-    display:flex; align-items:center; gap:7px;
-    border:1px solid var(--rule); padding:7px 14px; border-radius:var(--radius);
-    color:var(--paper) !important; font-size:0.88rem; text-decoration:none;
-  }
-  .nav-gh:hover{border-color:var(--brass);}
-  @media (max-width:760px){ .nav-links a:not(.nav-gh){display:none;} }
+  .eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  @media (max-width: 900px) { .eyebrow { justify-content: center; } }
 
-  /* ---------- hero ---------- */
-  .hero{
-    padding:88px 0 96px;
-    position:relative;
-    overflow:hidden;
+  h1.headline {
+    font-family: var(--serif); font-weight: 900;
+    font-size: clamp(3rem, 6vw, 4.5rem);
+    line-height: 1.05; letter-spacing: -0.03em;
+    margin: 0 0 28px;
   }
-  .hero::before{
-    content:"";
-    position:absolute; top:-140px; right:-160px;
-    width:520px; height:520px; border-radius:50%;
-    background:radial-gradient(circle, rgba(201,162,75,0.16) 0%, rgba(201,162,75,0) 70%);
-    pointer-events:none;
-  }
-  .hero-grid{
-    display:grid; grid-template-columns:1.1fr 0.9fr; gap:56px; align-items:center;
-    position:relative;
-  }
-  @media (max-width:860px){ .hero-grid{grid-template-columns:1fr;} }
+  .hero-sub { font-size: 1.2rem; color: var(--text-muted); margin: 0 0 40px; max-width: 46ch; }
+  .hero-sub strong { color: var(--text); font-weight: 600; }
+  @media (max-width: 900px) { .hero-sub { margin: 0 auto 40px; } }
 
-  .eyebrow{
-    font-family:var(--sans); font-size:0.86rem; color:var(--moss-bright);
-    display:flex; align-items:center; gap:8px; margin-bottom:22px;
-  }
-  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--moss-bright);}
+  .cta-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .cta-row { justify-content: center; } }
 
-  h1.headline{
-    font-family:var(--serif); font-weight:600;
-    font-size:clamp(2.4rem, 5.2vw, 3.6rem);
-    line-height:1.08; letter-spacing:-0.01em;
-    margin:0 0 24px; color:var(--paper); max-width:14ch;
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 16px 32px; border-radius: 100px;
+    font-weight: 700; font-size: 1rem; border: none; cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
   }
-  .hero-sub{
-    font-size:1.08rem; color:var(--paper-dim); max-width:46ch; margin:0 0 34px;
-  }
-  .hero-sub strong{color:var(--paper); font-weight:600;}
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 8px 24px rgba(45,106,79,0.2); }
+  .btn-primary:hover { box-shadow: 0 12px 32px rgba(45,106,79,0.3); transform: translateY(-2px); }
+  .btn-ghost { background: var(--surface); color: var(--text); border: 1px solid var(--rule); }
+  .btn-ghost:hover { border-color: var(--text-muted); }
 
-  .cta-row{display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-bottom:20px;}
-  .btn{
-    display:inline-flex; align-items:center; gap:9px;
-    padding:13px 22px; border-radius:var(--radius);
-    font-family:var(--sans); font-weight:500; font-size:0.98rem;
-    text-decoration:none; cursor:pointer; border:1px solid transparent;
-    transition:transform .12s ease, border-color .15s ease, background .15s ease;
-  }
-  .btn:active{transform:translateY(1px);}
-  .btn-primary{ background:var(--brass); color:var(--ink-950); }
-  .btn-primary:hover{ background:var(--brass-bright); }
-  .btn-ghost{ border-color:var(--rule); color:var(--paper); }
-  .btn-ghost:hover{ border-color:var(--paper-dim); }
-  .btn small{opacity:0.7; font-weight:400;}
+  .trust-line { font-size: 0.9rem; color: var(--text-muted); }
+  .trust-line .sep { margin: 0 8px; opacity: 0.4; }
 
-  .trust-line{font-size:0.86rem; color:var(--paper-dim);}
-  .trust-line .sep{margin:0 8px; opacity:0.5;}
-
-  .phone-frame{
-    position:relative; justify-self:center;
-    border:8px solid var(--ink-800);
-    border-radius:28px;
-    box-shadow:0 30px 70px rgba(0,0,0,0.55), 0 0 0 1px rgba(243,234,218,0.06);
-    overflow:hidden; width:min(300px, 80vw);
-    background:var(--ink-800);
-  }
-  .phone-frame img{width:100%; display:block;}
-
-  /* ---------- section shell ---------- */
-  section{padding:84px 0;}
-  .section-head{max-width:56ch; margin-bottom:48px;}
-  .section-head h2{
-    font-family:var(--serif); font-weight:600; font-size:clamp(1.7rem, 3vw, 2.2rem);
-    margin:0 0 14px; color:var(--paper);
-  }
-  .section-head p{color:var(--paper-dim); margin:0; font-size:1.02rem;}
-  .rule{border:none; border-top:1px solid var(--rule); margin:0;}
-
-  /* ---------- motto ---------- */
-  .motto{background:var(--ink-900);}
-  .motto-quote{
-    font-family:var(--serif); font-style:italic; font-weight:500;
-    font-size:clamp(1.4rem, 2.6vw, 1.9rem); color:var(--brass-bright);
-    margin:0 0 44px; max-width:20ch;
-  }
-  .motto-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:32px;}
-  @media (max-width:760px){ .motto-grid{grid-template-columns:1fr;} }
-  .motto-card h3{
-    font-family:var(--sans); font-weight:600; font-size:1.02rem;
-    color:var(--paper); margin:0 0 10px; display:flex; align-items:center; gap:9px;
-  }
-  .motto-card h3 .mark{color:var(--moss-bright); font-family:var(--serif); font-style:italic;}
-  .motto-card p{color:var(--paper-dim); margin:0; font-size:0.95rem;}
-
-  /* ---------- features ---------- */
-  .feat-grid{
-    display:grid; grid-template-columns:repeat(3, 1fr); gap:1px;
-    background:var(--rule); border:1px solid var(--rule);
-  }
-  @media (max-width:860px){ .feat-grid{grid-template-columns:repeat(2,1fr);} }
-  @media (max-width:560px){ .feat-grid{grid-template-columns:1fr;} }
-  .feat-cell{
-    background:var(--ink-950); padding:26px 24px;
-  }
-  .feat-cell h4{
-    margin:0 0 8px; font-size:0.98rem; font-weight:600; color:var(--paper);
-    font-family:var(--sans);
-  }
-  .feat-cell p{margin:0; font-size:0.9rem; color:var(--paper-dim); line-height:1.55;}
-
-  /* ---------- screenshots ---------- */
-  .shots{
-    display:flex; gap:18px; overflow-x:auto; padding-bottom:14px;
-    scroll-snap-type:x mandatory;
-  }
-  .shots img{
-    scroll-snap-align:start;
-    height:420px; width:auto; border-radius:14px;
-    border:1px solid var(--rule);
-    flex:none;
-  }
-  .shots::-webkit-scrollbar{height:8px;}
-  .shots::-webkit-scrollbar-thumb{background:var(--ink-700); border-radius:4px;}
-
-  /* ---------- alpha notice ---------- */
-  .notice{
-    background:var(--ink-900); border:1px solid var(--rule); border-left:3px solid var(--brass);
-    border-radius:var(--radius); padding:22px 26px; display:flex; gap:16px; align-items:flex-start;
-  }
-  .notice strong{color:var(--paper); display:block; margin-bottom:4px; font-size:0.98rem;}
-  .notice p{margin:0; color:var(--paper-dim); font-size:0.92rem;}
-
-  /* ---------- downloads ---------- */
-  .downloads{background:var(--ink-900);}
-  .dl-grid{
-    display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:16px;
-  }
-  @media (max-width:860px){ .dl-grid{grid-template-columns:repeat(2,1fr);} }
-  @media (max-width:560px){ .dl-grid{grid-template-columns:1fr;} }
-  .dl-card{
-    background:var(--ink-950); border:1px solid var(--rule); border-radius:var(--radius);
-    padding:22px; display:flex; flex-direction:column; gap:12px;
-    transition:border-color .15s ease;
-  }
-  .dl-card[data-recommended="true"]{ border-color:var(--brass); }
-  .dl-card-top{display:flex; align-items:center; justify-content:space-between;}
-  .dl-card h4{margin:0; font-size:1rem; color:var(--paper); font-family:var(--sans); font-weight:600;}
-  .pill{
-    font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em;
-    color:var(--ink-950); background:var(--brass); padding:3px 8px; border-radius:20px;
-    font-weight:600;
-  }
-  .dl-card .meta{font-size:0.82rem; color:var(--paper-dim); min-height:1.2em;}
-  .dl-card a.dl-btn{
-    margin-top:auto; text-align:center; padding:10px; border-radius:var(--radius);
-    background:var(--ink-800); color:var(--paper); text-decoration:none; font-size:0.92rem;
-    border:1px solid var(--rule); transition:background .15s ease, opacity .15s ease;
-  }
-  .dl-card a.dl-btn:hover{background:var(--ink-700);}
-  .dl-card a.dl-btn.disabled{opacity:0.4; pointer-events:none;}
-
-  .fdroid-row{
-    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:18px;
-    background:var(--ink-950); border:1px solid var(--rule); border-radius:var(--radius);
-    padding:22px 26px; margin-bottom:40px;
-  }
-  .fdroid-row .fd-text strong{display:block; color:var(--paper); font-size:1rem; margin-bottom:4px;}
-  .fdroid-row .fd-text span{color:var(--paper-dim); font-size:0.9rem;}
-  .fd-badge img{height:52px;}
-  .fd-soon{
-    font-size:0.86rem; color:var(--moss-bright); border:1px solid var(--moss); border-radius:20px;
-    padding:8px 16px;
+  .phone-frame {
+    position: relative; justify-self: center;
+    border: 12px solid var(--surface);
+    border-radius: 40px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.08), 0 0 0 1px var(--rule);
+    overflow: hidden; width: min(320px, 80vw);
+    background: var(--surface);
   }
 
-  .see-all{font-size:0.92rem; color:var(--paper-dim);}
-  .see-all a{color:var(--brass-bright); text-decoration:none;}
-  .see-all a:hover{text-decoration:underline;}
+  /* ---------- Sections ---------- */
+  section { padding: 100px 0; }
+  .section-head { max-width: 60ch; margin: 0 auto 64px; text-align: center; }
+  .section-head h2 {
+    font-family: var(--serif); font-weight: 800; font-size: clamp(2rem, 4vw, 3rem);
+    margin: 0 0 16px; letter-spacing: -0.02em;
+  }
+  .section-head p { color: var(--text-muted); font-size: 1.15rem; margin: 0; }
 
-  /* ---------- footer ---------- */
-  footer{padding:56px 0 40px; border-top:1px solid var(--rule);}
-  .foot-grid{display:flex; justify-content:space-between; flex-wrap:wrap; gap:24px;}
-  .foot-motto{font-family:var(--serif); font-style:italic; color:var(--paper-dim); font-size:0.98rem;}
-  .foot-links{display:flex; gap:22px; flex-wrap:wrap;}
-  .foot-links a{color:var(--paper-dim); text-decoration:none; font-size:0.9rem;}
-  .foot-links a:hover{color:var(--paper);}
-  .foot-legal{margin-top:28px; font-size:0.82rem; color:var(--ink-700);}
+  /* ---------- Motto ---------- */
+  .motto { background: var(--surface); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .motto-inner { padding: 100px 0; }
+  .motto-quote {
+    font-family: var(--serif); font-style: italic; font-weight: 500;
+    font-size: clamp(1.6rem, 3vw, 2.2rem); color: var(--accent);
+    margin: 0 0 56px; max-width: 22ch;
+  }
+  .motto-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+  @media (max-width: 768px) { .motto-grid { grid-template-columns: 1fr; } }
+  .motto-card h3 {
+    font-family: var(--sans); font-weight: 700; font-size: 1.1rem;
+    margin: 0 0 12px; display: flex; align-items: center; gap: 12px;
+  }
+  .motto-card h3 .num {
+    font-family: var(--serif); font-style: italic; color: var(--accent);
+    font-size: 1.4rem;
+  }
+  .motto-card p { color: var(--text-muted); margin: 0; font-size: 1rem; line-height: 1.65; }
+
+  /* ---------- Bento Features ---------- */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  @media (max-width: 900px) { .bento-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .bento-grid { grid-template-columns: 1fr; } }
+  .bento-card {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: var(--radius); padding: 32px;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .bento-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+  }
+  .bento-icon {
+    width: 48px; height: 48px; background: var(--accent-light);
+    border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 20px; font-size: 22px;
+  }
+  .bento-card h3 { font-size: 1.15rem; font-weight: 700; margin: 0 0 10px; }
+  .bento-card p { color: var(--text-muted); margin: 0; font-size: 0.95rem; line-height: 1.6; }
+
+  /* ---------- Screenshots ---------- */
+  .shots {
+    display: flex; gap: 20px; overflow-x: auto; padding-bottom: 16px;
+    scroll-snap-type: x mandatory;
+  }
+  .shots img {
+    scroll-snap-align: start;
+    height: 440px; width: auto; border-radius: 20px;
+    border: 1px solid var(--rule);
+    flex: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  }
+  .shots::-webkit-scrollbar { height: 6px; }
+  .shots::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+
+  /* ---------- Downloads ---------- */
+  .downloads-wrap {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 32px;
+    padding: 64px 48px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.04);
+  }
+  @media (max-width: 768px) { .downloads-wrap { padding: 40px 24px; } }
+
+  .fdroid-banner {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 24px;
+    background: var(--bg); border-radius: 20px; padding: 32px; margin-bottom: 40px;
+    border: 1px solid var(--rule);
+  }
+  .fdroid-banner strong { display: block; font-family: var(--serif); font-size: 1.5rem; margin-bottom: 6px; }
+  .fd-badge img { height: 56px; }
+  .fd-soon {
+    font-weight: 600; color: var(--accent); background: var(--accent-light);
+    padding: 12px 24px; border-radius: 100px; font-size: 0.9rem;
+  }
+
+  .dl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .dl-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .dl-grid { grid-template-columns: 1fr; } }
+  .dl-card {
+    border: 1px solid var(--rule); border-radius: 16px; padding: 24px;
+    display: flex; flex-direction: column; gap: 12px;
+    transition: border-color 0.2s;
+  }
+  .dl-card[data-recommended="true"] { border: 2px solid var(--accent); background: var(--accent-light); }
+  .dl-card-top { display: flex; align-items: center; justify-content: space-between; }
+  .dl-card h4 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+  .pill {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: #fff; background: var(--accent); padding: 4px 10px; border-radius: 100px;
+    font-weight: 700;
+  }
+  .dl-card .meta { font-size: 0.88rem; color: var(--text-muted); min-height: 1.4em; }
+  .dl-btn {
+    margin-top: auto; text-align: center; padding: 12px; border-radius: 12px;
+    background: var(--bg); color: var(--text); font-weight: 600; font-size: 0.95rem;
+    border: 1px solid var(--rule); transition: background 0.2s;
+  }
+  .dl-btn:hover { background: var(--rule); }
+
+  .see-all { font-size: 0.92rem; color: var(--text-muted); margin-top: 32px; text-align: center; }
+  .see-all a { color: var(--accent); font-weight: 600; }
+  .see-all a:hover { text-decoration: underline; }
+
+  /* ---------- Alpha Notice ---------- */
+  .notice {
+    background: var(--surface); border: 1px solid var(--rule); border-left: 4px solid var(--accent);
+    border-radius: var(--radius); padding: 28px 32px; margin-top: 48px;
+  }
+  .notice strong { display: block; font-size: 1.05rem; margin-bottom: 8px; }
+  .notice p { margin: 0; color: var(--text-muted); font-size: 0.95rem; line-height: 1.65; }
+  .notice a { color: var(--accent); font-weight: 600; }
+
+  /* ---------- Footer ---------- */
+  footer { padding: 72px 0 48px; border-top: 1px solid var(--rule); text-align: center; }
+  .foot-motto { font-family: var(--serif); font-style: italic; font-size: 1.6rem; margin-bottom: 36px; color: var(--text); }
+  .foot-links { display: flex; justify-content: center; gap: 36px; flex-wrap: wrap; margin-bottom: 36px; font-weight: 500; font-size: 0.95rem; }
+  .foot-links a { color: var(--text-muted); transition: color 0.2s; }
+  .foot-links a:hover { color: var(--accent); }
+  .foot-legal { color: var(--text-muted); font-size: 0.85rem; }
 </style>
 </head>
 <body>
@@ -284,16 +272,16 @@
 <header>
   <nav class="nav">
     <a class="brand" href="#top">
-      <img src="https://raw.githubusercontent.com/prit-007/nook/main/assets/icons/favicon_full.png" alt="">
-      <span>Nook</span>
+      <img src="https://raw.githubusercontent.com/prit-007/nook/main/assets/icons/favicon_full.png" alt="Nook Icon">
+      <span>nook.</span>
     </a>
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#downloads">Downloads</a>
-      <a href="https://github.com/prit-007/nook/blob/main/docs/ARCHITECTURE.md">Docs</a>
+      <a href="https://github.com/prit-007/nook/blob/main/docs/ARCHITECTURE.md">Architecture</a>
       <a class="nav-gh" href="https://github.com/prit-007/nook">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.49c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.87.88 2.33.67.07-.52.28-.88.51-1.08-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
-        Star on GitHub
+        GitHub
       </a>
     </div>
   </nav>
@@ -305,152 +293,175 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <div class="eyebrow"><span class="dot"></span> Free &amp; open source · GPL-3.0</div>
-        <h1 class="headline">Your notes.<br>Your device.<br>Yours.</h1>
+        <div class="eyebrow"><span class="dot"></span> Free &amp; Open Source · GPL-3.0</div>
+        <h1 class="headline">Your thoughts.<br>Unclouded.</h1>
         <p class="hero-sub">
-          Nook is a private, local-first note-taking app built with Flutter.
-          <strong>No account. No cloud. No telemetry.</strong> Your notes are
-          encrypted on your device, and when you want them on another one,
-          they travel directly over your Wi-Fi — never through a server.
+          A private, local-first workspace for your mind.
+          <strong>No tracking. No accounts.</strong> Your data stays
+          encrypted on your device and syncs directly over Wi-Fi — never through a server.
         </p>
         <div class="cta-row">
-          <a id="hero-cta" class="btn btn-primary" href="https://github.com/prit-007/nook/releases/latest">
-            Download for <span id="hero-os">your device</span>
+          <a id="hero-cta" class="btn btn-primary" href="#downloads">
+            Download Nook <span id="hero-os"></span>
           </a>
           <a class="btn btn-ghost" href="#downloads">All platforms</a>
         </div>
         <p class="trust-line">Android · iOS · Windows · macOS · Linux<span class="sep">·</span><span id="hero-version">alpha</span></p>
       </div>
       <div class="phone-frame">
-        <img src="https://raw.githubusercontent.com/prit-007/nook/main/assets/screenshots/01.png" alt="Nook note list on Android" loading="lazy">
+        <img src="https://raw.githubusercontent.com/prit-007/nook/main/assets/screenshots/01.png" alt="Nook App" loading="lazy">
       </div>
     </div>
   </section>
 
-  <hr class="rule">
-
-  <!-- ============ MOTTO / PROMISES ============ -->
+  <!-- ============ MOTTO ============ -->
   <section class="motto">
-    <div class="wrap">
-      <p class="motto-quote">"Your notes belong to you — not to a service."</p>
-      <div class="motto-grid">
-        <div class="motto-card">
-          <h3><span class="mark">01</span> Your notes</h3>
-          <p>Full-text search, checklists, doodles, per-note theming. Nook helps you make more of your notes — it never locks them away.</p>
-        </div>
-        <div class="motto-card">
-          <h3><span class="mark">02</span> Your device</h3>
-          <p>Encrypted SQLite storage, keys held in the platform keystore, a biometric gate on the app. Nothing leaves your device unless you say so.</p>
-        </div>
-        <div class="motto-card">
-          <h3><span class="mark">03</span> Yours</h3>
-          <p>GPL-3.0, source and all. Read every line, fork it, extend it, ship it — nobody can take Nook closed.</p>
+    <div class="motto-inner">
+      <div class="wrap">
+        <p class="motto-quote">"Your notes belong to you — not to a service."</p>
+        <div class="motto-grid">
+          <div class="motto-card">
+            <h3><span class="num">01</span> Your notes</h3>
+            <p>Full-text search, checklists, doodles, per-note theming. Nook helps you make more of your notes — it never locks them away.</p>
+          </div>
+          <div class="motto-card">
+            <h3><span class="num">02</span> Your device</h3>
+            <p>Encrypted SQLite storage, keys in the platform keystore, biometric gate. Nothing leaves your device unless you say so.</p>
+          </div>
+          <div class="motto-card">
+            <h3><span class="num">03</span> Yours</h3>
+            <p>GPL-3.0, source and all. Read every line, fork it, extend it, ship it — nobody can take Nook closed.</p>
+          </div>
         </div>
       </div>
     </div>
   </section>
-
-  <hr class="rule">
 
   <!-- ============ FEATURES ============ -->
   <section id="features">
     <div class="wrap">
       <div class="section-head">
-        <h2>Everything a notes app should do — nothing it shouldn't</h2>
-        <p>Nook covers the essentials of a serious notes app, without asking for your data in return.</p>
+        <h2>Crafted for Flow</h2>
+        <p>Everything a serious notes app should do — nothing it shouldn't.</p>
       </div>
-    </div>
-    <div class="wrap">
-      <div class="feat-grid">
-        <div class="feat-cell"><h4>Notes</h4><p>Create, edit, pin, lock, color and cover-image every note.</p></div>
-        <div class="feat-cell"><h4>Organization</h4><p>Notebooks, tags, multi-tag filtering, and full-text search (FTS5).</p></div>
-        <div class="feat-cell"><h4>Checklists</h4><p>Toggle items, drag to reorder, and track progress at a glance.</p></div>
-        <div class="feat-cell"><h4>Doodles</h4><p>Freehand drawing with smooth, pressure-aware strokes.</p></div>
-        <div class="feat-cell"><h4>Editor</h4><p>Block-based rich editing — text, checklists and doodles in one note.</p></div>
-        <div class="feat-cell"><h4>Theming</h4><p>Material You 3 dynamic color, per-note overrides, light and dark.</p></div>
-        <div class="feat-cell"><h4>Security</h4><p>SQLCipher encryption at rest, biometric gate, screenshot blocking.</p></div>
-        <div class="feat-cell"><h4>Device-to-device sync</h4><p>Peer-to-peer over Wi-Fi. Discovery, pairing and transfer — no server, ever.</p></div>
-        <div class="feat-cell"><h4>Export</h4><p>Take everything with you as a portable <code>.nook</code> bundle, any time.</p></div>
+      <div class="bento-grid">
+        <div class="bento-card">
+          <div class="bento-icon">📝</div>
+          <h3>Notes</h3>
+          <p>Create, edit, pin, lock, color and cover-image every note. Full-text search via FTS5.</p>
+        </div>
+        <div class="bento-card">
+          <div class="bento-icon">📚</div>
+          <h3>Organization</h3>
+          <p>Notebooks, tags, multi-tag filtering. Find anything in milliseconds.</p>
+        </div>
+        <div class="bento-card">
+          <div class="bento-icon">✅</div>
+          <h3>Checklists</h3>
+          <p>Toggle items, drag to reorder, and track progress at a glance.</p>
+        </div>
+        <div class="bento-card">
+          <div class="bento-icon">🎨</div>
+          <h3>Doodles</h3>
+          <p>Pressure-aware freehand drawing with smooth, geometric shape recognition.</p>
+        </div>
+        <div class="bento-card">
+          <div class="bento-icon">✏️</div>
+          <h3>Block Editor</h3>
+          <p>Rich block-based editing — text, checklists and doodles in one note.</p>
+        </div>
+        <div class="bento-card">
+          <div class="bento-icon">🎭</div>
+          <h3>Theming</h3>
+          <p>Material You 3 dynamic color, per-note overrides, light and dark modes.</p>
+        </div>
+        <div class="bento-card">
+          <div class="bento-icon">🔒</div>
+          <h3>Security</h3>
+          <p>SQLCipher encryption at rest, biometric vault, screenshot blocking.</p>
+        </div>
+        <div class="bento-card">
+          <div class="bento-icon">🔄</div>
+          <h3>P2P Sync</h3>
+          <p>Beam your vault across devices over local Wi-Fi via mDNS & libp2p. Zero cloud.</p>
+        </div>
+        <div class="bento-card">
+          <div class="bento-icon">📦</div>
+          <h3>Export</h3>
+          <p>Take everything with you as a portable <code>.nook</code> bundle, any time.</p>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- ============ SCREENSHOTS ============ -->
-  <section>
+  <section style="padding-top:0;">
     <div class="wrap">
       <div class="section-head">
-        <h2>A closer look</h2>
-        <p>Nook on Android — the same experience carries across every platform it runs on.</p>
+        <h2>A Closer Look</h2>
+        <p>Nook on Android — the same experience across every platform.</p>
       </div>
       <div class="shots" id="shots"></div>
     </div>
   </section>
 
-  <hr class="rule">
-
   <!-- ============ DOWNLOADS ============ -->
-  <section id="downloads" class="downloads">
+  <section id="downloads" style="padding-top:0;">
     <div class="wrap">
-      <div class="section-head">
-        <h2>Get Nook</h2>
-        <p>Signed builds are published automatically by CI on every tagged release. Pick your platform below, or grab the app straight from F-Droid on Android.</p>
-      </div>
+      <div class="downloads-wrap">
+        <div class="section-head" style="margin-bottom:48px;">
+          <h2>Get Nook</h2>
+          <p>Signed builds published automatically by CI on every tagged release.</p>
+        </div>
 
-      <div class="fdroid-row" id="fdroid-row">
-        <div class="fd-text">
-          <strong>Get it on F-Droid</strong>
-          <span>The recommended way to install and auto-update Nook on Android.</span>
+        <div class="fdroid-banner">
+          <div>
+            <strong>Get it on F-Droid</strong>
+            <span class="meta">The recommended way to install and auto-update on Android.</span>
+          </div>
+          <div id="fdroid-slot">
+            <span class="fd-soon">Coming soon to F-Droid</span>
+          </div>
         </div>
-        <div id="fdroid-slot">
-          <span class="fd-soon">Coming soon to F-Droid</span>
-        </div>
-      </div>
 
-      <div class="dl-grid" id="dl-grid">
-        <!-- filled by script, static fallback markup kept for no-JS -->
-        <div class="dl-card" data-platform="android">
-          <div class="dl-card-top"><h4>Android</h4></div>
-          <div class="meta">Universal signed APK</div>
-          <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
+        <div class="dl-grid" id="dl-grid">
+          <div class="dl-card" data-platform="android">
+            <div class="dl-card-top"><h4>Android</h4></div>
+            <span class="meta">Universal signed APK</span>
+            <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
+          </div>
+          <div class="dl-card" data-platform="windows">
+            <div class="dl-card-top"><h4>Windows</h4></div>
+            <span class="meta">Installer (.exe) or portable .zip</span>
+            <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
+          </div>
+          <div class="dl-card" data-platform="macos">
+            <div class="dl-card-top"><h4>macOS</h4></div>
+            <span class="meta">Unsigned .app bundle</span>
+            <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
+          </div>
+          <div class="dl-card" data-platform="linux">
+            <div class="dl-card-top"><h4>Linux</h4></div>
+            <span class="meta">Release bundle (.tar.gz)</span>
+            <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
+          </div>
+          <div class="dl-card" data-platform="ios">
+            <div class="dl-card-top"><h4>iOS</h4></div>
+            <span class="meta">Unsigned build — requires your own signing</span>
+            <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
+          </div>
+          <div class="dl-card" data-platform="source">
+            <div class="dl-card-top"><h4>Build from source</h4></div>
+            <span class="meta">Any platform, any version</span>
+            <a class="dl-btn" href="https://github.com/prit-007/nook#run-it">Instructions</a>
+          </div>
         </div>
-        <div class="dl-card" data-platform="windows">
-          <div class="dl-card-top"><h4>Windows</h4></div>
-          <div class="meta">Installer (.exe) or portable .zip</div>
-          <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
-        </div>
-        <div class="dl-card" data-platform="macos">
-          <div class="dl-card-top"><h4>macOS</h4></div>
-          <div class="meta">Unsigned .app bundle</div>
-          <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
-        </div>
-        <div class="dl-card" data-platform="linux">
-          <div class="dl-card-top"><h4>Linux</h4></div>
-          <div class="meta">Release bundle (.tar.gz)</div>
-          <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
-        </div>
-        <div class="dl-card" data-platform="ios">
-          <div class="dl-card-top"><h4>iOS</h4></div>
-          <div class="meta">Unsigned build — requires your own signing</div>
-          <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
-        </div>
-        <div class="dl-card" data-platform="source">
-          <div class="dl-card-top"><h4>Build from source</h4></div>
-          <div class="meta">Any platform, any version</div>
-          <a class="dl-btn" href="https://github.com/prit-007/nook#run-it">Instructions</a>
-        </div>
-      </div>
 
-      <p class="see-all">Looking for an older version, checksums, or release notes? <a href="https://github.com/prit-007/nook/releases">Browse all releases on GitHub →</a></p>
-    </div>
-  </section>
+        <p class="see-all">Looking for an older version, checksums, or release notes? <a href="https://github.com/prit-007/nook/releases">Browse all releases on GitHub →</a></p>
 
-  <!-- ============ ALPHA NOTICE ============ -->
-  <section>
-    <div class="wrap">
-      <div class="notice">
-        <div>
+        <div class="notice">
           <strong>Nook is in alpha.</strong>
-          <p>Core note-taking (notes, checklists, doodles, search, theming, security) is stable. Device-to-device sync is implemented but still being validated on real hardware — don't rely on it for anything you can't afford to lose. See the <a href="https://github.com/prit-007/nook/blob/main/CHANGELOG.md" style="color:var(--brass-bright)">changelog</a> for what's shipped in each release.</p>
+          <p>Core note-taking (notes, checklists, doodles, search, theming, security) is stable. Device-to-device sync is implemented but still being validated on real hardware — don't rely on it for anything you can't afford to lose. See the <a href="https://github.com/prit-007/nook/blob/main/CHANGELOG.md">changelog</a> for what's shipped in each release.</p>
         </div>
       </div>
     </div>
@@ -460,14 +471,12 @@
 
 <footer>
   <div class="wrap">
-    <div class="foot-grid">
-      <p class="foot-motto">"Your notes. Your device. Yours."</p>
-      <div class="foot-links">
-        <a href="https://github.com/prit-007/nook">Source</a>
-        <a href="https://github.com/prit-007/nook/issues">Report a bug</a>
-        <a href="https://github.com/prit-007/nook/blob/main/CONTRIBUTING.md">Contribute</a>
-        <a href="https://github.com/prit-007/nook/blob/main/LICENSE">GPL-3.0 license</a>
-      </div>
+    <p class="foot-motto">"Your notes. Your device. Yours."</p>
+    <div class="foot-links">
+      <a href="https://github.com/prit-007/nook">Source Code</a>
+      <a href="https://github.com/prit-007/nook/issues">Report a Bug</a>
+      <a href="https://github.com/prit-007/nook/blob/main/CONTRIBUTING.md">Contribute</a>
+      <a href="https://github.com/prit-007/nook/blob/main/LICENSE">GPL-3.0 License</a>
     </div>
     <p class="foot-legal">Nook is free software, distributed with no warranty, under the GNU General Public License v3.0.</p>
   </div>
@@ -478,7 +487,7 @@
   var CFG = window.NOOK_CONFIG;
   var API = "https://api.github.com/repos/" + CFG.githubOwner + "/" + CFG.githubRepo;
 
-  // ---- platform detection -----------------------------------------
+  /* ---- platform detection ---- */
   function detectPlatform(){
     var ua = navigator.userAgent || "";
     var plat = (navigator.platform || "");
@@ -490,14 +499,15 @@
     return null;
   }
   var platformLabels = {
-    android:"Android", ios:"iOS", windows:"Windows", macos:"macOS", linux:"Linux"
+    android:"for Android", ios:"for iOS", windows:"for Windows",
+    macos:"for macOS", linux:"for Linux"
   };
   var detected = detectPlatform();
   if (detected && platformLabels[detected]) {
     document.getElementById("hero-os").textContent = platformLabels[detected];
   }
 
-  // ---- screenshots ---------------------------------------------------
+  /* ---- screenshots ---- */
   var shots = document.getElementById("shots");
   for (var i = 1; i <= 10; i++) {
     var n = (i < 10 ? "0" + i : "" + i);
@@ -509,16 +519,14 @@
     shots.appendChild(img);
   }
 
-  // ---- F-Droid badge ---------------------------------------------------
+  /* ---- F-Droid badge ---- */
   if (CFG.fdroidAppId) {
     var slot = document.getElementById("fdroid-slot");
     slot.innerHTML = '<a class="fd-badge" href="https://f-droid.org/packages/' + CFG.fdroidAppId + '/">' +
       '<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid"></a>';
   }
 
-  // ---- live release data -----------------------------------------------
-  // Matches CI artifact naming from .github/workflows/ci.yml as of Nook v0.8.2.
-  // Update these patterns if the release workflow's asset names change.
+  /* ---- live release data ---- */
   var assetPatterns = {
     android: /^app-release\.apk$/i,
     windows: /nook_setup_.*\.exe$/i,
@@ -531,9 +539,8 @@
     .then(function(r){ if (!r.ok) throw new Error("no releases yet"); return r.json(); })
     .then(function(release){
       var version = release.tag_name || release.name;
-      if (version) {
-        document.getElementById("hero-version").textContent = version;
-      }
+      if (version) document.getElementById("hero-version").textContent = version;
+
       var assets = release.assets || [];
       Object.keys(assetPatterns).forEach(function(platform){
         var pattern = assetPatterns[platform];
@@ -550,7 +557,7 @@
           meta.textContent = meta.textContent + " — not in " + version;
         }
       });
-      // point the hero CTA at the visitor's own platform, if we found it
+
       if (detected && assetPatterns[detected]) {
         var card = document.querySelector('.dl-card[data-platform="' + detected + '"]');
         if (card) {
@@ -560,11 +567,7 @@
         }
       }
     })
-    .catch(function(){
-      // No releases yet, or GitHub API unavailable (e.g. rate limit) —
-      // the static fallback links to the releases page already in the
-      // markup above are enough; nothing further to do.
-    });
+    .catch(function(){});
 })();
 </script>
 
