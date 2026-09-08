@@ -17,6 +17,7 @@ import 'package:nook/core/theme/design_tokens.dart';
 import 'doodle_controller.dart';
 import 'doodle_canvas.dart';
 import 'doodle_strokes_codec.dart';
+import 'doodle_shape_recognizer.dart' show RecognizedShape;
 import 'doodle_thumbnail_renderer.dart';
 import 'doodle_toolbar.dart';
 
@@ -46,6 +47,7 @@ class DoodleCanvasScreen extends ConsumerStatefulWidget {
 class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   late final DoodleController _controller;
   final ScrollController _scrollController = ScrollController();
+  Timer? _snapDismissTimer;
 
   DoodleStorage? _storage;
 
@@ -64,9 +66,29 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
   @override
   void dispose() {
+    _snapDismissTimer?.cancel();
+    _suggestionDismissTimer?.cancel();
+    _controller.removeListener(_onControllerUpdate);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Timer? _suggestionDismissTimer;
+
+  void _onControllerUpdate() {
+    if (_controller.hasPendingSnapToUndo) {
+      _snapDismissTimer?.cancel();
+      _snapDismissTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) _controller.dismissSnapNotice();
+      });
+    }
+    if (_controller.hasPendingSuggestion) {
+      _suggestionDismissTimer?.cancel();
+      _suggestionDismissTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) _controller.dismissPendingSuggestion();
+      });
+    }
   }
 
   /// Scrolls the canvas from a two-finger swipe. [deltaY] is positive when the
@@ -91,6 +113,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   }
 
   void _init() {
+    _controller.addListener(_onControllerUpdate);
     _resolveStorage().then((storage) {
       final attachmentId = widget.attachmentId;
       return Future.wait([
@@ -192,6 +215,24 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
       await storage.attachments.updateThumbnail(attachmentId, thumbFile.path);
     } catch (_) {
       // Thumbnail generation is best-effort; don't crash on save.
+    }
+  }
+
+  String _suggestionLabel(RecognizedShape? shape) {
+    switch (shape) {
+      case RecognizedShape.line:
+        return 'line';
+      case RecognizedShape.arrow:
+        return 'arrow';
+      case RecognizedShape.triangle:
+        return 'triangle';
+      case RecognizedShape.rectangle:
+        return 'rectangle';
+      case RecognizedShape.oval:
+        return 'oval';
+      case RecognizedShape.none:
+      case null:
+        return 'shape';
     }
   }
 
@@ -406,6 +447,128 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                   ),
                 ),
               ),
+
+              // 4. "Shape recognized · tap to undo" chip
+              if (_controller.hasPendingSnapToUndo)
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 72,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        _controller.revertLastSnap();
+                        _snapDismissTimer?.cancel();
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: noteScheme.primaryContainer
+                                .withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              HugeIcon(
+                                icon: HugeIcons.strokeRoundedUndo02,
+                                size: 16,
+                                color: noteScheme.onPrimaryContainer,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Shape recognized \u00b7 tap to undo',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: noteScheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // 5. Mid-confidence shape suggestion chip
+              if (_controller.hasPendingSuggestion &&
+                  !_controller.hasPendingSnapToUndo)
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 72,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: noteScheme.secondaryContainer
+                              .withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Make it a ${_suggestionLabel(_controller.pendingSuggestionShape)}?',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: noteScheme.onSecondaryContainer,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () {
+                                _controller.acceptPendingSuggestion();
+                                _suggestionDismissTimer?.cancel();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: noteScheme.primary,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Text(
+                                  'Yes',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: noteScheme.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            GestureDetector(
+                              onTap: () {
+                                _controller.dismissPendingSuggestion();
+                                _suggestionDismissTimer?.cancel();
+                              },
+                              child: Text(
+                                'No',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: noteScheme.onSecondaryContainer
+                                      .withValues(alpha: 0.7),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           );
         },

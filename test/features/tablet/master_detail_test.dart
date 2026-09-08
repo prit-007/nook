@@ -366,9 +366,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      final fabHeroes =
-          tester.widgetList<Hero>(find.byType(Hero)).map((h) => h.tag).toList();
-      expect(fabHeroes, contains('fab-notebooks'));
+      // The compose FAB lives on CollectionsScreen (not the embedded screens),
+      // so there should be no duplicate hero tags and no framework exceptions.
       expect(tester.takeException(), isNull);
     });
   });

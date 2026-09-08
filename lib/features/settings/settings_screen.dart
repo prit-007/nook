@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_info.dart';
 import '../../core/providers/biometric_provider.dart';
@@ -235,6 +236,16 @@ class SettingsScreen extends ConsumerWidget {
                   unawaited(_checkForUpdates(context, ref));
                 },
               ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedPlay,
+                title: 'Replay Onboarding',
+                onTap: () async {
+                  unawaited(HapticFeedback.lightImpact());
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('onboarding_completed', false);
+                  if (context.mounted) context.go('/onboarding');
+                },
+              ),
             ],
           ),
           const SizedBox(height: 48),
@@ -264,7 +275,48 @@ Future<void> _checkForUpdates(BuildContext context, WidgetRef ref) async {
   final notifier = ref.read(updateStatusProvider.notifier);
   final status = await notifier.check(force: true);
   if (!context.mounted) return;
-  await showUpdateDialog(context, ref, status);
+
+  final info = status.available;
+  if (info != null) {
+    await UpdateDialog.show(
+      context,
+      current: info.currentVersion.toString(),
+      newVer: info.latestVersion.toString(),
+      changelog: info.changelog,
+      apkUrl: info.apkUrl,
+      releaseUrl: info.releaseUrl,
+    );
+  } else if (status.hasError) {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Couldn't check for updates"),
+        content: const Text(
+          'nook could not reach the release feed. Check your connection.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  } else {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("You're up to date"),
+        content: Text('nook v${status.latestChecked ?? ''} is the latest.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Section extends StatelessWidget {

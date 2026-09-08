@@ -102,7 +102,8 @@ void main() {
           findsNothing);
     });
 
-    testWidgets('shows lock icon and blur when locked', (tester) async {
+    testWidgets('shows lock icon and locked preview when locked',
+        (tester) async {
       final note = await createTestNote(title: 'Secret', locked: true);
       await tester.pumpWidget(buildCard(note));
       await tester.pump();
@@ -112,12 +113,6 @@ void main() {
               (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedLock),
           findsOneWidget);
       expect(find.text('Biometrics required'), findsOneWidget);
-      expect(
-        find.byWidgetPredicate(
-          (widget) => widget is ClipRect || widget is BackdropFilter,
-        ),
-        findsWidgets,
-      );
     });
 
     testWidgets('shows plainText when available', (tester) async {

@@ -1,0 +1,26 @@
+Categories:
+  - Writing
+License: GPL-3.0-or-later
+AuthorName: Prit Vasani
+SourceCode: https://github.com/prit-007/nook
+IssueTracker: https://github.com/prit-007/nook/issues
+Changelog: https://github.com/prit-007/nook/blob/main/CHANGELOG.md
+AutoName: Nook
+Name: Nook
+
+Builds:
+  - versionName: 0.8.2
+    versionCode: 3
+    commit: v0.8.2
+    subdir: android
+    sudo:
+      - apt-get update
+      - apt-get install -y --no-install-recommends libsecret-1-dev ninja-build cmake
+    init:
+      - flutter pub get
+      - dart run tool/patch_appflowy_editor.dart
+      - dart run tool/patch_talker_flutter.dart
+      - dart run tool/patch_mdns_dart.dart
+      - dart run build_runner build --delete-conflicting-outputs
+    build:
+      - flutter build apk --release

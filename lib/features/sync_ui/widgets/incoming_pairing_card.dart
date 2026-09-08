@@ -7,7 +7,7 @@ import 'pairing_code_field.dart';
 /// Card shown when a remote device requests pairing. Used by both the receive
 /// screen (mobile receiving from a desktop) and the send screen (PC accepting
 /// a mobile that scanned its QR code).
-class IncomingPairingCard extends ConsumerWidget {
+class IncomingPairingCard extends ConsumerStatefulWidget {
   const IncomingPairingCard({super.key, this.onAccept, this.onReject});
 
   /// Optional post-confirm hook (e.g. the desktop send flow pushes notes right
@@ -18,7 +18,15 @@ class IncomingPairingCard extends ConsumerWidget {
   final Future<void> Function()? onReject;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<IncomingPairingCard> createState() =>
+      _IncomingPairingCardState();
+}
+
+class _IncomingPairingCardState extends ConsumerState<IncomingPairingCard> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final syncState = ref.watch(syncOrchestratorProvider);
     final request = syncState.pendingPairing;
@@ -60,24 +68,30 @@ class IncomingPairingCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: FilledButton.tonal(
-                  onPressed: () async {
-                    await ref
-                        .read(syncOrchestratorProvider.notifier)
-                        .rejectPairing();
-                    await onReject?.call();
-                  },
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          setState(() => _busy = true);
+                          await ref
+                              .read(syncOrchestratorProvider.notifier)
+                              .rejectPairing();
+                          await widget.onReject?.call();
+                        },
                   child: const Text('Reject'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: () async {
-                    await ref
-                        .read(syncOrchestratorProvider.notifier)
-                        .confirmPairing();
-                    await onAccept?.call();
-                  },
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          setState(() => _busy = true);
+                          await ref
+                              .read(syncOrchestratorProvider.notifier)
+                              .confirmPairing();
+                          await widget.onAccept?.call();
+                        },
                   child: const Text('Accept'),
                 ),
               ),

@@ -223,19 +223,18 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
                             : 'Lock with Biometrics',
                         color: scheme.onSurface,
                         onTap: () async {
-                          if (!_currentNote.locked) {
-                            final auth = LocalAuthentication();
-                            try {
-                              final ok = await auth.authenticate(
-                                localizedReason:
-                                    'Authenticate to lock this note',
-                                biometricOnly: true,
-                                persistAcrossBackgrounding: true,
-                              );
-                              if (!ok) return;
-                            } catch (_) {
-                              return;
-                            }
+                          final auth = LocalAuthentication();
+                          try {
+                            final ok = await auth.authenticate(
+                              localizedReason: _currentNote.locked
+                                  ? 'Authenticate to unlock this note'
+                                  : 'Authenticate to lock this note',
+                              biometricOnly: true,
+                              persistAcrossBackgrounding: true,
+                            );
+                            if (!ok) return;
+                          } catch (_) {
+                            return;
                           }
                           await HapticFeedback.lightImpact();
                           await _noteRepo.updateNote(

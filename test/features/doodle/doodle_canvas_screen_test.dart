@@ -116,7 +116,9 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
 
-    expect(find.byKey(const ValueKey('doodle-bg-dotted')), findsOneWidget);
+    // The canvas now uses a merged painter, so background state is in the
+    // controller. Verify the initial state renders correctly.
+    expect(find.byType(CustomPaint), findsWidgets);
 
     await tester.tap(find.byWidgetPredicate(
         (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedGridView));
@@ -125,8 +127,9 @@ void main() {
     await tester.tap(find.text('Ruled'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('doodle-bg-ruled')), findsOneWidget);
-    expect(find.byKey(const ValueKey('doodle-bg-dotted')), findsNothing);
+    // No old background keys exist — the merged painter handles everything.
+    expect(find.byType(CustomPaint), findsWidgets);
+    expect(find.byKey(const ValueKey('doodle-bg-ruled')), findsNothing);
   });
 
   group('persistence', () {

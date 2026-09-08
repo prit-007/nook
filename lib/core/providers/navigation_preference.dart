@@ -13,6 +13,7 @@ class NavigationPreference extends StateNotifier<String> {
 
   static const _key = 'last_route';
   static const _legacyKey = 'last_top_level_page';
+  static const onboardingCompletedKey = 'onboarding_completed';
 
   /// Known top-level tab keys for backward compat with old stored values.
   static const _legacyRoutes = <String, String>{
@@ -35,6 +36,12 @@ class NavigationPreference extends StateNotifier<String> {
 
   /// The full path to restore on next cold start.
   String get route => state;
+
+  /// Overrides the current route without persisting (used at startup to
+  /// force onboarding when onboarding hasn't been completed).
+  void overrideRoute(String path) {
+    state = path;
+  }
 
   /// Persist [path] and update in-memory state.
   Future<void> remember(String path) async {
@@ -83,6 +90,18 @@ class NavigationPreference extends StateNotifier<String> {
 
   static bool _isValid(String path) {
     return _validPrefixes.any((p) => path == p || path.startsWith('$p/'));
+  }
+
+  /// Whether the user has completed the onboarding flow.
+  static Future<bool> isOnboardingCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(onboardingCompletedKey) ?? false;
+  }
+
+  /// Marks onboarding as completed.
+  static Future<void> completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(onboardingCompletedKey, true);
   }
 }
 

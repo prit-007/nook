@@ -64,6 +64,7 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
       _broadcastController.stop();
       _broadcastController.reset();
       await ref.read(syncOrchestratorProvider.notifier).stop();
+      if (mounted) setState(() => _ownAddresses = const []);
     }
   }
 

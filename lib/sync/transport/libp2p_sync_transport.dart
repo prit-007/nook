@@ -307,6 +307,7 @@ class Libp2pSyncTransport implements SyncTransport {
 
     _emitState(const SyncSessionState.connecting());
 
+    P2PStream? stream;
     try {
       final peerId = PeerId.fromString(device.deviceId);
       final addrs = _parseAddrs(multiaddresses, peerId);
@@ -326,7 +327,7 @@ class Libp2pSyncTransport implements SyncTransport {
         LogLevel.debug,
       );
 
-      final stream = await _host!.newStream(
+      stream = await _host!.newStream(
         peerId,
         [kSyncNotenetProtocol],
         Context(timeout: _pairingTimeout),
@@ -358,6 +359,7 @@ class Libp2pSyncTransport implements SyncTransport {
             LogLevel.info,
           );
           _emitState(const SyncSessionState.connected());
+          stream = null; // Caller owns the stream now
           return true;
         case SyncMessageType.pairingRejected:
           nookLog(
@@ -409,6 +411,10 @@ class Libp2pSyncTransport implements SyncTransport {
           LogLevel.error);
       _emitState(SyncSessionState.error('Connection failed: $e'));
       return false;
+    } finally {
+      if (stream != null) {
+        await stream.close().catchError((_) {});
+      }
     }
   }
 
@@ -681,9 +687,22 @@ class Libp2pSyncTransport implements SyncTransport {
     }
 
     if (_pendingAckStream != null) {
-      // One transfer at a time: refuse the second so the sender gets a clear
-      // protocol error rather than a silently dropped bundle.
-      unawaited(stream.close());
+      // One transfer at a time: send a "busy" ack so the sender can
+      // distinguish "receiver is busy" from a dead peer and retry.
+      unawaited(
+        stream
+            .write(SyncMessageCodec.encode(SyncMessage(
+              type: SyncMessageType.ack,
+              senderDeviceId: _localDeviceId,
+              senderDeviceName: _localDeviceName,
+              ack: const SyncAck(
+                receivedNoteIds: [],
+                rejectedNoteIds: [],
+              ),
+            )))
+            .then((_) => stream.close())
+            .catchError((_) {}),
+      );
       _emitState(const SyncSessionState.error(
         'Another transfer is already in progress',
         outcome: SyncOutcomeCategory.protocol,

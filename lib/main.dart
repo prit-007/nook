@@ -21,6 +21,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/native.dart';
 
 import 'app.dart';
+import 'core/platform/global_hotkeys.dart';
+import 'core/platform/system_tray.dart';
 import 'core/providers/biometric_provider.dart';
 import 'core/providers/database_provider.dart';
 import 'core/providers/navigation_preference.dart';
@@ -29,6 +31,7 @@ import 'core/providers/screenshot_blocker_provider.dart';
 import 'core/providers/talker_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'data/database.dart';
+import 'features/quick_note/quick_note_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +55,7 @@ void main() async {
     ScreenshotBlocker.load(),
     PinProvider.load(),
     NavigationPreference.load(),
+    NavigationPreference.isOnboardingCompleted(),
   ]);
 
   final themePref = results[0] as ThemePreference;
@@ -59,6 +63,12 @@ void main() async {
   final screenshotBlocker = results[2] as ScreenshotBlocker;
   final pinProv = results[3] as PinProvider;
   final navigationPreference = results[4] as NavigationPreference;
+  final onboardingCompleted = results[5] as bool;
+
+  // If onboarding hasn't been completed, force the initial route to onboarding.
+  if (!onboardingCompleted) {
+    navigationPreference.overrideRoute('/onboarding');
+  }
 
   talker.info('Preferences loaded');
 
@@ -90,4 +100,44 @@ void main() async {
       child: const NookApp(),
     ),
   );
+
+  // Initialize desktop features (system tray + global hotkeys) after the
+  // first frame renders so the navigator is available.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    NookSystemTray.initialize(
+      onQuickNote: () {
+        // The navigator is available via NookApp's GlobalKey.
+        final context = NookApp.navigatorKey.currentContext;
+        if (context != null) {
+          Navigator.of(context).push(
+            PageRouteBuilder(
+              opaque: false,
+              pageBuilder: (_, __, ___) => const QuickNoteOverlay(),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            ),
+          );
+        }
+      },
+      onShowWindow: () {
+        // Window manager show/focus — handled by window_manager package.
+      },
+    );
+
+    NookGlobalHotkeys.initialize(
+      onQuickNote: () {
+        final context = NookApp.navigatorKey.currentContext;
+        if (context != null) {
+          Navigator.of(context).push(
+            PageRouteBuilder(
+              opaque: false,
+              pageBuilder: (_, __, ___) => const QuickNoteOverlay(),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            ),
+          );
+        }
+      },
+    );
+  });
 }

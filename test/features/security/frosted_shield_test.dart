@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,7 +26,7 @@ void main() {
 
     expect(
         find.byWidgetPredicate(
-            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedLock),
         findsNothing);
   });
 
@@ -34,23 +36,27 @@ void main() {
 
     expect(
         find.byWidgetPredicate(
-            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedLock),
         findsNothing);
   });
 
   testWidgets('shows blur shield when locked', (tester) async {
-    final gate = BiometricGate(authenticator: () async => true)
+    // Use a Completer so the authenticator doesn't resolve instantly —
+    // this keeps the shield visible long enough to assert against it,
+    // and avoids the timer leak from Future.delayed.
+    final completer = Completer<bool>();
+    final gate = BiometricGate(authenticator: () => completer.future)
       ..setEnabled(true);
     await tester.pumpWidget(buildShield(gate));
     await tester.pump();
 
     expect(find.byType(FrostedShield), findsOneWidget);
-    expect(
-        find.byWidgetPredicate(
-            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
-        findsOneWidget);
-    expect(find.text('Vault Locked'), findsOneWidget);
+    expect(find.text('nook. is locked'), findsOneWidget);
     expect(find.byType(BackdropFilter), findsWidgets);
+
+    // Complete to avoid timer leak.
+    completer.complete(true);
+    await tester.pump();
   });
 
   testWidgets('successful auth focuses the view', (tester) async {
@@ -59,21 +65,11 @@ void main() {
     await tester.pumpWidget(buildShield(gate));
     await tester.pump();
 
-    await tester.tap(
-      find.byWidgetPredicate(
-          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
-      warnIfMissed: false,
-    );
-    // Blur animates 40 -> 0 over 500ms.
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 60));
     }
 
     expect(gate.isLocked, isFalse);
-    expect(
-        find.byWidgetPredicate(
-            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
-        findsNothing);
     expect(find.byType(BackdropFilter), findsNothing);
   });
 
@@ -83,14 +79,10 @@ void main() {
     await tester.pumpWidget(buildShield(gate));
     await tester.pump();
 
-    await tester.tap(
-      find.byWidgetPredicate(
-          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShield01),
-      warnIfMissed: false,
-    );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(gate.isLocked, isTrue);
     expect(find.byType(FrostedShield), findsOneWidget);
+    expect(find.text('Authentication failed'), findsOneWidget);
   });
 }

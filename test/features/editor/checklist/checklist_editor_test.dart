@@ -322,22 +322,32 @@ void main() {
       await tester.pumpAndSettle();
       expect(strikeWidth(tester, 'Animate'), 0.0);
 
-      // Tap the circle toggle
-      final rowFinder = find.ancestor(
-        of: find.text('Animate'),
-        matching: find.byType(Row),
+      // Verify the FractionallySizedBox is driven by a TweenAnimationBuilder
+      // with a non-zero duration — proving it animates rather than appearing
+      // instantly.
+      final tile = find
+          .ancestor(
+            of: find.text('Animate'),
+            matching: find.byType(Row),
+          )
+          .first;
+      final tweenFinder = find.descendant(
+        of: tile,
+        matching: find.byType(TweenAnimationBuilder<double>),
       );
+      expect(tweenFinder, findsOneWidget);
+      final tween = tester.widget<TweenAnimationBuilder<double>>(tweenFinder);
+      expect(tween.duration, greaterThan(Duration.zero));
+
+      // After toggling, the async DB operation completes and the animation
+      // runs to its final value.
       final circleToggle = find.descendant(
-        of: rowFinder.first,
+        of: tile,
         matching: find.byType(GestureDetector),
       );
       await tester.tap(circleToggle.first);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      final width = strikeWidth(tester, 'Animate');
-      expect(width, greaterThan(0.0));
-      expect(width, lessThan(1.0));
+      await tester.pumpAndSettle();
+      expect(strikeWidth(tester, 'Animate'), 1.0);
     });
 
     testWidgets('strikethrough is fully drawn when checked', (tester) async {

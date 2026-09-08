@@ -13,9 +13,15 @@ import 'core/router.dart';
 import 'core/widgets/keyboard_shortcuts.dart';
 import 'features/security/frosted_shield.dart';
 import 'features/updates/update_provider.dart';
+import 'sync/sync_orchestrator.dart';
 
 class NookApp extends ConsumerStatefulWidget {
   const NookApp({super.key});
+
+  /// Global navigator key — allows system tray and global hotkey callbacks
+  /// to navigate without a direct BuildContext reference.
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   @override
   ConsumerState<NookApp> createState() => _NookAppState();
@@ -46,11 +52,28 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
         );
       case AppLifecycleState.paused:
         gate.onAppPaused();
+        // Stop any active sync when the app is backgrounded — discovery
+        // sockets, Wi-Fi Direct groups, and in-flight transfers would
+        // otherwise leak resources or break silently when the OS suspends
+        // network access.
+        unawaited(_stopSyncIfActive());
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
         gate.onAppPaused();
       default:
         break;
+    }
+  }
+
+  Future<void> _stopSyncIfActive() async {
+    try {
+      final syncState = ref.read(syncOrchestratorProvider);
+      if (syncState.phase != SyncPhase.idle) {
+        talker.info('Stopping active sync on app background');
+        await ref.read(syncOrchestratorProvider.notifier).stop();
+      }
+    } catch (e) {
+      talker.warning('Failed to stop sync on background: $e');
     }
   }
 
@@ -66,9 +89,6 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
       theme: buildLightTheme(seed),
       darkTheme: buildDarkTheme(seed, amoled: themePref.amoledDark),
       themeMode: themePref.themeMode,
-      // Flutter can interpolate text shadows through a negative radius while
-      // a ColorScheme is replaced. There are no useful animated theme values
-      // in Nook, so rebuild the theme atomically instead.
       themeAnimationDuration: Duration.zero,
       routerConfig: router,
       localizationsDelegates: const [

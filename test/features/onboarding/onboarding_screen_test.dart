@@ -44,11 +44,11 @@ void main() {
     expect(find.byType(PageView), findsOneWidget);
   });
 
-  testWidgets('Continue advances to vibe page', (tester) async {
+  testWidgets('Continue advances to note-types page', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('Pick your vibe'), findsOneWidget);
+    expect(find.text('Three ways to capture'), findsOneWidget);
   });
 
   testWidgets('skip button exists and is visible', (tester) async {
@@ -58,13 +58,18 @@ void main() {
 
   testWidgets('shows seed color picker on vibe page', (tester) async {
     await tester.pumpWidget(buildScreen());
+    // Page 1 → Page 2 (note types) → Page 3 (vibe)
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(find.text('Pick your vibe'), findsOneWidget);
   });
 
-  testWidgets('third page shows Get Started', (tester) async {
+  testWidgets('fourth page shows Get Started', (tester) async {
     await tester.pumpWidget(buildScreen());
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
@@ -75,7 +80,7 @@ void main() {
 
   testWidgets('dot indicators exist', (tester) async {
     await tester.pumpWidget(buildScreen());
-    // 3 dot indicators via AnimatedContainer
-    expect(find.byType(AnimatedContainer), findsAtLeastNWidgets(3));
+    // 4 dot indicators via AnimatedContainer (one per page)
+    expect(find.byType(AnimatedContainer), findsAtLeastNWidgets(4));
   });
 }

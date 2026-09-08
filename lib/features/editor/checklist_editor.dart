@@ -54,9 +54,11 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   List<_ChecklistItemView> _items = [];
   List<_ChecklistItemView> _archivedItems = [];
   bool _loading = true;
+  bool _initialLoadDone = false;
   List<Attachment> _attachments = [];
   final List<List<_ChecklistItemView>> _undoStack = [];
   final List<List<_ChecklistItemView>> _redoStack = [];
+  bool _completedExpanded = true;
 
   @override
   void initState() {
@@ -100,6 +102,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final first = _items.firstOrNull;
     if (first == null) return;
     unawaited(HapticFeedback.selectionClick());
+    _recordHistory();
     _titleController.text = first.text;
     _titleDebounce?.cancel();
     widget.onTitleChanged?.call(first.text);
@@ -109,7 +112,16 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     final attachmentRepo = AttachmentRepository(db);
-    final items = await repo.getItems(widget.noteId);
+
+    // Load items and attachments concurrently so the image strip is
+    // available on the first render (no flash of empty strip).
+    final results = await Future.wait([
+      repo.getItems(widget.noteId),
+      attachmentRepo.getAllForNote(widget.noteId),
+    ]);
+    final items = results[0] as List<ChecklistItem>;
+    final attachments = results[1] as List<Attachment>;
+
     if (mounted) {
       setState(() {
         _items = items
@@ -130,12 +142,13 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                   sortOrder: i.sortOrder,
                 ))
             .toList();
+        _attachments = attachments;
+        if (!_initialLoadDone && _archivedItems.length > 5) {
+          _completedExpanded = false;
+        }
+        _initialLoadDone = true;
         _loading = false;
       });
-    }
-    final attachments = await attachmentRepo.getAllForNote(widget.noteId);
-    if (mounted) {
-      setState(() => _attachments = attachments);
     }
   }
 
@@ -178,6 +191,15 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.toggleChecked(id);
+    await _load();
+  }
+
+  Future<void> _editItem(String id, String newText) async {
+    if (newText.trim().isEmpty) return;
+    _recordHistory();
+    final db = ref.read(databaseProvider);
+    final repo = ChecklistItemRepository(db);
+    await repo.updateText(id, newText.trim());
     await _load();
   }
 
@@ -395,9 +417,6 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                               itemBuilder: (context, index) {
                                 return _SwipeableTile(
                                   key: ValueKey(_items[index].id),
-                                  // Completing from either direction keeps the
-                                  // gesture forgiving; deletion remains an
-                                  // explicit action to avoid accidental loss.
                                   onSwipeRight: () =>
                                       _toggleItem(_items[index].id),
                                   onSwipeLeft: () =>
@@ -410,64 +429,109 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                     alignment: Alignment.centerLeft,
                                     isChecked: false,
                                   ),
-                                  child: _ChecklistTile(
-                                    key: ValueKey(_items[index].id),
-                                    index: index,
-                                    id: _items[index].id,
-                                    text: _items[index].text,
-                                    checked: false,
-                                    onToggle: () =>
-                                        _toggleItem(_items[index].id),
-                                    onDelete: () =>
-                                        _deleteItem(_items[index].id),
+                                  child: TweenAnimationBuilder<double>(
+                                    tween: Tween(
+                                      begin: _initialLoadDone ? 1.0 : 0.0,
+                                      end: 1.0,
+                                    ),
+                                    duration: Duration(
+                                      milliseconds:
+                                          80 + (index * 40).clamp(0, 400),
+                                    ),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, value, child) => Opacity(
+                                      opacity: value,
+                                      child: Transform.translate(
+                                        offset: Offset(0, 20 * (1 - value)),
+                                        child: child,
+                                      ),
+                                    ),
+                                    child: _ChecklistTile(
+                                      key: ValueKey(_items[index].id),
+                                      index: index,
+                                      id: _items[index].id,
+                                      text: _items[index].text,
+                                      checked: false,
+                                      onToggle: () =>
+                                          _toggleItem(_items[index].id),
+                                      onDelete: () =>
+                                          _deleteItem(_items[index].id),
+                                      onEdit: (text) =>
+                                          _editItem(_items[index].id, text),
+                                    ),
                                   ),
                                 );
                               },
                             ),
                           ),
 
-                          // Completed divider + archived items
+                          // Completed divider + archived items (collapsible)
                           if (_archivedItems.isNotEmpty) ...[
-                            SliverPadding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                              sliver: SliverToBoxAdapter(
-                                child: Text(
-                                  'COMPLETED',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.5,
-                                    color: scheme.onSurfaceVariant
-                                        .withValues(alpha: 0.5),
+                            SliverToBoxAdapter(
+                              child: GestureDetector(
+                                onTap: () => setState(() =>
+                                    _completedExpanded = !_completedExpanded),
+                                behavior: HitTestBehavior.opaque,
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                                  child: Row(
+                                    children: [
+                                      AnimatedRotation(
+                                        turns: _completedExpanded ? 0.25 : 0,
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        child: HugeIcon(
+                                          icon: HugeIcons
+                                              .strokeRoundedArrowRight01,
+                                          size: 16,
+                                          color: scheme.onSurfaceVariant
+                                              .withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'COMPLETED \u00b7 ${_archivedItems.length}',
+                                        style: TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1.5,
+                                          color: scheme.onSurfaceVariant
+                                              .withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
-                            SliverPadding(
-                              padding: EdgeInsets.only(
-                                left: 20,
-                                right: 20,
-                                bottom: viewInsets.bottom + 100,
-                              ),
-                              sliver: SliverList(
-                                delegate: SliverChildBuilderDelegate(
-                                  (context, index) => _ChecklistTile(
-                                    key: ValueKey(_archivedItems[index].id),
-                                    index: index,
-                                    id: _archivedItems[index].id,
-                                    text: _archivedItems[index].text,
-                                    checked: true,
-                                    onToggle: () =>
-                                        _toggleItem(_archivedItems[index].id),
-                                    onDelete: () =>
-                                        _deleteItem(_archivedItems[index].id),
+                            if (_completedExpanded)
+                              SliverPadding(
+                                padding: EdgeInsets.only(
+                                  left: 20,
+                                  right: 20,
+                                  bottom: viewInsets.bottom + 100,
+                                ),
+                                sliver: SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) => _ChecklistTile(
+                                      key: ValueKey(_archivedItems[index].id),
+                                      index: index,
+                                      id: _archivedItems[index].id,
+                                      text: _archivedItems[index].text,
+                                      checked: true,
+                                      onToggle: () =>
+                                          _toggleItem(_archivedItems[index].id),
+                                      onDelete: () =>
+                                          _deleteItem(_archivedItems[index].id),
+                                      onEdit: (text) => _editItem(
+                                          _archivedItems[index].id, text),
+                                    ),
+                                    childCount: _archivedItems.length,
                                   ),
-                                  childCount: _archivedItems.length,
                                 ),
                               ),
-                            ),
                           ],
                         ],
                       ),
@@ -596,13 +660,19 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
                   ),
                 ),
                 child: Row(
+                  mainAxisAlignment: isCircle
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
                   children: [
-                    HugeIcon(
-                      icon: _expanded
-                          ? HugeIcons.strokeRoundedCancelCircle
-                          : HugeIcons.strokeRoundedAdd01,
-                      color: scheme.primary,
-                      size: 24,
+                    GestureDetector(
+                      onTap: _expanded ? _collapse : null,
+                      child: HugeIcon(
+                        icon: _expanded
+                            ? HugeIcons.strokeRoundedCancelCircle
+                            : HugeIcons.strokeRoundedAdd01,
+                        color: scheme.primary,
+                        size: 24,
+                      ),
                     ),
                     if (t > 0.1) ...[
                       const SizedBox(width: 4),
@@ -689,7 +759,7 @@ class _ChecklistItemView {
       );
 }
 
-class _ChecklistTile extends StatelessWidget {
+class _ChecklistTile extends StatefulWidget {
   const _ChecklistTile({
     super.key,
     required this.index,
@@ -698,6 +768,7 @@ class _ChecklistTile extends StatelessWidget {
     required this.checked,
     required this.onToggle,
     required this.onDelete,
+    required this.onEdit,
   });
 
   final int index;
@@ -706,6 +777,52 @@ class _ChecklistTile extends StatelessWidget {
   final bool checked;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  final ValueChanged<String> onEdit;
+
+  @override
+  State<_ChecklistTile> createState() => _ChecklistTileState();
+}
+
+class _ChecklistTileState extends State<_ChecklistTile> {
+  bool _editing = false;
+  late TextEditingController _editController;
+
+  @override
+  void initState() {
+    super.initState();
+    _editController = TextEditingController(text: widget.text);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChecklistTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text && !_editing) {
+      _editController.text = widget.text;
+    }
+  }
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    // Unfocus the add pill so it collapses while we edit this item.
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _editing = true;
+      _editController.text = widget.text;
+    });
+  }
+
+  void _finishEditing() {
+    final newText = _editController.text.trim();
+    setState(() => _editing = false);
+    if (newText != widget.text && newText.isNotEmpty) {
+      widget.onEdit(newText);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -716,7 +833,7 @@ class _ChecklistTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: checked
+        color: widget.checked
             ? scheme.surfaceContainerLow.withValues(alpha: 0.4)
             : scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
@@ -724,7 +841,7 @@ class _ChecklistTile extends StatelessWidget {
       child: Row(
         children: [
           GestureDetector(
-            onTap: onToggle,
+            onTap: widget.onToggle,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutBack,
@@ -732,13 +849,13 @@ class _ChecklistTile extends StatelessWidget {
               height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: checked ? scheme.primary : Colors.transparent,
+                color: widget.checked ? scheme.primary : Colors.transparent,
                 border: Border.all(
-                  color: checked ? scheme.primary : scheme.outline,
+                  color: widget.checked ? scheme.primary : scheme.outline,
                   width: 2,
                 ),
               ),
-              child: checked
+              child: widget.checked
                   ? HugeIcon(
                       icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                       size: 16,
@@ -748,41 +865,65 @@ class _ChecklistTile extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Stack(
-              alignment: Alignment.centerLeft,
-              children: [
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 250),
-                  style: (textTheme.bodyLarge ?? const TextStyle()).copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: checked
-                        ? scheme.onSurface.withValues(alpha: 0.3)
-                        : scheme.onSurface,
-                  ),
-                  child: Text(text),
-                ),
-                Positioned.fill(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: checked ? 1.0 : 0.0),
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, _) => FractionallySizedBox(
-                        widthFactor: value,
-                        child: Opacity(
-                          opacity: value, // Fades in as it expands
-                          child: Container(
-                            height: 1.5,
-                            color: scheme.primary.withValues(alpha: 0.8),
+            child: _editing
+                ? TextField(
+                    controller: _editController,
+                    autofocus: true,
+                    style: (textTheme.bodyLarge ?? const TextStyle()).copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurface,
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _finishEditing(),
+                    onEditingComplete: _finishEditing,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  )
+                : GestureDetector(
+                    onTap: _startEditing,
+                    child: Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 250),
+                          style: (textTheme.bodyLarge ?? const TextStyle())
+                              .copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: widget.checked
+                                ? scheme.onSurface.withValues(alpha: 0.3)
+                                : scheme.onSurface,
+                          ),
+                          child: Text(widget.text),
+                        ),
+                        Positioned.fill(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(
+                                  begin: 0, end: widget.checked ? 1.0 : 0.0),
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, _) =>
+                                  FractionallySizedBox(
+                                widthFactor: value,
+                                child: Opacity(
+                                  opacity: value,
+                                  child: Container(
+                                    height: 1.5,
+                                    color:
+                                        scheme.primary.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
           ),
           IconButton(
             icon: HugeIcon(
@@ -790,15 +931,15 @@ class _ChecklistTile extends StatelessWidget {
                 size: 20,
                 color: scheme.onSurface.withValues(alpha: 0.3)),
             tooltip: 'Delete item',
-            onPressed: onDelete,
+            onPressed: widget.onDelete,
             visualDensity: VisualDensity.compact,
           ),
           ReorderableDragStartListener(
-            index: index,
+            index: widget.index,
             child: HugeIcon(
                 icon: HugeIcons.strokeRoundedDrag01,
                 size: 22,
-                color: scheme.onSurface.withValues(alpha: 0.2)),
+                color: scheme.onSurface.withValues(alpha: 0.35)),
           ),
         ],
       ),

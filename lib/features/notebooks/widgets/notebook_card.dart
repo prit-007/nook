@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -138,30 +137,27 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
                 // Frosted Glass Header Badge
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: textColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: textColor.withValues(alpha: 0.15),
+                        width: 0.5,
                       ),
-                      decoration: BoxDecoration(
-                        color: textColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: textColor.withValues(alpha: 0.15),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        'NOTEBOOK',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.8,
-                          color: textColor,
-                        ),
+                    ),
+                    child: Text(
+                      'NOTEBOOK',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.8,
+                        color: textColor,
                       ),
                     ),
                   ),

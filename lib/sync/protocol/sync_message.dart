@@ -79,7 +79,9 @@ class SyncMessageCodec {
 
   /// Maximum accepted envelope length (payload + checksum). Guards against a
   /// malicious peer advertising an enormous frame and exhausting memory.
-  static const int maxFrameLength = 512 * 1024 * 1024; // 512 MB
+  /// 100 MB is a sane ceiling for a notes app — even a large bundle with
+  /// attachments should stay well below this.
+  static const int maxFrameLength = 100 * 1024 * 1024; // 100 MB
 
   static Uint8List encode(SyncMessage message) {
     final payload = _encodePayload(message);

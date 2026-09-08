@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../app.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/home/search_screen.dart';
 import '../../features/notebooks/notebook_detail_screen.dart';
@@ -145,15 +146,21 @@ class _ErrorPage extends StatelessWidget {
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: NookApp.navigatorKey,
     initialLocation: ref.read(navigationPreferenceProvider.notifier).route,
     errorBuilder: (context, state) =>
         _ErrorPage(state.error ?? 'Unknown error'),
     redirect: (context, state) {
+      final location = state.matchedLocation;
+
+      // Allow onboarding and lock routes through without persistence.
+      if (location == '/onboarding' || location == '/lock') return null;
+
       // Auto-persist every navigated route so the app can restore it on
       // cold start.  Only top-level and first-level sub-routes are saved;
       // deep links like /note/:id are intentionally skipped so the app
       // opens to the containing section, not a possibly-stale note.
-      NavigationPreference.rememberPath(state.matchedLocation);
+      NavigationPreference.rememberPath(location);
       return null; // no redirect, just persist.
     },
     routes: [

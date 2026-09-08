@@ -157,11 +157,32 @@ class SyncNoteEntry {
       ];
     }
 
+    // Validate required fields before casting to avoid raw TypeErrors
+    // that would kill deserialization of the entire bundle.
+    final noteId = map['noteId'];
+    final syncVersion = map['syncVersion'];
+    final updatedAt = map['updatedAt'];
+    final deviceOriginId = map['deviceOriginId'];
+    if (noteId is! String) {
+      throw const FormatException('SyncNoteEntry missing or invalid noteId');
+    }
+    if (syncVersion is! int) {
+      throw const FormatException(
+          'SyncNoteEntry missing or invalid syncVersion');
+    }
+    if (updatedAt is! int) {
+      throw const FormatException('SyncNoteEntry missing or invalid updatedAt');
+    }
+    if (deviceOriginId is! String) {
+      throw const FormatException(
+          'SyncNoteEntry missing or invalid deviceOriginId');
+    }
+
     return SyncNoteEntry(
-      noteId: map['noteId'] as String,
-      syncVersion: map['syncVersion'] as int,
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updatedAt'] as int),
-      deviceOriginId: map['deviceOriginId'] as String,
+      noteId: noteId,
+      syncVersion: syncVersion,
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(updatedAt),
+      deviceOriginId: deviceOriginId,
       noteFields: (map['noteFields'] as Map<dynamic, dynamic>)
           .map((k, v) => MapEntry(k.toString(), v)),
       checklistItems: checklistItems,
@@ -226,7 +247,13 @@ class SyncBundle {
   }
 
   static bool verifyChecksum(SyncBundle bundle, String expectedChecksum) {
-    return computeChecksum(bundle) == expectedChecksum;
+    final computed = computeChecksum(bundle);
+    if (computed.length != expectedChecksum.length) return false;
+    var diff = 0;
+    for (var i = 0; i < computed.length; i++) {
+      diff |= computed.codeUnitAt(i) ^ expectedChecksum.codeUnitAt(i);
+    }
+    return diff == 0;
   }
 
   static List<Uint8List> splitIntoChunks(
@@ -241,8 +268,21 @@ class SyncBundle {
     return chunks;
   }
 
-  static Uint8List reassembleChunks(List<Uint8List> chunks) {
+  /// Reassembles [chunks] into a single [Uint8List]. Throws
+  /// [ArgumentError] if the total byte length does not match
+  /// [expectedTotalLength], preventing silent corruption from incomplete or
+  /// reordered chunks.
+  static Uint8List reassembleChunks(
+    List<Uint8List> chunks, {
+    int? expectedTotalLength,
+  }) {
     final totalLength = chunks.fold<int>(0, (sum, c) => sum + c.length);
+    if (expectedTotalLength != null && totalLength != expectedTotalLength) {
+      throw ArgumentError(
+        'Chunk reassembly mismatch: expected $expectedTotalLength bytes '
+        'but got $totalLength (${chunks.length} chunks)',
+      );
+    }
     final result = Uint8List(totalLength);
     var offset = 0;
     for (final chunk in chunks) {

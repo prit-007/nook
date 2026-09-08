@@ -61,6 +61,8 @@ class UpdateInfo {
     required this.releaseName,
     required this.notes,
     required this.publishedAt,
+    this.apkUrl,
+    this.changelog = const [],
   });
 
   final AppVersion currentVersion;
@@ -69,4 +71,10 @@ class UpdateInfo {
   final String releaseName;
   final String notes;
   final DateTime? publishedAt;
+
+  /// Direct APK download URL (Android only). Null on other platforms.
+  final String? apkUrl;
+
+  /// Parsed changelog lines from the release body.
+  final List<String> changelog;
 }

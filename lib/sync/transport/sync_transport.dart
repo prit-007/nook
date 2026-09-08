@@ -328,7 +328,15 @@ class MockSyncTransport implements SyncTransport {
   }
 
   @override
-  void dispose() {}
+  void dispose() {
+    _deviceFoundController.close();
+    _sessionStateController.close();
+    _bytesReceivedController.close();
+    _progressController.close();
+    if (!_pairingRequestController.isClosed) {
+      _pairingRequestController.close();
+    }
+  }
 
   void emitDeviceFound(SyncDevice device) {
     _deviceFoundController.add(device);
