@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-09-08
+
+### F-Droid reproducible builds
+- Replaced `mobile_scanner` (Google ML Kit) with `camera` + `zxing2` (pure Dart)
+- Added `tool/patch_fdroid_sqlite.dart` to compile SQLCipher from source
+- Updated CI to build SQLCipher amalgamation from source for reproducible builds
+- Set `PUB_CACHE` in CI to match F-Droid build server path
+- Added stub OpenSSL headers for NDK cross-compilation
+- Switched F-Droid metadata to reproducible build pattern (Binaries, AllowedAPKSigningKeys)
+- Fixed deprecated `G_APPLICATION_FLAGS_NONE` on Linux
+- Extract Flutter version from CI file instead of hardcoding
+
 ## [0.8.6] - 2026-08-30
 
 ### Deep sync audit — 34 bugs fixed

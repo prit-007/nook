@@ -8,11 +8,31 @@ inputs:
       Only needed on Windows.
     required: false
     default: 'false'
+  sqlcipher:
+    description: >-
+      Build SQLCipher from source and patch pubspec.yaml to use source: source.
+      Required for F-Droid reproducible builds.
+    required: false
+    default: 'false'
 
 runs:
   using: composite
   steps:
     - name: Install dependencies
+      shell: bash
+      run: flutter pub get
+
+    - name: Build SQLCipher amalgamation from source
+      if: ${{ inputs.sqlcipher == 'true' }}
+      shell: bash
+      run: |
+        sudo apt-get update && sudo apt-get install -y --no-install-recommends tcl clang make
+        git clone --depth=1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /tmp/sqlcipher
+        (cd /tmp/sqlcipher && ./configure --enable-tempstore=yes --with-crypto-lib=none && make sqlite3.c)
+        dart run tool/patch_fdroid_sqlite.dart /tmp/sqlcipher
+
+    - name: Re-run pub get after SQLCipher patch
+      if: ${{ inputs.sqlcipher == 'true' }}
       shell: bash
       run: flutter pub get
 
