@@ -249,6 +249,17 @@
   .see-all a { color: var(--accent); font-weight: 600; }
   .see-all a:hover { text-decoration: underline; }
 
+  /* ---------- Download Variants ---------- */
+  .dl-variants {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;
+  }
+  .dl-variants a {
+    font-size: 0.78rem; color: var(--accent); text-decoration: none;
+    padding: 4px 10px; border-radius: 8px; background: var(--accent-light);
+    transition: background 0.2s;
+  }
+  .dl-variants a:hover { background: rgba(45,106,79,0.12); }
+
   /* ---------- Alpha Notice ---------- */
   .notice {
     background: var(--surface); border: 1px solid var(--rule); border-left: 4px solid var(--accent);
@@ -426,23 +437,29 @@
 
         <div class="dl-grid" id="dl-grid">
           <div class="dl-card" data-platform="android">
-            <div class="dl-card-top"><h4>Android</h4></div>
-            <span class="meta">Universal signed APK</span>
+            <div class="dl-card-top"><h4>Android</h4><span class="pill">Universal</span></div>
+            <span class="meta">Universal signed APK — works on all devices</span>
+            <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
+            <div class="dl-variants" id="android-variants"></div>
+          </div>
+          <div class="dl-card" data-platform="windows-exe">
+            <div class="dl-card-top"><h4>Windows</h4><span class="pill">Installer</span></div>
+            <span class="meta">.exe installer — recommended</span>
             <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
           </div>
-          <div class="dl-card" data-platform="windows">
+          <div class="dl-card" data-platform="windows-zip">
             <div class="dl-card-top"><h4>Windows</h4></div>
-            <span class="meta">Installer (.exe) or portable .zip</span>
+            <span class="meta">Portable .zip — no install needed</span>
             <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
           </div>
           <div class="dl-card" data-platform="macos">
             <div class="dl-card-top"><h4>macOS</h4></div>
-            <span class="meta">Unsigned .app bundle</span>
+            <span class="meta">.zip bundle — unzip and run</span>
             <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
           </div>
           <div class="dl-card" data-platform="linux">
             <div class="dl-card-top"><h4>Linux</h4></div>
-            <span class="meta">Release bundle (.tar.gz)</span>
+            <span class="meta">.tar.gz bundle</span>
             <a class="dl-btn" href="https://github.com/prit-007/nook/releases/latest">See releases</a>
           </div>
           <div class="dl-card" data-platform="ios">
@@ -528,12 +545,18 @@
 
   /* ---- live release data ---- */
   var assetPatterns = {
-    android: /^app-release\.apk$/i,
-    windows: /nook_setup_.*\.exe$/i,
-    macos:   /nook-macos-.*\.zip$/i,
-    linux:   /nook-linux-.*\.tar\.gz$/i,
-    ios:     /nook-ios-.*\.zip$/i
+    android:       /^app-release\.apk$/i,
+    "windows-exe": /nook_setup_.*\.exe$/i,
+    "windows-zip": /nook-windows-.*\.zip$/i,
+    macos:         /nook-macos-.*\.zip$/i,
+    linux:         /nook-linux-.*\.tar\.gz$/i,
+    ios:           /nook-ios-.*\.zip$/i
   };
+  var abiPatterns = [
+    { key: "arm64-v8a", pattern: /^app-arm64-v8a-release\.apk$/i },
+    { key: "armeabi-v7a", pattern: /^app-armeabi-v7a-release\.apk$/i },
+    { key: "x86_64", pattern: /^app-x86_64-release\.apk$/i }
+  ];
 
   fetch(API + "/releases/latest")
     .then(function(r){ if (!r.ok) throw new Error("no releases yet"); return r.json(); })
@@ -542,6 +565,8 @@
       if (version) document.getElementById("hero-version").textContent = version;
 
       var assets = release.assets || [];
+
+      /* primary platform cards */
       Object.keys(assetPatterns).forEach(function(platform){
         var pattern = assetPatterns[platform];
         var match = assets.find(function(a){ return pattern.test(a.name); });
@@ -558,13 +583,32 @@
         }
       });
 
-      if (detected && assetPatterns[detected]) {
-        var card = document.querySelector('.dl-card[data-platform="' + detected + '"]');
-        if (card) {
-          card.dataset.recommended = "true";
-          var link = card.querySelector("a.dl-btn");
-          document.getElementById("hero-cta").href = link.href;
-        }
+      /* per-ABI split APKs */
+      var abiContainer = document.getElementById("android-variants");
+      if (abiContainer) {
+        abiPatterns.forEach(function(abi){
+          var match = assets.find(function(a){ return abi.pattern.test(a.name); });
+          if (match) {
+            var sizeMB = (match.size / 1048576).toFixed(1);
+            var a = document.createElement("a");
+            a.href = match.browser_download_url;
+            a.textContent = abi.key + " (" + sizeMB + " MB)";
+            abiContainer.appendChild(a);
+          }
+        });
+      }
+
+      /* highlight visitor's platform */
+      if (detected) {
+        var platforms = [detected, detected + "-exe", detected + "-zip"];
+        platforms.forEach(function(p){
+          var card = document.querySelector('.dl-card[data-platform="' + p + '"]');
+          if (card) {
+            card.dataset.recommended = "true";
+            var link = card.querySelector("a.dl-btn");
+            document.getElementById("hero-cta").href = link.href;
+          }
+        });
       }
     })
     .catch(function(){});
