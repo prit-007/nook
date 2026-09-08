@@ -163,8 +163,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
       // Both methods failed — show error so user can act.
       if (mounted) {
         setState(() {
-          _error =
-              'Could not open installer: ${result.message}';
+          _error = 'Could not open installer: ${result.message}';
           _installing = false;
         });
       }
