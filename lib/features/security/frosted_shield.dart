@@ -32,6 +32,7 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
   late final Animation<double> _blur;
 
   bool _hasUnlocked = false;
+  bool _prevLocked = true;
   String? _error;
 
   @override
@@ -79,6 +80,14 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final gate = ref.watch(biometricGateProvider);
+
+    // When the gate re-locks (e.g. auto-lock timer fires), reset the local
+    // unlock flag so the frosted shield re-appears.
+    if (gate.isLocked && !_prevLocked) {
+      _hasUnlocked = false;
+      _error = null;
+    }
+    _prevLocked = gate.isLocked;
 
     if (!gate.isLocked || _hasUnlocked) return const SizedBox.shrink();
 

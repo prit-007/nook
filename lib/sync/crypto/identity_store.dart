@@ -111,6 +111,10 @@ class IdentityStore {
 
   /// Resets the stored seed (used to clear sync identity).
   Future<void> clear() async {
+    // Complete any in-flight awaiters so they don't hang forever.
+    if (_pending != null && !_pending!.isCompleted) {
+      _pending!.completeError(StateError('Identity seed cleared'));
+    }
     await _storage.delete(seedKey);
     _cachedSeed = null;
     _pending = null;

@@ -157,8 +157,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             return;
           }
         } catch (_) {
-          if (!_disposed && mounted) context.pop();
           _cleanupInit();
+          if (!_disposed && mounted) context.pop();
           return;
         }
       }
@@ -1289,19 +1289,22 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     );
   }
 
-  void _handleSystemBack() {
+  Future<void> _handleSystemBack() async {
     final router = GoRouter.of(context);
     unawaited(HapticFeedback.lightImpact());
     if (_dirty) {
       if (_isEffectivelyEmpty() && widget.noteId == null) {
-        NoteRepository(_db!).permanentlyDelete(_note!.id).then((_) {
-          if (mounted) router.pop();
-        });
+        await NoteRepository(_db!).permanentlyDelete(_note!.id);
+        if (mounted) router.pop();
         return;
       } else {
-        _save().then((_) {
-          if (mounted) router.pop();
-        });
+        try {
+          await _save();
+        } catch (_) {
+          // Save failed — still pop so the user isn't trapped, but the
+          // error is logged inside _save.
+        }
+        if (mounted) router.pop();
         return;
       }
     }
