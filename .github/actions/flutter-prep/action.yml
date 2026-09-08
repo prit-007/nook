@@ -28,9 +28,7 @@ runs:
       run: |
         sudo apt-get update && sudo apt-get install -y --no-install-recommends tcl clang make
         git clone --depth=1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /tmp/sqlcipher
-        cd /tmp/sqlcipher
-        ./configure --enable-tempstore=yes --with-crypto-lib=none
-        make sqlite3.c
+        (cd /tmp/sqlcipher && ./configure --enable-tempstore=yes --with-crypto-lib=none && make sqlite3.c)
         dart run tool/patch_fdroid_sqlite.dart /tmp/sqlcipher
 
     - name: Re-run pub get after SQLCipher patch
