@@ -285,8 +285,10 @@
   }
   .shots img {
     scroll-snap-align: start; height: 420px; width: auto; border-radius: var(--radius);
-    border: 1px solid var(--rule); flex: none;
+    border: 1px solid var(--rule); flex: none; cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s;
   }
+  .shots img:hover { transform: scale(1.02); box-shadow: var(--shadow); }
   .shots::-webkit-scrollbar { height: 6px; }
   .shots::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
   .shot-dots { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
@@ -295,6 +297,43 @@
     cursor: pointer; padding: 0; transition: background 0.3s, transform 0.3s;
   }
   .shot-dot.active { background: var(--accent); transform: scale(1.3); }
+
+  /* ---- Lightbox ---- */
+  .lightbox {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.88); backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s ease;
+  }
+  .lightbox.open { display: flex; opacity: 1; }
+  .lightbox-img {
+    max-width: min(90vw, 420px); max-height: 88vh; border-radius: var(--radius);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    transform: scale(0.92); transition: transform 0.3s ease;
+  }
+  .lightbox.open .lightbox-img { transform: scale(1); }
+  .lightbox-close {
+    position: absolute; top: 20px; right: 24px;
+    background: rgba(255,255,255,0.12); border: none; border-radius: 50%;
+    width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #fff; transition: background 0.2s;
+  }
+  .lightbox-close:hover { background: rgba(255,255,255,0.25); }
+  .lightbox-close svg { width: 22px; height: 22px; }
+  .lightbox-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(255,255,255,0.12); border: none; border-radius: 50%;
+    width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #fff; transition: background 0.2s;
+  }
+  .lightbox-nav:hover { background: rgba(255,255,255,0.25); }
+  .lightbox-nav svg { width: 24px; height: 24px; }
+  .lightbox-prev { left: 20px; }
+  .lightbox-next { right: 20px; }
+  .lightbox-counter {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.6); font-size: 0.88rem; font-weight: 500;
+  }
 
   /* ================================================================
      DOWNLOADS
@@ -615,6 +654,21 @@
   </div>
 </footer>
 
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightbox-close" aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Previous">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="Nook screenshot">
+  <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Next">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+  <div class="lightbox-counter" id="lightbox-counter"></div>
+</div>
+
 <script>
 (function(){
   var CFG = window.NOOK_CONFIG;
@@ -778,6 +832,46 @@
       }
     })
     .catch(function() {});
+
+  /* ---- lightbox ---- */
+  var lightbox = document.getElementById('lightbox');
+  var lbImg = document.getElementById('lightbox-img');
+  var lbCounter = document.getElementById('lightbox-counter');
+  var lbIdx = 0;
+  var shotImgs = [];
+
+  function openLightbox(idx) {
+    lbIdx = idx;
+    lbImg.src = shotImgs[idx].src;
+    lbImg.alt = shotImgs[idx].alt;
+    lbCounter.textContent = (idx + 1) + ' / ' + shotImgs.length;
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  function navLightbox(dir) {
+    lbIdx = (lbIdx + dir + shotImgs.length) % shotImgs.length;
+    openLightbox(lbIdx);
+  }
+
+  shots.querySelectorAll('img').forEach(function(img, i) {
+    shotImgs.push(img);
+    img.addEventListener('click', function() { openLightbox(i); });
+  });
+
+  document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+  document.getElementById('lightbox-prev').addEventListener('click', function() { navLightbox(-1); });
+  document.getElementById('lightbox-next').addEventListener('click', function() { navLightbox(1); });
+  lightbox.addEventListener('click', function(e) { if (e.target === lightbox) closeLightbox(); });
+  document.addEventListener('keydown', function(e) {
+    if (!lightbox.classList.contains('open')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') navLightbox(-1);
+    if (e.key === 'ArrowRight') navLightbox(1);
+  });
 })();
 </script>
 
