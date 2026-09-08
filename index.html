@@ -24,7 +24,7 @@
 <link rel="icon" href="https://raw.githubusercontent.com/prit-007/nook/main/assets/icons/favicon_full.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <style>
   :root {
@@ -46,7 +46,7 @@
     --radius-sm: 8px;
     --radius: 12px;
     --radius-lg: 20px;
-    --serif: 'Fraunces', Georgia, serif;
+    --serif: 'Playfair Display', Georgia, serif;
     --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   }
   [data-theme="dark"] {
@@ -251,16 +251,23 @@
   .promise dd { margin: 0; color: var(--ink-soft); font-size: 0.98rem; line-height: 1.7; }
 
   /* ================================================================
-     FEATURES (spec sheet)
+     FEATURES (bento grid)
      ================================================================ */
-  .spec-row {
-    display: grid; grid-template-columns: 200px 1fr; gap: 24px;
-    padding: 22px 0; border-top: 1px solid var(--rule);
+  .bento-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .bento-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .bento-grid { grid-template-columns: 1fr; } }
+  .bento-card {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius);
+    padding: 28px 24px; transition: transform 0.3s ease, box-shadow 0.3s, border-color 0.3s;
   }
-  .spec-row:last-child { border-bottom: 1px solid var(--rule); }
-  @media (max-width: 640px) { .spec-row { grid-template-columns: 1fr; gap: 6px; } }
-  .spec-row h3 { margin: 0; font-size: 1rem; font-weight: 600; }
-  .spec-row p { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
+  .bento-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--ink-faint); }
+  .bento-icon {
+    width: 44px; height: 44px; background: var(--accent-soft); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 18px; font-size: 20px;
+  }
+  .bento-card h3 { font-size: 1.05rem; font-weight: 600; margin: 0 0 8px; }
+  .bento-card p { color: var(--ink-soft); margin: 0; font-size: 0.92rem; line-height: 1.6; }
 
   /* ================================================================
      SCREENSHOTS
@@ -466,15 +473,53 @@
         <h2>What's inside</h2>
         <p>Everything a serious notes app needs, without asking for your data in return.</p>
       </div>
-      <div class="spec-row reveal"><h3>Notes</h3><p>Create, edit, pin, lock, color and cover-image every note.</p></div>
-      <div class="spec-row reveal"><h3>Organization</h3><p>Notebooks, tags, multi-tag filtering, and full-text search (FTS5).</p></div>
-      <div class="spec-row reveal"><h3>Checklists</h3><p>Toggle items, drag to reorder, and track progress at a glance.</p></div>
-      <div class="spec-row reveal"><h3>Doodles</h3><p>Freehand drawing with smooth, pressure-aware strokes.</p></div>
-      <div class="spec-row reveal"><h3>Editor</h3><p>Block-based rich editing — text, checklists and doodles in one note.</p></div>
-      <div class="spec-row reveal"><h3>Theming</h3><p>Material You 3 dynamic color, per-note overrides, light and dark.</p></div>
-      <div class="spec-row reveal"><h3>Security</h3><p>SQLCipher encryption at rest, biometric gate, screenshot blocking.</p></div>
-      <div class="spec-row reveal"><h3>Device-to-device sync</h3><p>Peer-to-peer over Wi-Fi — discovery, pairing and transfer, no server involved.</p></div>
-      <div class="spec-row reveal"><h3>Export</h3><p>Take everything with you as a portable <code>.nook</code> bundle, any time.</p></div>
+      <div class="bento-grid">
+        <div class="bento-card reveal">
+          <div class="bento-icon">📝</div>
+          <h3>Notes</h3>
+          <p>Create, edit, pin, lock, color and cover-image every note.</p>
+        </div>
+        <div class="bento-card reveal">
+          <div class="bento-icon">📚</div>
+          <h3>Organization</h3>
+          <p>Notebooks, tags, multi-tag filtering, and full-text search (FTS5).</p>
+        </div>
+        <div class="bento-card reveal">
+          <div class="bento-icon">✅</div>
+          <h3>Checklists</h3>
+          <p>Toggle items, drag to reorder, and track progress at a glance.</p>
+        </div>
+        <div class="bento-card reveal">
+          <div class="bento-icon">🎨</div>
+          <h3>Doodles</h3>
+          <p>Freehand drawing with smooth, pressure-aware strokes.</p>
+        </div>
+        <div class="bento-card reveal">
+          <div class="bento-icon">✏️</div>
+          <h3>Editor</h3>
+          <p>Block-based rich editing — text, checklists and doodles in one note.</p>
+        </div>
+        <div class="bento-card reveal">
+          <div class="bento-icon">🎭</div>
+          <h3>Theming</h3>
+          <p>Material You 3 dynamic color, per-note overrides, light and dark.</p>
+        </div>
+        <div class="bento-card reveal">
+          <div class="bento-icon">🔒</div>
+          <h3>Security</h3>
+          <p>SQLCipher encryption at rest, biometric gate, screenshot blocking.</p>
+        </div>
+        <div class="bento-card reveal">
+          <div class="bento-icon">🔄</div>
+          <h3>Device-to-device sync</h3>
+          <p>Peer-to-peer over Wi-Fi — discovery, pairing and transfer, no server.</p>
+        </div>
+        <div class="bento-card reveal">
+          <div class="bento-icon">📦</div>
+          <h3>Export</h3>
+          <p>Take everything with you as a portable <code>.nook</code> bundle, any time.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -587,8 +632,7 @@
   }
   var stored = null;
   try { stored = localStorage.getItem('nook-theme'); } catch(e) {}
-  var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  applyTheme(stored || (systemDark ? 'dark' : 'light'));
+  applyTheme(stored || 'light');
   document.getElementById('theme-toggle').addEventListener('click', function() {
     var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     applyTheme(next);
