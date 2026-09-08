@@ -11,6 +11,8 @@
                      android:usesPermissionFlags="neverForLocation"/>
     <!-- Camera for QR code scanning during sync pairing -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- In-app update: install downloaded APKs (Android 8+) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="nook"
         android:name="${applicationName}"
@@ -52,6 +54,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- In-app update: resolve package installer for APK files (Android 11+) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:mimeType="application/vnd.android.package-archive"/>
         </intent>
     </queries>
 </manifest>

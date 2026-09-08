@@ -151,13 +151,22 @@ class _UpdateDialogState extends State<UpdateDialog> {
       final result = await OpenFilex.open(apkPath);
       if (result.type == ResultType.done) {
         if (mounted) Navigator.of(context).pop();
-      } else {
-        // Fallback: try url_launcher with file:// URI.
-        final uri = Uri.file(apkPath);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
+        return;
+      }
+      // OpenFilex failed — try url_launcher with file:// URI as fallback.
+      final uri = Uri.file(apkPath);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
         if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      // Both methods failed — show error so user can act.
+      if (mounted) {
+        setState(() {
+          _error =
+              'Could not open installer: ${result.message}';
+          _installing = false;
+        });
       }
     } catch (e) {
       if (mounted) {
