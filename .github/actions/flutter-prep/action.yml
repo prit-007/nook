@@ -14,6 +14,12 @@ inputs:
       Required for F-Droid reproducible builds.
     required: false
     default: 'false'
+  sqlcipher-dir:
+    description: >-
+      Directory to build SQLCipher in. For reproducible builds, this must match
+      the F-Droid buildserver path. Defaults to /tmp/sqlcipher.
+    required: false
+    default: '/tmp/sqlcipher'
 
 runs:
   using: composite
@@ -27,9 +33,11 @@ runs:
       shell: bash
       run: |
         sudo apt-get update && sudo apt-get install -y --no-install-recommends tcl clang make
-        git clone --depth=1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /tmp/sqlcipher
-        (cd /tmp/sqlcipher && ./configure --enable-tempstore=yes --with-crypto-lib=none && make sqlite3.c)
-        dart run tool/patch_fdroid_sqlite.dart /tmp/sqlcipher
+        if [ ! -d "${{ inputs.sqlcipher-dir }}" ]; then
+          git clone --depth=1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git "${{ inputs.sqlcipher-dir }}"
+        fi
+        (cd "${{ inputs.sqlcipher-dir }}" && ./configure --enable-tempstore=yes --with-crypto-lib=none && make sqlite3.c)
+        dart run tool/patch_fdroid_sqlite.dart "${{ inputs.sqlcipher-dir }}"
 
     - name: Re-run pub get after SQLCipher patch
       if: ${{ inputs.sqlcipher == 'true' }}
