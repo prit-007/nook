@@ -43,59 +43,56 @@ jobs:
   build-android:
     needs: analyze-and-test
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    container:
+      image: registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
+      options: --user root
+    timeout-minutes: 60
     env:
       HAS_KEYSTORE: ${{ secrets.NOOK_KEYSTORE_BASE64 != '' }}
       PUB_CACHE: ${{ github.workspace }}/.pub-cache
-      ANDROID_NDK_VERSION: '28.2.13676358'
+      FLUTTER_HOME: /opt/flutter
+      ANDROID_HOME: /opt/android-sdk
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.44.8'
-          channel: 'stable'
-          cache: true
-          android-ndk: '28.2.13676358'
-      - name: Pin clang to match F-Droid server
-        run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends clang
 
-      # ── Reproducible build: align ALL paths with F-Droid buildserver ──
-      #
-      # Flutter SDK → /home/runner/build/srclib/flutter (F-Droid srclib path)
-      # Android SDK → /opt/android-sdk (F-Droid buildserver default)
-      # SQLCipher   → /home/runner/build/srclib/sqlcipher (F-Droid srclib path)
-      #
-      # Must run BEFORE flutter-prep so patches/builds use the aligned paths.
-      - name: Align Flutter SDK path with F-Droid buildserver
+      - name: Install system dependencies
         run: |
-          FLUTTER_ROOT="$(dirname "$(dirname "$(command -v flutter)")")"
-          sudo mkdir -p /home/runner/build/srclib
-          sudo ln -sfn "$FLUTTER_ROOT" /home/runner/build/srclib/flutter
-          sudo chown -R runner /home/runner/build/srclib
-          echo "/home/runner/build/srclib/flutter/bin" >> "$GITHUB_PATH"
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            cmake libglu1-mesa libsecret-1-dev ninja-build tcl clang make \
+            git curl unzip xz-utils zip sudo
 
-      - name: Align Android SDK path with F-Droid buildserver
+      - name: Install Android NDK 28.2.13676358
         run: |
-          sudo ln -sfn "$ANDROID_HOME" /opt/android-sdk
-          echo "ANDROID_HOME=/opt/android-sdk" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> "$GITHUB_ENV"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;28.2.13676358" "build-tools;36.0.0"
 
-      - name: Prepare SQLCipher path to match F-Droid buildserver
+      - name: Install Flutter 3.44.8
         run: |
-          sudo mkdir -p /home/runner/build/srclib
-          sudo git clone --depth=1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /home/runner/build/srclib/sqlcipher
-          sudo chown -R runner /home/runner/build/srclib/sqlcipher
+          git clone --depth 1 --branch 3.44.8 https://github.com/flutter/flutter.git $FLUTTER_HOME
+          echo "$FLUTTER_HOME/bin" >> $GITHUB_PATH
+          $FLUTTER_HOME/bin/flutter config --no-analytics
+          $FLUTTER_HOME/bin/flutter precache --android
 
-      - uses: ./.github/actions/flutter-prep
-        with:
-          sqlcipher: 'true'
-          sqlcipher-dir: '/home/runner/build/srclib/sqlcipher'
-
-      - name: Extract App Version
+      # ── Prebuild phase (matches F-Droid metadata prebuild) ──
+      - name: Prebuild (pub get + codegen + JNI patch)
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '\r' | sed -E 's/\+[0-9]+$//')
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          flutter pub get --enforce-lockfile
+          dart run build_runner build --delete-conflicting-outputs
+          sed -i 's/-Wl,-z,max-page-size=16384/-Wl,-z,max-page-size=16384,--build-id=none/' \
+            $PUB_CACHE/hosted/pub.dev/jni-*/src/CMakeLists.txt
+
+      # ── Build phase (matches F-Droid metadata build) ──
+      - name: Build SQLCipher from source
+        run: |
+          git clone --depth 1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /opt/sqlcipher
+          cd /opt/sqlcipher && ./configure --enable-tempstore=yes --with-crypto-lib=none && make sqlite3.c
+
+      - name: Apply app patches
+        run: |
+          dart run tool/patch_fdroid_sqlite.dart /opt/sqlcipher
+          dart run tool/patch_appflowy_editor.dart
+          dart run tool/patch_talker_flutter.dart
+          dart run tool/patch_mdns_dart.dart
 
       - name: Configure release signing (from secrets)
         if: ${{ env.HAS_KEYSTORE == 'true' }}
@@ -114,30 +111,12 @@ jobs:
             echo "keyPassword=$KEY_PASSWORD"
           } > android/key.properties
 
-      # --obfuscate + --split-debug-info shrink libapp.so (Dart symbols live in
-      # build/symbols instead of the APK); the symbols artifact keeps crash
-      # reports symbolizable via `flutter symbolize`.
-      #
-      # Reproducible build fixes:
-      #   - --build-id=none on jni CMakeLists.txt → fixes libdartjni.so mismatch
-      #   - SOURCE_DATE_EPOCH=0 → eliminates timestamp non-determinism
-      #   - --enforce-lockfile → ensures identical dependency resolution
-      - name: Patch native linker flags for reproducible builds
+      - name: Build reproducible APKs
         run: |
-          sed -i 's/-Wl,-z,max-page-size=16384/-Wl,-z,max-page-size=16384,--build-id=none/' \
-            $PUB_CACHE/hosted/pub.dev/jni-*/src/CMakeLists.txt
-
-      - name: Build arm APK
-        run: flutter pub get --enforce-lockfile && SOURCE_DATE_EPOCH=0 flutter build apk --release --split-per-abi --target-platform=android-arm --obfuscate --split-debug-info=build/symbols
-
-      - name: Build arm64 APK
-        run: SOURCE_DATE_EPOCH=0 flutter build apk --release --split-per-abi --target-platform=android-arm64 --obfuscate --split-debug-info=build/symbols
-
-      - name: Build x86_64 APK
-        run: SOURCE_DATE_EPOCH=0 flutter build apk --release --split-per-abi --target-platform=android-x64 --obfuscate --split-debug-info=build/symbols
-
-      - name: Build universal release APK
-        run: SOURCE_DATE_EPOCH=0 flutter build apk --release --obfuscate --split-debug-info=build/symbols
+          export SOURCE_DATE_EPOCH=0
+          flutter build apk --release --split-per-abi --target-platform=android-arm --obfuscate --split-debug-info=build/symbols
+          flutter build apk --release --split-per-abi --target-platform=android-arm64 --obfuscate --split-debug-info=build/symbols
+          flutter build apk --release --split-per-abi --target-platform=android-x64 --obfuscate --split-debug-info=build/symbols
 
       - name: Upload Dart symbol files
         uses: actions/upload-artifact@v4
