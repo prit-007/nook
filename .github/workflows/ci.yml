@@ -73,21 +73,26 @@ jobs:
           $FLUTTER_HOME/bin/flutter config --no-analytics
           $FLUTTER_HOME/bin/flutter precache --android
 
+      # ── Prebuild phase (matches F-Droid metadata prebuild) ──
+      - name: Prebuild (pub get + codegen + JNI patch)
+        run: |
+          flutter pub get --enforce-lockfile
+          dart run build_runner build --delete-conflicting-outputs
+          sed -i 's/-Wl,-z,max-page-size=16384/-Wl,-z,max-page-size=16384,--build-id=none/' \
+            $PUB_CACHE/hosted/pub.dev/jni-*/src/CMakeLists.txt
+
+      # ── Build phase (matches F-Droid metadata build) ──
       - name: Build SQLCipher from source
         run: |
           git clone --depth 1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /opt/sqlcipher
           cd /opt/sqlcipher && ./configure --enable-tempstore=yes --with-crypto-lib=none && make sqlite3.c
 
-      - name: Apply Nook patches and generate code
+      - name: Apply app patches
         run: |
           dart run tool/patch_fdroid_sqlite.dart /opt/sqlcipher
           dart run tool/patch_appflowy_editor.dart
           dart run tool/patch_talker_flutter.dart
           dart run tool/patch_mdns_dart.dart
-          flutter pub get --enforce-lockfile
-          dart run build_runner build --delete-conflicting-outputs
-          sed -i 's/-Wl,-z,max-page-size=16384/-Wl,-z,max-page-size=16384,--build-id=none/' \
-            $PUB_CACHE/hosted/pub.dev/jni-*/src/CMakeLists.txt
 
       - name: Configure release signing (from secrets)
         if: ${{ env.HAS_KEYSTORE == 'true' }}
