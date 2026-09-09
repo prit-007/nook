@@ -72,6 +72,7 @@ jobs:
           FLUTTER_ROOT="$(dirname "$(dirname "$(command -v flutter)")")"
           sudo mkdir -p /home/runner/build/srclib
           sudo ln -sfn "$FLUTTER_ROOT" /home/runner/build/srclib/flutter
+          sudo chown -R runner /home/runner/build/srclib
           echo "/home/runner/build/srclib/flutter/bin" >> "$GITHUB_PATH"
 
       - name: Align Android SDK path with F-Droid buildserver
@@ -84,6 +85,7 @@ jobs:
         run: |
           sudo mkdir -p /home/runner/build/srclib
           sudo git clone --depth=1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /home/runner/build/srclib/sqlcipher
+          sudo chown -R runner /home/runner/build/srclib/sqlcipher
 
       - uses: ./.github/actions/flutter-prep
         with:
