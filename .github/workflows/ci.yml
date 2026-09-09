@@ -83,7 +83,8 @@ jobs:
       - name: Prepare SQLCipher path to match F-Droid buildserver
         run: |
           sudo mkdir -p /home/runner/build/srclib
-          sudo git clone --depth=1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /home/runner/build/srclib/sqlcipher
+          sudo chown -R "$USER:$USER" /home/runner/build/srclib
+          git clone --depth=1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /home/runner/build/srclib/sqlcipher
 
       - uses: ./.github/actions/flutter-prep
         with:
