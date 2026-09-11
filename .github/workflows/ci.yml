@@ -64,7 +64,8 @@ jobs:
 
       - name: Install Android NDK 28.2.13676358
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;28.2.13676358" "build-tools;36.0.0"
+          # F-Droid buildserver ships sdkmanager as a system Debian package
+          yes | sdkmanager "ndk;28.2.13676358" "build-tools;36.0.0"
 
       - name: Install Flutter 3.44.8
         run: |
