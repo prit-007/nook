@@ -43,6 +43,7 @@ jobs:
   build-android:
     needs: analyze-and-test
     runs-on: ubuntu-latest
+    environment: ci
     container:
       image: registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
       options: --user root
