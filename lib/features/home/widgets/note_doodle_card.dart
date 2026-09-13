@@ -13,15 +13,22 @@ import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
 import '../../../data/tables/attachments.dart';
 import '../../../data/tables/notes.dart';
+import '../providers/note_card_metadata_provider.dart';
 import 'card_tag_pill.dart';
 import 'note_quick_actions_sheet.dart';
 
 /// Split-view card for doodle notes with theme awareness and gesture feedback.
 class NoteDoodleCard extends ConsumerStatefulWidget {
-  const NoteDoodleCard({super.key, required this.note, this.onTap});
+  const NoteDoodleCard({
+    super.key,
+    required this.note,
+    this.onTap,
+    this.preloadedMetadata,
+  });
 
   final Note note;
   final VoidCallback? onTap;
+  final NoteCardMetadata? preloadedMetadata;
 
   @override
   ConsumerState<NoteDoodleCard> createState() => _NoteDoodleCardState();
@@ -39,16 +46,30 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
   @override
   void initState() {
     super.initState();
-    _loadThumbnail();
-    _loadMetadata();
+    final meta = widget.preloadedMetadata;
+    if (meta != null) {
+      _thumbnailPath = meta.thumbnailPath;
+      _tags = meta.tags;
+      _notebookName = meta.notebookName;
+    } else {
+      _loadThumbnail();
+      _loadMetadata();
+    }
   }
 
   @override
   void didUpdateWidget(covariant NoteDoodleCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.note.id != widget.note.id) {
-      _loadThumbnail();
-      _loadMetadata();
+      final meta = widget.preloadedMetadata;
+      if (meta != null) {
+        _thumbnailPath = meta.thumbnailPath;
+        _tags = meta.tags;
+        _notebookName = meta.notebookName;
+      } else {
+        _loadThumbnail();
+        _loadMetadata();
+      }
     }
   }
 
@@ -117,7 +138,7 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
                     : cardScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(24),
               ),
-              clipBehavior: Clip.antiAlias,
+              clipBehavior: Clip.hardEdge,
               child: Row(
                 children: [
                   Expanded(
@@ -202,6 +223,9 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
         child: Image.file(
           File(_thumbnailPath!),
           fit: BoxFit.cover,
+          cacheWidth: 240,
+          cacheHeight: 180,
+          gaplessPlayback: true,
           errorBuilder: (_, __, ___) => _fallbackIcon(cardScheme),
         ),
       );

@@ -96,6 +96,27 @@ class TagRepository {
     return results.map((row) => row.readTable(_db.tags)).toList();
   }
 
+  /// Returns tags for multiple notes in a single query.
+  Future<Map<String, List<Tag>>> getTagsForNotes(List<String> noteIds) async {
+    if (noteIds.isEmpty) return {};
+    final query = _db.select(_db.tags).join([
+      innerJoin(
+        _db.noteTags,
+        _db.noteTags.tagId.equalsExp(_db.tags.id),
+      ),
+    ])
+      ..where(_db.noteTags.noteId.isIn(noteIds));
+
+    final results = await query.get();
+    final map = <String, List<Tag>>{};
+    for (final row in results) {
+      final tag = row.readTable(_db.tags);
+      final noteId = row.readTable(_db.noteTags).noteId;
+      map.putIfAbsent(noteId, () => []).add(tag);
+    }
+    return map;
+  }
+
   /// Returns all notes that have a given tag.
   Future<List<Note>> getNotesForTag(String tagId) async {
     final query = _db.select(_db.notes).join([

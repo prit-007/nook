@@ -99,6 +99,7 @@ class _LockedNotesScreenState extends ConsumerState<LockedNotesScreen> {
                     itemBuilder: (context, index) {
                       final note = _notes[index];
                       return ListTile(
+                        key: ValueKey(note.id),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 24, vertical: 8),
                         leading: Container(

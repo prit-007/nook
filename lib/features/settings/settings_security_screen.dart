@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/biometric_provider.dart';
@@ -218,7 +220,7 @@ class SettingsSecurityScreen extends ConsumerWidget {
                 unawaited(HapticFeedback.lightImpact());
                 if (value) {
                   final result = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
+                    EditorialPageRoute(
                       builder: (_) => const PinEntryScreen(isSetup: true),
                     ),
                   );

@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/router.dart';
+
 import '../../core/platform/wifi_direct.dart';
 import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
@@ -401,6 +403,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                                       );
 
                                       return CheckboxListTile(
+                                        key: ValueKey(note.id),
                                         contentPadding:
                                             const EdgeInsets.symmetric(
                                           horizontal: 24,
@@ -537,7 +540,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     // accepts the same code — only then does it pop with true.
     if (!context.mounted) return;
     final confirmed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      EditorialPageRoute(
         builder: (_) => SyncPairingScreen(
           pairingCode: pairingCode,
           deviceName: dialDevice.deviceName,
@@ -751,7 +754,7 @@ class _ManualAddressDialogState extends State<_ManualAddressDialog> {
       return null;
     }
     return Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const QrScanScreen()),
+      EditorialPageRoute(builder: (_) => const QrScanScreen()),
     );
   }
 

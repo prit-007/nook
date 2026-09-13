@@ -10,14 +10,21 @@ import '../../../data/repositories/checklist_item_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
 import '../../../data/tables/notes.dart';
+import '../providers/note_card_metadata_provider.dart';
 import 'card_tag_pill.dart';
 import 'note_quick_actions_sheet.dart';
 
 class NoteMinimalCard extends ConsumerStatefulWidget {
-  const NoteMinimalCard({super.key, required this.note, this.onTap});
+  const NoteMinimalCard({
+    super.key,
+    required this.note,
+    this.onTap,
+    this.preloadedMetadata,
+  });
 
   final Note note;
   final VoidCallback? onTap;
+  final NoteCardMetadata? preloadedMetadata;
 
   @override
   ConsumerState<NoteMinimalCard> createState() => _NoteMinimalCardState();
@@ -33,20 +40,34 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
   @override
   void initState() {
     super.initState();
-    if (widget.note.type == NoteType.checklist) {
-      _loadChecklistItems();
+    final meta = widget.preloadedMetadata;
+    if (meta != null) {
+      _checklistItems = meta.checklistItems;
+      _tags = meta.tags;
+      _notebookName = meta.notebookName;
+    } else {
+      if (widget.note.type == NoteType.checklist) {
+        _loadChecklistItems();
+      }
+      _loadMetadata();
     }
-    _loadMetadata();
   }
 
   @override
   void didUpdateWidget(covariant NoteMinimalCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.note.id != widget.note.id) {
-      if (widget.note.type == NoteType.checklist) {
-        _loadChecklistItems();
+      final meta = widget.preloadedMetadata;
+      if (meta != null) {
+        _checklistItems = meta.checklistItems;
+        _tags = meta.tags;
+        _notebookName = meta.notebookName;
+      } else {
+        if (widget.note.type == NoteType.checklist) {
+          _loadChecklistItems();
+        }
+        _loadMetadata();
       }
-      _loadMetadata();
     }
   }
 

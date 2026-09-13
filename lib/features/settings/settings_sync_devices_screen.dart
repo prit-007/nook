@@ -88,6 +88,7 @@ class _SettingsSyncDevicesScreenState
                   itemBuilder: (context, index) {
                     final device = deviceList[index];
                     return ListTile(
+                      key: ValueKey(device.deviceId),
                       leading: const HugeIcon(
                           icon: HugeIcons.strokeRoundedSmartPhone01),
                       title: Text(device.deviceName),

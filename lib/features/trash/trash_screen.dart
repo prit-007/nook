@@ -242,6 +242,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                     final note = _notes[index];
                     final age = _formatAge(note.deletedAt);
                     return MaskedReveal(
+                      key: ValueKey(note.id),
                       delay: Duration(
                         milliseconds: (index * 50).clamp(0, 400),
                       ),
@@ -406,6 +407,9 @@ class _TrashThumbnail extends StatelessWidget {
             Image.file(
               File(path),
               fit: BoxFit.cover,
+              cacheWidth: 96,
+              cacheHeight: 96,
+              gaplessPlayback: true,
               errorBuilder: (_, __, ___) => Container(
                 color: scheme.surfaceContainerHighest,
                 child: HugeIcon(

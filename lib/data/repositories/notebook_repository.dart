@@ -51,6 +51,12 @@ class NotebookRepository {
     return results.isEmpty ? null : results.first;
   }
 
+  /// Returns multiple notebooks by IDs in a single query.
+  Future<List<Notebook>> getNotebooksByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+    return (_db.select(_db.notebooks)..where((t) => t.id.isIn(ids))).get();
+  }
+
   /// Updates a notebook's fields. Only non-null parameters are updated.
   Future<void> updateNotebook(
     String id, {

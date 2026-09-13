@@ -44,6 +44,21 @@ class ChecklistItemRepository {
         .get();
   }
 
+  /// Returns checklist items for multiple notes in a single query.
+  Future<Map<String, List<ChecklistItem>>> getItemsForNotes(
+      List<String> noteIds) async {
+    if (noteIds.isEmpty) return {};
+    final items = await (_db.select(_db.checklistItems)
+          ..where((t) => t.noteId.isIn(noteIds))
+          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+        .get();
+    final map = <String, List<ChecklistItem>>{};
+    for (final item in items) {
+      map.putIfAbsent(item.noteId, () => []).add(item);
+    }
+    return map;
+  }
+
   /// Returns a single item by ID, or null if not found.
   Future<ChecklistItem?> getItemById(String id) async {
     return (_db.select(_db.checklistItems)..where((t) => t.id.equals(id)))
