@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -644,63 +643,60 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
           onTap: _expanded ? null : _expand,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(isCircle ? 28 : 32),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: pillWidth,
-                height: pillHeight,
-                padding: EdgeInsets.symmetric(horizontal: 8 + 12 * t),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(isCircle ? 28 : 32),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.2),
-                    width: 0.5,
-                  ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: pillWidth,
+              height: pillHeight,
+              padding: EdgeInsets.symmetric(horizontal: 8 + 12 * t),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(isCircle ? 28 : 32),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.2),
+                  width: 0.5,
                 ),
-                child: Row(
-                  mainAxisAlignment: isCircle
-                      ? MainAxisAlignment.center
-                      : MainAxisAlignment.start,
-                  children: [
-                    GestureDetector(
-                      onTap: _expanded ? _collapse : null,
-                      child: HugeIcon(
-                        icon: _expanded
-                            ? HugeIcons.strokeRoundedCancelCircle
-                            : HugeIcons.strokeRoundedAdd01,
-                        color: scheme.primary,
-                        size: 24,
-                      ),
+              ),
+              child: Row(
+                mainAxisAlignment: isCircle
+                    ? MainAxisAlignment.center
+                    : MainAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: _expanded ? _collapse : null,
+                    child: HugeIcon(
+                      icon: _expanded
+                          ? HugeIcons.strokeRoundedCancelCircle
+                          : HugeIcons.strokeRoundedAdd01,
+                      color: scheme.primary,
+                      size: 24,
                     ),
-                    if (t > 0.1) ...[
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Opacity(
-                          opacity: t.clamp(0.0, 1.0),
-                          child: TextField(
-                            controller: widget.addController,
-                            focusNode: widget.addFocusNode,
-                            style: textTheme.bodyLarge
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                            textInputAction: TextInputAction.done,
-                            decoration: InputDecoration(
-                              hintText: 'Add a new task...',
-                              hintStyle: textTheme.bodyLarge?.copyWith(
-                                color: scheme.onSurfaceVariant
-                                    .withValues(alpha: 0.6),
-                              ),
-                              border: InputBorder.none,
-                              isDense: true,
+                  ),
+                  if (t > 0.1) ...[
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Opacity(
+                        opacity: t.clamp(0.0, 1.0),
+                        child: TextField(
+                          controller: widget.addController,
+                          focusNode: widget.addFocusNode,
+                          style: textTheme.bodyLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                          textInputAction: TextInputAction.done,
+                          decoration: InputDecoration(
+                            hintText: 'Add a new task...',
+                            hintStyle: textTheme.bodyLarge?.copyWith(
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.6),
                             ),
-                            onSubmitted: _handleSubmit,
+                            border: InputBorder.none,
+                            isDense: true,
                           ),
+                          onSubmitted: _handleSubmit,
                         ),
                       ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
           ),

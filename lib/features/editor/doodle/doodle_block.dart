@@ -148,6 +148,7 @@ class _DoodleBlockComponentWidgetState extends State<DoodleBlockComponentWidget>
           child: Image.file(
             File(thumbnailPath),
             fit: BoxFit.contain,
+            gaplessPlayback: true,
           ),
         ),
       );

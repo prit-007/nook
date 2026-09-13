@@ -33,8 +33,8 @@ import 'providers/navigation_preference.dart';
 
 /// Bespoke page transition for a luxury editorial feel.
 ///
-/// Combines a slow fade with a subtle upward glide, using an extended
-/// duration and aggressive easing curve for GSAP-like fluidity.
+/// Combines a subtle fade with an upward glide, using a snappy
+/// duration and cubic easing for fluid, responsive transitions.
 CustomTransitionPage<T> buildEditorialTransition<T>({
   required BuildContext context,
   required GoRouterState state,
@@ -43,20 +43,20 @@ CustomTransitionPage<T> buildEditorialTransition<T>({
   return CustomTransitionPage<T>(
     key: state.pageKey,
     child: child,
-    transitionDuration: const Duration(milliseconds: 500),
-    reverseTransitionDuration: const Duration(milliseconds: 350),
+    transitionDuration: const Duration(milliseconds: 350),
+    reverseTransitionDuration: const Duration(milliseconds: 250),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curve = CurvedAnimation(
         parent: animation,
-        curve: Curves.fastLinearToSlowEaseIn,
-        reverseCurve: Curves.easeOut,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
       );
 
       return FadeTransition(
         opacity: curve,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0.0, 0.05), // Subtle 5% drop
+            begin: const Offset(0.0, 0.03), // Subtle 3% drop
             end: Offset.zero,
           ).animate(curve),
           // Rasterize the incoming page once so the fade/slide only composites
@@ -66,6 +66,37 @@ CustomTransitionPage<T> buildEditorialTransition<T>({
       );
     },
   );
+}
+
+/// Lightweight editorial page route for imperative [Navigator.push] calls.
+///
+/// Uses the same fade+slide as [buildEditorialTransition] but without the
+/// go_router dependency so it can be used anywhere in the app.
+class EditorialPageRoute<T> extends PageRouteBuilder<T> {
+  EditorialPageRoute({required WidgetBuilder builder})
+      : super(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              builder(context),
+          transitionDuration: const Duration(milliseconds: 350),
+          reverseTransitionDuration: const Duration(milliseconds: 250),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final curve = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            );
+            return FadeTransition(
+              opacity: curve,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.0, 0.03),
+                  end: Offset.zero,
+                ).animate(curve),
+                child: RepaintBoundary(child: child),
+              ),
+            );
+          },
+        );
 }
 
 /// Custom page transition: slow fade + slight slide up for forward pushes.

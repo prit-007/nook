@@ -103,6 +103,7 @@ class _SyncHistoryScreenState extends ConsumerState<SyncHistoryScreen> {
             itemBuilder: (context, index) {
               final log = logs[index];
               return ListTile(
+                key: ValueKey('${log.timestamp}-${log.noteId}'),
                 leading: HugeIcon(
                     icon: _actionIcon(log.action),
                     size: 24,

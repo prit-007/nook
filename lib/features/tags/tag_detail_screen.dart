@@ -145,6 +145,7 @@ class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final card = NoteCard(
+                            key: ValueKey(_notes[index].id),
                             note: _notes[index],
                             onTap: () {
                               HapticFeedback.selectionClick();

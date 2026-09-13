@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -16,6 +14,7 @@ import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import '../updates/widgets/update_banner.dart';
 import 'providers/notes_list_provider.dart';
+import 'providers/note_card_metadata_provider.dart';
 import 'widgets/empty_home.dart';
 import 'widgets/filter_pill_bar.dart';
 import 'widgets/morphing_editorial_fab.dart';
@@ -34,7 +33,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
   NoteType? _selectedType;
 
   String get _timeGreeting {
@@ -73,7 +73,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     final notesAsync = ref.watch(notesListProvider);
     final scheme = Theme.of(context).colorScheme;
     final width = MediaQuery.sizeOf(context).width;
@@ -165,6 +169,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     final scheme = Theme.of(context).colorScheme;
 
+    // Batch-load card metadata (tags, notebooks, checklists, thumbnails)
+    // so individual cards don't each fire 2+ DB queries.
+    final metadataAsync = ref.watch(noteCardMetadataProvider(filtered));
+    final metadata = metadataAsync.when(
+      data: (data) => data,
+      loading: () => <String, NoteCardMetadata>{},
+      error: (_, __) => <String, NoteCardMetadata>{},
+    );
+
     Widget greeting = Text(
       _timeGreeting,
       style: TextStyle(
@@ -209,54 +222,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: RepaintBoundary(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  height: 54,
-                  decoration: BoxDecoration(
-                    color:
-                        scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      HugeIcon(
-                        icon: HugeIcons.strokeRoundedSearch01,
-                        color: scheme.primary,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Search thoughts, doodles, checklists...',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color:
-                                scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                          ),
+              child: Container(
+                height: 54,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedSearch01,
+                      color: scheme.primary,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Search thoughts, doodles, checklists...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: scheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${notes.length}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: scheme.primary,
-                          ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${notes.length}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: scheme.primary,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -321,28 +329,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: EmptyHome(animate: widget.animate),
             )
           else if (isWide)
-            _buildWideGrid(filtered)
+            _buildWideGrid(filtered, metadata)
           else
-            _buildNarrowStream(filtered),
+            _buildNarrowStream(filtered, metadata),
           SliverToBoxAdapter(child: SizedBox(height: safeBottom + 72)),
         ],
       ),
     );
   }
 
-  Widget _buildNarrowStream(List<Note> filtered) {
+  Widget _buildNarrowStream(
+      List<Note> filtered, Map<String, NoteCardMetadata> metadata) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       sliver: SliverList.builder(
         itemCount: filtered.length,
         itemBuilder: (context, index) {
-          return _buildAnimatedCard(context, filtered[index], index);
+          return RepaintBoundary(
+            child:
+                _buildAnimatedCard(context, filtered[index], index, metadata),
+          );
         },
       ),
     );
   }
 
-  Widget _buildWideGrid(List<Note> filtered) {
+  Widget _buildWideGrid(
+      List<Note> filtered, Map<String, NoteCardMetadata> metadata) {
     // Interleave notes into two columns for a masonry-like layout.
     final left = <(Note, int)>[];
     final right = <(Note, int)>[];
@@ -366,23 +379,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           final leftPair = left[rowIndex];
           final rightPair = rowIndex < right.length ? right[rowIndex] : null;
 
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildAnimatedCard(context, leftPair.$1, leftPair.$2),
-                ),
-                const SizedBox(width: 20),
-                if (rightPair != null)
+          return RepaintBoundary(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Expanded(
-                    child:
-                        _buildAnimatedCard(context, rightPair.$1, rightPair.$2),
-                  )
-                else
-                  const Spacer(),
-              ],
+                    child: _buildAnimatedCard(
+                        context, leftPair.$1, leftPair.$2, metadata),
+                  ),
+                  const SizedBox(width: 20),
+                  if (rightPair != null)
+                    Expanded(
+                      child: _buildAnimatedCard(
+                          context, rightPair.$1, rightPair.$2, metadata),
+                    )
+                  else
+                    const Spacer(),
+                ],
+              ),
             ),
           );
         },
@@ -390,14 +406,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildAnimatedCard(BuildContext context, Note note, int index) {
+  Widget _buildAnimatedCard(BuildContext context, Note note, int index,
+      Map<String, NoteCardMetadata> metadata) {
+    final noteMetadata = metadata[note.id];
     Widget card;
     if (note.pinned) {
-      card = NoteBannerCard(note: note, onTap: () => _openNote(note.id));
+      card = NoteBannerCard(
+        note: note,
+        onTap: () => _openNote(note.id),
+        preloadedMetadata: noteMetadata,
+      );
     } else if (note.type == NoteType.doodle || note.type == NoteType.mixed) {
-      card = NoteDoodleCard(note: note, onTap: () => _openNote(note.id));
+      card = NoteDoodleCard(
+        note: note,
+        onTap: () => _openNote(note.id),
+        preloadedMetadata: noteMetadata,
+      );
     } else {
-      card = NoteMinimalCard(note: note, onTap: () => _openNote(note.id));
+      card = NoteMinimalCard(
+        note: note,
+        onTap: () => _openNote(note.id),
+        preloadedMetadata: noteMetadata,
+      );
     }
 
     if (!_animationsAllowed(context)) return card;

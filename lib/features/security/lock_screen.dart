@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/router.dart';
+
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
 import '../../core/providers/talker_provider.dart';
@@ -103,7 +105,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   return TextButton(
                     onPressed: () async {
                       final result = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
+                        EditorialPageRoute(
                             builder: (_) => const PinEntryScreen()),
                       );
                       if (result == true && context.mounted) {

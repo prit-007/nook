@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/router.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
 import 'sync_pairing_screen.dart';
@@ -98,7 +99,7 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
     unawaited(HapticFeedback.mediumImpact());
 
     final scanned = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const QrScanScreen()),
+      EditorialPageRoute(builder: (_) => const QrScanScreen()),
     );
     if (scanned == null || scanned.trim().isEmpty) return;
 
@@ -120,7 +121,7 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
     final pairingCode = (Random().nextInt(900000) + 100000).toString();
     if (!context.mounted) return;
     final confirmed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      EditorialPageRoute(
         builder: (_) => SyncPairingScreen(
           pairingCode: pairingCode,
           deviceName: device.deviceName,

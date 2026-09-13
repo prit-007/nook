@@ -10,14 +10,21 @@ import '../../../data/repositories/checklist_item_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
 import '../../../data/tables/notes.dart';
+import '../providers/note_card_metadata_provider.dart';
 import 'card_tag_pill.dart';
 import 'note_quick_actions_sheet.dart';
 
 class NoteBannerCard extends ConsumerStatefulWidget {
-  const NoteBannerCard({super.key, required this.note, this.onTap});
+  const NoteBannerCard({
+    super.key,
+    required this.note,
+    this.onTap,
+    this.preloadedMetadata,
+  });
 
   final Note note;
   final VoidCallback? onTap;
+  final NoteCardMetadata? preloadedMetadata;
 
   @override
   ConsumerState<NoteBannerCard> createState() => _NoteBannerCardState();
@@ -32,16 +39,30 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
   @override
   void initState() {
     super.initState();
-    if (widget.note.type == NoteType.checklist) _loadChecklist();
-    _loadMetadata();
+    final meta = widget.preloadedMetadata;
+    if (meta != null) {
+      _items = meta.checklistItems;
+      _tags = meta.tags;
+      _notebookName = meta.notebookName;
+    } else {
+      if (widget.note.type == NoteType.checklist) _loadChecklist();
+      _loadMetadata();
+    }
   }
 
   @override
   void didUpdateWidget(covariant NoteBannerCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.note.id != widget.note.id) {
-      if (widget.note.type == NoteType.checklist) _loadChecklist();
-      _loadMetadata();
+      final meta = widget.preloadedMetadata;
+      if (meta != null) {
+        _items = meta.checklistItems;
+        _tags = meta.tags;
+        _notebookName = meta.notebookName;
+      } else {
+        if (widget.note.type == NoteType.checklist) _loadChecklist();
+        _loadMetadata();
+      }
     }
   }
 
@@ -96,7 +117,7 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
                 borderRadius: BorderRadius.circular(28),
                 color: bannerScheme.primaryContainer,
               ),
-              clipBehavior: Clip.antiAlias,
+              clipBehavior: Clip.hardEdge,
               child: Stack(
                 children: [
                   Positioned.fill(

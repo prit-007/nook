@@ -10,21 +10,28 @@ import 'package:nook/data/repositories/notebook_repository.dart';
 import 'package:nook/data/repositories/tag_repository.dart';
 import 'package:nook/data/tables/notes.dart';
 
+import '../providers/note_card_metadata_provider.dart';
 import 'card_tag_pill.dart';
 import 'note_quick_actions_sheet.dart';
 
 class NoteCard extends ConsumerStatefulWidget {
-  const NoteCard({super.key, required this.note, this.onTap, this.heroTag});
+  const NoteCard({
+    super.key,
+    required this.note,
+    this.onTap,
+    this.heroTag,
+    this.preloadedMetadata,
+  });
 
   final Note note;
   final VoidCallback? onTap;
 
   /// Hero tag used for route transitions. Defaults to `note-<id>`.
-  ///
-  /// Pass a scoped value (e.g. `nb-<notebookId>-note-<id>`) when the same note
-  /// may appear in multiple master-detail panes at once, so no two [Hero]s
-  /// share a tag within the same subtree.
   final String? heroTag;
+
+  /// Pre-loaded metadata to avoid per-card DB queries. When provided,
+  /// the card skips its own async loading and uses this data directly.
+  final NoteCardMetadata? preloadedMetadata;
 
   @override
   ConsumerState<NoteCard> createState() => _NoteCardState();
@@ -43,20 +50,34 @@ class _NoteCardState extends ConsumerState<NoteCard> {
   @override
   void initState() {
     super.initState();
-    if (widget.note.type == NoteType.checklist) {
-      _loadChecklistItems();
+    final meta = widget.preloadedMetadata;
+    if (meta != null) {
+      _checklistItems = meta.checklistItems;
+      _tags = meta.tags;
+      _notebookName = meta.notebookName;
+    } else {
+      if (widget.note.type == NoteType.checklist) {
+        _loadChecklistItems();
+      }
+      _loadMetadata();
     }
-    _loadMetadata();
   }
 
   @override
   void didUpdateWidget(covariant NoteCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.note.id != widget.note.id) {
-      if (widget.note.type == NoteType.checklist) {
-        _loadChecklistItems();
+      final meta = widget.preloadedMetadata;
+      if (meta != null) {
+        _checklistItems = meta.checklistItems;
+        _tags = meta.tags;
+        _notebookName = meta.notebookName;
+      } else {
+        if (widget.note.type == NoteType.checklist) {
+          _loadChecklistItems();
+        }
+        _loadMetadata();
       }
-      _loadMetadata();
     }
   }
 
@@ -115,7 +136,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                 color: cardScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(20),
               ),
-              clipBehavior: Clip.antiAlias,
+              clipBehavior: Clip.hardEdge,
               child: Stack(
                 children: [
                   if (_hasColor)

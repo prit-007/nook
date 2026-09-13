@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/router.dart';
+
 import 'media_delete_button.dart';
 
 /// Signature for a callback invoked when an image block's delete button is tapped.
@@ -181,8 +183,7 @@ class _NookImageBlockComponentWidgetState
   void _openZoomViewer(BuildContext context, String src) {
     if (src.isEmpty) return;
     Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
+      EditorialPageRoute(
         builder: (_) => _ZoomableImageViewer(src: src),
       ),
     );

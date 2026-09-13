@@ -78,23 +78,32 @@ void main() {
       expect(find.text('Settings'), findsOneWidget);
     });
 
-    testWidgets('dock has glassmorphism blur', (tester) async {
+    testWidgets('dock has solid frosted surface', (tester) async {
       await tester.pumpWidget(buildShell());
       await tester.pumpAndSettle();
 
-      expect(find.byType(BackdropFilter), findsOneWidget);
+      // Dock uses a solid semi-transparent surface instead of BackdropFilter
+      expect(find.byType(BackdropFilter), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is Container && widget.decoration is BoxDecoration,
+        ),
+        findsWidgets,
+      );
     });
 
     testWidgets('dock has rounded pill shape', (tester) async {
       await tester.pumpWidget(buildShell());
       await tester.pumpAndSettle();
 
+      // Dock container has border radius 36 — verify via Container decoration
       expect(
         find.byWidgetPredicate(
           (widget) =>
-              widget is ClipRRect &&
-              widget.borderRadius is BorderRadius &&
-              (widget.borderRadius as BorderRadius).topLeft.x == 36,
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration as BoxDecoration?)?.borderRadius ==
+                  BorderRadius.circular(36),
         ),
         findsOneWidget,
       );

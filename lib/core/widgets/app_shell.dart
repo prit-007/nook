@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -92,69 +90,63 @@ class _MobileShell extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(36),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: RepaintBoundary(
-                child: Container(
-                  height: 72,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: scheme.surface.withValues(alpha: 0.65),
-                    borderRadius: BorderRadius.circular(36),
-                    border: Border.all(
-                      color: scheme.outlineVariant.withValues(alpha: 0.2),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: scheme.primary.withValues(alpha: 0.08),
-                        blurRadius: 32,
-                        offset: const Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      _DockItem(
-                        icon: HugeIcons.strokeRoundedHome01,
-                        activeIcon: HugeIcons.strokeRoundedHome02,
-                        label: 'Home',
-                        isSelected: selectedIndex == 0,
-                        onTap: () => onTap(0),
-                      ),
-                      _DockItem(
-                        icon: HugeIcons.strokeRoundedBook01,
-                        activeIcon: HugeIcons.strokeRoundedBook02,
-                        label: 'Notebooks',
-                        isSelected: selectedIndex == 1,
-                        onTap: () => onTap(1),
-                      ),
-                      _DockItem(
-                        icon: HugeIcons.strokeRoundedTag01,
-                        activeIcon: HugeIcons.strokeRoundedTag02,
-                        label: 'Tags',
-                        isSelected: selectedIndex == 2,
-                        onTap: () => onTap(2),
-                      ),
-                      _DockItem(
-                        icon: HugeIcons.strokeRoundedDelete01,
-                        activeIcon: HugeIcons.strokeRoundedDelete02,
-                        label: 'Trash',
-                        isSelected: selectedIndex == 3,
-                        onTap: () => onTap(3),
-                      ),
-                      _DockItem(
-                        icon: HugeIcons.strokeRoundedSettings01,
-                        activeIcon: HugeIcons.strokeRoundedSettings02,
-                        label: 'Settings',
-                        isSelected: selectedIndex == 4,
-                        onTap: () => onTap(4),
-                      ),
-                    ],
-                  ),
+          child: RepaintBoundary(
+            child: Container(
+              height: 72,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(36),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.15),
+                  width: 1,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.shadow.withValues(alpha: 0.06),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  _DockItem(
+                    icon: HugeIcons.strokeRoundedHome01,
+                    activeIcon: HugeIcons.strokeRoundedHome02,
+                    label: 'Home',
+                    isSelected: selectedIndex == 0,
+                    onTap: () => onTap(0),
+                  ),
+                  _DockItem(
+                    icon: HugeIcons.strokeRoundedBook01,
+                    activeIcon: HugeIcons.strokeRoundedBook02,
+                    label: 'Notebooks',
+                    isSelected: selectedIndex == 1,
+                    onTap: () => onTap(1),
+                  ),
+                  _DockItem(
+                    icon: HugeIcons.strokeRoundedTag01,
+                    activeIcon: HugeIcons.strokeRoundedTag02,
+                    label: 'Tags',
+                    isSelected: selectedIndex == 2,
+                    onTap: () => onTap(2),
+                  ),
+                  _DockItem(
+                    icon: HugeIcons.strokeRoundedDelete01,
+                    activeIcon: HugeIcons.strokeRoundedDelete02,
+                    label: 'Trash',
+                    isSelected: selectedIndex == 3,
+                    onTap: () => onTap(3),
+                  ),
+                  _DockItem(
+                    icon: HugeIcons.strokeRoundedSettings01,
+                    activeIcon: HugeIcons.strokeRoundedSettings02,
+                    label: 'Settings',
+                    isSelected: selectedIndex == 4,
+                    onTap: () => onTap(4),
+                  ),
+                ],
               ),
             ),
           ),

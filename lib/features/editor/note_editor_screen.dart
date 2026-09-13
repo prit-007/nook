@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:drift/drift.dart' show Value;
@@ -12,6 +11,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/router.dart';
 import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:path_provider/path_provider.dart';
@@ -114,6 +114,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   /// Tracks whether the user has made real edits since the last save.
   bool _dirty = false;
+
+  /// Version counter for undo/redo stack changes — lets the app bar rebuild
+  /// without forcing the entire editor screen to rebuild via setState.
+  final ValueNotifier<int> _undoRedoVersion = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -478,7 +482,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   Future<void> _openChecklistAttachment(Attachment attachment) async {
     if (attachment.type == AttachmentType.doodleLayer) {
       await Navigator.of(context).push<void>(
-        MaterialPageRoute(
+        EditorialPageRoute(
           builder: (_) => DoodleCanvasScreen(
             noteId: _note!.id,
             attachmentId: attachment.id,
@@ -535,7 +539,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     // Open the doodle canvas.
     if (!mounted) return;
     final result = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
+      EditorialPageRoute(
         builder: (_) => DoodleCanvasScreen(
           noteId: noteId,
           attachmentId: attachmentId,
@@ -654,7 +658,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     await editorState.apply(transaction);
     _scheduleAutosave();
-    setState(() {});
+    _undoRedoVersion.value++;
   }
 
   /// Deletes an attachment from a checklist note.
@@ -817,7 +821,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     HapticFeedback.selectionClick();
     state.undoManager.undo();
     _scheduleAutosave();
-    setState(() {});
+    _undoRedoVersion.value++;
   }
 
   void _redoEditor() {
@@ -826,7 +830,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     HapticFeedback.selectionClick();
     state.undoManager.redo();
     _scheduleAutosave();
-    setState(() {});
+    _undoRedoVersion.value++;
   }
 
   /// Exports the current note as a PNG and offers save-to-gallery / share.
@@ -972,7 +976,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     if (attId == null) return;
 
     final result = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
+      EditorialPageRoute(
         builder: (_) => DoodleCanvasScreen(
           noteId: _note!.id,
           attachmentId: attId,
@@ -1020,6 +1024,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _disposed = true;
     _autosaveTimer?.cancel();
     _transactionSubscription?.cancel();
+    _undoRedoVersion.dispose();
     // Snapshot content synchronously before EditorState is disposed.
     final note = _note;
     final db = _db;
@@ -1225,18 +1230,18 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                         opacity: isKeyboardVisible ? 0.0 : 1.0,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(32),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                            child: Container(
-                              height: 60,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
-                              decoration: BoxDecoration(
-                                color: noteScheme.surfaceContainerHighest
-                                    .withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(32),
-                              ),
-                              child: _ResponsiveEditorAppBar(
+                          child: Container(
+                            height: 60,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: noteScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(32),
+                            ),
+                            child: ValueListenableBuilder<int>(
+                              valueListenable: _undoRedoVersion,
+                              builder: (context, _, __) =>
+                                  _ResponsiveEditorAppBar(
                                 noteScheme: noteScheme,
                                 dynamicTextTheme: dynamicTextTheme,
                                 title: _title,

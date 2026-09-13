@@ -323,6 +323,7 @@ class _AttachmentThumb extends StatelessWidget {
           width: 96,
           height: 96,
           fit: BoxFit.cover,
+          gaplessPlayback: true,
           errorBuilder: (_, __, ___) => _fallback(),
         ),
       );
