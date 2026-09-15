@@ -49,7 +49,7 @@ class SyncDevice {
   /// `/ip4/192.168.1.20/udp/52341/udx/p2p/12D3KooW...`. The `/p2p/<peer id>`
   /// suffix is required — it identifies the peer to dial. Returns null for
   /// malformed or incomplete addresses so the caller can surface an error.
-  static SyncDevice? fromManualAddress(String raw) {
+  static SyncDevice? fromManualAddress(String raw, {String? deviceName}) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return null;
     const p2pMarker = '/p2p/';
@@ -61,7 +61,7 @@ class SyncDevice {
     if (addr.isEmpty) return null;
     return SyncDevice(
       deviceId: peerId,
-      deviceName: 'Manual device',
+      deviceName: deviceName ?? 'Manual device',
       isOnline: true,
       multiaddresses: [addr],
     );

@@ -44,7 +44,7 @@ class SyncTransferScreen extends ConsumerWidget {
                   duration: const Duration(milliseconds: 500),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
-                  child: _buildStateContent(context, scheme, syncState),
+                  child: _buildStateContent(context, scheme, syncState, ref),
                 ),
               ),
             ),
@@ -58,14 +58,15 @@ class SyncTransferScreen extends ConsumerWidget {
     BuildContext context,
     ColorScheme scheme,
     SyncOrchestratorState syncState,
+    WidgetRef ref,
   ) {
     if (syncState.phase == SyncPhase.sending ||
         syncState.phase == SyncPhase.receiving) {
-      return _transferring(scheme, syncState);
+      return _transferring(context, scheme, syncState, ref);
     } else if (syncState.phase == SyncPhase.complete) {
       return _complete(context, scheme, syncState);
     } else if (syncState.phase == SyncPhase.error) {
-      return _failure(context, scheme, syncState);
+      return _failure(context, scheme, syncState, ref);
     } else {
       return _establishing(scheme);
     }
@@ -102,8 +103,10 @@ class SyncTransferScreen extends ConsumerWidget {
   }
 
   Widget _transferring(
+    BuildContext context,
     ColorScheme scheme,
     SyncOrchestratorState syncState,
+    WidgetRef ref,
   ) {
     final sending = syncState.phase == SyncPhase.sending;
     final progress = syncState.totalCount > 0
@@ -189,6 +192,31 @@ class SyncTransferScreen extends ConsumerWidget {
             ),
           ),
         ),
+        const SizedBox(height: 24),
+        if (sending) ...[
+          OutlinedButton.icon(
+            onPressed: () {
+              ref.read(syncOrchestratorProvider.notifier).cancelTransfer();
+            },
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedCancel01,
+              size: 18,
+              color: scheme.error,
+            ),
+            label: Text(
+              'Cancel',
+              style:
+                  TextStyle(color: scheme.error, fontWeight: FontWeight.w600),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: scheme.error.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -275,6 +303,7 @@ class SyncTransferScreen extends ConsumerWidget {
     BuildContext context,
     ColorScheme scheme,
     SyncOrchestratorState syncState,
+    WidgetRef ref,
   ) {
     final outcome = syncState.outcome;
     final message = syncState.error ?? 'Connection dropped.';
@@ -382,6 +411,9 @@ class SyncTransferScreen extends ConsumerWidget {
                           ),
                         ),
                         onPressed: () {
+                          // Reset orchestrator to idle so the send screen can
+                          // re-initiate the connection and transfer.
+                          ref.read(syncOrchestratorProvider.notifier).stop();
                           Navigator.of(context).pop();
                         },
                         child: const Text(

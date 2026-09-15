@@ -52,6 +52,9 @@ class _SettingsSyncDevicesScreenState
             child: FutureBuilder(
               future: _logsFuture,
               builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
                 if (snapshot.hasError) {
                   return const Center(
                     child: Text('Failed to load sync history'),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:intl/intl.dart';
 
 /// Conflict resolution card — editorial split-view layout.
 ///
@@ -11,12 +12,18 @@ class ConflictCard extends StatelessWidget {
     required this.noteTitle,
     required this.localDeviceName,
     required this.remoteDeviceName,
+    this.localUpdatedAt,
+    this.remoteUpdatedAt,
+    this.contentPreview,
     this.onResolved,
   });
 
   final String noteTitle;
   final String localDeviceName;
   final String remoteDeviceName;
+  final DateTime? localUpdatedAt;
+  final DateTime? remoteUpdatedAt;
+  final String? contentPreview;
   final void Function(String choice)? onResolved;
 
   @override
@@ -67,6 +74,26 @@ class ConflictCard extends StatelessWidget {
               height: 1.4,
             ),
           ),
+          if (contentPreview != null && contentPreview!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                contentPreview!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.onSurfaceVariant,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           IntrinsicHeight(
             child: Row(
@@ -82,6 +109,7 @@ class ConflictCard extends StatelessWidget {
                     icon: HugeIcons.strokeRoundedSmartPhone01,
                     deviceName: localDeviceName,
                     label: 'This device',
+                    updatedAt: localUpdatedAt,
                     actionLabel: 'Keep this device',
                     onAction: () => _resolve(context, 'local'),
                   ),
@@ -97,6 +125,7 @@ class ConflictCard extends StatelessWidget {
                     icon: HugeIcons.strokeRoundedLayers01,
                     deviceName: remoteDeviceName,
                     label: 'Incoming',
+                    updatedAt: remoteUpdatedAt,
                     actionLabel: 'Keep incoming',
                     onAction: () => _resolve(context, 'remote'),
                   ),
@@ -144,6 +173,7 @@ class _VersionPanel extends StatelessWidget {
     required this.icon,
     required this.deviceName,
     required this.label,
+    this.updatedAt,
     required this.actionLabel,
     required this.onAction,
   });
@@ -154,6 +184,7 @@ class _VersionPanel extends StatelessWidget {
   final List<List<dynamic>> icon;
   final String deviceName;
   final String label;
+  final DateTime? updatedAt;
   final String actionLabel;
   final VoidCallback onAction;
 
@@ -197,6 +228,16 @@ class _VersionPanel extends StatelessWidget {
               color: tint,
             ),
           ),
+          if (updatedAt != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              DateFormat.yMMMd().add_jm().format(updatedAt!),
+              style: TextStyle(
+                fontSize: 11,
+                color: onContainerColor.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
