@@ -37,9 +37,9 @@ void main() {
       final content = 'x' * 1000;
       await db.into(db.notes).insert(
             NotesCompanion.insert(
-              id: Value('note-1'),
+              id: const Value('note-1'),
               type: NoteType.text,
-              title: Value('Test Note'),
+              title: const Value('Test Note'),
               deltaContent: Value(content),
               deviceOriginId: 'device-1',
             ),
@@ -56,9 +56,9 @@ void main() {
     test('sums attachment file sizes', () async {
       await db.into(db.notes).insert(
             NotesCompanion.insert(
-              id: Value('note-with-attachment'),
+              id: const Value('note-with-attachment'),
               type: NoteType.text,
-              title: Value('Image Note'),
+              title: const Value('Image Note'),
               deviceOriginId: 'device-1',
             ),
           );
@@ -69,7 +69,7 @@ void main() {
 
       await db.into(db.attachments).insert(
             AttachmentsCompanion.insert(
-              id: Value('att-1'),
+              id: const Value('att-1'),
               noteId: 'note-with-attachment',
               type: AttachmentType.image,
               filePath: attachmentFile.path,
@@ -85,9 +85,9 @@ void main() {
     test('includes thumbnail bytes in estimate', () async {
       await db.into(db.notes).insert(
             NotesCompanion.insert(
-              id: Value('note-thumb'),
+              id: const Value('note-thumb'),
               type: NoteType.text,
-              title: Value('Thumb Note'),
+              title: const Value('Thumb Note'),
               deviceOriginId: 'device-1',
             ),
           );
@@ -99,7 +99,7 @@ void main() {
 
       await db.into(db.attachments).insert(
             AttachmentsCompanion.insert(
-              id: Value('att-thumb'),
+              id: const Value('att-thumb'),
               noteId: 'note-thumb',
               type: AttachmentType.image,
               filePath: mainFile.path,
@@ -116,9 +116,9 @@ void main() {
     test('marks hasLargeAttachments for files over 1 MB', () async {
       await db.into(db.notes).insert(
             NotesCompanion.insert(
-              id: Value('note-big'),
+              id: const Value('note-big'),
               type: NoteType.text,
-              title: Value('Big Note'),
+              title: const Value('Big Note'),
               deviceOriginId: 'device-1',
             ),
           );
@@ -128,7 +128,7 @@ void main() {
 
       await db.into(db.attachments).insert(
             AttachmentsCompanion.insert(
-              id: Value('att-big'),
+              id: const Value('att-big'),
               noteId: 'note-big',
               type: AttachmentType.image,
               filePath: bigFile.path,
@@ -160,9 +160,9 @@ void main() {
     test('skips missing notes gracefully', () async {
       await db.into(db.notes).insert(
             NotesCompanion.insert(
-              id: Value('note-real'),
+              id: const Value('note-real'),
               type: NoteType.text,
-              title: Value('Real'),
+              title: const Value('Real'),
               deviceOriginId: 'device-1',
             ),
           );
@@ -175,16 +175,16 @@ void main() {
     test('skips attachments whose files are missing on disk', () async {
       await db.into(db.notes).insert(
             NotesCompanion.insert(
-              id: Value('note-missing-file'),
+              id: const Value('note-missing-file'),
               type: NoteType.text,
-              title: Value('Missing File'),
+              title: const Value('Missing File'),
               deviceOriginId: 'device-1',
             ),
           );
 
       await db.into(db.attachments).insert(
             AttachmentsCompanion.insert(
-              id: Value('att-missing'),
+              id: const Value('att-missing'),
               noteId: 'note-missing-file',
               type: AttachmentType.image,
               filePath: '/nonexistent/path/photo.jpg',
@@ -207,11 +207,11 @@ void main() {
     });
 
     test('estimateDuration returns reasonable durations', () {
-      // 1 MB on Wi-Fi (~5 MB/s) → ~0.2s → rounds to at least 1s.
+      // 1 MB on Wi-Fi (~5 MB/s) -> ~0.2s -> rounds to at least 1s.
       final small = estimateDuration(1024 * 1024);
       expect(small.inSeconds, greaterThanOrEqualTo(1));
 
-      // 100 MB → ~20s.
+      // 100 MB -> ~20s.
       final medium = estimateDuration(100 * 1024 * 1024);
       expect(medium.inSeconds, greaterThanOrEqualTo(10));
       expect(medium.inSeconds, lessThanOrEqualTo(120));
