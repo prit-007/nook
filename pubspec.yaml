@@ -12,6 +12,12 @@ hooks:
     sqlite3:
       source: sqlcipher
 
+dependency_overrides:
+  # 3.5.2 ships SQLCipher 4.18.0 pre-built binaries that resolve the
+  # __android_log_vprint symbol (from liblog.so) correctly on Android.
+  # Remove once drift pins sqlite3 >= 3.5.2.
+  sqlite3: ^3.5.2
+
 environment:
   sdk: '>=3.6.0 <4.0.0'
 
