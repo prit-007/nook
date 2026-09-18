@@ -96,7 +96,7 @@ void main() {
     expect(find.text('new-tag'), findsOneWidget);
   });
 
-  testWidgets('long press shows delete option', (tester) async {
+  testWidgets('long press shows move-to-bin option', (tester) async {
     await insertTag(name: 'delete-me');
 
     await tester.pumpWidget(buildScreen());
@@ -105,10 +105,10 @@ void main() {
     await tester.longPress(find.text('delete-me'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Delete'), findsOneWidget);
+    expect(find.text('Move to Bin'), findsWidgets);
   });
 
-  testWidgets('delete tag removes it', (tester) async {
+  testWidgets('soft-delete tag removes it from list', (tester) async {
     await insertTag(name: 'removable');
 
     await tester.pumpWidget(buildScreen());
@@ -117,10 +117,34 @@ void main() {
     await tester.longPress(find.text('removable'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Delete'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Move to Bin'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('removable'), findsNothing);
+  });
+
+  testWidgets('soft-delete tag lands in bin', (tester) async {
+    await insertTag(name: 'binned-tag');
+
+    await tester.pumpWidget(buildScreen());
+    await pumpFrames(tester);
+
+    await tester.longPress(find.text('binned-tag'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Move to Bin'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Verify it's soft-deleted in DB.
+    final repo = TagRepository(db);
+    final deleted = await repo.getDeletedTags();
+    expect(deleted, hasLength(1));
+    expect(deleted.first.name, 'binned-tag');
+
+    // Verify it doesn't appear in active list.
+    final active = await repo.getAllTags();
+    expect(active, isEmpty);
   });
 }

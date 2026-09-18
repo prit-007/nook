@@ -68,16 +68,16 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
 
   void _showDeleteDialog(Notebook notebook) {
     final scheme = Theme.of(context).colorScheme;
+    bool deleteNotes = false;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
-          bool deleteNotes = false;
           return AlertDialog(
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             title: Text(
-              'Delete Notebook',
+              'Move to Bin',
               style: TextStyle(
                 fontFamily: 'Playfair Display',
                 fontWeight: FontWeight.w700,
@@ -89,7 +89,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Are you sure you want to delete "${notebook.name}"?',
+                  'Move "${notebook.name}" to the bin? You can restore it later.',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     color: scheme.onSurfaceVariant,
@@ -100,14 +100,14 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                   title: Text(
-                    'Move all notes to trash',
+                    'Also move all notes to bin',
                     style: TextStyle(
                       fontSize: 14,
                       color: scheme.onSurface,
                     ),
                   ),
                   subtitle: Text(
-                    'Notes can be restored from trash later',
+                    'Notes can be restored from the bin later',
                     style: TextStyle(
                       fontSize: 12,
                       color: scheme.onSurfaceVariant,
@@ -133,14 +133,14 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
                 onPressed: () async {
                   final repo = NotebookRepository(ref.read(databaseProvider));
                   if (deleteNotes) {
-                    await repo.deleteNotebookAndNotes(notebook.id);
+                    await repo.softDeleteNotebookAndNotes(notebook.id);
                   } else {
-                    await repo.deleteNotebook(notebook.id);
+                    await repo.softDelete(notebook.id);
                   }
                   if (ctx.mounted) Navigator.pop(ctx);
                   await _load();
                 },
-                child: const Text('Delete'),
+                child: const Text('Move to Bin'),
               ),
             ],
           );
