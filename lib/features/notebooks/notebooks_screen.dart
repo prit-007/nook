@@ -68,83 +68,60 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
 
   void _showDeleteDialog(Notebook notebook) {
     final scheme = Theme.of(context).colorScheme;
-    bool deleteNotes = false;
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            title: Text(
-              'Move to Bin',
-              style: TextStyle(
-                fontFamily: 'Playfair Display',
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurface,
-              ),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Move Notebook to Bin?',
+          style: TextStyle(
+            fontFamily: 'Playfair Display',
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurface,
+          ),
+        ),
+        content: Text(
+          'Do you want to move the notes in this notebook to the bin too?',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Move "${notebook.name}" to the bin? You can restore it later.',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(
-                    'Also move all notes to bin',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Notes can be restored from the bin later',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  value: deleteNotes,
-                  onChanged: (value) {
-                    setDialogState(() => deleteNotes = value ?? false);
-                  },
-                ),
-              ],
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: scheme.errorContainer,
+              foregroundColor: scheme.onErrorContainer,
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: scheme.error,
-                  foregroundColor: scheme.onError,
-                ),
-                onPressed: () async {
-                  final repo = NotebookRepository(ref.read(databaseProvider));
-                  if (deleteNotes) {
-                    await repo.softDeleteNotebookAndNotes(notebook.id);
-                  } else {
-                    await repo.softDelete(notebook.id);
-                  }
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  await _load();
-                },
-                child: const Text('Move to Bin'),
-              ),
-            ],
-          );
-        },
+            onPressed: () async {
+              final repo = NotebookRepository(ref.read(databaseProvider));
+              await repo.softDelete(notebook.id);
+              if (ctx.mounted) Navigator.pop(ctx);
+              await _load();
+            },
+            child: const Text('Notebook only'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: scheme.error,
+              foregroundColor: scheme.onError,
+            ),
+            onPressed: () async {
+              final repo = NotebookRepository(ref.read(databaseProvider));
+              await repo.softDeleteNotebookAndNotes(notebook.id);
+              if (ctx.mounted) Navigator.pop(ctx);
+              await _load();
+            },
+            child: const Text('Notes too'),
+          ),
+        ],
       ),
     );
   }

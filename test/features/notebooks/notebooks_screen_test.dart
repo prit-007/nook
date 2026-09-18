@@ -78,19 +78,16 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
-    // Enter notebook name
     await tester.enterText(find.byType(TextField).first, 'New Notebook');
     await tester.pumpAndSettle();
 
-    // Tap save button
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
 
-    // Notebook should appear in grid
     expect(find.text('New Notebook'), findsOneWidget);
   });
 
-  testWidgets('long press shows move-to-bin option', (tester) async {
+  testWidgets('long press shows move-to-bin dialog', (tester) async {
     await insertNotebook(name: 'Delete Me');
 
     await tester.pumpWidget(buildScreen());
@@ -105,7 +102,173 @@ void main() {
     await tester.longPress(find.text('Delete Me'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Move to Bin'), findsWidgets);
+    expect(find.text('Move Notebook to Bin?'), findsOneWidget);
+  });
+
+  testWidgets('dialog asks about notes', (tester) async {
+    await insertNotebook(name: 'With Content');
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('With Content'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('With Content'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining(
+          'Do you want to move the notes in this notebook to the bin too?'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('dialog has two choices: notebook only and with notes',
+      (tester) async {
+    await insertNotebook(name: 'Choice');
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Choice'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('Choice'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Notebook only'), findsOneWidget);
+    expect(find.text('Notes too'), findsOneWidget);
+  });
+
+  testWidgets('dialog has cancel button', (tester) async {
+    await insertNotebook(name: 'Cancellable');
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Cancellable'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('Cancellable'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cancel'), findsOneWidget);
+  });
+
+  testWidgets('"Notebook only" soft-deletes notebook but keeps notes active',
+      (tester) async {
+    final nbRepo = NotebookRepository(db);
+    final nb =
+        await nbRepo.createNotebook(name: 'Notebook Only', colorSeed: '#FFF');
+    await db.into(db.notes).insert(
+          NotesCompanion.insert(
+            id: const Value('note-keep'),
+            title: const Value('Active Note'),
+            type: NoteType.text,
+            deviceOriginId: 'local',
+            notebookId: Value(nb.id),
+          ),
+        );
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Notebook Only'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('Notebook Only'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Notebook only'));
+    await tester.pumpAndSettle();
+
+    // Notebook should be soft-deleted.
+    final deletedNbs = await nbRepo.getDeletedNotebooks();
+    expect(deletedNbs, hasLength(1));
+
+    // Note should still be active (not soft-deleted).
+    final activeNotes = await (db.select(db.notes)
+          ..where((t) => t.deleted.equals(false)))
+        .get();
+    expect(activeNotes, hasLength(1));
+    expect(activeNotes.first.id, 'note-keep');
+  });
+
+  testWidgets('"Notes too" soft-deletes both notebook and notes',
+      (tester) async {
+    final nbRepo = NotebookRepository(db);
+    final nb = await nbRepo.createNotebook(name: 'All Gone', colorSeed: '#FFF');
+    await db.into(db.notes).insert(
+          NotesCompanion.insert(
+            id: const Value('note-kill'),
+            title: const Value('Doomed Note'),
+            type: NoteType.text,
+            deviceOriginId: 'local',
+            notebookId: Value(nb.id),
+          ),
+        );
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('All Gone'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('All Gone'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Notes too'));
+    await tester.pumpAndSettle();
+
+    // Notebook should be soft-deleted.
+    final deletedNbs = await nbRepo.getDeletedNotebooks();
+    expect(deletedNbs, hasLength(1));
+
+    // Note should also be soft-deleted.
+    final deletedNotes =
+        await (db.select(db.notes)..where((t) => t.deleted.equals(true))).get();
+    expect(deletedNotes, hasLength(1));
+    expect(deletedNotes.first.id, 'note-kill');
+  });
+
+  testWidgets('cancel keeps notebook in grid', (tester) async {
+    await insertNotebook(name: 'Safe');
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Safe'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('Safe'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Safe'), findsOneWidget);
+    final repo = NotebookRepository(db);
+    final active = await repo.getAllNotebooks();
+    expect(active, hasLength(1));
   });
 
   testWidgets('soft-delete notebook removes it from grid', (tester) async {
@@ -123,7 +286,7 @@ void main() {
     await tester.longPress(find.text('Gone'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Move to Bin'));
+    await tester.tap(find.text('Notebook only'));
     await tester.pumpAndSettle();
 
     expect(find.text('Gone'), findsNothing);
@@ -144,62 +307,15 @@ void main() {
     await tester.longPress(find.text('Binned'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Move to Bin'));
+    await tester.tap(find.text('Notebook only'));
     await tester.pumpAndSettle();
 
-    // Verify it's soft-deleted in DB (not hard-deleted).
     final repo = NotebookRepository(db);
     final deleted = await repo.getDeletedNotebooks();
     expect(deleted, hasLength(1));
     expect(deleted.first.name, 'Binned');
 
-    // Verify it doesn't appear in active list.
     final active = await repo.getAllNotebooks();
     expect(active, isEmpty);
-  });
-
-  testWidgets('soft-delete with notes checkbox also soft-deletes notes',
-      (tester) async {
-    final nbRepo = NotebookRepository(db);
-    final nb =
-        await nbRepo.createNotebook(name: 'With Notes', colorSeed: '#FFF');
-    await db.into(db.notes).insert(
-          NotesCompanion.insert(
-            id: const Value('note-in-nb'),
-            title: const Value('Child Note'),
-            type: NoteType.text,
-            deviceOriginId: 'local',
-            notebookId: Value(nb.id),
-          ),
-        );
-
-    await tester.pumpWidget(buildScreen());
-    await tester.pumpAndSettle();
-
-    await tester.scrollUntilVisible(
-      find.text('With Notes'),
-      100,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    await tester.longPress(find.text('With Notes'));
-    await tester.pumpAndSettle();
-
-    // Check "Move all notes to Bin" checkbox.
-    await tester.tap(find.byWidgetPredicate((w) => w is CheckboxListTile));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Move to Bin'));
-    await tester.pumpAndSettle();
-
-    // Notebook should be soft-deleted.
-    final deletedNbs = await nbRepo.getDeletedNotebooks();
-    expect(deletedNbs, hasLength(1));
-
-    // Note should also be soft-deleted.
-    final deletedNotes =
-        await (db.select(db.notes)..where((t) => t.deleted.equals(true))).get();
-    expect(deletedNotes, hasLength(1));
-    expect(deletedNotes.first.id, 'note-in-nb');
   });
 }
