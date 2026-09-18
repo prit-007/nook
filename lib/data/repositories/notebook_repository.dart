@@ -37,9 +37,10 @@ class NotebookRepository {
         .getSingle();
   }
 
-  /// Returns all notebooks ordered by sortOrder ascending.
+  /// Returns all non-deleted notebooks ordered by sortOrder ascending.
   Future<List<Notebook>> getAllNotebooks() async {
     return (_db.select(_db.notebooks)
+          ..where((t) => t.deleted.equals(false))
           ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
         .get();
   }
@@ -51,10 +52,12 @@ class NotebookRepository {
     return results.isEmpty ? null : results.first;
   }
 
-  /// Returns multiple notebooks by IDs in a single query.
+  /// Returns multiple non-deleted notebooks by IDs in a single query.
   Future<List<Notebook>> getNotebooksByIds(List<String> ids) async {
     if (ids.isEmpty) return [];
-    return (_db.select(_db.notebooks)..where((t) => t.id.isIn(ids))).get();
+    return (_db.select(_db.notebooks)
+          ..where((t) => t.id.isIn(ids) & t.deleted.equals(false)))
+        .get();
   }
 
   /// Updates a notebook's fields. Only non-null parameters are updated.
@@ -85,6 +88,54 @@ class NotebookRepository {
       await (_db.delete(_db.notebooks)..where((t) => t.id.equals(id))).go();
     });
     nookLog(NookLogKey.database, 'Notebook deleted: $id', LogLevel.debug);
+  }
+
+  /// Soft-deletes a notebook. It will no longer appear in getAllNotebooks()
+  /// but can be restored from the Bin.
+  Future<void> softDelete(String id) async {
+    final now = DateTime.now();
+    await (_db.update(_db.notebooks)..where((t) => t.id.equals(id))).write(
+      NotebooksCompanion(
+        deleted: const Value(true),
+        deletedAt: Value(now),
+      ),
+    );
+    nookLog(NookLogKey.database, 'Notebook soft-deleted: $id', LogLevel.debug);
+  }
+
+  /// Soft-deletes a notebook and all its notes. Notes are moved to trash.
+  Future<void> softDeleteNotebookAndNotes(String id) async {
+    final noteRepo = NoteRepository(_db);
+    final notes = await (_db.select(_db.notes)
+          ..where((t) => t.notebookId.equals(id)))
+        .get();
+    for (final note in notes) {
+      await noteRepo.softDelete(note.id);
+    }
+    await softDelete(id);
+    nookLog(
+        NookLogKey.database,
+        'Notebook soft-deleted with ${notes.length} notes: $id',
+        LogLevel.debug);
+  }
+
+  /// Restores a soft-deleted notebook.
+  Future<void> restore(String id) async {
+    await (_db.update(_db.notebooks)..where((t) => t.id.equals(id))).write(
+      const NotebooksCompanion(
+        deleted: Value(false),
+        deletedAt: Value(null),
+      ),
+    );
+    nookLog(NookLogKey.database, 'Notebook restored: $id', LogLevel.debug);
+  }
+
+  /// Returns all soft-deleted notebooks ordered by most recently deleted first.
+  Future<List<Notebook>> getDeletedNotebooks() async {
+    return (_db.select(_db.notebooks)
+          ..where((t) => t.deleted.equals(true))
+          ..orderBy([(t) => OrderingTerm.desc(t.deletedAt)]))
+        .get();
   }
 
   /// Deletes a notebook and soft-deletes all notes inside it.
@@ -152,5 +203,20 @@ class NotebookRepository {
       ..orderBy([OrderingTerm.desc(_db.notes.updatedAt)]);
     final rows = await query.get();
     return rows.isEmpty ? null : rows.first.readTable(_db.attachments);
+  }
+
+  /// Permanently deletes a soft-deleted notebook (hard-deletes the row).
+  Future<void> permanentlyDelete(String id) async {
+    await (_db.delete(_db.notebooks)..where((t) => t.id.equals(id))).go();
+    nookLog(NookLogKey.database, 'Notebook permanently deleted: $id',
+        LogLevel.debug);
+  }
+
+  /// Permanently deletes all soft-deleted notebooks.
+  Future<void> permanentlyDeleteAllDeleted() async {
+    await (_db.delete(_db.notebooks)..where((t) => t.deleted.equals(true)))
+        .go();
+    nookLog(NookLogKey.database, 'All deleted notebooks permanently deleted',
+        LogLevel.debug);
   }
 }

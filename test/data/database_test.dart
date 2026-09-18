@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:drift/drift.dart' hide isNotNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
@@ -25,8 +25,8 @@ void main() {
       expect(db, isNotNull);
     });
 
-    test('schema version is 2', () {
-      expect(db.schemaVersion, 2);
+    test('schema version is 3', () {
+      expect(db.schemaVersion, 3);
     });
   });
 
@@ -354,6 +354,91 @@ void main() {
 
       final results = await query.get();
       expect(results.length, 2);
+    });
+  });
+
+  group('Notebook soft-delete columns', () {
+    test('new notebook has deleted=false and deletedAt=null', () async {
+      await db.into(db.notebooks).insert(
+            NotebooksCompanion.insert(
+              id: const Value('nb-sd-1'),
+              name: 'Test Notebook',
+              colorSeed: '#FF0000',
+            ),
+          );
+
+      final result = await (db.select(db.notebooks)
+            ..where((t) => t.id.equals('nb-sd-1')))
+          .getSingle();
+      expect(result.deleted, false);
+      expect(result.deletedAt, isNull);
+    });
+
+    test('notebook can be soft-deleted', () async {
+      await db.into(db.notebooks).insert(
+            NotebooksCompanion.insert(
+              id: const Value('nb-sd-2'),
+              name: 'Delete Me',
+              colorSeed: '#00FF00',
+            ),
+          );
+
+      final now = DateTime.now();
+      await (db.update(db.notebooks)..where((t) => t.id.equals('nb-sd-2')))
+          .write(
+        NotebooksCompanion(
+          deleted: const Value(true),
+          deletedAt: Value(now),
+        ),
+      );
+
+      final result = await (db.select(db.notebooks)
+            ..where((t) => t.id.equals('nb-sd-2')))
+          .getSingle();
+      expect(result.deleted, true);
+      expect(result.deletedAt, isNotNull);
+    });
+  });
+
+  group('Tag soft-delete columns', () {
+    test('new tag has deleted=false and deletedAt=null', () async {
+      await db.into(db.tags).insert(
+            TagsCompanion.insert(
+              id: const Value('tag-sd-1'),
+              name: 'Test Tag',
+              colorSeed: '#2196F3',
+            ),
+          );
+
+      final result = await (db.select(db.tags)
+            ..where((t) => t.id.equals('tag-sd-1')))
+          .getSingle();
+      expect(result.deleted, false);
+      expect(result.deletedAt, isNull);
+    });
+
+    test('tag can be soft-deleted', () async {
+      await db.into(db.tags).insert(
+            TagsCompanion.insert(
+              id: const Value('tag-sd-2'),
+              name: 'Delete Me',
+              colorSeed: '#FF5722',
+            ),
+          );
+
+      final now = DateTime.now();
+      await (db.update(db.tags)..where((t) => t.id.equals('tag-sd-2'))).write(
+        TagsCompanion(
+          deleted: const Value(true),
+          deletedAt: Value(now),
+        ),
+      );
+
+      final result = await (db.select(db.tags)
+            ..where((t) => t.id.equals('tag-sd-2')))
+          .getSingle();
+      expect(result.deleted, true);
+      expect(result.deletedAt, isNotNull);
     });
   });
 

@@ -29,7 +29,8 @@ Future<void> main() async {
   final sqlite3Dirs = hookDir
       .listSync()
       .whereType<Directory>()
-      .where((d) => d.path.split(Platform.pathSeparator).last.startsWith('sqlite3-'))
+      .where((d) =>
+          d.path.split(Platform.pathSeparator).last.startsWith('sqlite3-'))
       .toList()
     ..sort((a, b) => b.path.compareTo(a.path)); // newest first
 
@@ -47,11 +48,12 @@ Future<void> main() async {
   var content = hookFile.readAsStringSync();
 
   // The patch: add 'log' after 'm' in the Android libraries list.
-  const marker = "// We need to link the math library on Android.\n              'm',";
+  const marker =
+      "// We need to link the math library on Android.\n              'm',";
   const replacement =
-      "// We need to link the math library on Android.\n              'm',\n"
-      "              // SQLCipher uses __android_log_vprint — link liblog.\n"
-      "              'log',";
+      '// We need to link the math library on Android.\n              \'m\',\n'
+      '// SQLCipher uses __android_log_vprint — link liblog.\n'
+      '              \'log\',';
 
   if (content.contains("'log',")) {
     stdout.writeln('sqlite3 build hook already patched — skipping.');

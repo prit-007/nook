@@ -76,6 +76,16 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   bool _loading = true;
   late bool _isLocked;
 
+  // Inline notebook creation state
+  bool _showingNotebookForm = false;
+  final _notebookNameController = TextEditingController();
+  String _newNotebookColor = '#6750A4';
+
+  // Inline tag creation state
+  bool _showingTagForm = false;
+  final _tagNameController = TextEditingController();
+  String _newTagColor = '#2196F3';
+
   @override
   void initState() {
     super.initState();
@@ -83,6 +93,13 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
     _selectedColorSeed = widget.currentColorSeed;
     _isLocked = widget.currentlyLocked;
     _load();
+  }
+
+  @override
+  void dispose() {
+    _notebookNameController.dispose();
+    _tagNameController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -118,6 +135,44 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
       }
     });
     widget.onTagsChanged?.call(_selectedTagIds);
+  }
+
+  Future<void> _createNotebook() async {
+    final name = _notebookNameController.text.trim();
+    if (name.isEmpty) return;
+
+    final db = ref.read(databaseProvider);
+    final repo = NotebookRepository(db);
+    final nb = await repo.createNotebook(
+      name: name,
+      colorSeed: _newNotebookColor,
+    );
+    _notebookNameController.clear();
+    setState(() {
+      _showingNotebookForm = false;
+      _selectedNotebookId = nb.id;
+    });
+    widget.onNotebookChanged?.call(nb.id);
+    await _load();
+  }
+
+  Future<void> _createTag() async {
+    final name = _tagNameController.text.trim();
+    if (name.isEmpty) return;
+
+    final db = ref.read(databaseProvider);
+    final repo = TagRepository(db);
+    final tag = await repo.createTag(
+      name: name,
+      colorSeed: _newTagColor,
+    );
+    _tagNameController.clear();
+    setState(() {
+      _showingTagForm = false;
+      _selectedTagIds.add(tag.id);
+    });
+    widget.onTagsChanged?.call(_selectedTagIds);
+    await _load();
   }
 
   @override
@@ -195,12 +250,100 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                     const SizedBox(height: 24),
 
                     // ── Notebook section ──
-                    Text(
-                      'Notebook',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        Text(
+                          'Notebook',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => setState(() =>
+                              _showingNotebookForm = !_showingNotebookForm),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              HugeIcon(
+                                icon: _showingNotebookForm
+                                    ? HugeIcons.strokeRoundedCancel01
+                                    : HugeIcons.strokeRoundedAdd01,
+                                size: 16,
+                                color: scheme.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _showingNotebookForm
+                                    ? 'Cancel'
+                                    : 'New notebook',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
-                    if (_notebooks.isEmpty)
+                    if (_showingNotebookForm) ...[
+                      TextField(
+                        controller: _notebookNameController,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Notebook name',
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onSubmitted: (_) => _createNotebook(),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final seed in NookColors.seeds)
+                            GestureDetector(
+                              onTap: () => setState(() => _newNotebookColor =
+                                  seed
+                                      .toARGB32()
+                                      .toRadixString(16)
+                                      .substring(2)),
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: seed,
+                                  border: Border.all(
+                                    color: _newNotebookColor ==
+                                            seed
+                                                .toARGB32()
+                                                .toRadixString(16)
+                                                .substring(2)
+                                        ? scheme.onSurface
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.tonal(
+                          onPressed: _createNotebook,
+                          child: const Text('Create'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_notebooks.isEmpty && !_showingNotebookForm)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
@@ -210,7 +353,7 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                           ),
                         ),
                       )
-                    else ...[
+                    else if (!_showingNotebookForm) ...[
                       _NotebookOption(
                         name: 'No notebook',
                         icon: HugeIcons.strokeRoundedFolderOff,
@@ -228,12 +371,97 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                     const SizedBox(height: 24),
 
                     // ── Tags section ──
-                    Text(
-                      'Tags',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        Text(
+                          'Tags',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => setState(
+                              () => _showingTagForm = !_showingTagForm),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              HugeIcon(
+                                icon: _showingTagForm
+                                    ? HugeIcons.strokeRoundedCancel01
+                                    : HugeIcons.strokeRoundedAdd01,
+                                size: 16,
+                                color: scheme.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _showingTagForm ? 'Cancel' : 'New tag',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
-                    if (_tags.isEmpty)
+                    if (_showingTagForm) ...[
+                      TextField(
+                        controller: _tagNameController,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Tag name',
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onSubmitted: (_) => _createTag(),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final seed in NookColors.seeds)
+                            GestureDetector(
+                              onTap: () => setState(() => _newTagColor = seed
+                                  .toARGB32()
+                                  .toRadixString(16)
+                                  .substring(2)),
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: seed,
+                                  border: Border.all(
+                                    color: _newTagColor ==
+                                            seed
+                                                .toARGB32()
+                                                .toRadixString(16)
+                                                .substring(2)
+                                        ? scheme.onSurface
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.tonal(
+                          onPressed: _createTag,
+                          child: const Text('Create'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_tags.isEmpty && !_showingTagForm)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
@@ -243,7 +471,7 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                           ),
                         ),
                       )
-                    else
+                    else if (!_showingTagForm)
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,

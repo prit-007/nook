@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
@@ -164,6 +165,150 @@ void main() {
 
       final tags = await tagRepo.getTagsForNote(note.id);
       expect(tags.length, 2);
+    });
+
+    test('softDelete marks tag as deleted', () async {
+      final tag = await tagRepo.createTag(
+        name: 'soft-delete-me',
+        colorSeed: '#FF0000',
+      );
+
+      await tagRepo.softDelete(tag.id);
+
+      final all = await tagRepo.getAllTags();
+      expect(all, isEmpty);
+
+      final deleted = await tagRepo.getDeletedTags();
+      expect(deleted, hasLength(1));
+      expect(deleted.first.id, tag.id);
+      expect(deleted.first.deleted, true);
+      expect(deleted.first.deletedAt, isNotNull);
+    });
+
+    test('restore brings tag back from soft-delete', () async {
+      final tag = await tagRepo.createTag(
+        name: 'restored-tag',
+        colorSeed: '#00FF00',
+      );
+
+      await tagRepo.softDelete(tag.id);
+      expect(await tagRepo.getAllTags(), isEmpty);
+
+      await tagRepo.restore(tag.id);
+
+      final all = await tagRepo.getAllTags();
+      expect(all, hasLength(1));
+      expect(all.first.id, tag.id);
+      expect(all.first.deleted, false);
+      expect(all.first.deletedAt, isNull);
+    });
+
+    test('softDelete preserves NoteTags associations', () async {
+      final tag = await tagRepo.createTag(
+        name: 'associated',
+        colorSeed: '#0000FF',
+      );
+      final note = await noteRepo.createNote(
+        title: 'Note With Tag',
+        type: NoteType.text,
+        deviceOriginId: 'local',
+      );
+
+      await tagRepo.assignTagToNote(note.id, tag.id);
+      await tagRepo.softDelete(tag.id);
+
+      // NoteTags row should still exist
+      final noteTags = await (db.select(db.noteTags)
+            ..where((t) => t.tagId.equals(tag.id)))
+          .get();
+      expect(noteTags, hasLength(1));
+    });
+
+    test('getAllTags excludes soft-deleted tags', () async {
+      await tagRepo.createTag(name: 'active-tag', colorSeed: '#111');
+      final tag2 = await tagRepo.createTag(
+        name: 'deleted-tag',
+        colorSeed: '#222',
+      );
+      await tagRepo.softDelete(tag2.id);
+
+      final all = await tagRepo.getAllTags();
+      expect(all, hasLength(1));
+      expect(all.first.name, 'active-tag');
+    });
+
+    test('getDeletedTags returns most recently deleted first', () async {
+      final tag1 = await tagRepo.createTag(
+        name: 'first',
+        colorSeed: '#AAA',
+      );
+      final tag2 = await tagRepo.createTag(
+        name: 'second',
+        colorSeed: '#BBB',
+      );
+
+      // Use direct DB updates with explicit timestamps to guarantee ordering.
+      final t1 = DateTime(2025, 1, 1, 10, 0, 0);
+      final t2 = DateTime(2025, 1, 1, 12, 0, 0);
+      await (db.update(db.tags)..where((t) => t.id.equals(tag1.id))).write(
+        TagsCompanion(
+          deleted: const Value(true),
+          deletedAt: Value(t1),
+        ),
+      );
+      await (db.update(db.tags)..where((t) => t.id.equals(tag2.id))).write(
+        TagsCompanion(
+          deleted: const Value(true),
+          deletedAt: Value(t2),
+        ),
+      );
+
+      final deleted = await tagRepo.getDeletedTags();
+      expect(deleted.length, 2);
+      expect(deleted.first.id, tag2.id);
+      expect(deleted.last.id, tag1.id);
+    });
+
+    test('permanentlyDelete removes tag and associations from DB', () async {
+      final tag = await tagRepo.createTag(
+        name: 'to-destroy',
+        colorSeed: '#FF0000',
+      );
+      final note = await noteRepo.createNote(
+        title: 'Note',
+        type: NoteType.text,
+        deviceOriginId: 'local',
+      );
+      await tagRepo.assignTagToNote(note.id, tag.id);
+      await tagRepo.softDelete(tag.id);
+
+      await tagRepo.permanentlyDelete(tag.id);
+
+      final deleted = await tagRepo.getDeletedTags();
+      expect(deleted, isEmpty);
+      final byId = await tagRepo.getTagById(tag.id);
+      expect(byId, isNull);
+      // NoteTags should also be removed.
+      final noteTags = await (db.select(db.noteTags)
+            ..where((t) => t.tagId.equals(tag.id)))
+          .get();
+      expect(noteTags, isEmpty);
+    });
+
+    test('permanentlyDeleteAllDeleted removes all soft-deleted tags', () async {
+      await tagRepo.createTag(name: 'keep', colorSeed: '#111');
+      final tag1 = await tagRepo.createTag(name: 'gone1', colorSeed: '#222');
+      final tag2 = await tagRepo.createTag(name: 'gone2', colorSeed: '#333');
+      await tagRepo.softDelete(tag1.id);
+      await tagRepo.softDelete(tag2.id);
+
+      await tagRepo.permanentlyDeleteAllDeleted();
+
+      final remaining = await tagRepo.getAllTags();
+      expect(remaining, hasLength(1));
+      expect(remaining.first.name, 'keep');
+      final deleted = await tagRepo.getDeletedTags();
+      expect(deleted, isEmpty);
     });
   });
 }

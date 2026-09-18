@@ -211,6 +211,24 @@ class AttachmentRepository {
         .go();
   }
 
+  /// Returns all soft-deleted attachments across all notes, ordered by deletedAt desc.
+  Future<List<Attachment>> getDeletedAttachments() {
+    return (_db.select(_db.attachments)
+          ..where((a) => a.deleted.equals(true))
+          ..orderBy([(a) => OrderingTerm.desc(a.deletedAt)]))
+        .get();
+  }
+
+  /// Permanently deletes all soft-deleted attachments (removes files + hard-deletes rows).
+  Future<void> permanentlyDeleteAllDeleted() async {
+    final deleted = await getDeletedAttachments();
+    for (final att in deleted) {
+      await permanentlyDeleteWithFiles(att);
+    }
+    nookLog(NookLogKey.database, 'All deleted attachments permanently deleted',
+        LogLevel.debug);
+  }
+
   /// Updates the thumbnail path for an attachment.
   Future<void> updateThumbnail(String id, String? thumbnailPath) async {
     await (_db.update(_db.attachments)..where((a) => a.id.equals(id)))
