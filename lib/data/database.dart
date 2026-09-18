@@ -33,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -47,6 +47,12 @@ class AppDatabase extends _$AppDatabase {
           if (from < 2) {
             await m.addColumn(attachments, attachments.deleted);
             await m.addColumn(attachments, attachments.deletedAt);
+          }
+          if (from < 3) {
+            await m.addColumn(notebooks, notebooks.deleted);
+            await m.addColumn(notebooks, notebooks.deletedAt);
+            await m.addColumn(tags, tags.deleted);
+            await m.addColumn(tags, tags.deletedAt);
           }
         },
         beforeOpen: (details) async {

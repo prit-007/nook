@@ -1,4 +1,4 @@
-import 'dart:async' show unawaited;
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:math' show Random;
 import 'dart:ui';
@@ -17,6 +17,7 @@ import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import '../../sync/sync_orchestrator.dart';
+import '../../sync/transfer_estimate.dart';
 import '../../sync/transport/sync_transport.dart';
 import 'widgets/qr_scan_screen.dart';
 import 'widgets/send_via_qr_dialog.dart';
@@ -33,6 +34,9 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     with TickerProviderStateMixin {
   final Set<String> _selectedNoteIds = {};
   Future<List<Note>>? _notesFuture;
+  bool _showDiscoveryHint = false;
+  Timer? _discoveryHintTimer;
+  TransferEstimate? _estimate;
 
   late AnimationController _radarController;
   SyncOrchestrator? _notifier;
@@ -51,6 +55,12 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
       if (mounted) {
         _refreshNotes();
         _notifier?.startDiscovery();
+        // Show fallback hint after 10s if no devices are discovered.
+        _discoveryHintTimer = Timer(const Duration(seconds: 10), () {
+          if (mounted && !_showDiscoveryHint) {
+            setState(() => _showDiscoveryHint = true);
+          }
+        });
       }
     });
   }
@@ -66,12 +76,21 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
         setState(() {
           _selectedNoteIds.addAll(notes.map((n) => n.id));
         });
+        _updateEstimate();
       }
+    });
+  }
+
+  void _updateEstimate() {
+    final db = ref.read(databaseProvider);
+    estimateTransferSize(db, _selectedNoteIds.toList()).then((est) {
+      if (mounted) setState(() => _estimate = est);
     });
   }
 
   @override
   void dispose() {
+    _discoveryHintTimer?.cancel();
     _radarController.dispose();
     // Leaving the sender must stop discovery — the periodic mDNS queries keep
     // sockets alive and advertising would otherwise run forever.
@@ -296,6 +315,39 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                 ),
               ),
 
+              // Fallback hint when mDNS finds no devices after 10s.
+              if (_showDiscoveryHint && !hasDevices) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Can't find device?",
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _SmallPillButton(
+                        label: 'QR Code',
+                        icon: HugeIcons.strokeRoundedQrCode,
+                        onTap: () => _showSendViaQr(context),
+                      ),
+                      const SizedBox(width: 8),
+                      _SmallPillButton(
+                        label: 'Manual',
+                        icon: HugeIcons.strokeRoundedLink01,
+                        onTap: () => _showManualAddressDialog(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               // ---------------------------------------------------------
               // BOTTOM HALF: The Payload (Note Selection)
               // ---------------------------------------------------------
@@ -343,28 +395,104 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                                       color: scheme.onSurface,
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          scheme.primary.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      '${_selectedNoteIds.length} Notes Ready',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: scheme.primary,
+                                  Row(
+                                    children: [
+                                      // Select All / Deselect All toggle.
+                                      FutureBuilder<List<Note>>(
+                                        future: _notesFuture,
+                                        builder: (context, snapshot) {
+                                          final notes = snapshot.data ?? [];
+                                          if (notes.isEmpty) {
+                                            return const SizedBox.shrink();
+                                          }
+                                          final allSelected =
+                                              _selectedNoteIds.length ==
+                                                  notes.length;
+                                          return GestureDetector(
+                                            onTap: () {
+                                              HapticFeedback.selectionClick();
+                                              setState(() {
+                                                if (allSelected) {
+                                                  _selectedNoteIds.clear();
+                                                } else {
+                                                  _selectedNoteIds.addAll(
+                                                    notes.map((n) => n.id),
+                                                  );
+                                                }
+                                              });
+                                              _updateEstimate();
+                                            },
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 6,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: scheme
+                                                    .surfaceContainerHighest
+                                                    .withValues(alpha: 0.5),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                allSelected
+                                                    ? 'Deselect All'
+                                                    : 'Select All',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color:
+                                                      scheme.onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: scheme.primary
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          '${_selectedNoteIds.length} Notes Ready',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: scheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
+                            if (_estimate != null && _estimate!.totalBytes > 0)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    '~${formatBytes(_estimate!.totalBytes)}, '
+                                    '~${estimateDuration(_estimate!.totalBytes).inSeconds}s',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ),
 
                             // Note List
                             Expanded(
@@ -457,6 +585,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                                               _selectedNoteIds.remove(note.id);
                                             }
                                           });
+                                          _updateEstimate();
                                         },
                                       );
                                     },
@@ -495,6 +624,37 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
     SyncDevice device,
   ) async {
     unawaited(HapticFeedback.mediumImpact());
+
+    // Show confirmation dialog for large transfers.
+    final est = _estimate;
+    if (est != null &&
+        (est.noteCount > confirmNoteThreshold ||
+            est.totalBytes > confirmSizeThreshold)) {
+      if (!context.mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Large Transfer'),
+          content: Text(
+            'Sending ${est.noteCount} notes '
+            '(${formatBytes(est.totalBytes)}). '
+            'This may take a while on some networks.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Send'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
     final pairingCode = (Random.secure().nextInt(900000) + 100000).toString();
 
     // Wi-Fi Direct devices sit on a separate P2P network (the Quick Share
@@ -816,6 +976,49 @@ class _ManualAddressDialogState extends State<_ManualAddressDialog> {
           child: const Text('Connect'),
         ),
       ],
+    );
+  }
+}
+
+class _SmallPillButton extends StatelessWidget {
+  const _SmallPillButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final List<List<dynamic>> icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            HugeIcon(icon: icon, size: 14, color: scheme.onPrimaryContainer),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: scheme.onPrimaryContainer,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

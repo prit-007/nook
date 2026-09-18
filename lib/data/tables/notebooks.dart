@@ -8,6 +8,8 @@ class Notebooks extends Table {
   TextColumn get icon => text().withDefault(const Constant('notebook'))();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime().clientDefault(DateTime.now)();
+  BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

@@ -355,7 +355,7 @@ class Libp2pSyncTransport implements SyncTransport {
           _connectedPeerId = peerId;
           nookLog(
             NookLogKey.sync,
-            'Pairing accepted by ${device.deviceName}',
+            'Pairing accepted by ${response.senderDeviceName}',
             LogLevel.info,
           );
           _emitState(const SyncSessionState.connected());
@@ -497,13 +497,24 @@ class Libp2pSyncTransport implements SyncTransport {
       );
 
       final bytes = Uint8List.fromList(data);
-      await stream.write(SyncMessageCodec.encode(SyncMessage(
+      final encoded = SyncMessageCodec.encode(SyncMessage(
         type: SyncMessageType.dataBundle,
         senderDeviceId: _localDeviceId,
         senderDeviceName: _localDeviceName,
         bundleBytes: bytes,
-      )));
-      _emitProgress(0.5);
+      ));
+      // Write in chunks to emit granular progress during large transfers.
+      const chunkSize = 64 * 1024; // 64 KB
+      if (encoded.length <= chunkSize) {
+        await stream.write(encoded);
+        _emitProgress(0.5);
+      } else {
+        for (var offset = 0; offset < encoded.length; offset += chunkSize) {
+          final end = (offset + chunkSize).clamp(0, encoded.length);
+          await stream.write(encoded.sublist(offset, end));
+          _emitProgress(0.1 + 0.7 * (end / encoded.length));
+        }
+      }
       await stream.closeWrite();
       nookLog(
           NookLogKey.sync, 'Data bundle sent; awaiting ack', LogLevel.debug);
@@ -662,6 +673,12 @@ class Libp2pSyncTransport implements SyncTransport {
         _acceptedFromPeerId = null;
       }
       unawaited(held?.close());
+      nookLog(
+        NookLogKey.sync,
+        'Pairing request from ${message.senderDeviceName} timed out '
+        '(held stream expired after ${heldStreamTimeout.inSeconds}s)',
+        LogLevel.warning,
+      );
     });
 
     nookLog(

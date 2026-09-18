@@ -73,7 +73,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen>
         backgroundColor: scheme.surfaceContainerHigh.withValues(alpha: 0.9),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
-          'Delete Tag',
+          'Move to Bin',
           style: TextStyle(
             fontFamily: 'Playfair Display',
             fontWeight: FontWeight.w700,
@@ -81,8 +81,8 @@ class _TagsScreenState extends ConsumerState<TagsScreen>
           ),
         ),
         content: Text(
-          'Are you sure you want to delete the "${tag.name}" tag? Notes with '
-          'this tag will not be deleted.',
+          'Move the "${tag.name}" tag to the bin? Notes with '
+          'this tag will not be affected.',
           style: TextStyle(
             fontFamily: 'Inter',
             color: scheme.onSurfaceVariant,
@@ -102,11 +102,11 @@ class _TagsScreenState extends ConsumerState<TagsScreen>
             onPressed: () async {
               unawaited(HapticFeedback.lightImpact());
               final repo = TagRepository(ref.read(databaseProvider));
-              await repo.deleteTag(tag.id);
+              await repo.softDelete(tag.id);
               if (ctx.mounted) Navigator.pop(ctx);
               await _load();
             },
-            child: const Text('Delete'),
+            child: const Text('Move to Bin'),
           ),
         ],
       ),

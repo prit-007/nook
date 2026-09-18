@@ -214,5 +214,152 @@ void main() {
       expect(activeNotes, hasLength(1));
       expect(activeNotes.first.notebookId, isNull);
     });
+
+    test('softDelete marks notebook as deleted', () async {
+      final nb = await repo.createNotebook(
+        name: 'Soft Delete',
+        colorSeed: '#111',
+      );
+
+      await repo.softDelete(nb.id);
+
+      final all = await repo.getAllNotebooks();
+      expect(all, isEmpty);
+
+      final deleted = await repo.getDeletedNotebooks();
+      expect(deleted, hasLength(1));
+      expect(deleted.first.id, nb.id);
+      expect(deleted.first.deleted, true);
+      expect(deleted.first.deletedAt, isNotNull);
+    });
+
+    test('restore brings notebook back from soft-delete', () async {
+      final nb = await repo.createNotebook(
+        name: 'Restored',
+        colorSeed: '#222',
+      );
+
+      await repo.softDelete(nb.id);
+      expect(await repo.getAllNotebooks(), isEmpty);
+
+      await repo.restore(nb.id);
+
+      final all = await repo.getAllNotebooks();
+      expect(all, hasLength(1));
+      expect(all.first.id, nb.id);
+      expect(all.first.deleted, false);
+      expect(all.first.deletedAt, isNull);
+    });
+
+    test('softDeleteNotebookAndNotes soft-deletes both', () async {
+      final nb = await repo.createNotebook(
+        name: 'Cascade Delete',
+        colorSeed: '#333',
+      );
+
+      await db.into(db.notes).insert(
+            NotesCompanion.insert(
+              title: const Value('Child Note'),
+              type: NoteType.text,
+              deviceOriginId: 'local',
+              notebookId: Value(nb.id),
+            ),
+          );
+
+      await repo.softDeleteNotebookAndNotes(nb.id);
+
+      // Notebook soft-deleted
+      final deletedNbs = await repo.getDeletedNotebooks();
+      expect(deletedNbs, hasLength(1));
+
+      // Note also soft-deleted
+      final deletedNotes = await (db.select(db.notes)
+            ..where((t) => t.deleted.equals(true)))
+          .get();
+      expect(deletedNotes, hasLength(1));
+    });
+
+    test('getDeletedNotebooks returns most recently deleted first', () async {
+      final nb1 = await repo.createNotebook(
+        name: 'First',
+        colorSeed: '#AAA',
+      );
+      final nb2 = await repo.createNotebook(
+        name: 'Second',
+        colorSeed: '#BBB',
+      );
+
+      // Use direct DB updates with explicit timestamps to guarantee ordering.
+      final t1 = DateTime(2025, 1, 1, 10, 0, 0);
+      final t2 = DateTime(2025, 1, 1, 12, 0, 0);
+      await (db.update(db.notebooks)..where((t) => t.id.equals(nb1.id))).write(
+        NotebooksCompanion(
+          deleted: const Value(true),
+          deletedAt: Value(t1),
+        ),
+      );
+      await (db.update(db.notebooks)..where((t) => t.id.equals(nb2.id))).write(
+        NotebooksCompanion(
+          deleted: const Value(true),
+          deletedAt: Value(t2),
+        ),
+      );
+
+      final deleted = await repo.getDeletedNotebooks();
+      expect(deleted.length, 2);
+      expect(deleted.first.id, nb2.id);
+      expect(deleted.last.id, nb1.id);
+    });
+
+    test('getAllNotebooks excludes soft-deleted notebooks', () async {
+      await repo.createNotebook(name: 'Active', colorSeed: '#111');
+      final nb2 = await repo.createNotebook(
+        name: 'Deleted',
+        colorSeed: '#222',
+      );
+      await repo.softDelete(nb2.id);
+
+      final all = await repo.getAllNotebooks();
+      expect(all, hasLength(1));
+      expect(all.first.name, 'Active');
+    });
+
+    test('permanentlyDelete removes notebook from DB', () async {
+      final nb = await repo.createNotebook(
+        name: 'To Destroy',
+        colorSeed: '#333',
+      );
+      await repo.softDelete(nb.id);
+
+      await repo.permanentlyDelete(nb.id);
+
+      final deleted = await repo.getDeletedNotebooks();
+      expect(deleted, isEmpty);
+      final byId = await repo.getNotebookById(nb.id);
+      expect(byId, isNull);
+    });
+
+    test('permanentlyDeleteAllDeleted removes all soft-deleted notebooks',
+        () async {
+      await repo.createNotebook(name: 'Keep', colorSeed: '#111');
+      final nb1 = await repo.createNotebook(
+        name: 'Gone1',
+        colorSeed: '#222',
+      );
+      final nb2 = await repo.createNotebook(
+        name: 'Gone2',
+        colorSeed: '#333',
+      );
+      await repo.softDelete(nb1.id);
+      await repo.softDelete(nb2.id);
+
+      await repo.permanentlyDeleteAllDeleted();
+
+      final remaining = await repo.getAllNotebooks();
+      expect(remaining, hasLength(1));
+      expect(remaining.first.name, 'Keep');
+      final deleted = await repo.getDeletedNotebooks();
+      expect(deleted, isEmpty);
+    });
   });
 }

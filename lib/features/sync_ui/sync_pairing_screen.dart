@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -41,6 +43,8 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
   bool _isCopied = false;
   bool _connecting = false;
   String? _error;
+  Timer? _timeoutTimer;
+  int _remainingSeconds = 30;
 
   void _copyCode() {
     HapticFeedback.lightImpact();
@@ -60,8 +64,25 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
     setState(() {
       _connecting = true;
       _error = null;
+      _remainingSeconds = 30;
+    });
+    // Start countdown timer for the waiting state.
+    _timeoutTimer?.cancel();
+    _timeoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds <= 0) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _connecting = false;
+            _error = 'Timed out waiting for response.';
+          });
+        }
+      } else if (mounted) {
+        setState(() => _remainingSeconds--);
+      }
     });
     final ok = await onConfirm();
+    _timeoutTimer?.cancel();
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pop(true);
@@ -72,6 +93,12 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
             'code or is out of reach.';
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _timeoutTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -111,8 +138,8 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
               const SizedBox(height: 8),
               Text(
                 _connecting
-                    ? 'Waiting for ${widget.deviceName} to confirm the same '
-                        'code…'
+                    ? 'Waiting for ${widget.deviceName} to confirm '
+                        '(${_remainingSeconds}s)…'
                     : 'Verify this code on ${widget.deviceName} to establish a '
                         'secure connection.',
                 textAlign: TextAlign.center,

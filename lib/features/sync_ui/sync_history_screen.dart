@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
+import '../../data/repositories/note_repository.dart';
 import '../../data/repositories/sync_log_repository.dart';
 import '../../data/tables/sync_log.dart';
 
@@ -109,7 +110,14 @@ class _SyncHistoryScreenState extends ConsumerState<SyncHistoryScreen> {
                     size: 24,
                     color: Theme.of(context).colorScheme.onSurface),
                 title: Text(_actionLabel(log.action)),
-                subtitle: Text('${log.deviceName} - ${log.noteId}'),
+                subtitle: FutureBuilder<String?>(
+                  future: _getNoteTitle(log.noteId),
+                  builder: (context, snapshot) {
+                    final title = snapshot.data;
+                    final display = title ?? log.noteId;
+                    return Text('${log.deviceName} - $display');
+                  },
+                ),
                 trailing: Text(
                   DateFormat.yMMMd().add_jm().format(log.timestamp),
                   style: Theme.of(context).textTheme.bodySmall,
@@ -141,6 +149,16 @@ class _SyncHistoryScreenState extends ConsumerState<SyncHistoryScreen> {
         return 'Received';
       case SyncAction.conflict:
         return 'Conflict';
+    }
+  }
+
+  Future<String?> _getNoteTitle(String noteId) async {
+    try {
+      final db = ref.read(databaseProvider);
+      final note = await NoteRepository(db).getNoteById(noteId);
+      return note?.title;
+    } catch (_) {
+      return null;
     }
   }
 }

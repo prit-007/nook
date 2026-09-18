@@ -30,9 +30,9 @@ class TagRepository {
     return (_db.select(_db.tags)..where((t) => t.id.equals(id))).getSingle();
   }
 
-  /// Returns all tags.
+  /// Returns all non-deleted tags.
   Future<List<Tag>> getAllTags() async {
-    return _db.select(_db.tags).get();
+    return (_db.select(_db.tags)..where((t) => t.deleted.equals(false))).get();
   }
 
   /// Returns a tag by ID, or null if not found.
@@ -63,6 +63,38 @@ class TagRepository {
       await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
     });
     nookLog(NookLogKey.database, 'Tag deleted: $id', LogLevel.debug);
+  }
+
+  /// Soft-deletes a tag. It will no longer appear in getAllTags()
+  /// but can be restored from the Bin. NoteTags associations are preserved.
+  Future<void> softDelete(String id) async {
+    final now = DateTime.now();
+    await (_db.update(_db.tags)..where((t) => t.id.equals(id))).write(
+      TagsCompanion(
+        deleted: const Value(true),
+        deletedAt: Value(now),
+      ),
+    );
+    nookLog(NookLogKey.database, 'Tag soft-deleted: $id', LogLevel.debug);
+  }
+
+  /// Restores a soft-deleted tag.
+  Future<void> restore(String id) async {
+    await (_db.update(_db.tags)..where((t) => t.id.equals(id))).write(
+      const TagsCompanion(
+        deleted: Value(false),
+        deletedAt: Value(null),
+      ),
+    );
+    nookLog(NookLogKey.database, 'Tag restored: $id', LogLevel.debug);
+  }
+
+  /// Returns all soft-deleted tags ordered by most recently deleted first.
+  Future<List<Tag>> getDeletedTags() async {
+    return (_db.select(_db.tags)
+          ..where((t) => t.deleted.equals(true))
+          ..orderBy([(t) => OrderingTerm.desc(t.deletedAt)]))
+        .get();
   }
 
   /// Assigns a tag to a note.
@@ -130,5 +162,25 @@ class TagRepository {
 
     final results = await query.get();
     return results.map((row) => row.readTable(_db.notes)).toList();
+  }
+
+  /// Permanently deletes a soft-deleted tag (removes noteTags + hard-deletes tag row).
+  Future<void> permanentlyDelete(String id) async {
+    await _db.transaction(() async {
+      await (_db.delete(_db.noteTags)..where((t) => t.tagId.equals(id))).go();
+      await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
+    });
+    nookLog(
+        NookLogKey.database, 'Tag permanently deleted: $id', LogLevel.debug);
+  }
+
+  /// Permanently deletes all soft-deleted tags.
+  Future<void> permanentlyDeleteAllDeleted() async {
+    final deletedTags = await getDeletedTags();
+    for (final tag in deletedTags) {
+      await permanentlyDelete(tag.id);
+    }
+    nookLog(NookLogKey.database, 'All deleted tags permanently deleted',
+        LogLevel.debug);
   }
 }

@@ -357,6 +357,11 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
                                     'Untitled',
                                 localDeviceName: conflict.localDeviceName,
                                 remoteDeviceName: conflict.remoteDeviceName,
+                                localUpdatedAt: null, // resolved from DB below
+                                remoteUpdatedAt: conflict.incoming.updatedAt,
+                                contentPreview: conflict.incoming
+                                        .noteFields['plainText'] as String? ??
+                                    '',
                                 onResolved: (choice) {
                                   ref
                                       .read(syncOrchestratorProvider.notifier)
@@ -402,18 +407,50 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
                                   scheme.errorContainer.withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                HugeIcon(
-                                  icon: HugeIcons.strokeRoundedAlertCircle,
-                                  size: 28,
-                                  color: scheme.error,
+                                Row(
+                                  children: [
+                                    HugeIcon(
+                                      icon: HugeIcons.strokeRoundedAlertCircle,
+                                      size: 28,
+                                      color: scheme.error,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        syncState.error!,
+                                        style: TextStyle(color: scheme.error),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    syncState.error!,
-                                    style: TextStyle(color: scheme.error),
+                                const SizedBox(height: 12),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: OutlinedButton(
+                                    onPressed: () {
+                                      // Retry: toggle beacon off then on.
+                                      _toggleDiscoverable(false);
+                                      Future.delayed(
+                                        const Duration(milliseconds: 500),
+                                        () => _toggleDiscoverable(true),
+                                      );
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(
+                                        color:
+                                            scheme.error.withValues(alpha: 0.5),
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Retry',
+                                      style: TextStyle(color: scheme.error),
+                                    ),
                                   ),
                                 ),
                               ],

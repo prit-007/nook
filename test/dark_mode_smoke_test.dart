@@ -70,7 +70,7 @@ void main() {
   testWidgets('trash screen renders in dark mode', (tester) async {
     await tester.pumpWidget(darkApp(const TrashScreen()));
     await tester.pumpAndSettle();
-    expect(find.text('Archive'), findsOneWidget);
+    expect(find.text('Bin'), findsOneWidget);
   });
 
   testWidgets('notebooks screen renders in dark mode', (tester) async {

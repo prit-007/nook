@@ -745,4 +745,40 @@ void main() {
       expect(find.text('No sync history yet'), findsOneWidget);
     });
   });
+
+  group('SyncSendScreen — transfer estimate', () {
+    testWidgets('select all toggle works', (tester) async {
+      for (var i = 0; i < 3; i++) {
+        await db.into(db.notes).insert(
+              NotesCompanion.insert(
+                id: Value('toggle-note-$i'),
+                type: NoteType.text,
+                title: Value('Toggle Note $i'),
+                deviceOriginId: 'device-1',
+              ),
+            );
+      }
+
+      await tester.pumpWidget(wrapInApp(const SyncSendScreen(), db: db));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // All notes auto-selected.
+      expect(find.text('3 Notes Ready'), findsOneWidget);
+      expect(find.text('Deselect All'), findsOneWidget);
+
+      // Tap Deselect All.
+      await tester.tap(find.text('Deselect All'));
+      await tester.pump();
+
+      expect(find.text('0 Notes Ready'), findsOneWidget);
+      expect(find.text('Select All'), findsOneWidget);
+
+      // Tap Select All.
+      await tester.tap(find.text('Select All'));
+      await tester.pump();
+
+      expect(find.text('3 Notes Ready'), findsOneWidget);
+    });
+  });
 }

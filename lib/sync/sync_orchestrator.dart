@@ -135,6 +135,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   String _localDeviceId = '';
   String _localDeviceName = '';
   bool _stopped = false;
+  Completer<void>? _cancelCompleter;
 
   /// Whether a transport has been initialized (test hook).
   bool get isTransportInitialized => _transport?.isInitialized ?? false;
@@ -572,6 +573,23 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     state = state.copyWith(phase: SyncPhase.idle);
   }
 
+  /// Whether a transfer is in progress and can be cancelled.
+  bool get canCancel =>
+      _cancelCompleter != null && !_cancelCompleter!.isCompleted;
+
+  /// Cancels the in-progress transfer by closing the underlying transport stream.
+  void cancelTransfer() {
+    if (!canCancel) return;
+    _cancelCompleter?.complete();
+    _transport?.disconnect();
+    state = state.copyWith(
+      phase: SyncPhase.error,
+      error: 'Transfer cancelled',
+      outcome: SyncOutcomeCategory.cancelled,
+    );
+    nookLog(NookLogKey.sync, 'Transfer cancelled by user', LogLevel.info);
+  }
+
   /// Sends selected notes to the connected device.
   Future<void> sendNotes(List<String> noteIds) async {
     if (_transport == null || state.selectedDevice == null) {
@@ -590,6 +608,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       sentCount: 0,
       totalCount: noteIds.length,
     );
+    _cancelCompleter = Completer<void>();
 
     try {
       final db = ref.read(databaseProvider);
@@ -599,6 +618,14 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       // Build SyncNoteEntry for each selected note
       final entries = <SyncNoteEntry>[];
       for (final noteId in noteIds) {
+        if (_cancelCompleter?.isCompleted == true) {
+          state = state.copyWith(
+            phase: SyncPhase.error,
+            error: 'Transfer cancelled',
+            outcome: SyncOutcomeCategory.cancelled,
+          );
+          return;
+        }
         final note = await noteRepo.getNoteById(noteId);
         if (note == null) continue;
 
@@ -607,20 +634,20 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         final attachmentRows = await attachmentRepo.getAllForNote(noteId);
         for (final row in attachmentRows) {
           final file = File(row.filePath);
-          if (file.existsSync()) {
+          if (await file.exists()) {
             Uint8List? thumbBytes;
             final thumbPath = row.thumbnailPath;
             if (thumbPath != null && thumbPath.isNotEmpty) {
               final thumbFile = File(thumbPath);
-              if (thumbFile.existsSync()) {
-                thumbBytes = thumbFile.readAsBytesSync();
+              if (await thumbFile.exists()) {
+                thumbBytes = await thumbFile.readAsBytes();
               }
             }
             attachments.add(SyncAttachment(
               id: row.id,
               type: row.type.name,
               sortOrder: row.sortOrder,
-              bytes: file.readAsBytesSync(),
+              bytes: await file.readAsBytes(),
               filePath: row.filePath,
               thumbnailPath: thumbPath,
               thumbnailBytes: thumbBytes,
@@ -657,6 +684,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
           '(${attachments.length} attachment(s), ${note.deltaContent?.length ?? 0} delta bytes)',
           LogLevel.debug,
         );
+        // Update progress incrementally as each note is packed.
+        state = state.copyWith(sentCount: entries.length);
       }
 
       if (entries.isEmpty) {
@@ -749,6 +778,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         error: 'Send failed: $e',
         outcome: SyncOutcomeCategory.internal,
       );
+    } finally {
+      _cancelCompleter = null;
     }
   }
 
