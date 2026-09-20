@@ -2,7 +2,7 @@
 
 > **How to use:** Check off tasks as you complete them. Each task lists the files to create/modify and the validation command to run. Move the `[ ]` → `[x]` when done. Update the status table at the top of each phase when a phase is fully complete.
 
-**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. The sync transport was rebuilt on **dart_libp2p (UDX)** — stable keystore identity, own mDNS fork (`_syncnotenet._udp` with `devicename=` TXT), per-stream half-close request/response wire envelope with SHA-256 integrity, and categorized outcomes (rejected / timedOut / connectionLost / cancelled / protocol / internal) driving distinct UI treatments. The legacy TCP transport remains as a fallback. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished. Phase 6.1 accessibility (labels, contrast, touch targets, reduce motion, screen-reader tests) and 6.2 adaptive tablet/foldable layout (home/notebooks/tags master–detail) complete. Phase 6.6 branding & distribution: all-platform launcher icons (adaptive Android over `#FBFBFB`, iOS/macOS/Windows), a Linux window icon, and an Inno Setup Windows installer driven by `tool/build_installer.dart` + CI. **v0.8.2** adds store-ready builds (release-signed universal APK, monotonic versionCode), in-app update notifications via GitHub releases, and fastlane metadata for IzzyOnDroid / F-Droid submission.
+**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. The sync transport was rebuilt on **dart_libp2p (UDX)** — stable keystore identity, own mDNS fork (`_syncnotenet._udp` with `devicename=` TXT), per-stream half-close request/response wire envelope with SHA-256 integrity, and categorized outcomes (rejected / timedOut / connectionLost / cancelled / protocol / internal) driving distinct UI treatments. The legacy TCP transport remains as a fallback. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished. Phase 6.1 accessibility (labels, contrast, touch targets, reduce motion, screen-reader tests) and 6.2 adaptive tablet/foldable layout (home/notebooks/tags master–detail) complete. Phase 6.6 branding & distribution: all-platform launcher icons (adaptive Android over `#FBFBFB`, iOS/macOS/Windows), a Linux window icon, and an Inno Setup Windows installer driven by `tool/build_installer.dart` + CI. **v0.9.1** adds a complete soft-delete Bin system: all entity types (notes, notebooks, tags, attachments) soft-delete to a 4-tab Bin screen with full round-trip restore verification, a two-choice notebook delete dialog ("Notebook only" / "Notes too"), and inline notebook/tag creation from the editor. **955 tests, 0 analysis issues.**
 
 ---
 
@@ -228,7 +228,7 @@
   - File: `lib/features/editor/widgets/theme_picker_sheet.dart`
 - [x] Create new note flow (type param: text/checklist/doodle/mixed)
 - [x] Edit existing note flow (load from Drift, populate EditorState)
-- [x] Delete note flow (soft delete → move to trash) — editor delete button + TrashScreen with restore/permanent-delete
+- [x] Delete note flow (soft delete → move to Bin) — editor delete button + 4-tab BinScreen with restore/permanent-delete/empty-all. Notebook long-press offers "Notebook only" / "Notes too" two-choice dialog. Tags soft-delete to Bin.
 - [x] Pin/unpin note flow
 - [x] Write note editor integration test (create, edit, autosave persists to Drift)
   - File: `test/features/editor/note_editor_test.dart`
