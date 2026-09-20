@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-20
+
+### Soft-delete Bin system — full round-trip with retrieval verification
+
+Items are never hard-deleted from the UI anymore. Notes, notebooks, tags, and
+attachments move to the Bin and can be restored with full data integrity.
+
+#### Schema
+- Added `deleted` (bool) and `deletedAt` (DateTime?) columns to **Notebooks**
+  and **Tags** tables. Database migrated from schema v2 to v3.
+
+#### Repository soft-delete / restore
+- **NotebookRepository**: `softDelete`, `restore`, `getDeletedNotebooks`,
+  `softDeleteNotebookAndNotes`, `permanentlyDelete`, `permanentlyDeleteAllDeleted`.
+  Notes linked to notebooks; restoring a notebook preserves all note associations.
+- **TagRepository**: `softDelete`, `restore`, `getDeletedTags`,
+  `permanentlyDelete`, `permanentlyDeleteAllDeleted`. NoteTags associations
+  preserved on restore.
+- **AttachmentRepository**: `getDeletedAttachments`,
+  `permanentlyDeleteAllDeleted`.
+
+#### 4-tab Bin screen
+- Complete rewrite of the trash screen -- renamed from **Archive** to **Bin**.
+- `DefaultTabController` with four categorized tabs: **Notes**, **Notebooks**,
+  **Tags**, **Attachments**.
+- Per-tab empty states, per-item restore and destroy with confirmation dialogs.
+- **"Empty Bin"** FAB destroys all categories at once with a total-count
+  confirmation dialog.
+- Shared `_BinTab` widget and `DeletedItem` model.
+
+#### Notebook delete asks about notes
+- Long-press delete on notebooks now shows a **two-choice dialog**:
+  - **"Notebook only"** -- soft-deletes just the notebook; notes stay active
+    (unlinked).
+  - **"Notes too"** -- soft-deletes the notebook and all its notes into the Bin.
+  - **"Cancel"** -- no-op.
+- Replaced the old hidden checkbox which had a pre-existing bug:
+  `StatefulBuilder` was resetting the checkbox state on every rebuild, so the
+  "Also move all notes to trash" option never actually worked.
+- Tags long-press delete also soft-deletes to Bin instead of hard-deleting.
+
+#### Inline notebook / tag creation from note options
+- Create notebooks and tags inline from the note options sheet without leaving
+  the editor.
+
+#### Add notes to notebook / tag from detail screens
+- FAB + bottom sheet on both `NotebookDetailScreen` and `TagDetailScreen` to
+  add existing notes to the notebook or tag.
+
+#### Reactive card metadata + doodle preview
+- `noteCardMetadataProvider` now watches `notesListProvider` for reactivity --
+  card metadata updates live when notes are added or removed.
+- Refactored `_fetchMetadata()` helper for shared thumbnail logic.
+- `NoteDoodleCard` renders doodle thumbnails on the home screen.
+
+#### Bug fixes
+- Fixed pre-existing `StatefulBuilder` checkbox bug in notebook delete dialog.
+- `noteCardMetadataProvider` no longer returns stale data after note mutations.
+
+### Test improvements
+- 15 new tests for notebook and tag screen dialog soft-delete behavior.
+- 8 new round-trip retrieval verification tests in `bin_roundtrip_test.dart`
+  proving data integrity survives delete then restore:
+  - "Notebook only": notes stay linked, attachments preserved, tag associations
+    preserved.
+  - "Notes too": notebook link, image + doodle attachments, tag associations,
+    checklist items all survive restore.
+  - Multi-note stress test: 3 notes with mixed attachment types all restore
+    correctly with notebook links intact.
+- 4-tab Bin screen tests (11 tests covering all tabs, restore, destroy, and
+  empty-all).
+- 4 new notebook/tag repository tests for `permanentlyDelete` and
+  `permanentlyDeleteAllDeleted`.
+- **955 tests passing, 0 analysis issues.**
+
 ## [0.9.0] - 2026-09-13
 
 ### Performance overhaul — smoother scrolling, transitions, and animations
@@ -687,13 +762,15 @@ Editor UX upgrades, shape assist, checklist polish, and the CI release pipeline.
 - CI: GitHub Actions release pipeline with `softprops/action-gh-release`,
   tag-triggered APK builds, and auto-generated release notes.
 
-[Unreleased]: https://github.com/anomalyco/nook/compare/v0.7.8...HEAD
-[0.7.8]: https://github.com/anomalyco/nook/compare/v0.7.7...v0.7.8
-[0.7.7]: https://github.com/anomalyco/nook/compare/v0.7.5...v0.7.7
-[0.7.5]: https://github.com/anomalyco/nook/compare/v0.7.2...v0.7.5
-[0.7.2]: https://github.com/anomalyco/nook/compare/v0.7.1...v0.7.2
-[0.7.1]: https://github.com/anomalyco/nook/compare/v0.7.0...v0.7.1
-[0.7.0]: https://github.com/anomalyco/nook/releases/tag/v0.7.0
-[0.6.2]: https://github.com/anomalyco/nook/compare/v0.6.1...v0.6.2
-[0.6.1]: https://github.com/anomalyco/nook/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/anomalyco/nook/releases/tag/v0.6.0
+[Unreleased]: https://github.com/prit-007/nook/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/prit-007/nook/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/prit-007/nook/compare/v0.8.6...v0.9.0
+[0.7.8]: https://github.com/prit-007/nook/compare/v0.7.7...v0.7.8
+[0.7.7]: https://github.com/prit-007/nook/compare/v0.7.5...v0.7.7
+[0.7.5]: https://github.com/prit-007/nook/compare/v0.7.2...v0.7.5
+[0.7.2]: https://github.com/prit-007/nook/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/prit-007/nook/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/prit-007/nook/releases/tag/v0.7.0
+[0.6.2]: https://github.com/prit-007/nook/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/prit-007/nook/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/prit-007/nook/releases/tag/v0.6.0
