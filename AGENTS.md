@@ -4,7 +4,7 @@
 - Single-package Flutter app (not a monorepo).
 - SDK constraint: Dart `>=3.5.0 <4.0.0`, Flutter stable.
 - Entry point: `lib/main.dart`.
-- Status: Alpha — v0.9.1 (soft-delete bin system with full round-trip verification, 955 tests).
+- Status: Alpha — v0.9.2 (stability release: crash fixes, data integrity, sync reliability, 955 tests).
 - Docs: `docs/notes-app-masterplan.md` (product/roadmap), `docs/notes-app-detailed-plan.md` (schema/architecture/protocols), `docs/SYNC-LIBP2P-TRANSPORT.md` (current sync transport reference), `docs/adr/` (architecture decision records).
 
 ## Code generation

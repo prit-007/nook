@@ -33,7 +33,11 @@ class ChecklistItemRepository {
     final item = await getItemById(itemId);
     nookLog(
         NookLogKey.database, 'Checklist item added: $itemId', LogLevel.debug);
-    return item!;
+    if (item == null) {
+      throw StateError(
+          'Checklist item $itemId not found after insert');
+    }
+    return item;
   }
 
   /// Returns all items for a note, ordered by sortOrder ascending.

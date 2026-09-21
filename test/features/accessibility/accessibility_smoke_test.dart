@@ -173,6 +173,7 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.byType(TextField), 'Groc');
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
 
     expect(find.text('Groceries'), findsOneWidget);

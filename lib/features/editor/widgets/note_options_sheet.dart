@@ -148,6 +148,7 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
       colorSeed: _newNotebookColor,
     );
     _notebookNameController.clear();
+    if (!mounted) return;
     setState(() {
       _showingNotebookForm = false;
       _selectedNotebookId = nb.id;
@@ -167,6 +168,7 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
       colorSeed: _newTagColor,
     );
     _tagNameController.clear();
+    if (!mounted) return;
     setState(() {
       _showingTagForm = false;
       _selectedTagIds.add(tag.id);

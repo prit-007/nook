@@ -181,7 +181,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
       widget.noteId,
       _items.map((i) => i.id).toList(),
     );
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> _toggleItem(String id) async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +26,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<Note> _results = [];
   bool _searched = false;
   bool _searching = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -33,9 +36,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _search(query);
+    });
   }
 
   Future<void> _search(String query) async {
@@ -79,7 +90,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             hintText: 'Search notes...',
             border: InputBorder.none,
           ),
-          onChanged: _search,
+          onChanged: _onSearchChanged,
         ),
         leading: IconButton(
           icon: const HugeIcon(
