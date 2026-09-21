@@ -95,6 +95,7 @@ jobs:
           dart run tool/patch_appflowy_editor.dart
           dart run tool/patch_talker_flutter.dart
           dart run tool/patch_mdns_dart.dart
+          dart run tool/patch_sqlite3_android_log.dart
 
       - name: Configure release signing (from secrets)
         if: ${{ env.HAS_KEYSTORE == 'true' }}
