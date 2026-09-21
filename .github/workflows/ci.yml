@@ -95,7 +95,17 @@ jobs:
         run: |
           set -euo pipefail
           NDK=$ANDROID_HOME/ndk/28.2.13676358
+          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
           OPENSSL_VERSION=3.4.1
+
+          # OpenSSL 3.4's android targets resolve the NDK by finding *clang on
+          # $PATH* inside $ANDROID_NDK_ROOT (Configurations/15-android.conf
+          # android_ndk()); without this it dies with "no NDK ...-gcc on $PATH".
+          export ANDROID_NDK_ROOT=$NDK
+          export PATH="$TOOLCHAIN/bin:$PATH"
+
+          test -f "$NDK/source.properties"
+          test -x "$TOOLCHAIN/bin/aarch64-linux-android21-clang"
 
           curl -fSL https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL_VERSION/openssl-$OPENSSL_VERSION.tar.gz \
             -o /tmp/openssl.tar.gz
@@ -105,7 +115,6 @@ jobs:
             rm -rf /opt/openssl-$OPENSSL_VERSION
             tar xzf /tmp/openssl.tar.gz -C /opt
             cd /opt/openssl-$OPENSSL_VERSION
-            export ANDROID_NDK_ROOT=$NDK
             ./Configure "$TARGET" -D__ANDROID_API__=21 no-shared no-tests no-ui-console
             make build_libs -j$(nproc)
             mkdir -p "$DEST/lib" "$DEST/include"
