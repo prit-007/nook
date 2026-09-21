@@ -53,6 +53,9 @@ jobs:
       PUB_CACHE: ${{ github.workspace }}/.pub-cache
       FLUTTER_HOME: /opt/flutter
       ANDROID_HOME: /opt/android-sdk
+      # Consumed by the patched sqlite3 build hook to pick the per-ABI
+      # libcrypto.a when compiling SQLCipher from source.
+      NOOK_OPENSSL_DIR: /opt/openssl-android
     steps:
       - uses: actions/checkout@v4
 
@@ -61,7 +64,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             cmake libglu1-mesa libsecret-1-dev ninja-build tcl clang make \
-            git curl unzip xz-utils zip sudo
+            binutils git curl unzip xz-utils zip sudo
 
       - name: Install Android NDK 28.2.13676358
         run: |
@@ -88,10 +91,42 @@ jobs:
           git clone --depth 1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /opt/sqlcipher
           cd /opt/sqlcipher && ./configure --enable-tempstore=yes --with-crypto-lib=none && make sqlite3.c
 
+      - name: Build OpenSSL for Android (static libcrypto)
+        run: |
+          set -euo pipefail
+          NDK=$ANDROID_HOME/ndk/28.2.13676358
+          OPENSSL_VERSION=3.4.1
+
+          curl -fSL https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL_VERSION/openssl-$OPENSSL_VERSION.tar.gz \
+            -o /tmp/openssl.tar.gz
+
+          build_openssl() {
+            local TARGET=$1 DEST=/opt/openssl-android/$1
+            rm -rf /opt/openssl-$OPENSSL_VERSION
+            tar xzf /tmp/openssl.tar.gz -C /opt
+            cd /opt/openssl-$OPENSSL_VERSION
+            export ANDROID_NDK_ROOT=$NDK
+            ./Configure "$TARGET" -D__ANDROID_API__=21 no-shared no-tests no-ui-console
+            make build_libs -j$(nproc)
+            mkdir -p "$DEST/lib" "$DEST/include"
+            cp libcrypto.a "$DEST/lib/"
+            cp -r include/openssl "$DEST/include/"
+            test -f "$DEST/lib/libcrypto.a"
+            test -f "$DEST/include/openssl/rand.h"
+            echo "Built $TARGET → $DEST/lib/libcrypto.a"
+          }
+
+          build_openssl android-arm64
+          build_openssl android-arm
+          build_openssl android-x86_64
+
+          echo "=== OpenSSL static libs ==="
+          find /opt/openssl-android -name libcrypto.a
+
       - name: Apply app patches
         run: |
           export PATH="$FLUTTER_HOME/bin:$PATH"
-          dart run tool/patch_fdroid_sqlite.dart /opt/sqlcipher
+          dart run tool/patch_fdroid_sqlite.dart /opt/sqlcipher /opt/openssl-android
           dart run tool/patch_appflowy_editor.dart
           dart run tool/patch_talker_flutter.dart
           dart run tool/patch_mdns_dart.dart
@@ -121,6 +156,29 @@ jobs:
           flutter build apk --release --split-per-abi --target-platform=android-arm --obfuscate --split-debug-info=build/symbols
           flutter build apk --release --split-per-abi --target-platform=android-arm64 --obfuscate --split-debug-info=build/symbols
           flutter build apk --release --split-per-abi --target-platform=android-x64 --obfuscate --split-debug-info=build/symbols
+
+      - name: Verify libsqlite3.so has no unresolved crypto symbols
+        run: |
+          set -euo pipefail
+          TMP=$(mktemp -d)
+          trap 'rm -rf "$TMP"' EXIT
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            apk="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            test -f "$apk" || { echo "Missing $apk"; exit 1; }
+            unzip -o -q "$apk" "lib/$abi/libsqlite3.so" -d "$TMP"
+            lib="$TMP/lib/$abi/libsqlite3.so"
+            ndx=$(readelf -sW "$lib" | awk '$8 == "RAND_bytes" {print $7}' | head -1)
+            echo "$abi: RAND_bytes Ndx=$ndx"
+            if [ -z "$ndx" ] || [ "$ndx" = "UND" ]; then
+              echo "RAND_bytes is unresolved in $lib — crypto is not linked!"
+              exit 1
+            fi
+            if readelf -sW "$lib" | awk '$7 == "UND" && $8 ~ /^(RAND_|EVP_|HMAC_|PKCS5_|AES_|SHA)/'; then
+              echo "Unresolved OpenSSL symbols in $lib"
+              exit 1
+            fi
+            echo "$abi: OK"
+          done
 
       - name: Upload Dart symbol files
         uses: actions/upload-artifact@v4

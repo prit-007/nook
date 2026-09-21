@@ -1,164 +1,238 @@
 import 'dart:io';
 
-/// Patches pubspec.yaml to compile SQLite from source instead of downloading
-/// a prebuilt binary. Used by the F-Droid build where binary downloads are
-/// not allowed.
+/// Patches pubspec.yaml to compile SQLCipher from source instead of
+/// downloading a prebuilt binary, and wires a real statically-linked OpenSSL
+/// into the build. Used by the F-Droid build where binary downloads are not
+/// allowed.
 ///
-/// Also creates stub OpenSSL headers so the SQLCipher amalgamation compiles
-/// when cross-compiling for Android (the NDK can't use host /usr/include).
+/// The sqlite3 native-assets hook's `source: source` path compiles the SQLCipher
+/// amalgamation but links no crypto library, so `PRAGMA key` fails at runtime
+/// with an unresolved `RAND_bytes`. This script:
+///
+///  1. Rewrites the `hooks.user_defines.sqlite3` block to compile from the
+///     SQLCipher amalgamation with `SQLITE_HAS_CODEC`.
+///  2. Deletes the old stub OpenSSL headers (they would shadow the real ones).
+///  3. Patches the sqlite3 package's build hook (in the pub cache) so that when
+///     `NOOK_OPENSSL_DIR` is set it links the per-ABI static `libcrypto.a` and
+///     uses its headers — passing `PRAGMA key` real crypto instead of stubs.
 void main(List<String> args) {
   final sqlcipherPath =
       args.isNotEmpty ? args[0] : Platform.environment['SQLCIPHER_PATH'] ?? '';
+  final opensslDir = args.length > 1
+      ? args[1]
+      : Platform.environment['NOOK_OPENSSL_DIR'] ?? '';
 
-  if (sqlcipherPath.isEmpty) {
+  if (sqlcipherPath.isEmpty || opensslDir.isEmpty) {
     stderr.writeln(
-      'Usage: dart run tool/patch_fdroid_sqlite.dart <sqlcipher-path>',
+      'Usage: dart run tool/patch_fdroid_sqlite.dart <sqlcipher-path> '
+      '<openssl-android-dir>',
+    );
+    stderr.writeln(
+      '${'  '}The OpenSSL dir must contain android-arm64, android-arm and '
+      'android-x86_64 subdirs, each with lib/libcrypto.a and include/openssl.',
     );
     exit(1);
   }
 
+  _patchPubspec(sqlcipherPath);
+  _removeStubHeaders(sqlcipherPath);
+  _validateOpensslBuild(opensslDir);
+  _patchSqlite3Hook();
+
+  stdout.writeln(
+    'Patched sqlite3 source → source from $sqlcipherPath/sqlite3.c with '
+    'per-ABI static OpenSSL from $opensslDir.',
+  );
+}
+
+/// Replaces the `hooks.user_defines.sqlite3` block in pubspec.yaml so the
+/// sqlite3 hook compiles the amalgamation instead of downloading a prebuilt
+/// binary. Idempotent: the subtree is rewritten on every run.
+void _patchPubspec(String sqlcipherPath) {
   final pubspec = File('pubspec.yaml');
   if (!pubspec.existsSync()) {
     stderr.writeln('pubspec.yaml not found');
     exit(1);
   }
 
-  var content = pubspec.readAsStringSync();
-
-  // Replace source: sqlcipher with source: source + path + defines + flags
-  // The -Wno flags suppress errors from dead OpenSSL code paths that have
-  // incomplete stub headers (SQLCipher amalgamation includes all crypto
-  // backends even with --with-crypto-lib=none).
-  final old = '      source: sqlcipher';
-  final newPath = '$sqlcipherPath/sqlite3.c';
-  final newContent = '''      source: source
-      path: $newPath
-      defines:
-        - SQLITE_HAS_CODEC
-      additional_flags:
-        - -Wno-implicit-function-declaration
-        - -Wno-int-conversion
-        - -Wno-incompatible-function-pointer-types
-        - -DOPENSSL_VERSION=0
-        - -DOPENSSL_VERSION_NUMBER=0x10100000L''';
-
-  if (!content.contains(old)) {
-    stderr.writeln('Could not find "$old" in pubspec.yaml');
+  final lines = pubspec.readAsStringSync().split('\n');
+  final start = lines.indexWhere(
+    (line) => line.startsWith('    sqlite3:'),
+  );
+  if (start == -1) {
+    stderr.writeln('Could not find "sqlite3:" under hooks.user_defines in '
+        'pubspec.yaml');
     exit(1);
   }
 
-  content = content.replaceFirst(old, newContent);
-  pubspec.writeAsStringSync(content);
+  var end = start + 1;
+  while (end < lines.length) {
+    final line = lines[end];
+    if (line.isNotEmpty && !line.startsWith('      ')) {
+      break; // A less-indented line ends the sqlite3 subtree.
+    }
+    end++;
+  }
 
-  // Create stub OpenSSL headers so the amalgamation compiles with the
-  // Android NDK cross-compiler (which can't use host /usr/include).
-  _createStubHeaders(sqlcipherPath);
+  final block = [
+    '    sqlite3:',
+    '      source: source',
+    '      path: $sqlcipherPath/sqlite3.c',
+    '      defines:',
+    '        - SQLITE_HAS_CODEC',
+    // The -Wno flags guard against warnings from SQLCipher's dead crypto
+    // backend code that the amalgamation always includes.
+    '      additional_flags:',
+    '        - -Wno-implicit-function-declaration',
+    '        - -Wno-int-conversion',
+    '        - -Wno-incompatible-function-pointer-types',
+  ];
 
-  stdout.writeln(
-    'Patched pubspec.yaml: sqlite3 source → source (from $newPath)',
-  );
+  lines.replaceRange(start, end, block);
+  pubspec.writeAsStringSync(lines.join('\n'));
 }
 
-/// The SQLCipher amalgamation includes OpenSSL headers unconditionally
-/// even with --with-crypto-lib=none. The NDK cross-compiler can't use
-/// host /usr/include, so we provide minimal stub declarations.
-void _createStubHeaders(String sqlcipherPath) {
-  final opensslDir = Directory('$sqlcipherPath/openssl');
-  opensslDir.createSync(recursive: true);
+/// Removes the stub OpenSSL headers previously generated next to the
+/// amalgamation. They declare crypto functions without implementations and live
+/// on the include path ahead of the real headers, so they must not exist when
+/// linking a real OpenSSL.
+void _removeStubHeaders(String sqlcipherPath) {
+  final stubDir = Directory('$sqlcipherPath/openssl');
+  if (stubDir.existsSync()) {
+    stubDir.deleteSync(recursive: true);
+    stdout.writeln('Removed stub OpenSSL headers at ${stubDir.path}');
+  }
+}
 
-  File('${opensslDir.path}/crypto.h').writeAsStringSync('''
-#ifndef OPENSSL_CRYPTO_H
-#define OPENSSL_CRYPTO_H
-typedef struct evp_cipher_ctx_st EVP_CIPHER_CTX;
-typedef struct evp_md_ctx_st EVP_MD_CTX;
-typedef struct evp_md_st EVP_MD;
-typedef struct evp_cipher_st EVP_CIPHER;
-typedef struct engine_st ENGINE;
-typedef struct hmac_ctx_st HMAC_CTX;
-int RAND_bytes(unsigned char *buf, int num);
-#define OPENSSL_VERSION_NUMBER 0x10100000L
-#endif
-''');
+/// Verifies that each Android ABI tree produced by the CI OpenSSL build step
+/// is present and complete.
+void _validateOpensslBuild(String opensslDir) {
+  const abis = ['android-arm64', 'android-arm', 'android-x86_64'];
+  final missing = <String>[];
+  for (final abi in abis) {
+    if (!File('$opensslDir/$abi/lib/libcrypto.a').existsSync()) {
+      missing.add('$abi/lib/libcrypto.a');
+    }
+    if (!File('$opensslDir/$abi/include/openssl/rand.h').existsSync()) {
+      missing.add('$abi/include/openssl/rand.h');
+    }
+  }
+  if (missing.isNotEmpty) {
+    stderr.writeln('OpenSSL build is incomplete at $opensslDir, missing:');
+    for (final path in missing) {
+      stderr.writeln('  $path');
+    }
+    exit(1);
+  }
+  stdout
+      .writeln('Validated OpenSSL build (libcrypto.a + headers) for all ABIs.');
+}
 
-  File('${opensslDir.path}/evp.h').writeAsStringSync('''
-#ifndef OPENSSL_EVP_H
-#define OPENSSL_EVP_H
-#include <openssl/crypto.h>
-const EVP_CIPHER *EVP_aes_256_cbc(void);
-const EVP_CIPHER *EVP_aes_128_cbc(void);
-const EVP_CIPHER *EVP_aes_256_ecb(void);
-const EVP_MD *EVP_sha1(void);
-const EVP_MD *EVP_sha256(void);
-const EVP_MD *EVP_sha512(void);
-EVP_CIPHER_CTX *EVP_CIPHER_CTX_new(void);
-void EVP_CIPHER_CTX_free(EVP_CIPHER_CTX *ctx);
-int EVP_CIPHER_CTX_set_padding(EVP_CIPHER_CTX *ctx, int padding);
-int EVP_CIPHER_nid(const EVP_CIPHER *cipher);
-int EVP_CIPHER_key_length(const EVP_CIPHER *cipher);
-int EVP_CIPHER_iv_length(const EVP_CIPHER *cipher);
-int EVP_CIPHER_block_size(const EVP_CIPHER *cipher);
-int EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher,
-    ENGINE *impl, const unsigned char *key, const unsigned char *iv, int enc);
-int EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl,
-    const unsigned char *in, int inl);
-int EVP_CipherFinal_ex(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl);
-EVP_MD_CTX *EVP_MD_CTX_new(void);
-void EVP_MD_CTX_free(EVP_MD_CTX *ctx);
-int EVP_MD_size(const EVP_MD *md);
-int EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl);
-int EVP_DigestUpdate(EVP_MD_CTX *ctx, const void *d, size_t cnt);
-int EVP_DigestFinal_ex(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *s);
-int PKCS5_PBKDF2_HMAC(const char *pass, int passlen,
-    const unsigned char *salt, int saltlen, int iter,
-    const EVP_MD *digest, int keylen, unsigned char *out);
-const char *OpenSSL_version(int type);
-#endif
-''');
+/// Idempotently patches the sqlite3 package's build hook so the
+/// compile-from-source path links a per-ABI static `libcrypto.a` and pulls its
+/// headers, resolving `RAND_bytes`/`EVP_*` at runtime instead of leaving them
+/// undefined. Reads the OpenSSL tree location from `NOOK_OPENSSL_DIR`.
+void _patchSqlite3Hook() {
+  final pubCache = Platform.environment['PUB_CACHE'] ??
+      '${Platform.environment['HOME']}/.pub-cache';
+  final hookDir = Directory('$pubCache/hosted/pub.dev');
+  if (!hookDir.existsSync()) {
+    stderr.writeln('Pub cache not found at ${hookDir.path}');
+    exit(1);
+  }
 
-  File('${opensslDir.path}/hmac.h').writeAsStringSync('''
-#ifndef OPENSSL_HMAC_H
-#define OPENSSL_HMAC_H
-#include <openssl/crypto.h>
-HMAC_CTX *HMAC_CTX_new(void);
-void HMAC_CTX_free(HMAC_CTX *ctx);
-int HMAC_Init_ex(HMAC_CTX *ctx, const void *key, int key_len,
-    const EVP_MD *md, ENGINE *impl);
-int HMAC_Update(HMAC_CTX *ctx, const unsigned char *data, size_t len);
-int HMAC_Final(HMAC_CTX *ctx, unsigned char *md, unsigned int *len);
-#endif
-''');
+  final sqlite3Dirs = hookDir
+      .listSync()
+      .whereType<Directory>()
+      .where((d) =>
+          d.path.split(Platform.pathSeparator).last.startsWith('sqlite3-'))
+      .toList()
+    ..sort((a, b) => b.path.compareTo(a.path)); // newest first
 
-  File('${opensslDir.path}/opensslv.h').writeAsStringSync('''
-#ifndef OPENSSL_OPENSSLV_H
-#define OPENSSL_OPENSSLV_H
-#define OPENSSL_VERSION_NUMBER 0x10100000L
-#define OPENSSL_VERSION 0
-#endif
-''');
+  if (sqlite3Dirs.isEmpty) {
+    stderr.writeln('No sqlite3 package found in pub cache');
+    exit(1);
+  }
 
-  File('${opensslDir.path}/rand.h').writeAsStringSync('''
-#ifndef OPENSSL_RAND_H
-#define OPENSSL_RAND_H
-int RAND_bytes(unsigned char *buf, int num);
-void RAND_add(const void *buf, int num, double entropy);
-#endif
-''');
+  final hookFile = File('${sqlite3Dirs.first.path}/hook/build.dart');
+  if (!hookFile.existsSync()) {
+    stderr.writeln('Build hook not found at ${hookFile.path}');
+    exit(1);
+  }
 
-  File('${opensslDir.path}/err.h').writeAsStringSync('''
-#ifndef OPENSSL_ERR_H
-#define OPENSSL_ERR_H
-unsigned long ERR_get_error(void);
-void ERR_clear_error(void);
-char *ERR_error_string(unsigned long e, char *buf);
-#endif
-''');
+  var content = hookFile.readAsStringSync();
 
-  File('${opensslDir.path}/objects.h').writeAsStringSync('''
-#ifndef OPENSSL_OBJECTS_H
-#define OPENSSL_OBJECTS_H
-const char *OBJ_nid2sn(int n);
-#endif
-''');
+  if (content.contains('nookOpensslAbi')) {
+    stdout.writeln('sqlite3 build hook already patched — skipping.');
+    return;
+  }
 
-  stdout.writeln('Created stub OpenSSL headers in ${opensslDir.path}');
+  const marker = '        final library = CBuilder.library(\n'
+      '          name: \'sqlite3\',';
+  const includesMarker =
+      '          includes: [p.dirname(sourceFile), ...additionalIncludes],';
+  const libDirsMarker =
+      '          libraryDirectories: [...additionalLibraryDirectories],';
+  const librariesMarker = '            ...additionalLibraries,';
+
+  for (final needle in [
+    marker,
+    includesMarker,
+    libDirsMarker,
+    librariesMarker
+  ]) {
+    if (!content.contains(needle)) {
+      stderr.writeln('Could not find hook marker:\n$needle');
+      stderr
+          .writeln('The sqlite3 hook may have changed — patch needs updating.');
+      exit(1);
+    }
+  }
+
+  final opensslBlock = '''
+        // BEGIN NOOK OPENSSL PATCH: statically link libcrypto.a for the
+        // F-Droid compile-from-source path (PRAGMA key needs real crypto).
+        final nookOpensslDir = Platform.environment['NOOK_OPENSSL_DIR'];
+        final nookOpensslAbi = switch (input.config.code.targetArchitecture) {
+          OSArchitecture.arm => 'android-arm',
+          OSArchitecture.arm64 => 'android-arm64',
+          OSArchitecture.x64 => 'android-x86_64',
+          _ => null,
+        };
+        final nookOpensslIncludes = <String>[
+          if (nookOpensslDir != null &&
+              nookOpensslAbi != null)
+            '\$nookOpensslDir/\$nookOpensslAbi/include',
+        ];
+        final nookOpensslLibDirs = <String>[
+          if (nookOpensslDir != null &&
+              nookOpensslAbi != null)
+            '\$nookOpensslDir/\$nookOpensslAbi/lib',
+        ];
+        final nookOpensslLibs = <String>[
+          if (nookOpensslDir != null && nookOpensslAbi != null)
+            'crypto',
+        ];
+        // END NOOK OPENSSL PATCH
+''';
+
+  content = content.replaceFirst(marker, '$opensslBlock$marker');
+  content = content.replaceFirst(
+    includesMarker,
+    '          includes: [p.dirname(sourceFile), '
+    '...additionalIncludes, ...nookOpensslIncludes],',
+  );
+  content = content.replaceFirst(
+    libDirsMarker,
+    '          libraryDirectories: '
+    '[...additionalLibraryDirectories, ...nookOpensslLibDirs],',
+  );
+  content = content.replaceFirst(
+    librariesMarker,
+    '            ...nookOpensslLibs,\n'
+    '            ...additionalLibraries,',
+  );
+
+  hookFile.writeAsStringSync(content);
+  stdout.writeln('Patched ${hookFile.path} to link per-ABI static OpenSSL.');
 }
