@@ -86,7 +86,7 @@ Future<String> _readOrCreateEncryptionKey() async {
       );
       return existing;
     }
-  }   on Exception catch (e) {
+  } on Exception catch (e) {
     // A read failure here is concerning — the key may be corrupted.
     // Log the actual error so production issues are diagnosable.
     // Re-throw instead of silently generating a new key, which would

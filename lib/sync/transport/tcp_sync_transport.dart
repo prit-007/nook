@@ -498,7 +498,8 @@ class TcpSyncTransport implements SyncTransport {
         _chunkReassemblyTimer?.cancel();
         _chunkReassemblyTimer = Timer(const Duration(minutes: 5), () {
           if (_incomingBundleId != null) {
-            nookLog(NookLogKey.sync,
+            nookLog(
+                NookLogKey.sync,
                 'Chunk reassembly timed out for bundle $_incomingBundleId',
                 LogLevel.warning);
             _resetIncomingBuffer();
@@ -693,8 +694,7 @@ class TcpSyncTransport implements SyncTransport {
           try {
             await _handleFrame(payload);
           } catch (e) {
-            nookLog(NookLogKey.sync, 'Frame handler error: $e',
-                LogLevel.error);
+            nookLog(NookLogKey.sync, 'Frame handler error: $e', LogLevel.error);
             _emitState(SyncSessionState.error(
               'Frame handling failed: $e',
               outcome: SyncOutcomeCategory.protocol,

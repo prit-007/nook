@@ -34,8 +34,7 @@ class ChecklistItemRepository {
     nookLog(
         NookLogKey.database, 'Checklist item added: $itemId', LogLevel.debug);
     if (item == null) {
-      throw StateError(
-          'Checklist item $itemId not found after insert');
+      throw StateError('Checklist item $itemId not found after insert');
     }
     return item;
   }

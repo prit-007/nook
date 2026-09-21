@@ -258,8 +258,7 @@ class NoteRepository {
       }
 
       for (final note in deleted) {
-        await (_db.delete(_db.noteTags)
-              ..where((t) => t.noteId.equals(note.id)))
+        await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(note.id)))
             .go();
         await (_db.delete(_db.checklistItems)
               ..where((t) => t.noteId.equals(note.id)))
