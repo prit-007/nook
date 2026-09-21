@@ -12,9 +12,13 @@ import 'dart:io';
 ///  1. Rewrites the `hooks.user_defines.sqlite3` block to compile from the
 ///     SQLCipher amalgamation with `SQLITE_HAS_CODEC`.
 ///  2. Deletes the old stub OpenSSL headers (they would shadow the real ones).
-///  3. Patches the sqlite3 package's build hook (in the pub cache) so that when
-///     `NOOK_OPENSSL_DIR` is set it links the per-ABI static `libcrypto.a` and
-///     uses its headers — passing `PRAGMA key` real crypto instead of stubs.
+///  3. Patches the sqlite3 package's build hook (in the pub cache) so the
+///     amalgamation compiles against the real OpenSSL headers for every target
+///     config and statically links the per-ABI `libcrypto.a` on Android —
+///     passing `PRAGMA key` real crypto instead of stubs.
+///  4. Purges the compiled hook cache (`.dart_tool/hooks_runner`) so the
+///     patched `build.dart` is recompiled instead of the stale `hook.dill`
+///     produced by `flutter pub get`.
 void main(List<String> args) {
   final sqlcipherPath =
       args.isNotEmpty ? args[0] : Platform.environment['SQLCIPHER_PATH'] ?? '';
@@ -37,7 +41,7 @@ void main(List<String> args) {
   _patchPubspec(sqlcipherPath);
   _removeStubHeaders(sqlcipherPath);
   _validateOpensslBuild(opensslDir);
-  _patchSqlite3Hook();
+  _patchSqlite3Hook(opensslDir);
 
   stdout.writeln(
     'Patched sqlite3 source → source from $sqlcipherPath/sqlite3.c with '
@@ -129,10 +133,17 @@ void _validateOpensslBuild(String opensslDir) {
 }
 
 /// Idempotently patches the sqlite3 package's build hook so the
-/// compile-from-source path links a per-ABI static `libcrypto.a` and pulls its
-/// headers, resolving `RAND_bytes`/`EVP_*` at runtime instead of leaving them
-/// undefined. Reads the OpenSSL tree location from `NOOK_OPENSSL_DIR`.
-void _patchSqlite3Hook() {
+/// compile-from-source path compiles against the real OpenSSL headers for
+/// every target config and statically links a per-ABI `libcrypto.a` on
+/// Android, resolving `RAND_bytes`/`EVP_*` at runtime instead of leaving them
+/// undefined. The OpenSSL tree location is baked in, so the hook does not need
+/// the `NOOK_OPENSSL_DIR` env var at build time.
+///
+/// The compiled hook cache is purged afterwards because `flutter pub get`
+/// compiles the hook into `.dart_tool/hooks_runner/**/hook.dill`; editing
+/// `build.dart` does not invalidate that dill, so a stale (unpatched) hook
+/// would keep running.
+void _patchSqlite3Hook(String opensslDir) {
   final pubCache = Platform.environment['PUB_CACHE'] ??
       '${Platform.environment['HOME']}/.pub-cache';
   final hookDir = Directory('$pubCache/hosted/pub.dev');
@@ -190,28 +201,31 @@ void _patchSqlite3Hook() {
   }
 
   final opensslBlock = '''
-        // BEGIN NOOK OPENSSL PATCH: statically link libcrypto.a for the
-        // F-Droid compile-from-source path (PRAGMA key needs real crypto).
-        final nookOpensslDir = Platform.environment['NOOK_OPENSSL_DIR'];
+        // BEGIN NOOK OPENSSL PATCH: compile against real OpenSSL headers and
+        // statically link libcrypto.a for the F-Droid compile-from-source
+        // path (PRAGMA key needs real crypto).
+        final nookOpensslDir = '$opensslDir';
         final nookOpensslAbi = switch (input.config.code.targetArchitecture) {
-          OSArchitecture.arm => 'android-arm',
-          OSArchitecture.arm64 => 'android-arm64',
-          OSArchitecture.x64 => 'android-x86_64',
+          Architecture.arm => 'android-arm',
+          Architecture.arm64 => 'android-arm64',
+          Architecture.x64 => 'android-x86_64',
           _ => null,
         };
+        // Headers are arch-independent, so non-Android configs (e.g. the Linux
+        // host build flutter runs first) compile against any ABI's header tree;
+        // only Android actually links the static crypto library.
+        final nookOpensslHeaderAbi = nookOpensslAbi ?? 'android-arm64';
+        final nookOpensslLink = nookOpensslAbi != null &&
+            input.config.code.targetOS == OS.android;
         final nookOpensslIncludes = <String>[
-          if (nookOpensslDir != null &&
-              nookOpensslAbi != null)
-            '\$nookOpensslDir/\$nookOpensslAbi/include',
+          if (nookOpensslDir.isNotEmpty)
+            '\$nookOpensslDir/\$nookOpensslHeaderAbi/include',
         ];
         final nookOpensslLibDirs = <String>[
-          if (nookOpensslDir != null &&
-              nookOpensslAbi != null)
-            '\$nookOpensslDir/\$nookOpensslAbi/lib',
+          if (nookOpensslLink) '\$nookOpensslDir/\$nookOpensslAbi/lib',
         ];
         final nookOpensslLibs = <String>[
-          if (nookOpensslDir != null && nookOpensslAbi != null)
-            'crypto',
+          if (nookOpensslLink) 'crypto',
         ];
         // END NOOK OPENSSL PATCH
 ''';
@@ -235,4 +249,22 @@ void _patchSqlite3Hook() {
 
   hookFile.writeAsStringSync(content);
   stdout.writeln('Patched ${hookFile.path} to link per-ABI static OpenSSL.');
+
+  _purgeStaleHookCache();
+}
+
+/// Deletes the compiled native-assets hook cache. `flutter pub get` compiles
+/// each hook to `.dart_tool/hooks_runner/<package>/<hash>/hook.dill` from the
+/// source as it is at pub-get time; editing `build.dart` afterwards does not
+/// invalidate that dill, so without this the unpatched hook keeps running.
+void _purgeStaleHookCache() {
+  final hooksRunner = Directory('.dart_tool/hooks_runner');
+  final nativeAssets = Directory('.dart_tool/native_assets');
+  for (final dir in [hooksRunner, nativeAssets]) {
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+      stdout.writeln(
+          'Deleted ${dir.path} to force recompilation of the patched hook.');
+    }
+  }
 }
