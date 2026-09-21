@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-21
+
+### Crash & stability fixes (P0)
+- **Missing `mounted` checks after async gaps.** Added guards in
+  `note_editor_screen.dart` (5 `setState` calls), `checklist_editor.dart`
+  (`_reorder`), `note_options_sheet.dart` (inline notebook/tag creation), and
+  `qr_scan_screen.dart` (camera callback). Prevents framework crashes when the
+  widget is disposed before the async callback fires.
+- **Encryption key silently replaced on read failure.** `database.dart` now
+  rethrows the exception from `flutter_secure_storage` instead of silently
+  generating a new key — the old behavior could cause data loss by opening the
+  vault with a different key than the one used to encrypt it.
+
+### Conditional crash fixes (P1)
+- **Null-unsafe `thumbnailBytes!` in sync orchestrator.** Extracted the
+  nullable value into a local variable before the null check, preventing
+  `thumbnailBytes` from being promoted unsafely after an async gap (2
+  locations in `sync_orchestrator.dart`).
+- **`return item!` without null check in `checklist_item_repository.dart`.**
+  Replaced with an explicit `if (item == null) throw StateError` so a missing
+  checklist item produces a clear error instead of a `Null check operator used
+  on a null value` crash.
+- **TCP async frame handler errors silently lost.** Wrapped
+  `await _handleFrame(payload)` in a try-catch inside the `onData` callback in
+  `tcp_sync_transport.dart` — in Dart, errors from an `async` listener callback
+  go to the Zone's uncaught handler, not to the socket's `onError`, so frame
+  processing failures were invisible.
+- **Wi-Fi Direct EventChannel never re-subscribes.** Added `_listening = false`
+  in the `onError` and `onDone` handlers of the EventChannel stream in
+  `wifi_direct.dart`, so the next call to `_ensureListener()` creates a fresh
+  subscription instead of permanently silencing Wi-Fi Direct events for the
+  rest of the session.
+
+### Data integrity fixes (P2)
+- **FTS index desync on title/content changes.** `note_repository.dart`
+  `updateNote` now writes to the FTS5 index when the title changes, and
+  `updateContent` deletes the FTS row when `plainText` is null (content
+  cleared), preventing stale search results.
+- **Non-transactional notebook deletion.** `notebook_repository.dart`
+  `softDeleteNotebookAndNotes` and `deleteNotebookAndNotes` are now wrapped in
+  a `db.transaction()` so the notebook and its linked notes are atomically
+  marked deleted — a crash between the two statements no longer leaves
+  orphaned notes.
+- **File deletion outside transaction in bin empty.** `note_repository.dart`
+  `permanentlyDeleteAllDeleted` now deletes attachment files inside the same
+  transaction that removes the database rows, so a crash mid-operation no
+  longer leaves orphaned files on disk.
+
+### Sync reliability (P2)
+- **Busy-ack indistinguishable from empty-ack.** Added an `isBusy` field to
+  `SyncAck` (`sync_bundle.dart`); the receiver now sends `isBusy: true` when a
+  second bundle arrives during a pending transfer. The sender retries up to 3
+  times with a 3-second delay instead of interpreting the empty ack as success.
+- **TCP chunk reassembly has no timeout.** Added a 5-minute `Timer` on
+  `sync_header` receipt in `tcp_sync_transport.dart` so the receiver times out
+  cleanly if the sender crashes mid-transfer instead of hanging indefinitely.
+
+### UX improvements (P2)
+- **Search fires on every keystroke.** Added a 300ms debounce to the search
+  input in `search_screen.dart` so rapid typing doesn't fire overlapping DB
+  queries. The accessibility test was updated to pump past the debounce.
+
+### Test improvements
+- Accessibility smoke test updated to account for the 300ms search debounce.
+- **955 tests passing, 0 analysis issues.**
+
 ## [0.9.1] - 2026-09-20
 
 ### Soft-delete Bin system — full round-trip with retrieval verification
@@ -762,7 +828,8 @@ Editor UX upgrades, shape assist, checklist polish, and the CI release pipeline.
 - CI: GitHub Actions release pipeline with `softprops/action-gh-release`,
   tag-triggered APK builds, and auto-generated release notes.
 
-[Unreleased]: https://github.com/prit-007/nook/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/prit-007/nook/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/prit-007/nook/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/prit-007/nook/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/prit-007/nook/compare/v0.8.6...v0.9.0
 [0.7.8]: https://github.com/prit-007/nook/compare/v0.7.7...v0.7.8

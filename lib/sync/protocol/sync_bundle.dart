@@ -329,10 +329,16 @@ class SyncAck {
   const SyncAck({
     required this.receivedNoteIds,
     required this.rejectedNoteIds,
+    this.isBusy = false,
   });
 
   final List<String> receivedNoteIds;
   final List<String> rejectedNoteIds;
+
+  /// When true, signals that the receiver is currently processing another
+  /// transfer and the sender should retry later. Distinguishes "busy" from
+  /// "accepted zero notes" (which would be a valid empty ack).
+  final bool isBusy;
 
   Uint8List toCbor() {
     final map = CborMap.fromEntries([
@@ -344,6 +350,7 @@ class SyncAck {
         CborString('rejectedNoteIds'),
         CborList.of(rejectedNoteIds.map(CborString.new).toList()),
       ),
+      if (isBusy) MapEntry(CborString('isBusy'), const CborBool(true)),
     ]);
     return Uint8List.fromList(cborEncode(map));
   }
@@ -357,6 +364,7 @@ class SyncAck {
       rejectedNoteIds: (map['rejectedNoteIds'] as List<dynamic>)
           .map((e) => e as String)
           .toList(),
+      isBusy: map['isBusy'] == true,
     );
   }
 }

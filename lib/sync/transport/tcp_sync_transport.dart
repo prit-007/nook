@@ -79,6 +79,7 @@ class TcpSyncTransport implements SyncTransport {
   int _incomingTotalChunks = 0;
   String? _incomingChecksum;
   final _incomingChunks = <int, String>{};
+  Timer? _chunkReassemblyTimer;
 
   Completer<void>? _ackCompleter;
   Uint8List? _ackData;
@@ -492,6 +493,22 @@ class TcpSyncTransport implements SyncTransport {
         _incomingTotalChunks = map['totalChunks'] as int;
         _incomingChecksum = map['checksum'] as String;
         _incomingChunks.clear();
+        // Start a timeout: if the full set of chunks doesn't arrive within
+        // 5 minutes, reset the buffer so the receiver isn't stuck forever.
+        _chunkReassemblyTimer?.cancel();
+        _chunkReassemblyTimer = Timer(const Duration(minutes: 5), () {
+          if (_incomingBundleId != null) {
+            nookLog(
+                NookLogKey.sync,
+                'Chunk reassembly timed out for bundle $_incomingBundleId',
+                LogLevel.warning);
+            _resetIncomingBuffer();
+            _emitState(const SyncSessionState.error(
+              'Transfer timed out waiting for chunks',
+              outcome: SyncOutcomeCategory.timedOut,
+            ));
+          }
+        });
         break;
 
       case 'sync_chunk':
@@ -542,6 +559,8 @@ class TcpSyncTransport implements SyncTransport {
     _incomingTotalChunks = 0;
     _incomingChecksum = null;
     _incomingChunks.clear();
+    _chunkReassemblyTimer?.cancel();
+    _chunkReassemblyTimer = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -672,7 +691,17 @@ class TcpSyncTransport implements SyncTransport {
           final payload = buffer.sublist(4, 4 + expectedLength);
           buffer.removeRange(0, 4 + expectedLength);
 
-          await _handleFrame(payload);
+          try {
+            await _handleFrame(payload);
+          } catch (e) {
+            nookLog(NookLogKey.sync, 'Frame handler error: $e', LogLevel.error);
+            _emitState(SyncSessionState.error(
+              'Frame handling failed: $e',
+              outcome: SyncOutcomeCategory.protocol,
+            ));
+            _resetIncomingBuffer();
+            return;
+          }
         }
       },
       onError: (error) {

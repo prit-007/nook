@@ -114,6 +114,14 @@ class NoteRepository {
         updatedAt: Value(updatedAt ?? DateTime.now()),
       ),
     );
+
+    // Keep FTS index in sync when title changes.
+    if (title != null) {
+      final note = await getNoteById(id);
+      if (note != null) {
+        await _syncFts(id, title, note.plainText);
+      }
+    }
   }
 
   /// Increments only the `syncVersion` column, leaving `updatedAt` untouched.
@@ -148,6 +156,13 @@ class NoteRepository {
       if (note != null) {
         await _syncFts(id, note.title, plainText);
       }
+    } else {
+      // Content was cleared — remove from FTS so the note doesn't
+      // appear in search results for stale text.
+      await _db.customStatement(
+        'DELETE FROM notes_fts WHERE id = ?',
+        [id],
+      );
     }
     nookLog(NookLogKey.database, 'Note content saved: $id', LogLevel.debug);
   }
@@ -231,16 +246,17 @@ class NoteRepository {
     if (deleted.isEmpty) return;
 
     final attachmentRepo = AttachmentRepository(_db);
-    // Delete on-disk files for all attachments of deleted notes.
-    for (final note in deleted) {
-      final attachments =
-          await attachmentRepo.getAllForNoteIncludingDeleted(note.id);
-      for (final att in attachments) {
-        await attachmentRepo.deleteFilesForAttachment(att);
-      }
-    }
 
     await _db.transaction(() async {
+      // Delete on-disk files for all attachments of deleted notes.
+      for (final note in deleted) {
+        final attachments =
+            await attachmentRepo.getAllForNoteIncludingDeleted(note.id);
+        for (final att in attachments) {
+          await attachmentRepo.deleteFilesForAttachment(att);
+        }
+      }
+
       for (final note in deleted) {
         await (_db.delete(_db.noteTags)..where((t) => t.noteId.equals(note.id)))
             .go();

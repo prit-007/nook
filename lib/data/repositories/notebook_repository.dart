@@ -109,10 +109,12 @@ class NotebookRepository {
     final notes = await (_db.select(_db.notes)
           ..where((t) => t.notebookId.equals(id)))
         .get();
-    for (final note in notes) {
-      await noteRepo.softDelete(note.id);
-    }
-    await softDelete(id);
+    await _db.transaction(() async {
+      for (final note in notes) {
+        await noteRepo.softDelete(note.id);
+      }
+      await softDelete(id);
+    });
     nookLog(
         NookLogKey.database,
         'Notebook soft-deleted with ${notes.length} notes: $id',
@@ -145,15 +147,17 @@ class NotebookRepository {
     final notes = await (_db.select(_db.notes)
           ..where((t) => t.notebookId.equals(id)))
         .get();
-    for (final note in notes) {
-      await noteRepo.softDelete(note.id);
-    }
-    // Unlink notes from the notebook before deleting it (FK constraint).
-    await (_db.update(_db.notes)..where((t) => t.notebookId.equals(id)))
-        .write(const NotesCompanion(
-      notebookId: Value(null),
-    ));
-    await (_db.delete(_db.notebooks)..where((t) => t.id.equals(id))).go();
+    await _db.transaction(() async {
+      for (final note in notes) {
+        await noteRepo.softDelete(note.id);
+      }
+      // Unlink notes from the notebook before deleting it (FK constraint).
+      await (_db.update(_db.notes)..where((t) => t.notebookId.equals(id)))
+          .write(const NotesCompanion(
+        notebookId: Value(null),
+      ));
+      await (_db.delete(_db.notebooks)..where((t) => t.id.equals(id))).go();
+    });
     nookLog(NookLogKey.database,
         'Notebook deleted with ${notes.length} notes: $id', LogLevel.debug);
   }

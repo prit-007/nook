@@ -135,6 +135,13 @@ class WifiDirect {
           'wifi_direct event stream error: $e',
           LogLevel.warning,
         );
+        // Reset the flag so a fresh subscription is created on next use.
+        // Without this, an EventChannel error permanently silences all
+        // Wi-Fi Direct events for the rest of the app session.
+        _listening = false;
+      },
+      onDone: () {
+        _listening = false;
       },
     );
   }

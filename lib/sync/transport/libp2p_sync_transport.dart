@@ -484,89 +484,120 @@ class Libp2pSyncTransport implements SyncTransport {
 
     _emitState(const SyncSessionState.transferring());
 
-    try {
-      final stream = await _host!.newStream(
-        peerId,
-        [kSyncNotenetProtocol],
-        Context(timeout: _ackTimeout),
-      );
-      nookLog(
-        NookLogKey.sync,
-        'Opening data stream to send ${data.length} bytes',
-        LogLevel.info,
-      );
+    const maxBusyRetries = 3;
+    const busyRetryDelay = Duration(seconds: 3);
 
-      final bytes = Uint8List.fromList(data);
-      final encoded = SyncMessageCodec.encode(SyncMessage(
-        type: SyncMessageType.dataBundle,
-        senderDeviceId: _localDeviceId,
-        senderDeviceName: _localDeviceName,
-        bundleBytes: bytes,
-      ));
-      // Write in chunks to emit granular progress during large transfers.
-      const chunkSize = 64 * 1024; // 64 KB
-      if (encoded.length <= chunkSize) {
-        await stream.write(encoded);
-        _emitProgress(0.5);
-      } else {
-        for (var offset = 0; offset < encoded.length; offset += chunkSize) {
-          final end = (offset + chunkSize).clamp(0, encoded.length);
-          await stream.write(encoded.sublist(offset, end));
-          _emitProgress(0.1 + 0.7 * (end / encoded.length));
-        }
-      }
-      await stream.closeWrite();
-      nookLog(
-          NookLogKey.sync, 'Data bundle sent; awaiting ack', LogLevel.debug);
-
-      final response = await _readMessageToEof(stream, _ackTimeout);
-
-      if (response.type == SyncMessageType.ack && response.ack != null) {
-        _emitProgress(1.0);
-        _emitState(const SyncSessionState.complete());
+    for (var attempt = 0; attempt <= maxBusyRetries; attempt++) {
+      try {
+        final stream = await _host!.newStream(
+          peerId,
+          [kSyncNotenetProtocol],
+          Context(timeout: _ackTimeout),
+        );
         nookLog(
           NookLogKey.sync,
-          'Ack received: ${response.ack!.receivedNoteIds.length} kept, '
-          '${response.ack!.rejectedNoteIds.length} rejected',
+          attempt == 0
+              ? 'Opening data stream to send ${data.length} bytes'
+              : 'Retry $attempt/$maxBusyRetries sending ${data.length} bytes '
+                  '(receiver was busy)',
           LogLevel.info,
         );
-        return response.ack;
-      }
 
-      nookLog(
-        NookLogKey.sync,
-        'Unexpected response from peer (expected ack)',
-        LogLevel.error,
-      );
-      _emitState(const SyncSessionState.error(
-        'Unexpected response from peer',
-        outcome: SyncOutcomeCategory.protocol,
-      ));
-      return null;
-    } on TimeoutException {
-      nookLog(NookLogKey.sync, 'Timed out waiting for ack', LogLevel.warning);
-      _emitState(const SyncSessionState.error(
-        'Timed out waiting for ack',
-        outcome: SyncOutcomeCategory.timedOut,
-      ));
-      return null;
-    } on YamuxException catch (e) {
-      if (_isYamuxTimeout(e)) {
+        final bytes = Uint8List.fromList(data);
+        final encoded = SyncMessageCodec.encode(SyncMessage(
+          type: SyncMessageType.dataBundle,
+          senderDeviceId: _localDeviceId,
+          senderDeviceName: _localDeviceName,
+          bundleBytes: bytes,
+        ));
+        // Write in chunks to emit granular progress during large transfers.
+        const chunkSize = 64 * 1024; // 64 KB
+        if (encoded.length <= chunkSize) {
+          await stream.write(encoded);
+          _emitProgress(0.5);
+        } else {
+          for (var offset = 0; offset < encoded.length; offset += chunkSize) {
+            final end = (offset + chunkSize).clamp(0, encoded.length);
+            await stream.write(encoded.sublist(offset, end));
+            _emitProgress(0.1 + 0.7 * (end / encoded.length));
+          }
+        }
+        await stream.closeWrite();
+        nookLog(
+            NookLogKey.sync, 'Data bundle sent; awaiting ack', LogLevel.debug);
+
+        final response = await _readMessageToEof(stream, _ackTimeout);
+
+        if (response.type == SyncMessageType.ack && response.ack != null) {
+          if (response.ack!.isBusy && attempt < maxBusyRetries) {
+            nookLog(
+              NookLogKey.sync,
+              'Receiver busy; retrying in ${busyRetryDelay.inSeconds}s '
+              '(attempt ${attempt + 1}/$maxBusyRetries)',
+              LogLevel.info,
+            );
+            _emitProgress(0.05);
+            await Future<void>.delayed(busyRetryDelay);
+            continue;
+          }
+          _emitProgress(1.0);
+          _emitState(const SyncSessionState.complete());
+          nookLog(
+            NookLogKey.sync,
+            'Ack received: ${response.ack!.receivedNoteIds.length} kept, '
+            '${response.ack!.rejectedNoteIds.length} rejected',
+            LogLevel.info,
+          );
+          return response.ack;
+        }
+
+        nookLog(
+          NookLogKey.sync,
+          'Unexpected response from peer (expected ack)',
+          LogLevel.error,
+        );
+        _emitState(const SyncSessionState.error(
+          'Unexpected response from peer',
+          outcome: SyncOutcomeCategory.protocol,
+        ));
+        return null;
+      } on TimeoutException {
         nookLog(NookLogKey.sync, 'Timed out waiting for ack', LogLevel.warning);
         _emitState(const SyncSessionState.error(
           'Timed out waiting for ack',
           outcome: SyncOutcomeCategory.timedOut,
         ));
         return null;
+      } on YamuxException catch (e) {
+        if (_isYamuxTimeout(e)) {
+          nookLog(
+              NookLogKey.sync, 'Timed out waiting for ack', LogLevel.warning);
+          _emitState(const SyncSessionState.error(
+            'Timed out waiting for ack',
+            outcome: SyncOutcomeCategory.timedOut,
+          ));
+          return null;
+        }
+        nookLog(NookLogKey.sync, 'Send failed: $e', LogLevel.error);
+        _emitState(SyncSessionState.error('Send failed: $e'));
+        return null;
+      } catch (e) {
+        nookLog(NookLogKey.sync, 'Send failed: $e', LogLevel.error);
+        _emitState(SyncSessionState.error('Send failed: $e'));
+        return null;
       }
-      nookLog(NookLogKey.sync, 'Send failed: $e', LogLevel.error);
-      _emitState(SyncSessionState.error('Send failed: $e'));
-      return null;
-    } catch (e) {
-      nookLog(NookLogKey.sync, 'Send failed: $e', LogLevel.error);
-      _emitState(SyncSessionState.error('Send failed: $e'));
-      return null;
     }
+
+    nookLog(
+      NookLogKey.sync,
+      'Receiver remained busy after $maxBusyRetries retries',
+      LogLevel.warning,
+    );
+    _emitState(const SyncSessionState.error(
+      'Receiver busy; please try again later',
+      outcome: SyncOutcomeCategory.timedOut,
+    ));
+    return null;
   }
 
   /// Writes the receiver's ack back on the stream that delivered the bundle.
@@ -715,6 +746,7 @@ class Libp2pSyncTransport implements SyncTransport {
               ack: const SyncAck(
                 receivedNoteIds: [],
                 rejectedNoteIds: [],
+                isBusy: true,
               ),
             )))
             .then((_) => stream.close())

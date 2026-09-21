@@ -1121,9 +1121,10 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         // root so the doodle stays editable (and its thumbnail renders).
         await File('${baseDir.path}/$restoredId.doodle.json')
             .writeAsBytes(att.bytes, flush: true);
-        if (att.thumbnailBytes != null && att.thumbnailBytes!.isNotEmpty) {
+        final thumbBytes = att.thumbnailBytes;
+        if (thumbBytes != null && thumbBytes.isNotEmpty) {
           await File('${baseDir.path}/${restoredId}_thumb.png')
-              .writeAsBytes(att.thumbnailBytes!, flush: true);
+              .writeAsBytes(thumbBytes, flush: true);
         }
         await attachmentRepo.addDoodle(
           noteId: note.id,
@@ -1161,9 +1162,10 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       await File(filePath).writeAsBytes(att.bytes, flush: true);
 
       String? thumbPath;
-      if (att.thumbnailBytes != null && att.thumbnailBytes!.isNotEmpty) {
+      final thumbBytes = att.thumbnailBytes;
+      if (thumbBytes != null && thumbBytes.isNotEmpty) {
         thumbPath = '${noteDir.path}/${entry.noteId}_$idPart.thumb.$ext';
-        await File(thumbPath).writeAsBytes(att.thumbnailBytes!, flush: true);
+        await File(thumbPath).writeAsBytes(thumbBytes, flush: true);
       }
 
       if (att.type == 'doodleLayer') {

@@ -245,6 +245,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       }
     }
 
+    if (!mounted) {
+      _cleanupInit();
+      return;
+    }
     setState(() => _loading = false);
     if (widget.noteId == null && _note?.type == NoteType.doodle) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -405,6 +409,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         await repo.updateNote(_note!.id, notebookId: id);
       },
       onColorChanged: (color) async {
+        if (!mounted) return;
         setState(() => _colorSeed = color);
         await repo.updateNote(_note!.id, colorSeed: color);
       },
@@ -426,6 +431,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             return;
           }
         }
+        if (!mounted) return;
         setState(() => _locked = locked);
         await repo.updateNote(_note!.id, locked: locked);
       },
@@ -475,6 +481,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     // Reload attachments so the media strip updates instantly.
     final attachments =
         await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    if (!mounted) return;
     setState(() => _checklistAttachments = attachments);
     _dirty = true;
   }
@@ -682,6 +689,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     // Reload attachments so the media strip updates instantly.
     final attachments =
         await AttachmentRepository(_db!).getAllForNote(_note!.id);
+    if (!mounted) return;
     setState(() => _checklistAttachments = attachments);
   }
 

@@ -97,6 +97,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
     final value = decodeQrFromFrame(frame);
     if (value == null || value.isEmpty) return;
     _handled = true;
+    if (!mounted) return;
     Navigator.of(context).pop(value);
   }
 
