@@ -165,6 +165,7 @@ jobs:
           flutter build apk --release --split-per-abi --target-platform=android-arm --obfuscate --split-debug-info=build/symbols
           flutter build apk --release --split-per-abi --target-platform=android-arm64 --obfuscate --split-debug-info=build/symbols
           flutter build apk --release --split-per-abi --target-platform=android-x64 --obfuscate --split-debug-info=build/symbols
+          flutter build apk --release --obfuscate --split-debug-info=build/symbols
 
       - name: Verify libsqlite3.so has no unresolved crypto symbols
         run: |
@@ -315,64 +316,17 @@ jobs:
       - name: Build release macOS (unsigned)
         run: flutter build macos --release
 
-      - name: Build macOS arm64 for universal
-        run: flutter build macos --release --target-platform=macos-arm64
-
-      - name: Build macOS x64 for universal
-        run: flutter build macos --release --target-platform=macos-x64
-
-      - name: Create universal macOS app
+      - name: Package macOS build
         run: |
-          ARM64_APP="build/macos/Build/Products/Release-arm64/nook.app"
-          X64_APP="build/macos/Build/Products/Release-x64/nook.app"
-          UNIVERSAL_APP="build/macos/Build/Products/Release-universal/nook.app"
-
-          if [ ! -d "$ARM64_APP" ] || [ ! -d "$X64_APP" ]; then
-            echo "Missing arch builds: arm64=$ARM64_APP x64=$X64_APP"
-            exit 1
-          fi
-
-          mkdir -p "$UNIVERSAL_APP/Contents/Frameworks"
-
-          ditto "$ARM64_APP" "$UNIVERSAL_APP"
-
-          for fw in "$ARM64_APP/Contents/Frameworks/"*.framework; do
-            NAME=$(basename "$fw")
-            FW_OUT="$UNIVERSAL_APP/Contents/Frameworks/$NAME"
-            rm -rf "$FW_OUT"
-            mkdir -p "$FW_OUT/Versions/A"
-
-            ARM64_FW="$ARM64_APP/Contents/Frameworks/$NAME/Versions/A/$NAME"
-            X64_FW="$X64_APP/Contents/Frameworks/$NAME/Versions/A/$NAME"
-
-            if [ -f "$ARM64_FW" ] && [ -f "$X64_FW" ]; then
-              lipo -create "$ARM64_FW" "$X64_FW" -output "$FW_OUT/Versions/A/$NAME"
-              ln -sf A "$FW_OUT/Versions/Current"
-              cp "$FW_OUT/Versions/A/Info.plist" "$FW_OUT/Info.plist" 2>/dev/null || true
-            else
-              cp -R "$fw" "$FW_OUT"
-            fi
-          done
-
-          for helper in "$ARM64_APP/Contents/MacOS/"nook*; do
-            NAME=$(basename "$helper")
-            HELPER_OUT="$UNIVERSAL_APP/Contents/MacOS/$NAME"
-            ARM64_H="$ARM64_APP/Contents/MacOS/$NAME"
-            X64_H="$X64_APP/Contents/MacOS/$NAME"
-            if [ -f "$ARM64_H" ] && [ -f "$X64_H" ]; then
-              lipo -create "$ARM64_H" "$X64_H" -output "$HELPER_OUT"
-            fi
-          done
-
           ditto -c -k --sequesterRsrc --keepParent \
-            "$UNIVERSAL_APP" \
-            build/macos/nook-macos-universal-v${{ env.APP_VERSION }}.zip
+            build/macos/Build/Products/Release/nook.app \
+            build/macos/nook-macos-v${{ env.APP_VERSION }}.zip
 
       - name: Upload macOS Artifact (Workflow Summary)
         uses: actions/upload-artifact@v4
         with:
           name: nook-macos
-          path: build/macos/nook-macos-universal-v${{ env.APP_VERSION }}.zip
+          path: build/macos/nook-macos-v${{ env.APP_VERSION }}.zip
           if-no-files-found: error
 
   build-linux:

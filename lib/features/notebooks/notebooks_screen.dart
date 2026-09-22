@@ -20,9 +20,17 @@ import 'widgets/notebook_detail_pane.dart';
 
 /// Notebooks list screen — grid of notebook cards with CRUD.
 class NotebooksScreen extends ConsumerStatefulWidget {
-  const NotebooksScreen({super.key, this.embedded = false});
+  const NotebooksScreen({
+    super.key,
+    this.embedded = false,
+    this.onCreateRegistered,
+  });
 
   final bool embedded;
+
+  /// When set, the screen registers its create action with this callback so
+  /// an external widget (e.g. [CollectionsScreen]) can trigger creation.
+  final void Function(VoidCallback onShowCreate)? onCreateRegistered;
 
   @override
   ConsumerState<NotebooksScreen> createState() => _NotebooksScreenState();
@@ -40,6 +48,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
   @override
   void initState() {
     super.initState();
+    widget.onCreateRegistered?.call(showCreateSheet);
     _load();
   }
 
@@ -55,7 +64,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
     });
   }
 
-  void _showCreateSheet() {
+  void showCreateSheet() {
     HapticFeedback.mediumImpact();
     showModalBottomSheet<void>(
       context: context,
@@ -185,7 +194,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
                 // the CollectionsScreen IndexedStack, so sharing the default FAB hero
                 // tag would throw "multiple heroes with the same tag" every build.
                 heroTag: 'fab-notebooks',
-                onPressed: _showCreateSheet,
+                onPressed: showCreateSheet,
                 tooltip: 'Create notebook',
                 icon: HugeIcon(
                     icon: HugeIcons.strokeRoundedAdd01,

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/widgets/dock_safe_area.dart';
-import '../home/widgets/morphing_editorial_fab.dart';
 import '../notebooks/notebooks_screen.dart';
 import '../tags/tags_screen.dart';
 
@@ -22,10 +21,23 @@ class CollectionsScreen extends StatefulWidget {
 class _CollectionsScreenState extends State<CollectionsScreen> {
   late int _selectedTab;
 
+  /// Registered create callbacks from the embedded child screens.
+  VoidCallback? _createNotebookAction;
+  VoidCallback? _createTagAction;
+
   @override
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab.clamp(0, 1).toInt();
+  }
+
+  void _onFabPressed() {
+    HapticFeedback.mediumImpact();
+    if (_selectedTab == 0) {
+      _createNotebookAction?.call();
+    } else {
+      _createTagAction?.call();
+    }
   }
 
   @override
@@ -72,25 +84,39 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
           ),
         ),
       ),
-      body: Stack(
+      body: IndexedStack(
+        index: _selectedTab,
         children: [
-          IndexedStack(
-            index: _selectedTab,
-            children: const [
-              NotebooksScreen(embedded: true),
-              TagsScreen(embedded: true),
-            ],
+          NotebooksScreen(
+            embedded: true,
+            onCreateRegistered: (action) => _createNotebookAction = action,
           ),
-          MorphingEditorialFab(
-            mobileBottomOffset: safeBottom,
-            onCreateNote: (type) async {
-              await HapticFeedback.mediumImpact();
-              if (context.mounted) {
-                await context.push('/note/new?type=${type.name}');
-              }
-            },
+          TagsScreen(
+            embedded: true,
+            onCreateRegistered: (action) => _createTagAction = action,
           ),
         ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: safeBottom),
+        child: FloatingActionButton.extended(
+          heroTag: 'fab-collections',
+          onPressed: _onFabPressed,
+          tooltip: _selectedTab == 0 ? 'Create notebook' : 'Create tag',
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedAdd01,
+            size: 24,
+            color: scheme.onPrimary,
+          ),
+          label: Text(
+            _selectedTab == 0 ? 'New Collection' : 'New Tag',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
       ),
     );
   }
