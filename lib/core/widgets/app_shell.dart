@@ -15,9 +15,8 @@ class AppShell extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/home')) return 0;
     if (location.startsWith('/notebooks')) return 1;
-    if (location.startsWith('/tags')) return 2;
-    if (location.startsWith('/trash')) return 3;
-    if (location.startsWith('/settings')) return 4;
+    if (location.startsWith('/trash')) return 2;
+    if (location.startsWith('/settings')) return 3;
     return 0;
   }
 
@@ -29,10 +28,8 @@ class AppShell extends StatelessWidget {
       case 1:
         context.go('/notebooks');
       case 2:
-        context.go('/tags');
-      case 3:
         context.go('/trash');
-      case 4:
+      case 3:
         context.go('/settings');
     }
   }
@@ -126,25 +123,18 @@ class _MobileShell extends StatelessWidget {
                     onTap: () => onTap(1),
                   ),
                   _DockItem(
-                    icon: HugeIcons.strokeRoundedTag01,
-                    activeIcon: HugeIcons.strokeRoundedTag02,
-                    label: 'Tags',
-                    isSelected: selectedIndex == 2,
-                    onTap: () => onTap(2),
-                  ),
-                  _DockItem(
                     icon: HugeIcons.strokeRoundedDelete01,
                     activeIcon: HugeIcons.strokeRoundedDelete02,
                     label: 'Trash',
-                    isSelected: selectedIndex == 3,
-                    onTap: () => onTap(3),
+                    isSelected: selectedIndex == 2,
+                    onTap: () => onTap(2),
                   ),
                   _DockItem(
                     icon: HugeIcons.strokeRoundedSettings01,
                     activeIcon: HugeIcons.strokeRoundedSettings02,
                     label: 'Settings',
-                    isSelected: selectedIndex == 4,
-                    onTap: () => onTap(4),
+                    isSelected: selectedIndex == 3,
+                    onTap: () => onTap(3),
                   ),
                 ],
               ),
@@ -326,11 +316,6 @@ class _WideShell extends StatelessWidget {
       icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 26),
       selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedBook02, size: 26),
       label: Text('Notebooks'),
-    ),
-    NavigationRailDestination(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedTag01, size: 26),
-      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedTag02, size: 26),
-      label: Text('Tags'),
     ),
     NavigationRailDestination(
       icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 26),

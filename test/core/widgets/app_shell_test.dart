@@ -67,13 +67,12 @@ void main() {
       expect(find.text('Home Content'), findsOneWidget);
     });
 
-    testWidgets('shows floating dock with 5 items', (tester) async {
+    testWidgets('shows floating dock with 4 items', (tester) async {
       await tester.pumpWidget(buildShell());
       await tester.pumpAndSettle();
 
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Notebooks'), findsOneWidget);
-      expect(find.text('Tags'), findsOneWidget);
       expect(find.text('Trash'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
     });
@@ -135,16 +134,6 @@ void main() {
       expect(find.text('Notebooks Content'), findsOneWidget);
     });
 
-    testWidgets('navigates to tags on dock tap', (tester) async {
-      await tester.pumpWidget(buildShell());
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Tags'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Tags Content'), findsOneWidget);
-    });
-
     testWidgets('navigates to trash on dock tap', (tester) async {
       await tester.pumpWidget(buildShell());
       await tester.pumpAndSettle();
@@ -202,13 +191,12 @@ void main() {
       expect(find.text('Home Content'), findsOneWidget);
     });
 
-    testWidgets('shows all 5 rail destinations', (tester) async {
+    testWidgets('shows all 4 rail destinations', (tester) async {
       await tester.pumpWidget(buildShell(screenWidth: 800));
       await tester.pumpAndSettle();
 
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Notebooks'), findsOneWidget);
-      expect(find.text('Tags'), findsOneWidget);
       expect(find.text('Trash'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
     });

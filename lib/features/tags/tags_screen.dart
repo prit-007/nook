@@ -20,9 +20,17 @@ import 'widgets/tag_detail_pane.dart';
 
 /// Tags list screen — tactile color pills with a frosted-glass create sheet.
 class TagsScreen extends ConsumerStatefulWidget {
-  const TagsScreen({super.key, this.embedded = false});
+  const TagsScreen({
+    super.key,
+    this.embedded = false,
+    this.onCreateRegistered,
+  });
 
   final bool embedded;
+
+  /// When set, the screen registers its create action with this callback so
+  /// an external widget (e.g. [CollectionsScreen]) can trigger creation.
+  final void Function(VoidCallback onShowCreate)? onCreateRegistered;
 
   @override
   ConsumerState<TagsScreen> createState() => _TagsScreenState();
@@ -39,6 +47,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen>
   @override
   void initState() {
     super.initState();
+    widget.onCreateRegistered?.call(showCreateSheet);
     _load();
   }
 
@@ -52,7 +61,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen>
     });
   }
 
-  void _showCreateSheet() {
+  void showCreateSheet() {
     HapticFeedback.mediumImpact();
     showModalBottomSheet<void>(
       context: context,
@@ -187,7 +196,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen>
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                onPressed: _showCreateSheet,
+                onPressed: showCreateSheet,
               ),
             ),
     );
