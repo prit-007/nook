@@ -37,6 +37,32 @@ class NotebookRepository {
         .getSingle();
   }
 
+  /// Creates a notebook with a specific ID (used during sync to preserve
+  /// the remote notebook's identity so FK references resolve).
+  Future<Notebook> createNotebookWithId(
+    String id, {
+    required String name,
+    required String colorSeed,
+    String icon = 'notebook',
+    int sortOrder = 0,
+  }) async {
+    await _db.into(_db.notebooks).insert(
+          NotebooksCompanion.insert(
+            id: Value(id),
+            name: name,
+            colorSeed: colorSeed,
+            icon: Value(icon),
+            sortOrder: Value(sortOrder),
+          ),
+        );
+
+    nookLog(
+        NookLogKey.database, 'Notebook created (sync): $id', LogLevel.debug);
+
+    return (_db.select(_db.notebooks)..where((t) => t.id.equals(id)))
+        .getSingle();
+  }
+
   /// Returns all non-deleted notebooks ordered by sortOrder ascending.
   Future<List<Notebook>> getAllNotebooks() async {
     return (_db.select(_db.notebooks)

@@ -1,5 +1,6 @@
 import '../../core/providers/talker_provider.dart';
 import '../../data/repositories/note_repository.dart';
+import '../../data/repositories/notebook_repository.dart';
 import '../../data/tables/notes.dart';
 import 'sync_bundle.dart';
 
@@ -39,9 +40,10 @@ class MergeResult {
 /// - Same device origin, newer → overwrite
 /// - Different device origin, newer → promptUser
 class MergeResolver {
-  MergeResolver(this._noteRepo);
+  MergeResolver(this._noteRepo, this._notebookRepo);
 
   final NoteRepository _noteRepo;
+  final NotebookRepository _notebookRepo;
 
   /// Determines the merge action for an incoming note.
   Future<MergeAction> resolveIncoming(SyncNoteEntry incoming) async {
@@ -121,6 +123,17 @@ class MergeResolver {
     final existing = await _noteRepo.getNoteById(incoming.noteId);
     if (existing != null && !existing.deleted) {
       // ID collision — generate a new ID for the duplicate
+      final notebookId = incoming.noteFields['notebookId'] as String?;
+      await _ensureNotebookExists(
+        notebookId,
+        name: incoming.noteFields['notebookName'] as String?,
+        colorSeed: incoming.noteFields['notebookColorSeed'] as String?,
+        icon: incoming.noteFields['notebookIcon'] as String?,
+      );
+      final rawCreatedAt = incoming.noteFields['createdAt'];
+      final createdAt = rawCreatedAt is int
+          ? DateTime.fromMillisecondsSinceEpoch(rawCreatedAt)
+          : null;
       final newNote = await _noteRepo.createNote(
         title: incoming.noteFields['title'] as String? ?? '',
         type: _parseNoteType(incoming.noteFields['type'] as String?),
@@ -129,7 +142,8 @@ class MergeResolver {
         deltaContent: incoming.noteFields['deltaContent'] as String?,
         plainText: incoming.noteFields['plainText'] as String?,
         syncVersion: incoming.syncVersion,
-        notebookId: incoming.noteFields['notebookId'] as String?,
+        notebookId: notebookId,
+        createdAt: createdAt,
       );
       // Preserve pinned/locked from the incoming note — the base createNote
       // does not accept these params, so apply them in a follow-up update.
@@ -157,12 +171,51 @@ class MergeResolver {
     return MergeAction.overwrite;
   }
 
+  /// Ensures the referenced notebook exists locally. If it doesn't, a
+  /// placeholder is created under the same ID so the note keeps its grouping
+  /// and the FK constraint is satisfied. Mirrors the import handler's
+  /// `_resolveNotebookId` logic.
+  Future<void> _ensureNotebookExists(
+    String? notebookId, {
+    String? name,
+    String? colorSeed,
+    String? icon,
+  }) async {
+    if (notebookId == null || notebookId.isEmpty) return;
+    if (await _notebookRepo.getNotebookById(notebookId) != null) return;
+
+    await _notebookRepo.createNotebookWithId(
+      notebookId,
+      name: name ?? 'Synced Notebook',
+      colorSeed: colorSeed ?? '#6750A4',
+      icon: icon ?? 'notebook',
+    );
+    nookLog(
+      NookLogKey.sync,
+      'Created placeholder notebook for incoming note: $notebookId',
+      LogLevel.info,
+    );
+  }
+
   /// Inserts a brand-new note from a remote device, preserving the remote noteId.
   Future<void> _insertAsNew(
     SyncNoteEntry incoming, {
     String? originIdOverride,
   }) async {
     final noteType = _parseNoteType(incoming.noteFields['type'] as String?);
+    final notebookId = incoming.noteFields['notebookId'] as String?;
+
+    await _ensureNotebookExists(
+      notebookId,
+      name: incoming.noteFields['notebookName'] as String?,
+      colorSeed: incoming.noteFields['notebookColorSeed'] as String?,
+      icon: incoming.noteFields['notebookIcon'] as String?,
+    );
+
+    final rawCreatedAt = incoming.noteFields['createdAt'];
+    final createdAt = rawCreatedAt is int
+        ? DateTime.fromMillisecondsSinceEpoch(rawCreatedAt)
+        : null;
 
     await _noteRepo.createNote(
       id: incoming.noteId,
@@ -173,7 +226,8 @@ class MergeResolver {
       deltaContent: incoming.noteFields['deltaContent'] as String?,
       plainText: incoming.noteFields['plainText'] as String?,
       syncVersion: incoming.syncVersion,
-      notebookId: incoming.noteFields['notebookId'] as String?,
+      notebookId: notebookId,
+      createdAt: createdAt,
     );
 
     final pinned = incoming.noteFields['pinned'] as bool?;
@@ -191,6 +245,13 @@ class MergeResolver {
   /// Overwrites a local note with the remote version (same lineage).
   Future<void> _overwrite(SyncNoteEntry incoming) async {
     final noteType = _parseNoteType(incoming.noteFields['type'] as String?);
+
+    await _ensureNotebookExists(
+      incoming.noteFields['notebookId'] as String?,
+      name: incoming.noteFields['notebookName'] as String?,
+      colorSeed: incoming.noteFields['notebookColorSeed'] as String?,
+      icon: incoming.noteFields['notebookIcon'] as String?,
+    );
 
     await _noteRepo.updateNote(
       incoming.noteId,

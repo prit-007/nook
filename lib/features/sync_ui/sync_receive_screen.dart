@@ -81,8 +81,9 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
   }
 
   void _showQrCodeDialog(BuildContext context) {
-    // Use the first address (primary multiaddr with /p2p/<peer id> suffix).
-    final primaryAddress = _ownAddresses.first;
+    // Prefer IPv4 (see [preferredMultiaddress]) — a scanned IPv6 link-local
+    // address is often unreachable across a LAN.
+    final primaryAddress = preferredMultiaddress(_ownAddresses);
     showDialog<void>(
       context: context,
       builder: (_) => QrDisplayCard(
@@ -139,6 +140,27 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
     if (confirmed != true) return;
   }
 
+  /// Pushes the full-screen SyncPairingScreen when an incoming pairing
+  /// request arrives, so both devices display the same code simultaneously.
+  Future<void> _showPairingScreen(PairingRequest request) async {
+    if (!mounted) return;
+    final confirmed = await Navigator.of(context).push<bool>(
+      EditorialPageRoute(
+        builder: (_) => SyncPairingScreen(
+          pairingCode: request.pairingCode,
+          deviceName: request.remoteDeviceName,
+          onConfirm: () async {
+            await ref.read(syncOrchestratorProvider.notifier).confirmPairing();
+            return ref.read(syncOrchestratorProvider).phase != SyncPhase.error;
+          },
+        ),
+      ),
+    );
+    if (confirmed == true && mounted) {
+      // Pairing confirmed — the orchestrator is now in receiving phase.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -150,6 +172,18 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
 
     _shouldStopOnDispose = syncState.phase == SyncPhase.receiving ||
         syncState.phase == SyncPhase.resolving;
+
+    // When a pairing request arrives, push the full-screen SyncPairingScreen
+    // so both devices show the same prominent code view simultaneously.
+    ref.listen<SyncOrchestratorState>(
+      syncOrchestratorProvider,
+      (prev, next) {
+        final request = next.pendingPairing;
+        if (request != null && (prev?.pendingPairing == null)) {
+          _showPairingScreen(request);
+        }
+      },
+    );
 
     // Ensure the pulse animation tracks the Riverpod phase if rebuilt.
     if (isDiscoverable && !_broadcastController.isAnimating) {

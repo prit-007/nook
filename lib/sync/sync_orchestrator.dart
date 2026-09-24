@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,9 +11,13 @@ import '../core/platform/nearby_permissions.dart';
 import '../core/platform/wifi_direct.dart';
 import '../core/providers/database_provider.dart';
 import '../core/providers/talker_provider.dart';
+import '../data/database.dart';
 import '../data/repositories/attachment_repository.dart';
+import '../data/tables/notes.dart';
 import '../data/repositories/note_repository.dart';
+import '../data/repositories/notebook_repository.dart';
 import '../data/repositories/sync_log_repository.dart';
+import '../data/repositories/tag_repository.dart';
 import 'crypto/identity_store.dart';
 import 'media_path_rewriter.dart';
 import 'protocol/merge_resolver.dart';
@@ -613,7 +616,12 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     try {
       final db = ref.read(databaseProvider);
       final noteRepo = NoteRepository(db);
+      final tagRepo = TagRepository(db);
       final attachmentRepo = AttachmentRepository(db);
+      final notebookRepo = NotebookRepository(db);
+
+      // Pre-fetch tags for all notes in a single query.
+      final tagMap = await tagRepo.getTagsForNotes(noteIds);
 
       // Build SyncNoteEntry for each selected note
       final entries = <SyncNoteEntry>[];
@@ -661,6 +669,49 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
           }
         }
 
+        // Pack checklist items for checklist / mixed notes.
+        List<Map<String, dynamic>>? checklistItems;
+        if (note.type == NoteType.checklist || note.type == NoteType.mixed) {
+          final items = await (db.select(db.checklistItems)
+                ..where((t) => t.noteId.equals(noteId))
+                ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+              .get();
+          if (items.isNotEmpty) {
+            checklistItems = items
+                .map((item) => {
+                      'id': item.id,
+                      'itemText': item.itemText,
+                      'checked': item.checked,
+                      'sortOrder': item.sortOrder,
+                    })
+                .toList();
+          }
+        }
+
+        // Pack tags for this note.
+        final noteTags = tagMap[noteId];
+        final tagsPayload = noteTags
+            ?.map((t) => {
+                  'id': t.id,
+                  'name': t.name,
+                  'colorSeed': t.colorSeed,
+                })
+            .toList();
+
+        // Pack notebook metadata so the receiver can create a properly
+        // named placeholder instead of a generic "Synced Notebook".
+        String? notebookName;
+        String? notebookColorSeed;
+        String? notebookIcon;
+        if (note.notebookId != null) {
+          final notebook = await notebookRepo.getNotebookById(note.notebookId!);
+          if (notebook != null) {
+            notebookName = notebook.name;
+            notebookColorSeed = notebook.colorSeed;
+            notebookIcon = notebook.icon;
+          }
+        }
+
         entries.add(SyncNoteEntry(
           noteId: note.id,
           syncVersion: note.syncVersion,
@@ -675,13 +726,26 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
             'notebookId': note.notebookId,
             'deltaContent': note.deltaContent,
             'plainText': note.plainText,
+            'coverImagePath': note.coverImagePath,
+            'createdAt': note.createdAt.millisecondsSinceEpoch,
+            if (tagsPayload != null && tagsPayload.isNotEmpty)
+              'tags': tagsPayload,
+            if (notebookName != null) 'notebookName': notebookName,
+            if (notebookColorSeed != null)
+              'notebookColorSeed': notebookColorSeed,
+            if (notebookIcon != null) 'notebookIcon': notebookIcon,
           },
+          checklistItems: checklistItems != null && checklistItems.isNotEmpty
+              ? checklistItems
+              : null,
           attachments: attachments.isEmpty ? null : attachments,
         ));
         nookLog(
           NookLogKey.sync,
           'Packed note ${note.id} "${note.title}" '
-          '(${attachments.length} attachment(s), ${note.deltaContent?.length ?? 0} delta bytes)',
+          '(${attachments.length} attachment(s), ${noteTags?.length ?? 0} tag(s), '
+          '${checklistItems?.length ?? 0} checklist items, '
+          '${note.deltaContent?.length ?? 0} delta bytes)',
           LogLevel.debug,
         );
         // Update progress incrementally as each note is packed.
@@ -831,9 +895,10 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
       final db = ref.read(databaseProvider);
       final noteRepo = NoteRepository(db);
+      final tagRepo = TagRepository(db);
       final attachmentRepo = AttachmentRepository(db);
       final syncLog = SyncLogRepository(db);
-      final resolver = MergeResolver(noteRepo);
+      final resolver = MergeResolver(noteRepo, NotebookRepository(db));
 
       state = state.copyWith(phase: SyncPhase.resolving);
 
@@ -856,6 +921,9 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
             await resolver.applyIncoming(entry);
             await _restoreAttachments(
                 entry: entry, attachmentRepo: attachmentRepo);
+            await _restoreTags(
+                entry: entry, tagRepo: tagRepo, noteRepo: noteRepo);
+            await _restoreChecklistItems(entry: entry, noteRepo: noteRepo);
             receivedIds.add(entry.noteId);
             await syncLog.logReceived(
               deviceId: bundle.senderDeviceId,
@@ -962,7 +1030,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     final noteRepo = NoteRepository(db);
     final attachmentRepo = AttachmentRepository(db);
     final syncLog = SyncLogRepository(db);
-    final resolver = MergeResolver(noteRepo);
+    final resolver = MergeResolver(noteRepo, NotebookRepository(db));
 
     switch (choice) {
       case 'remote':
@@ -1242,6 +1310,87 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       LogLevel.warning,
     );
     return const Uuid().v4();
+  }
+
+  /// Restores tags for an incoming note. Creates any missing tags locally
+  /// (preserving their remote ID, name, and color) and assigns them to the
+  /// note. Existing tag-note associations are replaced atomically.
+  Future<void> _restoreTags({
+    required SyncNoteEntry entry,
+    required TagRepository tagRepo,
+    required NoteRepository noteRepo,
+  }) async {
+    final rawTags = entry.noteFields['tags'];
+    if (rawTags is! List) return;
+
+    final tagIds = <String>[];
+    for (final raw in rawTags) {
+      if (raw is! Map) continue;
+      final tagId = raw['id'] as String?;
+      final tagName = raw['name'] as String?;
+      final tagColor = raw['colorSeed'] as String?;
+      if (tagId == null || tagId.isEmpty) continue;
+
+      // Ensure the tag exists locally (create if missing, preserving remote ID).
+      final existing = await tagRepo.getTagById(tagId);
+      if (existing == null) {
+        await tagRepo.createTagWithId(
+          tagId,
+          name: tagName ?? 'Synced Tag',
+          colorSeed: tagColor ?? '#6750A4',
+        );
+        nookLog(
+          NookLogKey.sync,
+          'Created placeholder tag for incoming note: $tagId ($tagName)',
+          LogLevel.info,
+        );
+      }
+      tagIds.add(tagId);
+    }
+
+    // Replace tag assignments atomically.
+    if (tagIds.isNotEmpty) {
+      await noteRepo.updateNoteTags(entry.noteId, tagIds);
+    }
+  }
+
+  /// Restores structured checklist items for an incoming checklist/mixed note.
+  /// Existing items are replaced atomically.
+  Future<void> _restoreChecklistItems({
+    required SyncNoteEntry entry,
+    required NoteRepository noteRepo,
+  }) async {
+    final items = entry.checklistItems;
+    if (items == null || items.isEmpty) return;
+
+    final db = ref.read(databaseProvider);
+    // Delete existing checklist items for this note.
+    await (db.delete(db.checklistItems)
+          ..where((t) => t.noteId.equals(entry.noteId)))
+        .go();
+
+    // Insert incoming items.
+    for (final item in items) {
+      final itemId = item['id'] as String? ?? const Uuid().v4();
+      final itemText = item['itemText'] as String? ?? '';
+      final checked = item['checked'] == true;
+      final sortOrder = item['sortOrder'] as int? ?? 0;
+
+      await db.into(db.checklistItems).insert(
+            ChecklistItemsCompanion.insert(
+              id: Value(itemId),
+              noteId: entry.noteId,
+              itemText: itemText,
+              checked: Value(checked),
+              sortOrder: Value(sortOrder),
+            ),
+          );
+    }
+    nookLog(
+      NookLogKey.sync,
+      'Restored ${items.length} checklist item(s) for ${entry.noteId}',
+      LogLevel.debug,
+    );
   }
 }
 

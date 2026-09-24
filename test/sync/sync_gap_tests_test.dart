@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/note_repository.dart';
+import 'package:nook/data/repositories/notebook_repository.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/sync/crypto/identity_store.dart';
 import 'package:nook/sync/protocol/merge_resolver.dart';
@@ -103,7 +104,7 @@ void main() {
     setUp(() {
       db = createTestDb();
       noteRepo = NoteRepository(db);
-      resolver = MergeResolver(noteRepo);
+      resolver = MergeResolver(noteRepo, NotebookRepository(db));
     });
 
     tearDown(() async => db.close());
@@ -186,7 +187,7 @@ void main() {
     setUp(() {
       db = createTestDb();
       noteRepo = NoteRepository(db);
-      resolver = MergeResolver(noteRepo);
+      resolver = MergeResolver(noteRepo, NotebookRepository(db));
     });
 
     tearDown(() async => db.close());
@@ -324,7 +325,7 @@ void main() {
     test('same note incoming twice results in only one promptUser', () async {
       final db = createTestDb();
       final noteRepo = NoteRepository(db);
-      final resolver = MergeResolver(noteRepo);
+      final resolver = MergeResolver(noteRepo, NotebookRepository(db));
 
       try {
         final local = await noteRepo.createNote(
@@ -377,7 +378,7 @@ void main() {
     setUp(() {
       db = createTestDb();
       noteRepo = NoteRepository(db);
-      resolver = MergeResolver(noteRepo);
+      resolver = MergeResolver(noteRepo, NotebookRepository(db));
     });
 
     tearDown(() async => db.close());

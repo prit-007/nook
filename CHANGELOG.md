@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-09-24
+
+### Sync
+- Full note fidelity across devices: tags, checklist items, cover images,
+  `createdAt`, and notebook metadata (id/name/color seed/icon) now transfer
+  and are restored on merge, with missing notebooks/tags recreated under
+  their original IDs so grouping survives.
+- QR codes now encode the IPv4 multiaddr instead of a (usually
+  unreachable) IPv6 link-local/ULA address.
+
+### Sync UI
+- The pairing code now appears on the receiver too — an incoming request
+  auto-pushes the full-screen `SyncPairingScreen` on both sides so both
+  devices verify the same code simultaneously.
+- Pairing, transfer, and sync-screens scale sanely on tablets/desktops via
+  max-width constraints and a side-by-side hub layout.
+
+### Navigation
+- The app no longer restores leaf sub-routes (`/home/search`, notebook/tag
+  details, settings sub-pages) on cold start — a restored leaf had no
+  parent page, leaving the back button dead and, for search, no way to
+  navigate anywhere. Cold starts now land on a shell root instead.
+
 ## [0.9.3] - 2026-09-22
 
 ### Navigation
@@ -840,7 +863,8 @@ Editor UX upgrades, shape assist, checklist polish, and the CI release pipeline.
 - CI: GitHub Actions release pipeline with `softprops/action-gh-release`,
   tag-triggered APK builds, and auto-generated release notes.
 
-[Unreleased]: https://github.com/prit-007/nook/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/prit-007/nook/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/prit-007/nook/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/prit-007/nook/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/prit-007/nook/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/prit-007/nook/compare/v0.9.0...v0.9.1
