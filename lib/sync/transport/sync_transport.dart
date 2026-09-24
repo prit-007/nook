@@ -359,3 +359,16 @@ class MockSyncTransport implements SyncTransport {
     _pairingRequestController.add(request);
   }
 }
+
+/// Picks the best multiaddr to surface for dialing, preferring IPv4
+/// (`/ip4/...`) over IPv6 (`/ip6/...`). A scanned QR code or typed manual
+/// address is only useful if the other device can actually route to it, and
+/// IPv6 link-local/ULA addresses are typically unreachable across a LAN.
+/// Falls back to the first address (any family) when no IPv4 entry exists.
+String preferredMultiaddress(List<String> addresses) {
+  if (addresses.isEmpty) return '';
+  for (final address in addresses) {
+    if (address.startsWith('/ip4/')) return address;
+  }
+  return addresses.first;
+}
