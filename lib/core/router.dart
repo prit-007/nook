@@ -187,10 +187,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Allow onboarding and lock routes through without persistence.
       if (location == '/onboarding' || location == '/lock') return null;
 
-      // Auto-persist every navigated route so the app can restore it on
-      // cold start.  Only top-level and first-level sub-routes are saved;
-      // deep links like /note/:id are intentionally skipped so the app
-      // opens to the containing section, not a possibly-stale note.
+      // Auto-persist the current route so the app can restore it on cold
+      // start. Only shell root destinations are saved — sub-routes like
+      // `/home/search` and `/notebooks/:id` are filtered out in
+      // NavigationPreference so a restored page never renders without its
+      // parent (and a dead back button).
       NavigationPreference.rememberPath(location);
       return null; // no redirect, just persist.
     },

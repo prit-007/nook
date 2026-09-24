@@ -5,9 +5,13 @@ import 'talker_provider.dart';
 
 /// Persists the user's last navigated route across cold starts.
 ///
-/// Stores the full path (e.g. `/notebooks/abc123`, `/settings/security`)
-/// instead of just the top-level tab key, so deep-linked screens are
-/// restored on relaunch.
+/// Stores only the shell's root destinations (`/home`, `/notebooks`,
+/// `/tags`, `/trash`, `/settings`) — never leaf sub-routes. Sub-routes like
+/// `/home/search`, `/notebooks/:id`, and `/settings/security` have no parent
+/// page beneath them when restored as a sole go_router page, which would
+/// leave the app stranded with a dead back button and (for `/home/search`,
+/// which lives outside the shell) no way to navigate anywhere. Restoring a
+/// section root keeps the shell and its dock/rail fully usable.
 class NavigationPreference extends StateNotifier<String> {
   NavigationPreference([super.initial = '/home']);
 
@@ -24,9 +28,10 @@ class NavigationPreference extends StateNotifier<String> {
     'settings': '/settings',
   };
 
-  /// All paths the shell is allowed to restore.  Sub-routes like
-  /// `/notebooks/:id` are accepted via prefix matching.
-  static const _validPrefixes = <String>[
+  /// The only routes safe to restore on cold start — the shell's root
+  /// destinations. Leaf sub-routes are deliberately excluded so a restored
+  /// page never renders without its parent (see the class docs).
+  static const _validRoutes = <String>[
     '/home',
     '/notebooks',
     '/tags',
@@ -88,9 +93,7 @@ class NavigationPreference extends StateNotifier<String> {
     await prefs.setString(_key, path);
   }
 
-  static bool _isValid(String path) {
-    return _validPrefixes.any((p) => path == p || path.startsWith('$p/'));
-  }
+  static bool _isValid(String path) => _validRoutes.contains(path);
 
   /// Whether the user has completed the onboarding flow.
   static Future<bool> isOnboardingCompleted() async {
