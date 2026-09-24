@@ -34,40 +34,67 @@ class SyncScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        children: [
-          Text(
-            'Transfer notes directly to nearby devices over your local network. No cloud required.',
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.5,
-              fontWeight: FontWeight.w500,
-              color: scheme.onSurfaceVariant,
-            ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ListView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            children: [
+              Text(
+                'Transfer notes directly to nearby devices over your local network. No cloud required.',
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 48),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final sideBySide = constraints.maxWidth > 500;
+                  final cards = [
+                    _GlassModeCard(
+                      icon: HugeIcons.strokeRoundedSendToMobile,
+                      title: 'Send to Device',
+                      subtitle: 'Select notes and beam them across the room.',
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        context.push('/sync/send');
+                      },
+                    ),
+                    _GlassModeCard(
+                      icon: HugeIcons.strokeRoundedDownload01,
+                      title: 'Receive Notes',
+                      subtitle: 'Open your vault to accept incoming transfers.',
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        context.push('/sync/receive');
+                      },
+                    ),
+                  ];
+                  if (sideBySide) {
+                    return Row(
+                      children: [
+                        Expanded(child: cards[0]),
+                        const SizedBox(width: 20),
+                        Expanded(child: cards[1]),
+                      ],
+                    );
+                  }
+                  return Column(
+                    children: [
+                      cards[0],
+                      const SizedBox(height: 24),
+                      cards[1],
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
-          const SizedBox(height: 48),
-          _GlassModeCard(
-            icon: HugeIcons.strokeRoundedSendToMobile,
-            title: 'Send to Device',
-            subtitle: 'Select notes and beam them across the room.',
-            onTap: () {
-              HapticFeedback.mediumImpact();
-              context.push('/sync/send');
-            },
-          ),
-          const SizedBox(height: 24),
-          _GlassModeCard(
-            icon: HugeIcons.strokeRoundedDownload01,
-            title: 'Receive Notes',
-            subtitle: 'Open your vault to accept incoming transfers.',
-            onTap: () {
-              HapticFeedback.mediumImpact();
-              context.push('/sync/receive');
-            },
-          ),
-        ],
+        ),
       ),
     );
   }

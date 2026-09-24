@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../sync/sync_orchestrator.dart';
+import '../../../sync/transport/sync_transport.dart';
+import '../sync_pairing_screen.dart';
 import 'incoming_pairing_card.dart';
 import 'qr_display_card.dart';
 
@@ -36,11 +38,33 @@ class _SendViaQrDialog extends ConsumerStatefulWidget {
 
 class _SendViaQrDialogState extends ConsumerState<_SendViaQrDialog> {
   List<String> _ownAddresses = const [];
+  bool _pairingPushed = false;
 
   @override
   void initState() {
     super.initState();
     unawaited(_start());
+  }
+
+  Future<void> _showPairingScreen(PairingRequest request) async {
+    if (!mounted) return;
+    final confirmed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => SyncPairingScreen(
+          pairingCode: request.pairingCode,
+          deviceName: request.remoteDeviceName,
+          onConfirm: () async {
+            await ref.read(syncOrchestratorProvider.notifier).confirmPairing();
+            return ref.read(syncOrchestratorProvider).phase != SyncPhase.error;
+          },
+        ),
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _confirmed();
+    } else if (mounted) {
+      _pairingPushed = false;
+    }
   }
 
   Future<void> _start() async {
@@ -62,7 +86,24 @@ class _SendViaQrDialogState extends ConsumerState<_SendViaQrDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final syncState = ref.watch(syncOrchestratorProvider);
-    final primaryAddress = _ownAddresses.isNotEmpty ? _ownAddresses.first : '';
+    // Prefer an IPv4 address (see [preferredMultiaddress]) so the scanned
+    // code routes reliably on LANs.
+    final primaryAddress = preferredMultiaddress(_ownAddresses);
+
+    // When a pairing request arrives, push the full-screen SyncPairingScreen
+    // so both devices display the same prominent code view simultaneously.
+    ref.listen<SyncOrchestratorState>(
+      syncOrchestratorProvider,
+      (prev, next) {
+        final request = next.pendingPairing;
+        if (request != null &&
+            (prev?.pendingPairing == null) &&
+            !_pairingPushed) {
+          _pairingPushed = true;
+          _showPairingScreen(request);
+        }
+      },
+    );
 
     return PopScope(
       canPop: false,

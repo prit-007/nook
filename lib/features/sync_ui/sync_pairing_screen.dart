@@ -66,7 +66,6 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
       _error = null;
       _remainingSeconds = 30;
     });
-    // Start countdown timer for the waiting state.
     _timeoutTimer?.cancel();
     _timeoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds <= 0) {
@@ -111,143 +110,147 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: HugeIcon(
-                  icon: HugeIcons.strokeRoundedSecurityCheck,
-                  size: 64,
-                  color: scheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(height: 32),
-              const Text(
-                'Confirm Identity',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _connecting
-                    ? 'Waiting for ${widget.deviceName} to confirm '
-                        '(${_remainingSeconds}s)…'
-                    : 'Verify this code on ${widget.deviceName} to establish a '
-                        'secure connection.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: scheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 48),
-
-              // Tactile Code Field
-              PairingCodeField(
-                code: widget.pairingCode,
-                accentColor: _isCopied
-                    ? scheme.primary
-                    : scheme.outlineVariant.withValues(alpha: 0.3),
-                onTap: _copyCode,
-              ),
-
-              const SizedBox(height: 12),
-              Text(
-                _isCopied ? 'Copied to clipboard' : 'Tap to copy',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.primary,
-                ),
-              ),
-
-              if (_error != null) ...[
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: scheme.errorContainer.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(16),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedSecurityCheck,
+                      size: 64,
+                      color: scheme.onPrimaryContainer,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      HugeIcon(
-                        icon: HugeIcons.strokeRoundedAlertCircle,
-                        size: 20,
-                        color: scheme.error,
+                  const SizedBox(height: 32),
+                  const Text(
+                    'Confirm Identity',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _connecting
+                        ? 'Waiting for ${widget.deviceName} to confirm '
+                            '(${_remainingSeconds}s)…'
+                        : 'Verify this code on ${widget.deviceName} to establish a '
+                            'secure connection.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: scheme.onSurfaceVariant,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 48),
+
+                  PairingCodeField(
+                    code: widget.pairingCode,
+                    accentColor: _isCopied
+                        ? scheme.primary
+                        : scheme.outlineVariant.withValues(alpha: 0.3),
+                    onTap: _copyCode,
+                  ),
+
+                  const SizedBox(height: 12),
+                  Text(
+                    _isCopied ? 'Copied to clipboard' : 'Tap to copy',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.primary,
+                    ),
+                  ),
+
+                  if (_error != null) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: scheme.errorContainer.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: TextStyle(
-                            fontSize: 13,
+                      child: Row(
+                        children: [
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedAlertCircle,
+                            size: 20,
                             color: scheme.error,
                           ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: scheme.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 48),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: _connecting
+                              ? null
+                              : () => Navigator.of(context).pop(false),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: _connecting ? null : _handleConfirm,
+                          child: _connecting
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Confirm',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-
-              const SizedBox(height: 48),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      onPressed: _connecting
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      onPressed: _connecting ? null : _handleConfirm,
-                      child: _connecting
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Confirm',
-                              style: TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                    ),
-                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
