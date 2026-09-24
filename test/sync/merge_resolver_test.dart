@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/note_repository.dart';
+import 'package:nook/data/repositories/notebook_repository.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/sync/protocol/merge_resolver.dart';
 import 'package:nook/sync/protocol/sync_bundle.dart';
@@ -15,7 +16,7 @@ void main() {
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     noteRepo = NoteRepository(db);
-    resolver = MergeResolver(noteRepo);
+    resolver = MergeResolver(noteRepo, NotebookRepository(db));
   });
 
   tearDown(() async {

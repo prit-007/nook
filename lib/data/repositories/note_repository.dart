@@ -27,6 +27,7 @@ class NoteRepository {
     String? deltaContent,
     String? plainText,
     int? syncVersion,
+    DateTime? createdAt,
   }) async {
     final noteId = id ?? _uuid.v4();
     try {
@@ -43,6 +44,9 @@ class NoteRepository {
               plainText: Value(plainText),
               syncVersion: syncVersion != null
                   ? Value(syncVersion)
+                  : const Value.absent(),
+              createdAt: createdAt != null
+                  ? Value(createdAt)
                   : const Value.absent(),
             ),
           );

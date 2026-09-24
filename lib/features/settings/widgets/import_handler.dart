@@ -102,8 +102,8 @@ class NookImporter {
       );
 
       final noteRepo = NoteRepository(_db);
-      final resolver = MergeResolver(noteRepo);
       final notebookRepo = NotebookRepository(_db);
+      final resolver = MergeResolver(noteRepo, notebookRepo);
 
       // Restore notebooks before any note insert so the notes.notebook_id FK
       // always resolves, even when the vault was created on another device.

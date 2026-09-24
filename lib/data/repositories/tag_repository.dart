@@ -30,6 +30,26 @@ class TagRepository {
     return (_db.select(_db.tags)..where((t) => t.id.equals(id))).getSingle();
   }
 
+  /// Creates a tag with a specific ID (used during sync to preserve the
+  /// remote tag's identity so associations resolve correctly).
+  Future<Tag> createTagWithId(
+    String id, {
+    required String name,
+    required String colorSeed,
+  }) async {
+    await _db.into(_db.tags).insert(
+          TagsCompanion.insert(
+            id: Value(id),
+            name: name,
+            colorSeed: colorSeed,
+          ),
+        );
+
+    nookLog(NookLogKey.database, 'Tag created (sync): $id', LogLevel.debug);
+
+    return (_db.select(_db.tags)..where((t) => t.id.equals(id))).getSingle();
+  }
+
   /// Returns all non-deleted tags.
   Future<List<Tag>> getAllTags() async {
     return (_db.select(_db.tags)..where((t) => t.deleted.equals(false))).get();
