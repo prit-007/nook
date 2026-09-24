@@ -56,8 +56,8 @@ class NotebookRepository {
           ),
         );
 
-    nookLog(NookLogKey.database, 'Notebook created (sync): $id',
-        LogLevel.debug);
+    nookLog(
+        NookLogKey.database, 'Notebook created (sync): $id', LogLevel.debug);
 
     return (_db.select(_db.notebooks)..where((t) => t.id.equals(id)))
         .getSingle();

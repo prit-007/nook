@@ -152,7 +152,6 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
                     ),
                   ),
                   const SizedBox(height: 48),
-
                   PairingCodeField(
                     code: widget.pairingCode,
                     accentColor: _isCopied
@@ -160,7 +159,6 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
                         : scheme.outlineVariant.withValues(alpha: 0.3),
                     onTap: _copyCode,
                   ),
-
                   const SizedBox(height: 12),
                   Text(
                     _isCopied ? 'Copied to clipboard' : 'Tap to copy',
@@ -170,7 +168,6 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
                       color: scheme.primary,
                     ),
                   ),
-
                   if (_error != null) ...[
                     const SizedBox(height: 20),
                     Container(
@@ -200,7 +197,6 @@ class _SyncPairingScreenState extends State<SyncPairingScreen> {
                       ),
                     ),
                   ],
-
                   const SizedBox(height: 48),
                   Row(
                     children: [

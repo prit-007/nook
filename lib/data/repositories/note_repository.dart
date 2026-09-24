@@ -45,9 +45,8 @@ class NoteRepository {
               syncVersion: syncVersion != null
                   ? Value(syncVersion)
                   : const Value.absent(),
-              createdAt: createdAt != null
-                  ? Value(createdAt)
-                  : const Value.absent(),
+              createdAt:
+                  createdAt != null ? Value(createdAt) : const Value.absent(),
             ),
           );
 

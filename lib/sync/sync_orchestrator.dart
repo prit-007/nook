@@ -671,8 +671,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
         // Pack checklist items for checklist / mixed notes.
         List<Map<String, dynamic>>? checklistItems;
-        if (note.type == NoteType.checklist ||
-            note.type == NoteType.mixed) {
+        if (note.type == NoteType.checklist || note.type == NoteType.mixed) {
           final items = await (db.select(db.checklistItems)
                 ..where((t) => t.noteId.equals(noteId))
                 ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
@@ -705,8 +704,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         String? notebookColorSeed;
         String? notebookIcon;
         if (note.notebookId != null) {
-          final notebook =
-              await notebookRepo.getNotebookById(note.notebookId!);
+          final notebook = await notebookRepo.getNotebookById(note.notebookId!);
           if (notebook != null) {
             notebookName = notebook.name;
             notebookColorSeed = notebook.colorSeed;
@@ -737,10 +735,9 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
               'notebookColorSeed': notebookColorSeed,
             if (notebookIcon != null) 'notebookIcon': notebookIcon,
           },
-          checklistItems:
-              checklistItems != null && checklistItems.isNotEmpty
-                  ? checklistItems
-                  : null,
+          checklistItems: checklistItems != null && checklistItems.isNotEmpty
+              ? checklistItems
+              : null,
           attachments: attachments.isEmpty ? null : attachments,
         ));
         nookLog(
@@ -926,8 +923,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
                 entry: entry, attachmentRepo: attachmentRepo);
             await _restoreTags(
                 entry: entry, tagRepo: tagRepo, noteRepo: noteRepo);
-            await _restoreChecklistItems(
-                entry: entry, noteRepo: noteRepo);
+            await _restoreChecklistItems(entry: entry, noteRepo: noteRepo);
             receivedIds.add(entry.noteId);
             await syncLog.logReceived(
               deviceId: bundle.senderDeviceId,
