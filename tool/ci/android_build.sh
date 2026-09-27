@@ -61,6 +61,13 @@ build_openssl() {
   (
     export ANDROID_NDK_ROOT=$NDK
     export PATH="$TOOLCHAIN/bin:$PATH"
+    # Reproducibility: mkbuildinf.pl embeds gmtime(SOURCE_DATE_EPOCH // time())
+    # as "built on:", and Configure's Perl hashes decide configdata.pm/Makefile
+    # ordering (archive-member/.text order). Pin both so libcrypto.a — and the
+    # libsqlite3.so it links into — is byte-identical on every run.
+    export SOURCE_DATE_EPOCH=0
+    export PERL_HASH_SEED=0
+    export PERL_PERTURB_KEYS=0
     cd "/opt/openssl-$OPENSSL_VERSION"
     ./Configure "$TARGET" -D__ANDROID_API__=21 no-shared no-tests no-ui-console
     # Compile output is huge (~4 MB per ABI) and CI jobs have log-size caps;
