@@ -49,123 +49,38 @@ jobs:
       options: --user root
     timeout-minutes: 60
     env:
-      HAS_KEYSTORE: ${{ secrets.NOOK_KEYSTORE_BASE64 != '' }}
       PUB_CACHE: ${{ github.workspace }}/.pub-cache
       FLUTTER_HOME: /opt/flutter
       ANDROID_HOME: /opt/android-sdk
-      # Consumed by the patched sqlite3 build hook to pick the per-ABI
-      # libcrypto.a when compiling SQLCipher from source.
+      # Where tool/ci/android_build.sh leaves the per-ABI static OpenSSL tree;
+      # the path is baked into the patched sqlite3 build hook.
       NOOK_OPENSSL_DIR: /opt/openssl-android
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Set up build environment
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
             cmake libglu1-mesa libsecret-1-dev ninja-build tcl clang make \
             binutils git curl unzip xz-utils zip sudo
-
-      - name: Install Android NDK 28.2.13676358
-        run: |
           # F-Droid buildserver ships sdkmanager as a system Debian package
           yes | sdkmanager "ndk;28.2.13676358" "build-tools;36.0.0"
-
-      - name: Install Flutter 3.44.8
-        run: |
           git clone --depth 1 --branch 3.44.8 https://github.com/flutter/flutter.git $FLUTTER_HOME
           echo "$FLUTTER_HOME/bin" >> $GITHUB_PATH
           $FLUTTER_HOME/bin/flutter config --no-analytics
           $FLUTTER_HOME/bin/flutter precache --android
 
       - name: Prebuild (pub get + codegen + JNI patch)
-        run: |
-          export PATH="$FLUTTER_HOME/bin:$PATH"
-          flutter pub get --enforce-lockfile
-          dart run build_runner build --delete-conflicting-outputs
-          sed -i 's/-Wl,-z,max-page-size=16384/-Wl,-z,max-page-size=16384,--build-id=none/' \
-            $PUB_CACHE/hosted/pub.dev/jni-*/src/CMakeLists.txt
+        run: tool/ci/android_prebuild.sh
 
-      - name: Build SQLCipher from source
-        run: |
-          git clone --depth 1 --branch v4.5.7 https://github.com/sqlcipher/sqlcipher.git /opt/sqlcipher
-          cd /opt/sqlcipher && ./configure --enable-tempstore=yes --with-crypto-lib=none && make sqlite3.c
-
-      - name: Build OpenSSL for Android (static libcrypto)
-        run: |
-          set -euo pipefail
-          NDK=$ANDROID_HOME/ndk/28.2.13676358
-          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
-          OPENSSL_VERSION=3.4.1
-
-          # OpenSSL 3.4's android targets resolve the NDK by finding *clang on
-          # $PATH* inside $ANDROID_NDK_ROOT (Configurations/15-android.conf
-          # android_ndk()); without this it dies with "no NDK ...-gcc on $PATH".
-          export ANDROID_NDK_ROOT=$NDK
-          export PATH="$TOOLCHAIN/bin:$PATH"
-
-          test -f "$NDK/source.properties"
-          test -x "$TOOLCHAIN/bin/aarch64-linux-android21-clang"
-
-          curl -fSL https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL_VERSION/openssl-$OPENSSL_VERSION.tar.gz \
-            -o /tmp/openssl.tar.gz
-
-          build_openssl() {
-            local TARGET=$1 DEST=/opt/openssl-android/$1
-            rm -rf /opt/openssl-$OPENSSL_VERSION
-            tar xzf /tmp/openssl.tar.gz -C /opt
-            cd /opt/openssl-$OPENSSL_VERSION
-            ./Configure "$TARGET" -D__ANDROID_API__=21 no-shared no-tests no-ui-console
-            make build_libs -j$(nproc)
-            mkdir -p "$DEST/lib" "$DEST/include"
-            cp libcrypto.a "$DEST/lib/"
-            cp -r include/openssl "$DEST/include/"
-            test -f "$DEST/lib/libcrypto.a"
-            test -f "$DEST/include/openssl/rand.h"
-            echo "Built $TARGET → $DEST/lib/libcrypto.a"
-          }
-
-          build_openssl android-arm64
-          build_openssl android-arm
-          build_openssl android-x86_64
-
-          echo "=== OpenSSL static libs ==="
-          find /opt/openssl-android -name libcrypto.a
-
-      - name: Apply app patches
-        run: |
-          export PATH="$FLUTTER_HOME/bin:$PATH"
-          dart run tool/patch_fdroid_sqlite.dart /opt/sqlcipher /opt/openssl-android
-          dart run tool/patch_appflowy_editor.dart
-          dart run tool/patch_talker_flutter.dart
-          dart run tool/patch_mdns_dart.dart
-          dart run tool/patch_sqlite3_android_log.dart
-
-      - name: Configure release signing (from secrets)
-        if: ${{ env.HAS_KEYSTORE == 'true' }}
-        shell: bash
+      - name: Build reproducible APKs (SQLCipher + OpenSSL + app patches)
         env:
           KEYSTORE_BASE64: ${{ secrets.NOOK_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.NOOK_KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.NOOK_KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.NOOK_KEY_ALIAS }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
-          {
-            echo "storeFile=upload-keystore.jks"
-            echo "storePassword=$KEYSTORE_PASSWORD"
-            echo "keyAlias=$KEY_ALIAS"
-            echo "keyPassword=$KEY_PASSWORD"
-          } > android/key.properties
-
-      - name: Build reproducible APKs
-        run: |
-          export PATH="$FLUTTER_HOME/bin:$PATH"
-          export SOURCE_DATE_EPOCH=0
-          flutter build apk --release --split-per-abi --target-platform=android-arm --obfuscate --split-debug-info=build/symbols
-          flutter build apk --release --split-per-abi --target-platform=android-arm64 --obfuscate --split-debug-info=build/symbols
-          flutter build apk --release --split-per-abi --target-platform=android-x64 --obfuscate --split-debug-info=build/symbols
-          flutter build apk --release --obfuscate --split-debug-info=build/symbols
+        run: tool/ci/android_build.sh /opt/sqlcipher
 
       - name: Verify libsqlite3.so has no unresolved crypto symbols
         run: |
