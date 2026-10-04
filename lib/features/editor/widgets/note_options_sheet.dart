@@ -182,6 +182,8 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
     if (!mounted) return;
     final ctx = _notebookSectionKey.currentContext;
     if (ctx == null) return;
+    // GlobalKey context is captured after async work; mounted already checked.
+    // ignore: use_build_context_synchronously
     await Scrollable.ensureVisible(
       ctx,
       duration: const Duration(milliseconds: 200),
