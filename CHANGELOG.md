@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Editor
+- **Markdown import** (issue #55): Settings → Storage → Import Markdown
+  converts `.md` files into notes via AppFlowy’s `markdownToDocument`
+  (headings, todos, lists, quotes, tables, images). Checklist tasks detect
+  `NoteType.checklist`. Paste-as-markdown is handled by AppFlowy’s built-in
+  paste codec. Direct `markdown` package dependency.
+- **Note linking + backlinks** (issue #53): slash menu “Link to note” inserts
+  `nook://note/<id>` hyperlinks; `note_links` cache rebuilt from AppFlowy JSON
+  on every content save (editor, sync, import). Options → Linked notes shows
+  outgoing + incoming links with missing-note badges. Drift `schemaVersion` → 5.
+- Local **version history** for notes (issue #52): time-bucketed autosave
+  snapshots (max 200/note), restore always snapshots current state first.
+  Options sheet → Version history; route `/note/:id/history`. Revisions are
+  local-only (not synced, not in `.nook` export). Drift `schemaVersion` → 4.
+
 ### Reminders
 - Local note reminders (issue #54): `reminders` table (schema v6),
   `ReminderRepository` + injectable `ReminderScheduler`,
