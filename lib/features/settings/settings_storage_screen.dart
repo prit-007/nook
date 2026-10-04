@@ -203,6 +203,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
       final path = await BulkExporter(
         noteRepository: NoteRepository(db),
         checklistItemRepository: ChecklistItemRepository(db),
+        attachmentRepository: AttachmentRepository(db),
       ).exportAll(format);
       if (!mounted) return;
       setState(() {
