@@ -7,11 +7,11 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/widgets/empty_state.dart';
-import '../../data/database.dart';
 import '../../data/repositories/search_repository.dart';
 import 'widgets/note_card.dart';
 
-/// Search screen — instant FTS search with real-time results.
+/// Search screen — instant FTS search with real-time results, grouped by
+/// note matches vs checklist-item matches.
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -23,7 +23,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   String _query = '';
-  List<Note> _results = [];
+  GroupedSearchResults _results = const GroupedSearchResults();
   bool _searched = false;
   bool _searching = false;
   Timer? _debounceTimer;
@@ -57,7 +57,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
     if (query.trim().isEmpty) {
       setState(() {
-        _results = [];
+        _results = const GroupedSearchResults();
         _searching = false;
       });
       return;
@@ -65,14 +65,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     try {
       final db = ref.read(databaseProvider);
       final repo = SearchRepository(db);
-      final results = await repo.searchNotes(query);
+      final results = await repo.searchGrouped(query);
       if (mounted) {
         setState(() {
           _results = results;
           _searching = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() => _searching = false);
       }
@@ -81,6 +81,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: TextField(
@@ -115,28 +116,118 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       subtitle: 'No notes found for "$_query"',
                       animate: false,
                     )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final crossAxisCount =
-                            constraints.maxWidth > 600 ? 3 : 2;
-                        return GridView.builder(
-                          padding: const EdgeInsets.all(12),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            mainAxisSpacing: 10,
-                            crossAxisSpacing: 10,
-                            childAspectRatio: 0.75,
+                  : ListView(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      children: [
+                        if (_results.notes.isNotEmpty) ...[
+                          _SectionHeader(
+                            title: 'Notes',
+                            count: _results.notes.length,
+                            scheme: scheme,
                           ),
-                          itemCount: _results.length,
-                          itemBuilder: (context, index) => NoteCard(
-                            note: _results[index],
-                            onTap: () =>
-                                context.push('/note/${_results[index].id}'),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final crossAxisCount =
+                                    constraints.maxWidth > 600 ? 3 : 2;
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: crossAxisCount,
+                                    mainAxisSpacing: 10,
+                                    crossAxisSpacing: 10,
+                                    childAspectRatio: 0.75,
+                                  ),
+                                  itemCount: _results.notes.length,
+                                  itemBuilder: (context, index) {
+                                    final note = _results.notes[index];
+                                    return NoteCard(
+                                      note: note,
+                                      onTap: () =>
+                                          context.push('/note/${note.id}'),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
                           ),
-                        );
-                      },
+                        ],
+                        if (_results.checklistItems.isNotEmpty) ...[
+                          _SectionHeader(
+                            title: 'Checklist items',
+                            count: _results.checklistItems.length,
+                            scheme: scheme,
+                          ),
+                          for (final hit in _results.checklistItems)
+                            ListTile(
+                              leading: HugeIcon(
+                                icon: HugeIcons.strokeRoundedTask01,
+                                size: 22,
+                                color: scheme.primary,
+                              ),
+                              title: Text(hit.snippet ?? ''),
+                              subtitle: Text(
+                                hit.note.title.isEmpty
+                                    ? 'Untitled'
+                                    : hit.note.title,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                              ),
+                              onTap: () => context.push('/note/${hit.note.id}'),
+                            ),
+                        ],
+                      ],
                     ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.count,
+    required this.scheme,
+  });
+
+  final String title;
+  final int count;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurface,
+                ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSecondaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
