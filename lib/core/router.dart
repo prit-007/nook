@@ -9,6 +9,7 @@ import '../../features/notebooks/notebook_detail_screen.dart';
 import '../../features/tags/tag_detail_screen.dart';
 import '../../features/collections/collections_screen.dart';
 import '../../features/editor/note_editor_screen.dart';
+import '../../features/editor/version_history_screen.dart';
 import '../../features/doodle/doodle_canvas_screen.dart';
 import '../../features/trash/trash_screen.dart';
 import '../../features/security/lock_screen.dart';
@@ -383,6 +384,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           DoodleCanvasScreen(
             noteId: state.pathParameters['noteId']!,
             attachmentId: state.pathParameters['attachmentId']!,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/note/:noteId/history',
+        pageBuilder: (context, state) => _slideUpTransition(
+          context,
+          state,
+          VersionHistoryScreen(
+            noteId: state.pathParameters['noteId']!,
           ),
         ),
       ),
