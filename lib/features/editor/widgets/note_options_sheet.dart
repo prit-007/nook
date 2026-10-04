@@ -634,7 +634,8 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                                             '${r.fireAt} · ${r.repeat}',
                                           ),
                                           trailing: IconButton(
-                                            icon: const Icon(Icons.delete_outline),
+                                            icon: const Icon(
+                                                Icons.delete_outline),
                                             onPressed: () async {
                                               await repo.delete(r.id);
                                               if (ctx.mounted) {
