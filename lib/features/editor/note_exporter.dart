@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
 import 'package:gal/gal.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// Distinguishable export failure reasons for better user feedback.
@@ -119,6 +121,25 @@ class NoteExporter {
       return const ExportResult.success();
     } catch (_) {
       return const ExportResult.failure(ExportFailure.unknown);
+    }
+  }
+
+  /// Also writes [bytes] into the app exports folder so they show up on the
+  /// Exports screen. Best-effort — gallery share still works if this fails.
+  static Future<String?> saveToExportsFolder(
+    Uint8List bytes, {
+    String? fileName,
+  }) async {
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final dir = Directory(p.join(docs.path, 'nook_exports'));
+      if (!dir.existsSync()) dir.createSync(recursive: true);
+      final name = fileName ?? generateFileName('nook-note');
+      final file = File(p.join(dir.path, name));
+      await file.writeAsBytes(bytes, flush: true);
+      return file.path;
+    } catch (_) {
+      return null;
     }
   }
 

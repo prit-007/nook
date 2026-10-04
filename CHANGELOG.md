@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Exports
+- **Exports library** (new): Settings → Storage → Manage exports
+  (`/settings/exports`). Stable folder `nook_exports` under app documents
+  lists vaults, Markdown/HTML zips, HTML pages, and note PNGs with
+  created/modified times + size. Open / share / delete from the list.
+  Vault + bulk exports write here; note PNG share also copies into this
+  folder (gallery share unchanged).
+
 ### Export
 - **Bulk export** (issue #60): Settings → Storage → Export all notes —
   Markdown or HTML zip of every live note (`BulkExporter`). Soft-deleted
