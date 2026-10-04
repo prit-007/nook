@@ -160,8 +160,8 @@ void main() {
       expect(results.single.title, 'Passport renewal');
     });
 
-    test('schemaVersion is 5', () {
-      expect(db.schemaVersion, 5);
+    test('schemaVersion is 6', () {
+      expect(db.schemaVersion, 6);
     });
   });
 }

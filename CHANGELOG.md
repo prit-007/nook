@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Reminders
+- Local note reminders (issue #54): `reminders` table (schema v6),
+  `ReminderRepository` + injectable `ReminderScheduler`,
+  `LocalReminderScheduler` via `flutter_local_notifications`. Android
+  `POST_NOTIFICATIONS` / exact-alarm permissions declared. Options sheet →
+  Reminders lists and deletes scheduled reminders; production scheduler
+  ready for a date-picker UI in a follow-up.
+
 ### Editor
 - **Note linking + backlinks** (issue #53): slash menu “Link to note” inserts
   `nook://note/<id>` hyperlinks; `note_links` cache rebuilt from AppFlowy JSON

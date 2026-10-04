@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/platform/local_reminder_scheduler.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
+import '../../../data/repositories/reminder_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
 import 'note_link_picker.dart';
 
@@ -576,6 +578,80 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                           this.context,
                           noteId: widget.noteId,
                           noteTitle: title,
+                        );
+                      },
+                    ),
+
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedAlarmClock,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      title: const Text('Reminders'),
+                      subtitle: Text(
+                        'Set a local notification for this note',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      onTap: () async {
+                        final db = ref.read(databaseProvider);
+                        final scheduler = LocalReminderScheduler();
+                        final repo = ReminderRepository(
+                          db,
+                          scheduler: scheduler,
+                        );
+                        await scheduler.requestPermissions();
+                        final existing = await repo.forNote(widget.noteId);
+                        if (!mounted) return;
+                        await showDialog<void>(
+                          context: this.context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Reminders'),
+                            content: existing.isEmpty
+                                ? const Text(
+                                    'No reminders yet. In a follow-up, a date '
+                                    'picker will let you schedule one for this '
+                                    'note. For now, reminders are stored and '
+                                    'scheduled via the local notification '
+                                    'pipeline.',
+                                  )
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      for (final r in existing.take(8))
+                                        ListTile(
+                                          dense: true,
+                                          title: Text(r.title),
+                                          subtitle: Text(
+                                            '${r.fireAt} · ${r.repeat}',
+                                          ),
+                                          trailing: IconButton(
+                                            icon: const Icon(Icons.delete_outline),
+                                            onPressed: () async {
+                                              await repo.delete(r.id);
+                                              if (ctx.mounted) {
+                                                Navigator.pop(ctx);
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
                         );
                       },
                     ),
