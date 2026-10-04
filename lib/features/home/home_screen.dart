@@ -13,6 +13,7 @@ import '../../core/widgets/dock_safe_area.dart';
 import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 import '../updates/widgets/update_banner.dart';
+import '../templates/template_picker_sheet.dart';
 import 'providers/notes_list_provider.dart';
 import 'providers/note_card_metadata_provider.dart';
 import 'widgets/empty_home.dart';
@@ -151,6 +152,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               if (context.mounted) {
                 await context.push('/note/new?type=${type.name}');
               }
+            },
+            onFromTemplate: () {
+              showTemplatePickerSheet(context);
             },
           ),
         ],

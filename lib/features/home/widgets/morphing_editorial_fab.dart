@@ -16,10 +16,12 @@ class MorphingEditorialFab extends StatefulWidget {
   const MorphingEditorialFab({
     super.key,
     required this.onCreateNote,
+    this.onFromTemplate,
     this.mobileBottomOffset = 130,
   });
 
   final void Function(NoteType type) onCreateNote;
+  final VoidCallback? onFromTemplate;
 
   /// Offset from the bottom edge on compact (mobile) screens.
   ///
@@ -113,6 +115,19 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
                                 accentColor: scheme.primary,
                                 onTap: () => _selectType(NoteType.text),
                               ),
+                              if (widget.onFromTemplate != null) ...[
+                                const SizedBox(height: 12),
+                                _MenuOption(
+                                  label: 'From template',
+                                  icon: HugeIcons.strokeRoundedBook01,
+                                  accentColor: scheme.tertiary,
+                                  onTap: () {
+                                    HapticFeedback.mediumImpact();
+                                    setState(() => _isOpen = false);
+                                    widget.onFromTemplate?.call();
+                                  },
+                                ),
+                              ],
                             ],
                           ),
                         )

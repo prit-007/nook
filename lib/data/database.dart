@@ -19,6 +19,7 @@ import 'tables/note_tags.dart';
 import 'tables/note_links.dart';
 import 'tables/note_revisions.dart';
 import 'tables/reminders.dart';
+import 'tables/templates.dart';
 import 'tables/sync_log.dart';
 
 part 'database.g.dart';
@@ -33,13 +34,14 @@ part 'database.g.dart';
   NoteLinks,
   NoteRevisions,
   Reminders,
+  Templates,
   SyncLog,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -68,6 +70,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 6) {
             await m.createTable(reminders);
+          }
+          if (from < 7) {
+            await m.createTable(templates);
           }
         },
         beforeOpen: (details) async {

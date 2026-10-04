@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Templates
+- **Note templates** (issue #58): `templates` table (schema v7),
+  `TemplateRepository` with idempotent built-ins (Meeting notes, Daily
+  journal, Reading list, Blank checklist). Home FAB → “From template”;
+  note options → “Save as template”. Creating a note from a template always
+  inserts a new row — templates are never consumed.
+
 ### Security
 - **Vault password (C1)** (issue #56): second secret gate for locked notes.
   Settings → Security → Vault password; PBKDF2 via shared KDF; session

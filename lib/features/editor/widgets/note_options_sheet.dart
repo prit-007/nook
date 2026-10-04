@@ -12,6 +12,7 @@ import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/reminder_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
+import '../../../data/repositories/template_repository.dart';
 import 'note_link_picker.dart';
 
 /// Combined bottom sheet for note options: notebook, tags, and color.
@@ -562,6 +563,71 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                       onTap: () {
                         Navigator.of(context).pop();
                         context.push('/note/${widget.noteId}/history');
+                      },
+                    ),
+
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedBook01,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      title: const Text('Save as template'),
+                      subtitle: Text(
+                        'Reuse this note’s structure later',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      onTap: () async {
+                        final db = ref.read(databaseProvider);
+                        final note =
+                            await NoteRepository(db).getNoteById(widget.noteId);
+                        if (!mounted || note == null) return;
+                        final controller = TextEditingController(
+                          text: note.title.isEmpty ? 'Template' : note.title,
+                        );
+                        final name = await showDialog<String>(
+                          context: this.context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Save as template'),
+                            content: TextField(
+                              controller: controller,
+                              autofocus: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Template name',
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(
+                                  ctx,
+                                  controller.text.trim(),
+                                ),
+                                child: const Text('Save'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (name == null || name.isEmpty || !mounted) return;
+                        await TemplateRepository(db).saveNoteAsTemplate(
+                          note,
+                          name: name,
+                        );
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(content: Text('Saved template “$name”')),
+                        );
                       },
                     ),
 
