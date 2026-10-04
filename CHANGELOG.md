@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Extracted shared PBKDF2-HMAC-SHA256 helper to `lib/core/security/kdf.dart`
+  (issue #47). `PinProvider` now delegates hashing/verification; stored PIN
+  hash format is unchanged (`salt:iterations:derived`).
+
 ### Documentation
 - Truth pass for public claims: README status is **v0.9.4** (was stale v0.8.2);
   theming described as curated seed-based Material 3 (wallpaper dynamic color

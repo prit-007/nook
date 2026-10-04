@@ -95,6 +95,9 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 - AutoNAT: `applyDefaults()` hard-sets `enableAutoNAT = true` after options run, so the transport forces `Reachability.private` (skips ambient probing dials) instead — a LAN-only app must never dial public peers.
 - AutoNAT stray dials are a known open item. mDNS on physical devices is handled by `NookMdnsDiscovery.resolveActiveInterface()` (pins the active LAN NIC), `reusePort: false` on Android, an Android `WifiManager.MulticastLock` held via the `com.nook/multicast_lock` channel (`MainActivity.kt`), and a manual "Add device by address" fallback (`SyncDevice.fromManualAddress`) when multicast is blocked. **Cross-network discovery** uses Android Wi-Fi Direct (`WifiDirect` in `lib/core/platform/wifi_direct.dart` + `com.nook/wifi_direct` channels) to join the receiver's P2P group and dial it over the P2P link — Android-only and safely a no-op on other platforms. Real-device mDNS/Wi-Fi Direct is still worth re-validating per Android stack.
 
+## Security
+- Shared PBKDF2-HMAC-SHA256 lives in `lib/core/security/kdf.dart` (`pbkdf2Hash` / `pbkdf2Verify` / `pbkdf2DeriveBytes`, `defaultPbkdf2Iterations = 100000`). `PinProvider` delegates to it. Stored PIN format is `salt:iterations:derived` where `derived` is Dart `List<int].toString()` — not hex — so existing hashes keep verifying. Vault password (issue #56) must reuse this helper.
+
 ## Editor
 - Uses `appflowy_editor` (node-tree document model, not Delta-based flutter_quill).
 - Custom node types: `doodle` (stroke data in Attachments table, thumbnail inline) and re-skinned `todo_list`.
