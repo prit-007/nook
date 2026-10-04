@@ -9,6 +9,7 @@ import '../../../core/platform/local_reminder_scheduler.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
+import '../../../data/repositories/attachment_repository.dart';
 import '../../../data/repositories/checklist_item_repository.dart';
 import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
@@ -617,6 +618,7 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                             noteRepository: NoteRepository(db),
                             checklistItemRepository:
                                 ChecklistItemRepository(db),
+                            attachmentRepository: AttachmentRepository(db),
                           ).exportNoteHtml(note);
                           if (!mounted) return;
                           await SharePlus.instance.share(

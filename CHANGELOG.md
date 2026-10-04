@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bulk export** (issue #60): Settings → Storage → Export all notes —
   Markdown or HTML zip of every live note (`BulkExporter`). Soft-deleted
   notes excluded; empty vault errors instead of a silent empty archive.
+  **Images** are copied into `notes/<note>/attachments/` with markdown/HTML
+  refs; **doodles** export their rendered PNG thumbnail (stroke JSON is not
+  portable). Single-note HTML share embeds image/doodle bytes as `data:` URIs
+  so the file is standalone.
 - **Share as HTML** (issue #61): note options → Share as HTML writes a
   standalone read-only page via the same renderer. Locked notes require
   vault unlock when enabled.
