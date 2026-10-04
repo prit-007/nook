@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/design_tokens.dart';
@@ -513,6 +514,31 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                       onChanged: (v) {
                         setState(() => _isLocked = v);
                         widget.onLockedChanged?.call(v);
+                      },
+                    ),
+
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedClock01,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      title: const Text('Version history'),
+                      subtitle: Text(
+                        'Restore an earlier snapshot of this note',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        context.push('/note/${widget.noteId}/history');
                       },
                     ),
 

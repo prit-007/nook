@@ -28,6 +28,7 @@ import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/doodle_storage.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/repositories/notebook_repository.dart';
+import '../../data/repositories/revision_repository.dart';
 import '../../data/repositories/tag_repository.dart';
 import '../../data/tables/notes.dart';
 import '../../data/tables/attachments.dart';
@@ -356,6 +357,24 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         deltaContent: deltaJson,
         plainText: plainText,
       );
+
+      // Version history: time-bucketed autosave snapshots (local-only).
+      try {
+        final nowSnapshot = DateTime.now();
+        await RevisionRepository(_db!).maybeSnapshot(
+          noteId: _note!.id,
+          title: derivedTitle.isNotEmpty ? derivedTitle : _title,
+          deltaContent: deltaJson,
+          plainText: plainText,
+          at: nowSnapshot,
+        );
+      } catch (e) {
+        nookLog(
+          NookLogKey.editor,
+          'Revision snapshot failed: $e',
+          LogLevel.warning,
+        );
+      }
 
       // Keep the local note mirror fresh so the app bar timestamp and the
       // export path always reflect the latest state.

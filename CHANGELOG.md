@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Editor
+- Local **version history** for notes (issue #52): time-bucketed autosave
+  snapshots (max 200/note), restore always snapshots current state first.
+  Options sheet → Version history; route `/note/:id/history`. Revisions are
+  local-only (not synced, not in `.nook` export). Drift `schemaVersion` → 4.
+
 ### Privacy
 - In-app privacy explainer: Settings → Privacy → "How your data stays yours"
   covers where data lives, what P2P sync sends, what Nook never collects, and
