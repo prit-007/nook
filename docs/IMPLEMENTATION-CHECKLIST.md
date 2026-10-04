@@ -270,7 +270,8 @@
 - [x] Build `SearchScreen` — instant-as-you-type, local FTS via Drift
   - File: `lib/features/home/search_screen.dart` (replace stub)
 - [x] Wire FTS query to `notes_fts` virtual table
-- [ ] Show results grouped by note vs. checklist-item matches
+- [x] Show results grouped by note vs. checklist-item matches
+  - Implemented via `SearchRepository.searchGrouped` + sectioned search UI (issue #48)
   - Tracked as GitHub issue **#48** (Notesnook-inspired campaign)
 - [x] Write search integration test (FTS returns correct results)
   - File: `test/features/home/search_test.dart`
