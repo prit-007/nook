@@ -16,6 +16,7 @@ import 'tables/checklist_items.dart';
 import 'tables/attachments.dart';
 import 'tables/tags.dart';
 import 'tables/note_tags.dart';
+import 'tables/note_links.dart';
 import 'tables/note_revisions.dart';
 import 'tables/sync_log.dart';
 
@@ -28,6 +29,7 @@ part 'database.g.dart';
   Attachments,
   Tags,
   NoteTags,
+  NoteLinks,
   NoteRevisions,
   SyncLog,
 ])
@@ -35,7 +37,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -58,6 +60,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 4) {
             await m.createTable(noteRevisions);
+          }
+          if (from < 5) {
+            await m.createTable(noteLinks);
           }
         },
         beforeOpen: (details) async {

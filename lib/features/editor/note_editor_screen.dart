@@ -27,6 +27,7 @@ import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/doodle_storage.dart';
 import '../../data/repositories/note_repository.dart';
+import '../../data/repositories/note_link_repository.dart';
 import '../../data/repositories/notebook_repository.dart';
 import '../../data/repositories/revision_repository.dart';
 import '../../data/repositories/tag_repository.dart';
@@ -38,6 +39,7 @@ import 'doodle/doodle_block.dart';
 import 'note_exporter.dart';
 import 'widgets/custom_todo_list_block.dart';
 import 'widgets/image_picker_handler.dart';
+import 'widgets/note_link_picker.dart';
 import 'widgets/note_options_sheet.dart';
 import 'widgets/zoomable_image_block.dart';
 import 'checklist_editor.dart';
@@ -712,6 +714,36 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     setState(() => _checklistAttachments = attachments);
   }
 
+  /// Opens the note-link picker and inserts a `nook://note/<id>` hyperlink.
+  Future<void> _insertNoteLink() async {
+    if (_editorState == null || _note == null || !mounted) return;
+    final pick = await showNoteLinkPicker(
+      context,
+      excludeNoteId: _note!.id,
+    );
+    if (pick == null || !mounted || _editorState == null) return;
+
+    final editorState = _editorState!;
+    final pos = editorState.selection?.start ??
+        Position(path: const [0], offset: 0);
+    final node = editorState.getNodeAtPath(pos.path);
+    if (node == null) return;
+
+    final label = pick.title.trim().isEmpty ? 'Untitled' : pick.title.trim();
+    final transaction = editorState.transaction;
+    transaction.replaceText(
+      node,
+      pos.offset,
+      0,
+      label,
+      attributes: {
+        AppFlowyRichTextKeys.href: noteLinkUri(pick.noteId),
+      },
+    );
+    await editorState.apply(transaction);
+    _scheduleAutosave();
+  }
+
   /// Returns the editor widget appropriate for the current platform.
   ///
   /// Mobile platforms get [MobileToolbarV2] (keyboard toolbar).
@@ -782,6 +814,18 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               keywords: ['doodle', 'draw', 'sketch'],
               handler: (editorState, _, __) async {
                 await _insertDoodle();
+              },
+            ),
+            SelectionMenuItem(
+              getName: () => 'Link to note',
+              icon: (editorState, isSelected, style) => SelectionMenuIconWidget(
+                name: 'link',
+                isSelected: isSelected,
+                style: style,
+              ),
+              keywords: ['link', 'note', 'backlink', 'reference'],
+              handler: (editorState, _, __) async {
+                await _insertNoteLink();
               },
             ),
           ],
