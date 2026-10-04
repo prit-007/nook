@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Privacy
+- In-app privacy explainer: Settings → Privacy → "How your data stays yours"
+  covers where data lives, what P2P sync sends, what Nook never collects, and
+  how to verify claims (issue #49). Copy is unit-tested against forbidden
+  marketing phrases.
+
 ### Trash
 - 30-day auto-purge of soft-deleted notes, notebooks, tags, and attachments
   on cold start (`TrashAutoPurger`). Bin screen shows a retention banner
