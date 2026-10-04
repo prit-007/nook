@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Vault password (C1)** (issue #56): second secret gate for locked notes.
+  Settings → Security → Vault password; PBKDF2 via shared KDF; session
+  re-locks with the app. Not DEK wrapping — exported `.nook` vaults remain
+  plaintext-on-disk (documented in the privacy explainer). C2 follow-up is #57.
+
 ### Editor
 - **Markdown import** (issue #55): Settings → Storage → Import Markdown
   converts `.md` files into notes via AppFlowy’s `markdownToDocument`

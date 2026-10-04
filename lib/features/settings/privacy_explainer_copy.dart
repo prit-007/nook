@@ -41,7 +41,8 @@ const String kPrivacyHowToVerifyBody =
     'disk. Build the app from source on GitHub (GPL-3.0) and read the sync '
     'and database code yourself. On F-Droid you can rebuild from the published '
     'metadata. If you leave the app, your export remains readable without a '
-    'Nook account.';
+    'Nook account. Note: exported vaults are not password-wrapped; the vault '
+    'password gates the in-app session only (C1).';
 
 /// Forbidden phrases — unit tests assert copy never contains these.
 const List<String> kPrivacyForbiddenPhrases = [

@@ -41,6 +41,7 @@ import 'widgets/custom_todo_list_block.dart';
 import 'widgets/image_picker_handler.dart';
 import 'widgets/note_link_picker.dart';
 import 'widgets/note_options_sheet.dart';
+import '../security/vault_password_dialog.dart';
 import 'widgets/zoomable_image_block.dart';
 import 'checklist_editor.dart';
 
@@ -167,6 +168,22 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           _cleanupInit();
           if (!_disposed && mounted) context.pop();
           return;
+        }
+        // Vault password (C1): when enabled, locked notes need a second secret.
+        if (!_disposed && mounted) {
+          final vaultOk = await ensureVaultUnlocked(
+            context,
+            ref,
+            reason: 'This note is locked — enter your vault password',
+          );
+          if (_disposed || !mounted) {
+            _cleanupInit();
+            return;
+          }
+          if (!vaultOk) {
+            context.pop();
+            return;
+          }
         }
       }
 

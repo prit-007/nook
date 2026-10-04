@@ -31,6 +31,7 @@ import 'core/providers/pin_provider.dart';
 import 'core/providers/screenshot_blocker_provider.dart';
 import 'core/providers/talker_provider.dart';
 import 'core/providers/theme_provider.dart';
+import 'core/providers/vault_password_provider.dart';
 import 'data/database.dart';
 import 'data/repositories/trash_auto_purger.dart';
 import 'features/quick_note/quick_note_overlay.dart';
@@ -56,6 +57,7 @@ void main() async {
     BiometricGate.load(),
     ScreenshotBlocker.load(),
     PinProvider.load(),
+    VaultPasswordProvider.load(),
     NavigationPreference.load(),
     NavigationPreference.isOnboardingCompleted(),
   ]);
@@ -64,8 +66,9 @@ void main() async {
   final biometricGate = results[1] as BiometricGate;
   final screenshotBlocker = results[2] as ScreenshotBlocker;
   final pinProv = results[3] as PinProvider;
-  final navigationPreference = results[4] as NavigationPreference;
-  final onboardingCompleted = results[5] as bool;
+  final vaultProv = results[4] as VaultPasswordProvider;
+  final navigationPreference = results[5] as NavigationPreference;
+  final onboardingCompleted = results[6] as bool;
 
   // If onboarding hasn't been completed, force the initial route to onboarding.
   if (!onboardingCompleted) {
@@ -105,6 +108,7 @@ void main() async {
         biometricGateProvider.overrideWith((ref) => biometricGate),
         screenshotBlockerProvider.overrideWith((ref) => screenshotBlocker),
         pinProvider.overrideWith((ref) => pinProv),
+        vaultPasswordProvider.overrideWith((ref) => vaultProv),
         navigationPreferenceProvider
             .overrideWith((ref) => navigationPreference),
         databaseProvider.overrideWith((ref) => db),
