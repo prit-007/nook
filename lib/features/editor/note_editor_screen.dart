@@ -1016,9 +1016,18 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     if (!mounted || result == null) return;
 
-    final baseDir = await getApplicationDocumentsDirectory();
-    final filePath = '${baseDir.path}/${NoteExporter.generateFileName(_title)}';
-    await File(filePath).writeAsBytes(bytes);
+    // Prefer the stable exports folder so PNGs appear on Settings → Exports.
+    final fileName = NoteExporter.generateFileName(_title);
+    String? path = await NoteExporter.saveToExportsFolder(
+      bytes,
+      fileName: fileName,
+    );
+    if (path == null) {
+      final baseDir = await getApplicationDocumentsDirectory();
+      path = '${baseDir.path}/$fileName';
+      await File(path).writeAsBytes(bytes);
+    }
+    final filePath = path;
 
     if (result == 'share') {
       final exportResult = await NoteExporter.sharePng(filePath);
@@ -1030,7 +1039,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     } else if (result == 'gallery') {
       final exportResult = await NoteExporter.saveToGallery(
         bytes,
-        name: NoteExporter.generateFileName(_title),
+        name: fileName,
       );
       if (mounted) {
         scaffoldMessenger.showSnackBar(

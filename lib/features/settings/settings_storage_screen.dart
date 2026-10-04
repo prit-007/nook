@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers/database_provider.dart';
@@ -15,6 +16,7 @@ import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/notebook_repository.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../features/editor/markdown_import.dart';
+import '../../features/exports/exports_directory.dart';
 import 'providers/vault_stats_provider.dart';
 import 'widgets/bulk_export.dart';
 import 'widgets/export_handler.dart';
@@ -46,11 +48,13 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
 
     try {
       final db = ref.read(databaseProvider);
+      final exportsDir = await ExportsDirectory.resolve();
       final path = await NookExporter(
         noteRepository: NoteRepository(db),
         checklistItemRepository: ChecklistItemRepository(db),
         attachmentRepository: AttachmentRepository(db),
         notebookRepository: NotebookRepository(db),
+        outputDirectory: Directory(exportsDir.path),
       ).exportAll();
 
       if (!mounted) return;
@@ -200,10 +204,12 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
     });
     try {
       final db = ref.read(databaseProvider);
+      final exportsDir = await ExportsDirectory.resolve();
       final path = await BulkExporter(
         noteRepository: NoteRepository(db),
         checklistItemRepository: ChecklistItemRepository(db),
         attachmentRepository: AttachmentRepository(db),
+        outputDirectory: Directory(exportsDir.path),
       ).exportAll(format);
       if (!mounted) return;
       setState(() {
@@ -456,6 +462,70 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                   'Restore a backup. Existing notes are '
                                   'never overwritten — id collisions '
                                   'become copies.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: scheme.onSurfaceVariant,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
+                            size: 18,
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      context.push('/settings/exports');
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: scheme.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedFolder01,
+                              size: 20,
+                              color: scheme.onTertiaryContainer,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Manage exports',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Open, share, or delete vaults, zips, HTML, '
+                                  'and note PNGs',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: scheme.onSurfaceVariant,
