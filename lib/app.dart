@@ -4,14 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/providers/biometric_provider.dart';
 import 'core/providers/talker_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router.dart';
+import 'core/commands/command_registry.dart';
+import 'core/widgets/command_palette.dart';
 import 'core/widgets/keyboard_shortcuts.dart';
 import 'features/security/frosted_shield.dart';
+import 'features/templates/template_picker_sheet.dart';
 import 'features/updates/update_provider.dart';
 import 'sync/sync_orchestrator.dart';
 
@@ -99,6 +103,41 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
       ],
       supportedLocales: const [Locale('en')],
       builder: (context, child) => NookKeyboardShortcuts(
+        onOpenPalette: () {
+          final commands = buildDefaultCommands(
+            CommandPaletteActions(
+              onCreateNote: (type) {
+                context.push('/note/new?type=${type.name}');
+              },
+              onFromTemplate: () => showTemplatePickerSheet(context),
+              onLockNow: () {
+                final gate = ref.read(biometricGateProvider);
+                if (gate.enabled) gate.lock();
+              },
+              onToggleTheme: () {
+                final theme = ref.read(themePreferenceProvider);
+                final next = theme.themeMode == ThemeMode.dark
+                    ? ThemeMode.light
+                    : ThemeMode.dark;
+                theme.setThemeMode(next);
+              },
+            ),
+          );
+          unawaited(
+            showCommandPalette(
+              context,
+              commands: commands,
+              onExecute: (command, appContext) {
+                final type = command.onCreateNoteType;
+                if (type != null) {
+                  appContext.push('/note/new?type=${type.name}');
+                  return;
+                }
+                command.onRun?.call(appContext);
+              },
+            ),
+          );
+        },
         child: Stack(
           children: [
             child ?? const SizedBox.shrink(),
