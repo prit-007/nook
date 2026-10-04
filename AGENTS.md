@@ -100,6 +100,7 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 
 ## Security
 - Shared PBKDF2-HMAC-SHA256 lives in `lib/core/security/kdf.dart` (`pbkdf2Hash` / `pbkdf2Verify` / `pbkdf2DeriveBytes`, `defaultPbkdf2Iterations = 100000`). `PinProvider` delegates to it. Stored PIN format is `salt:iterations:derived` where `derived` is Dart `List<int].toString()` — not hex — so existing hashes keep verifying. Vault password (issue #56) must reuse this helper.
+- **Vault password C1**: `VaultPasswordProvider` (`lib/core/providers/vault_password_provider.dart`) + `SecureKeyValueStore` (`lib/core/security/secure_kv_store.dart`). Locked notes require vault password when enabled. Session gate only — not SQLCipher DEK wrapping (#57).
 
 ## Editor
 - Uses `appflowy_editor` (node-tree document model, not Delta-based flutter_quill).

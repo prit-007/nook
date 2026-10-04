@@ -11,6 +11,7 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
+import '../../core/providers/vault_password_provider.dart';
 import 'pin_entry_screen.dart';
 
 /// "Frosted Shield" — maximum-strength blur veil over the live vault.
@@ -88,6 +89,8 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
     if (gate.isLocked && !_prevLocked) {
       _hasUnlocked = false;
       _error = null;
+      // Vault session (C1) re-locks with the app.
+      ref.read(vaultPasswordProvider).resetAuth();
     }
     _prevLocked = gate.isLocked;
 

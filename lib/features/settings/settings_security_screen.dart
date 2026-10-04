@@ -11,8 +11,10 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
+import '../../core/providers/vault_password_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../features/security/pin_entry_screen.dart';
+import '../../features/security/vault_password_dialog.dart';
 
 class SettingsSecurityScreen extends ConsumerWidget {
   const SettingsSecurityScreen({super.key});
@@ -23,6 +25,7 @@ class SettingsSecurityScreen extends ConsumerWidget {
     final gate = ref.watch(biometricGateProvider);
     final blocker = ref.watch(screenshotBlockerProvider);
     final pinProv = ref.watch(pinProvider);
+    final vaultProv = ref.watch(vaultPasswordProvider);
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -227,6 +230,55 @@ class SettingsSecurityScreen extends ConsumerWidget {
                   if (result != true) return;
                 } else {
                   await ref.read(pinProvider).clearPin();
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, bottom: 8),
+            child: Text(
+              'VAULT PASSWORD',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+                color: scheme.primary.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+          _buildGlassCard(
+            scheme,
+            child: SwitchListTile.adaptive(
+              title: const Text(
+                'Vault password',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                vaultProv.enabled
+                    ? 'Locked notes also require this password'
+                    : 'Second secret for locked notes (session gate)',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 13,
+                ),
+              ),
+              secondary: HugeIcon(
+                icon: vaultProv.enabled
+                    ? HugeIcons.strokeRoundedLock
+                    : HugeIcons.strokeRoundedKey01,
+                color: scheme.primary,
+                size: 28,
+              ),
+              value: vaultProv.enabled,
+              activeThumbColor: scheme.primary,
+              onChanged: (value) async {
+                unawaited(HapticFeedback.lightImpact());
+                if (value) {
+                  final ok = await showSetVaultPasswordDialog(context);
+                  if (!ok) return;
+                } else {
+                  await ref.read(vaultPasswordProvider).clearPassword();
                 }
               },
             ),
