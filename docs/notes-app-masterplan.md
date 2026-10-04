@@ -129,10 +129,10 @@ Don't skip these — a biometric lock screen with a nice illustration and a soft
 
 > **Implemented (2026-08):** the lock is a `FrostedShield` overlay — blur-behind
 > (`BackdropFilter`) with a focus-in animation and a pulsing fingerprint icon
-> (`lib/features/security/frosted_shield.dart`). See ADR 0006. Still TODO from
-> this section: lock-screen illustration and the trash "auto-deletes" messaging
-> (auto-purge itself is tracked as **#51**; do not claim it in user-facing copy
-> until it ships).
+> (`lib/features/security/frosted_shield.dart`). See ADR 0006.
+> **Trash auto-purge (2026-10):** 30-day purge on cold start via
+> `TrashAutoPurger` + Bin retention banner (issue #51). Still TODO from this
+> section: lock-screen illustration polish.
 
 ---
 

@@ -694,6 +694,11 @@
 - [x] CI `build-windows` installs Inno Setup via Chocolatey, builds the installer, uploads `nook_setup_*.exe`; tag releases attach it
 - [x] README + CHANGELOG + ADRs (`0009` icons, `0010` installer) updated
 
+### 5.8 Empty states / lock screen / trash (masterplan §5.8)
+
+- [x] Trash auto-purge messaging + implementation — `TrashAutoPurger` + Bin banner (issue #51)
+- [ ] Lock-screen illustration polish
+
 ### Phase 6 Validation
 
 - [ ] TalkBack navigates all key flows without errors

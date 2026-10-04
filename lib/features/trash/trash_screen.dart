@@ -14,6 +14,7 @@ import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/repositories/notebook_repository.dart';
 import '../../data/repositories/tag_repository.dart';
+import '../../data/repositories/trash_auto_purger.dart';
 import '../../data/tables/attachments.dart';
 
 /// Bin screen — archived notes, notebooks, tags and attachments with four
@@ -301,41 +302,52 @@ class _TrashScreenState extends ConsumerState<TrashScreen>
           ),
         ),
       ),
-      body: _loading
-          ? Center(child: CircularProgressIndicator(color: scheme.primary))
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _BinTab(
-                  items: _notes,
-                  onRestore: _restore,
-                  onDestroy: _permanentDelete,
-                  emptyTitle: 'No deleted notes',
-                  emptySubtitle: 'Deleted notes will appear here',
-                ),
-                _BinTab(
-                  items: _notebooks,
-                  onRestore: _restore,
-                  onDestroy: _permanentDelete,
-                  emptyTitle: 'No deleted notebooks',
-                  emptySubtitle: 'Deleted notebooks will appear here',
-                ),
-                _BinTab(
-                  items: _tags,
-                  onRestore: _restore,
-                  onDestroy: _permanentDelete,
-                  emptyTitle: 'No deleted tags',
-                  emptySubtitle: 'Deleted tags will appear here',
-                ),
-                _BinTab(
-                  items: _attachments,
-                  onRestore: _restore,
-                  onDestroy: _permanentDelete,
-                  emptyTitle: 'No deleted attachments',
-                  emptySubtitle: 'Deleted attachments will appear here',
-                ),
-              ],
-            ),
+      body: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _RetentionBanner(retentionDays: kTrashRetentionDays),
+          ),
+          Expanded(
+            child: _loading
+                ? Center(
+                    child: CircularProgressIndicator(color: scheme.primary))
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _BinTab(
+                        items: _notes,
+                        onRestore: _restore,
+                        onDestroy: _permanentDelete,
+                        emptyTitle: 'No deleted notes',
+                        emptySubtitle: 'Deleted notes will appear here',
+                      ),
+                      _BinTab(
+                        items: _notebooks,
+                        onRestore: _restore,
+                        onDestroy: _permanentDelete,
+                        emptyTitle: 'No deleted notebooks',
+                        emptySubtitle: 'Deleted notebooks will appear here',
+                      ),
+                      _BinTab(
+                        items: _tags,
+                        onRestore: _restore,
+                        onDestroy: _permanentDelete,
+                        emptyTitle: 'No deleted tags',
+                        emptySubtitle: 'Deleted tags will appear here',
+                      ),
+                      _BinTab(
+                        items: _attachments,
+                        onRestore: _restore,
+                        onDestroy: _permanentDelete,
+                        emptyTitle: 'No deleted attachments',
+                        emptySubtitle: 'Deleted attachments will appear here',
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _totalCount > 0
           ? Padding(
@@ -370,6 +382,44 @@ class _TrashScreenState extends ConsumerState<TrashScreen>
 }
 
 enum DeletedItemType { note, notebook, tag, attachment }
+
+/// Soft informational banner explaining Bin auto-purge policy.
+class _RetentionBanner extends StatelessWidget {
+  const _RetentionBanner({required this.retentionDays});
+
+  final int retentionDays;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.secondaryContainer,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedInformationCircle,
+              size: 18,
+              color: scheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Deleted items auto-delete after $retentionDays days. '
+                'Restore anything you still need.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSecondaryContainer,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class DeletedItem {
   const DeletedItem({

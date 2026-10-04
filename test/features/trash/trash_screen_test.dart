@@ -112,6 +112,16 @@ void main() {
 
       expect(find.text('Bin'), findsOneWidget);
     });
+
+    testWidgets('shows 30-day retention banner', (tester) async {
+      await tester.pumpWidget(buildTrash());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('auto-delete after 30 days'),
+        findsOneWidget,
+      );
+    });
   });
 
   group('Notes tab', () {

@@ -106,7 +106,7 @@ Current `pubspec.yaml` version: **0.9.4+16**. See
 | **Editor** | Block-based rich editing with the AppFlowy editor |
 | **Theming** | Curated 12-seed Material 3 schemes + per-note color overrides, light/dark/system |
 | **Security** | SQLCipher encryption, biometric gate, per-note lock, screenshot blocking |
-| **Trash** | Soft-delete Bin with restore + empty bin *(30-day auto-purge planned — not yet implemented)* |
+| **Trash** | Soft-delete Bin with restore + empty bin; 30-day auto-purge on cold start |
 | **Sync** | libp2p over UDX device-to-device sync: discovery, pairing, transfer, conflict resolution, history *(in testing)* |
 | **Export** | `.nook` vault bundle (notes + markdown sidecar + attachments) + per-note PNG share |
 | **Branding** | Adaptive launcher icons on all platforms (`flutter_launcher_icons`), Linux window icon |
