@@ -2,7 +2,7 @@
 
 ## Project
 - Single-package Flutter app (not a monorepo).
-- SDK constraint: Dart `>=3.5.0 <4.0.0`, Flutter stable.
+- SDK constraint: Dart `>=3.6.0 <4.0.0`, Flutter stable (CI pins 3.44.8).
 - Entry point: `lib/main.dart`.
 - Status: Alpha — v0.9.4 (full-fidelity sync, pairing code on both devices, 964 tests).
 - Docs: `docs/notes-app-masterplan.md` (product/roadmap), `docs/notes-app-detailed-plan.md` (schema/architecture/protocols), `docs/SYNC-LIBP2P-TRANSPORT.md` (current sync transport reference), `docs/adr/` (architecture decision records).
@@ -76,9 +76,11 @@ flutter test --coverage -x network
 Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` defaults to the host platform.
 - Wide (tablet/desktop/web) shell pins the left `NavigationRail` at 80px (`lib/core/widgets/app_shell.dart`).
 - Dual-pane list screens (Home, Notebooks, Tags) tint the left list pane with `scheme.surfaceContainerLow` so it reads as a distinct surface against the detail pane.
+- Theming is **seed-based** (`ColorScheme.fromSeed` + curated `NookColors.seeds` in `lib/core/theme/design_tokens.dart`), not wallpaper dynamic color — the `dynamic_color` package was removed.
 
 ## Storage / sync
-- Drift + SQLCipher for encrypted local storage.
+- Drift + SQLCipher for encrypted local storage. Current `schemaVersion` is **3** (`lib/data/database.dart`); tests assert this in `test/data/database_test.dart`.
+- Soft-delete columns (`deleted`/`deletedAt`) exist on Notes, Notebooks, Tags, Attachments. **30-day trash auto-purge is planned (#51) but not implemented** — do not claim it in user-facing copy until the feature lands.
 - **libp2p (UDX) is the default sync transport** (`dart_libp2p ^1.0.3`): Noise encryption + Yamux multiplexing over UDP. No server, no account. The legacy TCP transport (`TcpSyncTransport`) is kept behind `useTcpFallback: true`.
 - Stable device identity = libp2p peer id derived from a 32-byte Ed25519 seed persisted in `flutter_secure_storage` (`lib/sync/crypto/identity_store.dart`); never hardcoded.
 - Encryption key stored in platform keystore via `flutter_secure_storage`; never hardcoded.
