@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/widgets/dock_safe_area.dart';
+import 'privacy_explainer_screen.dart';
 
 /// In-app privacy policy. Honest, no-cloud copy: every permission the app may
 /// touch is declared up front so the Play Store data-safety form can simply
@@ -31,20 +32,22 @@ class SettingsPrivacyScreen extends StatelessWidget {
           20,
           DockSafeArea.bottomOf(context) + 16,
         ),
-        children: const [
-          _SectionHeader(title: 'Local-first'),
-          SizedBox(height: 8),
-          _Paragraph(
+        children: [
+          _ExplainerLink(scheme: scheme),
+          const SizedBox(height: 20),
+          const _SectionHeader(title: 'Local-first'),
+          const SizedBox(height: 8),
+          const _Paragraph(
             'Nook is designed so that no data is collected, shared, or '
             'sold — there is no account, no cloud, and no analytics. Your '
             'notes, checklists, doodles, and attachments are stored only on '
             'your device, encrypted with SQLCipher. Keys live in your '
             'device keystore and never leave it.',
           ),
-          SizedBox(height: 28),
-          _SectionHeader(title: 'Permissions'),
-          SizedBox(height: 8),
-          _GlassCard(
+          const SizedBox(height: 28),
+          const _SectionHeader(title: 'Permissions'),
+          const SizedBox(height: 8),
+          const _GlassCard(
             child: Column(
               children: [
                 _PermissionTile(
@@ -79,18 +82,84 @@ class SettingsPrivacyScreen extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: 28),
-          _SectionHeader(title: 'Your control'),
-          SizedBox(height: 8),
-          _Paragraph(
+          const SizedBox(height: 28),
+          const _SectionHeader(title: 'Your control'),
+          const SizedBox(height: 8),
+          const _Paragraph(
             'Everything is opt-in and reversible. Sync only runs when you '
             'start it. Crash logging is off by default and stores errors only '
             'on this device. Deleting a note empties it from the local '
             'database, and uninstalling the app removes the encrypted store '
             'with the keystore-held key.',
           ),
-          SizedBox(height: 48),
+          const SizedBox(height: 48),
         ],
+      ),
+    );
+  }
+}
+
+class _ExplainerLink extends StatelessWidget {
+  const _ExplainerLink({required this.scheme});
+
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const PrivacyExplainerScreen(),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedShield01,
+                size: 22,
+                color: scheme.onPrimaryContainer,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'How your data stays yours',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Where data lives, what sync sends, what we never '
+                      'collect, and how to verify',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onPrimaryContainer.withValues(
+                              alpha: 0.85,
+                            ),
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowRight01,
+                size: 18,
+                color: scheme.onPrimaryContainer,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
