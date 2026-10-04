@@ -724,8 +724,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     if (pick == null || !mounted || _editorState == null) return;
 
     final editorState = _editorState!;
-    final pos = editorState.selection?.start ??
-        Position(path: const [0], offset: 0);
+    final pos =
+        editorState.selection?.start ?? Position(path: const [0], offset: 0);
     final node = editorState.getNodeAtPath(pos.path);
     if (node == null) return;
 

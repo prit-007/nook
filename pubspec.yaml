@@ -57,6 +57,11 @@ dependencies:
   local_auth: ^3.0.2
   flutter_secure_storage: ^10.3.1
 
+  # Local reminders (Phase 7 / #54)
+  flutter_local_notifications: ^19.0.0
+  timezone: ^0.10.0
+  flutter_timezone: ^4.1.0
+
   # Nearby sync
   bonsoir: ^7.1.5
   dart_libp2p: ^1.0.3

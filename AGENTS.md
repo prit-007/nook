@@ -79,10 +79,11 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 - Theming is **seed-based** (`ColorScheme.fromSeed` + curated `NookColors.seeds` in `lib/core/theme/design_tokens.dart`), not wallpaper dynamic color — the `dynamic_color` package was removed.
 
 ## Storage / sync
-- Drift + SQLCipher for encrypted local storage. Current `schemaVersion` is **5** (`lib/data/database.dart`); tests assert this in `test/data/database_test.dart`.
+- Drift + SQLCipher for encrypted local storage. Current `schemaVersion` is **6** (`lib/data/database.dart`); tests assert this in `test/data/database_test.dart`.
 - Soft-delete columns (`deleted`/`deletedAt`) exist on Notes, Notebooks, Tags, Attachments. **30-day trash auto-purge** runs on cold start via `TrashAutoPurger` (`lib/data/repositories/trash_auto_purger.dart`, `kTrashRetentionDays = 30`); the Bin UI shows a retention banner.
 - **Note revisions** (`note_revisions` table): local-only version history via `RevisionRepository` — 10-minute autosave buckets, max 200/note, restore snapshots current state first. Not synced.
 - **Note links** (`note_links` table): cache of `nook://note/<id>` hrefs extracted from AppFlowy JSON by `NoteLinkRepository`; rebuilt on every `NoteRepository.updateContent` (covers editor/sync/import).
+- **Reminders** (`reminders` table): local notifications via `flutter_local_notifications`. `ReminderRepository` + injectable `ReminderScheduler` (`LocalReminderScheduler` in `lib/core/platform/local_reminder_scheduler.dart`). Android needs `POST_NOTIFICATIONS` (and exact-alarm perms) — already in the manifest.
 - **libp2p (UDX) is the default sync transport** (`dart_libp2p ^1.0.3`): Noise encryption + Yamux multiplexing over UDP. No server, no account. The legacy TCP transport (`TcpSyncTransport`) is kept behind `useTcpFallback: true`.
 - Stable device identity = libp2p peer id derived from a 32-byte Ed25519 seed persisted in `flutter_secure_storage` (`lib/sync/crypto/identity_store.dart`); never hardcoded.
 - Encryption key stored in platform keystore via `flutter_secure_storage`; never hardcoded.
