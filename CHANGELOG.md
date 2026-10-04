@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- Truth pass for public claims: README status is **v0.9.4** (was stale v0.8.2);
+  theming described as curated seed-based Material 3 (wallpaper dynamic color
+  was removed); trash Bin no longer claims 30-day auto-expiry (planned #51);
+  export row describes `.nook` vault + PNG share.
+- `AGENTS.md`: SDK constraint corrected to Dart `>=3.6.0`; seed-based theming
+  documented; trash auto-purge marked planned-not-implemented; storage section
+  records `schemaVersion` 3.
+- `IMPLEMENTATION-CHECKLIST.md`: checked off implemented Phase 0/6 items with
+  file references (CI workflow, encrypted DB bootstrap, attachment repository,
+  vault export/import, in-app privacy screen, 64-bit ABI builds); search
+  grouping and bulk export linked to issues #48 / #60.
+- Masterplan §5.5/§5.8 annotate open items with issue links.
+- F-Droid `full_description.txt`: theming/trash claims corrected to match code.
+- Added GitHub issue templates (feature/bug/epic) and a PR template.
+
 ## [0.9.4] - 2026-09-24
 
 ### Sync

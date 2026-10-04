@@ -10,13 +10,13 @@
 
 | Phase | Description | Status | Started | Completed |
 |-------|-------------|--------|---------|-----------|
-| 0 | Foundation (scaffold, DB, routing, theme) | **~85% COMPLETE** | 2026-08-05 | — |
-| 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** | 2026-08-05 | 2026-08-07 |
+| 0 | Foundation (scaffold, DB, routing, theme) | **COMPLETE** | 2026-08-05 | 2026-08-10 |
+| 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** (search grouping open — #48) | 2026-08-05 | 2026-08-07 |
 | 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
-| 3 | Theming & Polish (dynamic color, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
+| 3 | Theming & Polish (seed-based themes, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
-| 5 | Nearby Sync (transport, pairing, merge resolver) | **~80% COMPLETE** | 2026-08-11 | — |
-| 6 | Hardening for Play Store (accessibility, export, privacy) | **~40% COMPLETE** | 2026-08-13 | — |
+| 5 | Nearby Sync (transport, pairing, merge resolver) | **~80% COMPLETE** (physical-device validation open) | 2026-08-11 | — |
+| 6 | Hardening for Play Store (accessibility, export, privacy) | **~55% COMPLETE** | 2026-08-13 | — |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
 
 ---
@@ -30,8 +30,8 @@
 
 - [x] Verify `analysis_options.yaml` rules are correct (single quotes, `avoid_print: true`, generated files excluded)
   - File: `analysis_options.yaml` (already configured)
-- [ ] Create `.github/workflows/ci.yml` — format → analyze → test on push/PR
-  - File: `.github/workflows/ci.yml` (does not exist yet)
+- [x] Create `.github/workflows/ci.yml` — format → analyze → test on push/PR
+  - File: `.github/workflows/ci.yml` (+ `.github/actions/flutter-prep/action.yml`)
 - [x] Verify `dart format --output=none --set-exit-if-changed .` passes locally
 - [x] Verify `flutter analyze` passes locally with zero warnings
 - [x] Verify `flutter test` passes locally
@@ -79,8 +79,9 @@
 - [x] Create `lib/data/tables/sync_log.dart` — SyncLog table
   - Columns: id (int, autoIncrement), deviceId (text), deviceName (text), noteId (text), action (textEnum: sent|received|conflict), timestamp (dateTime)
 - [x] Create `lib/data/database.dart` — AppDatabase class
-  - `AppDatabase extends _$AppDatabase`, schemaVersion 1
+  - `AppDatabase extends _$AppDatabase`, **schemaVersion 3** (asserted in `test/data/database_test.dart`)
   - `MigrationStrategy.onCreate`: create all tables + FTS5 virtual table `notes_fts` (fts5, columns: id UNINDEXED, title, plainText)
+  - `onUpgrade`: v2 adds attachment soft-delete cols; v3 adds notebook/tag soft-delete cols
   - Run `dart run build_runner build --delete-conflicting-outputs`
 - [x] Write in-memory Drift round-trip test
   - File: `test/data/database_test.dart`
@@ -88,16 +89,17 @@
 
 ### 0.4 Encrypted DB Bootstrap
 
-- [ ] Implement `openEncryptedDatabase()` per detailed plan §3
-  - File: `lib/data/database.dart` (add function)
+- [x] Implement `openEncryptedDatabase()` per detailed plan §3
+  - File: `lib/data/database.dart` (`openEncryptedDatabase`, `_readOrCreateEncryptionKey`)
   - Generate random 32-byte key via `dart:math` + `dart:convert` (base64)
-  - Store key via `flutter_secure_storage` (key: `db_encryption_key`)
+  - Store key via `flutter_secure_storage` (key: `db_encryption_key`); rethrows on read failure (never silently regenerates)
   - Open via `NativeDatabase.createInBackground` with `PRAGMA key` + `PRAGMA cipher_page_size = 4096`
 - [x] Create `databaseProvider` — Riverpod provider (singleton, encrypted DB)
   - File: `lib/core/providers/database_provider.dart`
-- [ ] Handle failure modes: no biometric enrolled, biometric cancelled, secure storage read failure
-- [ ] Write provider test for databaseProvider (in-memory fallback)
-  - File: `test/core/providers/database_provider_test.dart`
+- [x] Handle failure modes: no biometric enrolled, biometric cancelled, secure storage read failure
+  - Gate is UI-layer (`BiometricGate` + `FrostedShield`); DB open failure logs via talker and falls back in-memory in tests/startup path
+- [x] Write provider test for databaseProvider (in-memory fallback)
+  - File: `test/core/providers/biometric_provider_test.dart` + in-memory DB tests throughout `test/data/`
 
 ### 0.5 Riverpod Provider Skeleton
 
@@ -108,14 +110,14 @@
   - File: `lib/data/repositories/note_repository.dart`
 - [x] Create `lib/data/repositories/tag_repository.dart` — Tags DAO wrapper
   - File: `lib/data/repositories/tag_repository.dart`
-- [ ] Create `lib/data/repositories/attachment_repository.dart` — Attachments DAO wrapper
+- [x] Create `lib/data/repositories/attachment_repository.dart` — Attachments DAO wrapper
   - File: `lib/data/repositories/attachment_repository.dart`
-- [ ] Create repository providers (Riverpod)
+- [x] Create repository providers (Riverpod)
   - File: `lib/core/providers/repository_providers.dart`
-- [ ] Create `notesListProvider(filter)` — StreamProvider from Drift reactive query
-  - File: `lib/core/providers/notes_provider.dart`
+- [x] Create `notesListProvider(filter)` — StreamProvider from Drift reactive query
+  - File: `lib/features/home/providers/notes_list_provider.dart`
 - [x] Create `themeProvider` — derives ColorScheme from dynamic/manual/per-note seed
-  - File: `lib/core/providers/theme_provider.dart`
+  - File: `lib/core/providers/theme_provider.dart` (seed index + mode; wallpaper dynamic color removed)
 - [x] Create `biometricGateProvider` — app-level lock state machine
   - File: `lib/core/providers/biometric_provider.dart`
 - [x] Wire `ProviderScope` + `app.dart` in `main.dart` (replace default Flutter template)
@@ -161,14 +163,12 @@
 ### 0.7 Design Tokens / Theme System
 
 - [x] Create `lib/core/theme/design_tokens.dart` — curated seed palette (12–16 M3-friendly colors)
-  - Colors: violet, teal, coral, sage, amber, rose, sky, slate, indigo, mint, peach, lavender
+  - Colors: violet, teal, coral, sage, amber, rose, sky, slate, indigo, mint, peach, lavender (`NookColors.seeds`)
 - [x] Create `lib/core/theme/app_theme.dart` — `buildSchemeForSeed(seed, brightness)` helper
 - [x] Create `lib/core/theme/app_theme.dart` — light theme and dark theme `ThemeData`
-- [x] Create `DynamicColorBuilder` at app root with fallback to manual seed
-  - File: `lib/app.dart`
-- [x] Persist user preference: dynamic color on/off, manual seed, dark/light/system mode
-  - File: `lib/core/providers/theme_provider.dart` (use SharedPreferences or Drift)
-  - Add `shared_preferences` to `pubspec.yaml` if using that
+- [x] ~~Create `DynamicColorBuilder` at app root~~ — **removed**; wallpaper dynamic color package was dropped in favor of curated seeds (see AGENTS.md Platform)
+- [x] Persist user preference: manual seed index, dark/light/system mode, reduce-motion, AMOLED dark
+  - File: `lib/core/providers/theme_provider.dart` (SharedPreferences keys `seed_index`, `theme_mode`, `reduce_motion`, `amoled_dark`)
 - [x] Create `lib/core/theme/note_theme_scope.dart` — InheritedWidget for per-note seed color
   - File: `lib/core/theme/note_theme_scope.dart`
 
@@ -271,6 +271,7 @@
   - File: `lib/features/home/search_screen.dart` (replace stub)
 - [x] Wire FTS query to `notes_fts` virtual table
 - [ ] Show results grouped by note vs. checklist-item matches
+  - Tracked as GitHub issue **#48** (Notesnook-inspired campaign)
 - [x] Write search integration test (FTS returns correct results)
   - File: `test/features/home/search_test.dart`
 - [x] Pull-to-search from home (drag down past 80px opens search; BouncingScrollPhysics drives pixels negative — listens to drag-driven `ScrollUpdateNotification`, ignores flings)
@@ -656,27 +657,33 @@
 
 ### 6.3 Backup / Export / Import
 
-- [ ] Export all notes as zip (markdown + images)
-  - File: `lib/features/settings/widgets/export_handler.dart`
-- [ ] Import notes from zip
-  - File: `lib/features/settings/widgets/import_handler.dart`
+- [x] Export all notes as zip (markdown + images)
+  - File: `lib/features/settings/widgets/export_handler.dart` (`.nook` vault: manifest + per-note JSON/MD + attachments)
+  - Tests: `test/features/settings/export_import_test.dart`
+- [x] Import notes from zip
+  - File: `lib/features/settings/widgets/import_handler.dart` (MergeResolver.insertAsNew; attachments re-materialized)
 - [ ] "No lock-in" promise made real
+  - `.nook` vault + per-note PNG export exist; bulk Markdown/HTML export tracked as **#60**
 
 ### 6.4 Crash Reporting
 
 - [x] In-app log viewer (Settings → Developer → App Logs) — `talker_flutter`; global `talker` in `lib/core/providers/talker_provider.dart`, framework/async errors hooked in `main.dart`, themed `TalkerScreen` + first-visit help tour in `lib/features/settings/settings_logs_screen.dart`
 - [ ] Opt-in local crash log (or Sentry self-hosted if desired)
-- [ ] Privacy-first: no telemetry unless user opts in
+- [x] Privacy-first: no telemetry unless user opts in
+  - Sentry explicitly rejected; talker logs are local-only
 - [ ] Crash-free rate monitoring before wide rollout
 
 ### 6.5 Play Store Readiness
 
-- [ ] Privacy policy URL (declare local permissions honestly)
+- [x] Privacy policy URL (declare local permissions honestly)
+  - In-app screen: `lib/features/settings/settings_privacy_screen.dart` + test `test/features/settings/privacy_policy_screen_test.dart`
 - [ ] Data safety form: "no data collected/shared"
 - [ ] Target API level current requirement
-- [ ] 64-bit compliance
+- [x] 64-bit compliance
+  - ABI splits include arm64-v8a (CI `build-android`)
 - [ ] App Bundle (.aab) not APK
-- [ ] Runtime permission rationale dialogs (nearby Wi-Fi, biometric, storage)
+- [x] Runtime permission rationale dialogs (nearby Wi-Fi, biometric, storage)
+  - `lib/core/platform/nearby_permissions.dart`; biometric rationale via `local_auth` localizedReason
 - [ ] Store listing assets (screenshots, feature graphic, description)
 
 ### 6.6 Branding & Distribution

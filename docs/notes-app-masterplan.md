@@ -109,6 +109,7 @@ Keep `deviceOriginId` + `updatedAt` (Lamport-ish versioning) from day one — re
 
 ### 5.5 Search
 - Local FTS, instant-as-you-type, results grouped by note vs. checklist-item matches.
+- > **Partially implemented (2026-10):** FTS search works; grouping by note vs. checklist-item match is **not implemented** — tracked as GitHub issue **#48**.
 
 ### 5.6 Nearby Sync Screen (your signature feature)
 - "Send" mode: pick **one note / selected notes / all notes** → tap "Find nearby devices" → radar-style animation discovers peers over Wi-Fi Direct/Nearby → tap target device → transfer with progress + checksum confirmation.
@@ -129,7 +130,9 @@ Don't skip these — a biometric lock screen with a nice illustration and a soft
 > **Implemented (2026-08):** the lock is a `FrostedShield` overlay — blur-behind
 > (`BackdropFilter`) with a focus-in animation and a pulsing fingerprint icon
 > (`lib/features/security/frosted_shield.dart`). See ADR 0006. Still TODO from
-> this section: lock-screen illustration and the trash "auto-deletes" messaging.
+> this section: lock-screen illustration and the trash "auto-deletes" messaging
+> (auto-purge itself is tracked as **#51**; do not claim it in user-facing copy
+> until it ships).
 
 ---
 

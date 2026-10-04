@@ -80,19 +80,19 @@ Three clauses, three promises:
 
 ## Status
 
-🚧 **Alpha — v0.8.2** — Phases 0–4 complete (foundation, core notes,
-checklists + doodles, theming, security). Phase 5 (nearby sync) is implemented:
-the transport was rebuilt on **libp2p over UDX** with a stable keystore identity,
-an own mDNS discovery fork, and categorized failure outcomes. Legacy TCP remains
-as a fallback.
+🚧 **Alpha — v0.9.4** — Phases 0–4 complete (foundation, core notes,
+checklists + doodles, theming, security). Sync (Phase 5) is implemented on
+**libp2p over UDX** with a stable keystore identity, an own mDNS discovery
+fork, pairing codes on both devices, and categorized failure outcomes. Legacy
+TCP remains as a fallback. Soft-delete Bin, vault export/import, in-app log
+viewer, and Windows/Linux installers are in place.
 
 > ⚠️ **Sync is still in testing/development.** The loopback transport and
 > orchestrator tests are green, but physical-device sync has not yet been
 > validated on real hardware, and mDNS discovery is unproven on some Android
 > stacks. Do not rely on sync for anything you cannot afford to lose.
 
-v0.8.2 restores monotonic versioning (`version: 0.8.2+3`), ships release-signed
-APKs via CI, and adds an in-app update checker. See
+Current `pubspec.yaml` version: **0.9.4+16**. See
 [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
 
 ## Features
@@ -104,13 +104,13 @@ APKs via CI, and adds an in-app update checker. See
 | **Checklists** | Toggle items, drag-to-reorder, progress bar |
 | **Doodles** | Freehand drawing via `perfect_freehand`, saved as attachments |
 | **Editor** | Block-based rich editing with the AppFlowy editor |
-| **Theming** | Material You 3 dynamic color + per-note color overrides, light/dark |
+| **Theming** | Curated 12-seed Material 3 schemes + per-note color overrides, light/dark/system |
 | **Security** | SQLCipher encryption, biometric gate, per-note lock, screenshot blocking |
-| **Trash** | Soft-delete with 30-day auto-expiry |
+| **Trash** | Soft-delete Bin with restore + empty bin *(30-day auto-purge planned — not yet implemented)* |
 | **Sync** | libp2p over UDX device-to-device sync: discovery, pairing, transfer, conflict resolution, history *(in testing)* |
-| **Export** | `.nook` bundle export via `archive` |
+| **Export** | `.nook` vault bundle (notes + markdown sidecar + attachments) + per-note PNG share |
 | **Branding** | Adaptive launcher icons on all platforms (`flutter_launcher_icons`), Linux window icon |
-| **CI** | GitHub Actions: format, analyze, test, APK build, Windows/macOS/Linux/iOS artifacts + GitHub releases |
+| **CI** | GitHub Actions: format, analyze, test, Android/Windows/macOS/Linux/iOS artifacts + GitHub releases |
 
 ## Downloads & releases
 
@@ -128,7 +128,7 @@ Build from source if you prefer:
 - **macOS/iOS**: unsigned builds only — a code-signing certificate is required
   to run them on real hardware.
 
-### What CI ships per release (v0.8.2+)
+### What CI ships per release
 
 Every tagged release triggers `CI & Release` (`.github/workflows/ci.yml`),
 which uploads all of these to the GitHub release when their builds succeed:
