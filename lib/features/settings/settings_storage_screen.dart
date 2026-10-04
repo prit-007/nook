@@ -14,6 +14,7 @@ import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/checklist_item_repository.dart';
 import '../../data/repositories/notebook_repository.dart';
 import '../../data/repositories/note_repository.dart';
+import '../../features/editor/markdown_import.dart';
 import 'providers/vault_stats_provider.dart';
 import 'widgets/export_handler.dart';
 import 'widgets/import_handler.dart';
@@ -30,6 +31,7 @@ class SettingsStorageScreen extends ConsumerStatefulWidget {
 class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
   bool _exporting = false;
   bool _importing = false;
+  bool _importingMarkdown = false;
   String? _resultMessage;
 
   Future<void> _exportVault() async {
@@ -144,6 +146,46 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _importMarkdown() async {
+    if (_importing || _exporting || _importingMarkdown) return;
+    setState(() {
+      _importingMarkdown = true;
+      _resultMessage = null;
+    });
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['md', 'markdown'],
+        allowMultiple: true,
+      );
+      if (picked == null || picked.files.isEmpty) {
+        if (mounted) setState(() => _importingMarkdown = false);
+        return;
+      }
+      final files = [
+        for (final f in picked.files)
+          if (f.path != null) File(f.path!),
+      ];
+      final db = ref.read(databaseProvider);
+      final result =
+          await MarkdownImporter(NoteRepository(db)).importFiles(files);
+      if (!mounted) return;
+      setState(() {
+        _resultMessage = result.error ??
+            'Imported ${result.notesImported} markdown '
+                'note${result.notesImported == 1 ? '' : 's'}';
+      });
+    } catch (e) {
+      nookLog(
+          NookLogKey.database, 'Markdown import failed: $e', LogLevel.error);
+      if (mounted) {
+        setState(() => _resultMessage = 'Markdown import failed: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _importingMarkdown = false);
+    }
   }
 
   @override
@@ -350,6 +392,81 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                   'Restore a backup. Existing notes are '
                                   'never overwritten — id collisions '
                                   'become copies.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: scheme.onSurfaceVariant,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
+                            size: 18,
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      _importMarkdown();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: scheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: _importingMarkdown
+                                ? Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: scheme.onSecondaryContainer,
+                                    ),
+                                  )
+                                : HugeIcon(
+                                    icon: HugeIcons.strokeRoundedFile01,
+                                    size: 20,
+                                    color: scheme.onSecondaryContainer,
+                                  ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _importingMarkdown
+                                      ? 'Importing markdown\u2026'
+                                      : 'Import Markdown',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Bring in .md files from Obsidian, Keep, or '
+                                  'any editor. New notes are always created — '
+                                  'existing data is never overwritten.',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: scheme.onSurfaceVariant,
