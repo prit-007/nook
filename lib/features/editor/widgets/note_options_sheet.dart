@@ -179,6 +179,7 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
       );
       await Future<void>.delayed(const Duration(milliseconds: 32));
     }
+    if (!mounted) return;
     final ctx = _notebookSectionKey.currentContext;
     if (ctx == null) return;
     await Scrollable.ensureVisible(
