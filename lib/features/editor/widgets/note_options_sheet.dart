@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/platform/local_reminder_scheduler.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
+import '../../../data/repositories/checklist_item_repository.dart';
 import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/reminder_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
 import '../../../data/repositories/template_repository.dart';
+import '../../security/vault_password_dialog.dart';
+import '../../settings/widgets/bulk_export.dart';
 import 'note_link_picker.dart';
 
 /// Combined bottom sheet for note options: notebook, tags, and color.
@@ -199,6 +203,15 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
     });
     widget.onTagsChanged?.call(_selectedTagIds);
     await _load();
+    // Form collapse shrinks the ListView; scroll back so tags rebuild into view.
+    final sc = _sheetScrollController;
+    if (sc != null && sc.hasClients && mounted) {
+      await sc.animateTo(
+        sc.position.minScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
@@ -563,6 +576,62 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                       onTap: () {
                         Navigator.of(context).pop();
                         context.push('/note/${widget.noteId}/history');
+                      },
+                    ),
+
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedShare01,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      title: const Text('Share as HTML'),
+                      subtitle: Text(
+                        'Standalone read-only page for this note',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      onTap: () async {
+                        final db = ref.read(databaseProvider);
+                        final note =
+                            await NoteRepository(db).getNoteById(widget.noteId);
+                        if (!mounted || note == null) return;
+                        if (note.locked) {
+                          final ok = await ensureVaultUnlocked(
+                            this.context,
+                            ref,
+                            reason: 'This note is locked — enter your vault '
+                                'password to share',
+                          );
+                          if (!ok || !mounted) return;
+                        }
+                        try {
+                          final path = await BulkExporter(
+                            noteRepository: NoteRepository(db),
+                            checklistItemRepository:
+                                ChecklistItemRepository(db),
+                          ).exportNoteHtml(note);
+                          if (!mounted) return;
+                          await SharePlus.instance.share(
+                            ShareParams(
+                              files: [XFile(path)],
+                              subject:
+                                  note.title.isEmpty ? 'Nook note' : note.title,
+                            ),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(content: Text('Share failed: $e')),
+                          );
+                        }
                       },
                     ),
 

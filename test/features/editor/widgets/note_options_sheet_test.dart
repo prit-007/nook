@@ -149,7 +149,8 @@ void main() {
       await tester.tap(createButton);
       await tester.pumpAndSettle();
 
-      // Tag should appear in the list
+      // Widget scrolls the sheet to the top after create so the tag chips
+      // are rebuilt into the viewport.
       expect(find.text('urgent'), findsOneWidget);
     });
   });
