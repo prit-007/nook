@@ -16,6 +16,7 @@ import '../../data/repositories/notebook_repository.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../features/editor/markdown_import.dart';
 import 'providers/vault_stats_provider.dart';
+import 'widgets/bulk_export.dart';
 import 'widgets/export_handler.dart';
 import 'widgets/import_handler.dart';
 
@@ -32,6 +33,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
   bool _exporting = false;
   bool _importing = false;
   bool _importingMarkdown = false;
+  bool _exportingBulk = false;
   String? _resultMessage;
 
   Future<void> _exportVault() async {
@@ -185,6 +187,67 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
       }
     } finally {
       if (mounted) setState(() => _importingMarkdown = false);
+    }
+  }
+
+  Future<void> _exportBulk(BulkExportFormat format) async {
+    if (_exporting || _importing || _importingMarkdown || _exportingBulk) {
+      return;
+    }
+    setState(() {
+      _exportingBulk = true;
+      _resultMessage = null;
+    });
+    try {
+      final db = ref.read(databaseProvider);
+      final path = await BulkExporter(
+        noteRepository: NoteRepository(db),
+        checklistItemRepository: ChecklistItemRepository(db),
+      ).exportAll(format);
+      if (!mounted) return;
+      setState(() {
+        _resultMessage = 'Exported ${format.name} archive';
+      });
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          subject: 'Nook ${format.name} export',
+        ),
+      );
+    } catch (e) {
+      nookLog(
+        NookLogKey.database,
+        'Bulk export failed: $e',
+        LogLevel.error,
+      );
+      if (mounted) {
+        setState(() => _resultMessage = 'Export failed: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _exportingBulk = false);
+    }
+  }
+
+  Future<void> _chooseBulkFormat() async {
+    final format = await showDialog<BulkExportFormat>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Export all notes'),
+        content: const Text('Choose a format for the zip archive.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, BulkExportFormat.markdown),
+            child: const Text('Markdown'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, BulkExportFormat.html),
+            child: const Text('HTML'),
+          ),
+        ],
+      ),
+    );
+    if (format != null) {
+      await _exportBulk(format);
     }
   }
 
@@ -392,6 +455,80 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                   'Restore a backup. Existing notes are '
                                   'never overwritten — id collisions '
                                   'become copies.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: scheme.onSurfaceVariant,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
+                            size: 18,
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      _chooseBulkFormat();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: scheme.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: _exportingBulk
+                                ? Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: scheme.onTertiaryContainer,
+                                    ),
+                                  )
+                                : HugeIcon(
+                                    icon: HugeIcons.strokeRoundedDownload01,
+                                    size: 20,
+                                    color: scheme.onTertiaryContainer,
+                                  ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _exportingBulk
+                                      ? 'Exporting notes\u2026'
+                                      : 'Export all notes',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Markdown or HTML zip of every live note. '
+                                  'Soft-deleted notes are excluded.',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: scheme.onSurfaceVariant,

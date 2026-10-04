@@ -85,6 +85,7 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 - **Note links** (`note_links` table): cache of `nook://note/<id>` hrefs extracted from AppFlowy JSON by `NoteLinkRepository`; rebuilt on every `NoteRepository.updateContent` (covers editor/sync/import).
 - **Reminders** (`reminders` table): local notifications via `flutter_local_notifications`. `ReminderRepository` + injectable `ReminderScheduler` (`LocalReminderScheduler` in `lib/core/platform/local_reminder_scheduler.dart`). Android needs `POST_NOTIFICATIONS` (and exact-alarm perms) — already in the manifest.
 - **Templates** (`templates` table): local-only note templates via `TemplateRepository`; built-ins seeded idempotently; create-from-template copies content into a new Notes row.
+- **Bulk export**: `lib/features/settings/widgets/bulk_export.dart` — Markdown/HTML zip of all live notes + single-note HTML share. Uses the same `renderNoteMarkdown` / `renderNoteHtml` helpers.
 - **libp2p (UDX) is the default sync transport** (`dart_libp2p ^1.0.3`): Noise encryption + Yamux multiplexing over UDP. No server, no account. The legacy TCP transport (`TcpSyncTransport`) is kept behind `useTcpFallback: true`.
 - Stable device identity = libp2p peer id derived from a 32-byte Ed25519 seed persisted in `flutter_secure_storage` (`lib/sync/crypto/identity_store.dart`); never hardcoded.
 - Encryption key stored in platform keystore via `flutter_secure_storage`; never hardcoded.
