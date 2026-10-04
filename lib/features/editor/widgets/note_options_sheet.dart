@@ -85,7 +85,6 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   bool _showingNotebookForm = false;
   final _notebookNameController = TextEditingController();
   String _newNotebookColor = '#6750A4';
-  final _notebookSectionKey = GlobalKey();
   ScrollController? _sheetScrollController;
 
   // Inline tag creation state
@@ -168,26 +167,16 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   }
 
   Future<void> _ensureNotebookSectionVisible() async {
-    // ListView does not build children far above the viewport, so the
-    // notebook section key can be null until we scroll back toward the top.
+    // ListView does not build children far above the viewport. After the
+    // inline form collapses the sheet content shrinks, so scroll back to the
+    // top (where the notebook section lives, under the color picker) without
+    // touching a BuildContext after the async gaps.
     final sc = _sheetScrollController;
-    if (sc != null && sc.hasClients) {
-      await sc.animateTo(
-        sc.position.minScrollExtent,
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOut,
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 32));
-    }
-    if (!mounted) return;
-    final ctx = _notebookSectionKey.currentContext;
-    if (ctx == null) return;
-    // GlobalKey context is captured after async work; mounted already checked.
-    // ignore: use_build_context_synchronously
-    await Scrollable.ensureVisible(
-      ctx,
+    if (sc == null || !sc.hasClients || !mounted) return;
+    await sc.animateTo(
+      sc.position.minScrollExtent,
       duration: const Duration(milliseconds: 200),
-      alignment: 0.2,
+      curve: Curves.easeOut,
     );
   }
 
@@ -390,26 +379,20 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                           ),
                         ),
                       )
-                    else if (!_showingNotebookForm)
-                      KeyedSubtree(
-                        key: _notebookSectionKey,
-                        child: Column(
-                          children: [
-                            _NotebookOption(
-                              name: 'No notebook',
-                              icon: HugeIcons.strokeRoundedFolderOff,
-                              isSelected: _selectedNotebookId == null,
-                              onTap: () => _selectNotebook(null),
-                            ),
-                            for (final nb in _notebooks)
-                              _NotebookOption(
-                                name: nb.name,
-                                isSelected: _selectedNotebookId == nb.id,
-                                onTap: () => _selectNotebook(nb.id),
-                              ),
-                          ],
-                        ),
+                    else if (!_showingNotebookForm) ...[
+                      _NotebookOption(
+                        name: 'No notebook',
+                        icon: HugeIcons.strokeRoundedFolderOff,
+                        isSelected: _selectedNotebookId == null,
+                        onTap: () => _selectNotebook(null),
                       ),
+                      for (final nb in _notebooks)
+                        _NotebookOption(
+                          name: nb.name,
+                          isSelected: _selectedNotebookId == nb.id,
+                          onTap: () => _selectNotebook(nb.id),
+                        ),
+                    ],
 
                     const SizedBox(height: 24),
 

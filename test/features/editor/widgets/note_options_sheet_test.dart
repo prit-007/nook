@@ -105,7 +105,8 @@ void main() {
       await tester.tap(createButton);
       await tester.pumpAndSettle();
 
-      // Widget scrolls the notebook section into view after create.
+      // Widget scrolls the sheet back to the top after create so the notebook
+      // list is rebuilt into the viewport.
       expect(find.text('My New Notebook'), findsOneWidget);
       expect(find.text('No notebook'), findsWidgets);
     });
