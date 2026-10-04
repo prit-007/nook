@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Trash
+- 30-day auto-purge of soft-deleted notes, notebooks, tags, and attachments
+  on cold start (`TrashAutoPurger`). Bin screen shows a retention banner
+  explaining the policy (issue #51).
+
 ### Security
 - Extracted shared PBKDF2-HMAC-SHA256 helper to `lib/core/security/kdf.dart`
   (issue #47). `PinProvider` now delegates hashing/verification; stored PIN
@@ -15,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Truth pass for public claims: README status is **v0.9.4** (was stale v0.8.2);
   theming described as curated seed-based Material 3 (wallpaper dynamic color
-  was removed); trash Bin no longer claims 30-day auto-expiry (planned #51);
+  was removed); trash Bin claims corrected (auto-purge later implemented in #51);
   export row describes `.nook` vault + PNG share.
 - `AGENTS.md`: SDK constraint corrected to Dart `>=3.6.0`; seed-based theming
   documented; trash auto-purge marked planned-not-implemented; storage section

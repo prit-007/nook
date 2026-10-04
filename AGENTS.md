@@ -80,7 +80,7 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 
 ## Storage / sync
 - Drift + SQLCipher for encrypted local storage. Current `schemaVersion` is **3** (`lib/data/database.dart`); tests assert this in `test/data/database_test.dart`.
-- Soft-delete columns (`deleted`/`deletedAt`) exist on Notes, Notebooks, Tags, Attachments. **30-day trash auto-purge is planned (#51) but not implemented** — do not claim it in user-facing copy until the feature lands.
+- Soft-delete columns (`deleted`/`deletedAt`) exist on Notes, Notebooks, Tags, Attachments. **30-day trash auto-purge** runs on cold start via `TrashAutoPurger` (`lib/data/repositories/trash_auto_purger.dart`, `kTrashRetentionDays = 30`); the Bin UI shows a retention banner.
 - **libp2p (UDX) is the default sync transport** (`dart_libp2p ^1.0.3`): Noise encryption + Yamux multiplexing over UDP. No server, no account. The legacy TCP transport (`TcpSyncTransport`) is kept behind `useTcpFallback: true`.
 - Stable device identity = libp2p peer id derived from a 32-byte Ed25519 seed persisted in `flutter_secure_storage` (`lib/sync/crypto/identity_store.dart`); never hardcoded.
 - Encryption key stored in platform keystore via `flutter_secure_storage`; never hardcoded.

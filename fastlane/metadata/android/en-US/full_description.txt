@@ -18,7 +18,7 @@ Features:
 - Editor: block-based rich editing — headings, lists, quotes, images, and more.
 - Theming: curated Material 3 seed palettes, per-note color overrides, light and dark modes.
 - Security: SQLCipher encryption at rest, biometric lock, per-note lock, screenshot blocking.
-- Trash: soft-delete Bin with restore (auto-purge planned).
+- Trash: soft-delete Bin with restore and 30-day auto-purge.
 - Nearby sync: libp2p device-to-device sync with discovery, pairing, transfer, and conflict resolution (currently in testing).
 
 Your notes belong to you — not to a service.

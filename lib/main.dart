@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
@@ -31,6 +32,7 @@ import 'core/providers/screenshot_blocker_provider.dart';
 import 'core/providers/talker_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'data/database.dart';
+import 'data/repositories/trash_auto_purger.dart';
 import 'features/quick_note/quick_note_overlay.dart';
 
 void main() async {
@@ -85,6 +87,16 @@ void main() async {
     db = AppDatabase(NativeDatabase.memory());
     talker.warning('DB fallback to memory: $e');
   }
+
+  // Soft-deleted items older than the retention window are purged on cold
+  // start so the Bin matches the "auto-deletes after N days" promise.
+  // Failures are logged — never block app startup on a purge error.
+  unawaited(
+    TrashAutoPurger(db).purgeExpired().catchError((Object e) {
+      talker.warning('Trash auto-purge failed: $e');
+      return const TrashPurgeResult();
+    }),
+  );
 
   runApp(
     ProviderScope(
