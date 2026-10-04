@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Build
+- **flutter_local_notifications** platform fixes for CI:
+  - Android: core library desugaring enabled (`desugar_jdk_libs:2.1.4`) —
+    required by the notifications plugin AAR metadata check.
+  - Windows: `tool/patch_flutter_local_notifications_windows.dart` defines
+    `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` in the plugin
+    CMake (same MSVC issue class as `local_auth_windows`). Applied on
+    Windows CI via flutter-prep when `patch-local-auth` is true.
+
 ### Templates
 - **Note templates** (issue #58): `templates` table (schema v7),
   `TemplateRepository` with idempotent built-ins (Meeting notes, Daily

@@ -65,6 +65,11 @@ runs:
       shell: bash
       run: dart run tool/patch_local_auth_windows.dart
 
+    - name: Patch flutter_local_notifications_windows (MSVC coroutine deprecation)
+      if: ${{ inputs.patch-local-auth == 'true' }}
+      shell: bash
+      run: dart run tool/patch_flutter_local_notifications_windows.dart
+
     - name: Generate code (Drift/Riverpod/Freezed)
       shell: bash
       run: dart run build_runner build --delete-conflicting-outputs
