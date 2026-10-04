@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     CMake (same MSVC issue class as `local_auth_windows`). Applied on
     Windows CI via flutter-prep when `patch-local-auth` is true.
 
+### Navigation
+- **Command palette** (issue #59): Ctrl/Cmd+K opens a fuzzy command palette
+  (new note/checklist/doodle, from template, search, notebooks, tags, trash,
+  settings, security, sync, logs). `/` still opens search. Desktop-first.
+
 ### Templates
 - **Note templates** (issue #58): `templates` table (schema v7),
   `TemplateRepository` with idempotent built-ins (Meeting notes, Daily

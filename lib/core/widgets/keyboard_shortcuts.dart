@@ -8,7 +8,7 @@ import 'package:go_router/go_router.dart';
 /// hijacked):
 ///
 /// - `/`              → open search (`/home/search`)
-/// - Ctrl/Cmd + K     → open search
+/// - Ctrl/Cmd + K     → command palette
 /// - Ctrl/Cmd + N     → new note (`/note/new`)
 /// - Ctrl+Shift+N     → quick note overlay
 class NookKeyboardShortcuts extends StatefulWidget {
@@ -16,6 +16,7 @@ class NookKeyboardShortcuts extends StatefulWidget {
     super.key,
     required this.child,
     this.onOpenSearch,
+    this.onOpenPalette,
     this.onNewNote,
     this.onQuickNote,
   });
@@ -24,6 +25,7 @@ class NookKeyboardShortcuts extends StatefulWidget {
 
   /// Injectable actions for tests. When null, navigation via go_router is used.
   final VoidCallback? onOpenSearch;
+  final VoidCallback? onOpenPalette;
   final VoidCallback? onNewNote;
   final VoidCallback? onQuickNote;
 
@@ -75,6 +77,17 @@ class _NookKeyboardShortcutsState extends State<NookKeyboardShortcuts> {
     context.push('/home/search');
   }
 
+  void _openPalette() {
+    if (!_canUseShortcuts) return;
+    final onOpenPalette = widget.onOpenPalette;
+    if (onOpenPalette != null) {
+      onOpenPalette();
+      return;
+    }
+    // Fallback when no palette host is wired: keep prior search binding.
+    _openSearch();
+  }
+
   void _newNote() {
     if (!_canUseShortcuts) return;
     final onNewNote = widget.onNewNote;
@@ -106,8 +119,9 @@ class _NookKeyboardShortcutsState extends State<NookKeyboardShortcuts> {
       bindings: {
         const SingleActivator(LogicalKeyboardKey.slash): _openSearch,
         const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-            _openSearch,
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _openSearch,
+            _openPalette,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            _openPalette,
         const SingleActivator(LogicalKeyboardKey.keyN, control: true): _newNote,
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true): _newNote,
         const SingleActivator(LogicalKeyboardKey.keyN,

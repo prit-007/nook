@@ -44,13 +44,34 @@ void main() {
       expect(searches, 1);
     });
 
-    testWidgets('fires open-search on Ctrl+K', (tester) async {
+    testWidgets('fires open-search on Ctrl+K default fallback', (tester) async {
       var searches = 0;
       await pump(tester, onOpenSearch: () => searches++);
 
       await sendCtrl(tester, LogicalKeyboardKey.keyK);
 
       expect(searches, 1);
+    });
+
+    testWidgets('fires open-palette on Ctrl+K when palette callback set',
+        (tester) async {
+      var palettes = 0;
+      var searches = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NookKeyboardShortcuts(
+            onOpenSearch: () => searches++,
+            onOpenPalette: () => palettes++,
+            child: const Scaffold(body: Center(child: Text('app content'))),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await sendCtrl(tester, LogicalKeyboardKey.keyK);
+
+      expect(palettes, 1);
+      expect(searches, 0);
     });
 
     testWidgets('fires new-note on Ctrl+N', (tester) async {
