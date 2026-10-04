@@ -105,8 +105,9 @@ void main() {
       await tester.tap(createButton);
       await tester.pumpAndSettle();
 
-      // Notebook should appear in the list
+      // Widget scrolls the notebook section into view after create.
       expect(find.text('My New Notebook'), findsOneWidget);
+      expect(find.text('No notebook'), findsWidgets);
     });
 
     testWidgets('shows create tag button when no tags exist', (tester) async {

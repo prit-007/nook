@@ -85,6 +85,8 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   bool _showingNotebookForm = false;
   final _notebookNameController = TextEditingController();
   String _newNotebookColor = '#6750A4';
+  final _notebookSectionKey = GlobalKey();
+  ScrollController? _sheetScrollController;
 
   // Inline tag creation state
   bool _showingTagForm = false;
@@ -160,6 +162,30 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
     });
     widget.onNotebookChanged?.call(nb.id);
     await _load();
+    if (!mounted) return;
+    // Form collapse shrinks the ListView; keep the notebook list on screen.
+    await _ensureNotebookSectionVisible();
+  }
+
+  Future<void> _ensureNotebookSectionVisible() async {
+    // ListView does not build children far above the viewport, so the
+    // notebook section key can be null until we scroll back toward the top.
+    final sc = _sheetScrollController;
+    if (sc != null && sc.hasClients) {
+      await sc.animateTo(
+        sc.position.minScrollExtent,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 32));
+    }
+    final ctx = _notebookSectionKey.currentContext;
+    if (ctx == null) return;
+    await Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 200),
+      alignment: 0.2,
+    );
   }
 
   Future<void> _createTag() async {
@@ -196,6 +222,7 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) {
+        _sheetScrollController = scrollController;
         return Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           child: _loading
@@ -360,20 +387,26 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                           ),
                         ),
                       )
-                    else if (!_showingNotebookForm) ...[
-                      _NotebookOption(
-                        name: 'No notebook',
-                        icon: HugeIcons.strokeRoundedFolderOff,
-                        isSelected: _selectedNotebookId == null,
-                        onTap: () => _selectNotebook(null),
-                      ),
-                      for (final nb in _notebooks)
-                        _NotebookOption(
-                          name: nb.name,
-                          isSelected: _selectedNotebookId == nb.id,
-                          onTap: () => _selectNotebook(nb.id),
+                    else if (!_showingNotebookForm)
+                      KeyedSubtree(
+                        key: _notebookSectionKey,
+                        child: Column(
+                          children: [
+                            _NotebookOption(
+                              name: 'No notebook',
+                              icon: HugeIcons.strokeRoundedFolderOff,
+                              isSelected: _selectedNotebookId == null,
+                              onTap: () => _selectNotebook(null),
+                            ),
+                            for (final nb in _notebooks)
+                              _NotebookOption(
+                                name: nb.name,
+                                isSelected: _selectedNotebookId == nb.id,
+                                onTap: () => _selectNotebook(nb.id),
+                              ),
+                          ],
                         ),
-                    ],
+                      ),
 
                     const SizedBox(height: 24),
 
