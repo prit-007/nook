@@ -7,8 +7,10 @@ import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
+import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
+import 'note_link_picker.dart';
 
 /// Combined bottom sheet for note options: notebook, tags, and color.
 class NoteOptionsSheet extends ConsumerStatefulWidget {
@@ -539,6 +541,42 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                       onTap: () {
                         Navigator.of(context).pop();
                         context.push('/note/${widget.noteId}/history');
+                      },
+                    ),
+
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedLink01,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      title: const Text('Linked notes'),
+                      subtitle: Text(
+                        'Outgoing links and backlinks for this note',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      onTap: () async {
+                        final db = ref.read(databaseProvider);
+                        final note =
+                            await NoteRepository(db).getNoteById(widget.noteId);
+                        final title = (note == null || note.title.isEmpty)
+                            ? 'Untitled'
+                            : note.title;
+                        if (!mounted) return;
+                        // Keep this sheet open; links sheet uses root navigator.
+                        await showNoteLinksSheet(
+                          this.context,
+                          noteId: widget.noteId,
+                          noteTitle: title,
+                        );
                       },
                     ),
 

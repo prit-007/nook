@@ -5,6 +5,7 @@ import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 import '../tables/notes.dart';
 import 'attachment_repository.dart';
+import 'note_link_repository.dart';
 
 /// Repository for Notes table operations.
 class NoteRepository {
@@ -166,6 +167,15 @@ class NoteRepository {
         'DELETE FROM notes_fts WHERE id = ?',
         [id],
       );
+    }
+    // Keep note-link graph in sync with document hrefs (editor, sync, import).
+    if (deltaContent != null) {
+      try {
+        await NoteLinkRepository(_db).rebuildForNote(id);
+      } catch (e) {
+        nookLog(NookLogKey.database, 'Note link rebuild failed: $e',
+            LogLevel.warning);
+      }
     }
     nookLog(NookLogKey.database, 'Note content saved: $id', LogLevel.debug);
   }

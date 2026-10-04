@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Editor
+- **Note linking + backlinks** (issue #53): slash menu “Link to note” inserts
+  `nook://note/<id>` hyperlinks; `note_links` cache rebuilt from AppFlowy JSON
+  on every content save (editor, sync, import). Options → Linked notes shows
+  outgoing + incoming links with missing-note badges. Drift `schemaVersion` → 5.
 - Local **version history** for notes (issue #52): time-bucketed autosave
   snapshots (max 200/note), restore always snapshots current state first.
   Options sheet → Version history; route `/note/:id/history`. Revisions are
