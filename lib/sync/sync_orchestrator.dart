@@ -6,30 +6,30 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/platform/nearby_permissions.dart';
 import '../core/platform/wifi_direct.dart';
 import '../core/providers/database_provider.dart';
 import '../core/providers/talker_provider.dart';
-import '../data/database.dart';
-import '../data/media_cas_storage.dart';
 import '../data/repositories/attachment_repository.dart';
-import '../data/tables/notes.dart';
 import '../data/repositories/note_repository.dart';
 import '../data/repositories/notebook_repository.dart';
 import '../data/repositories/sync_log_repository.dart';
 import '../data/repositories/tag_repository.dart';
 import '../data/repositories/trusted_device_repository.dart';
 import 'crypto/identity_store.dart';
-import 'media_path_rewriter.dart';
+import 'pipeline/sync_bundle_applier.dart';
+import 'pipeline/sync_bundle_packer.dart';
+import 'pipeline/sync_progress_tracker.dart';
 import 'protocol/merge_resolver.dart';
 import 'protocol/sync_bundle.dart';
 import 'protocol/sync_digest.dart';
 import 'transport/libp2p_sync_transport.dart';
 import 'transport/sync_transport.dart';
 import 'transport/tcp_sync_transport.dart';
+
+export 'pipeline/sync_progress_tracker.dart' show SyncProgressStats, SyncStage;
 
 /// State of the sync orchestrator.
 class SyncOrchestratorState {
@@ -46,6 +46,7 @@ class SyncOrchestratorState {
     this.rejectedNoteIds = const [],
     this.error,
     this.outcome,
+    this.progressStats = const SyncProgressStats(),
   });
 
   final SyncPhase phase;
@@ -64,6 +65,17 @@ class SyncOrchestratorState {
   /// protocol / internal). Null when the last operation did not fail.
   final SyncOutcomeCategory? outcome;
 
+  /// Live transfer throughput, dynamic ETA, and stage details.
+  final SyncProgressStats progressStats;
+
+  int get bytesTransferred => progressStats.bytesTransferred;
+  int get totalBytes => progressStats.totalBytes;
+  double get byteProgress => progressStats.byteProgress;
+  String get formattedSpeed => progressStats.formattedSpeed;
+  String get formattedEta => progressStats.formattedEta;
+  String get formattedBytes => progressStats.formattedBytes;
+  String? get currentItemName => progressStats.currentItemName;
+
   SyncOrchestratorState copyWith({
     SyncPhase? phase,
     List<SyncDevice>? devices,
@@ -81,6 +93,7 @@ class SyncOrchestratorState {
     bool clearError = false,
     SyncOutcomeCategory? outcome,
     bool clearOutcome = false,
+    SyncProgressStats? progressStats,
   }) {
     return SyncOrchestratorState(
       phase: phase ?? this.phase,
@@ -97,6 +110,7 @@ class SyncOrchestratorState {
       rejectedNoteIds: rejectedNoteIds ?? this.rejectedNoteIds,
       error: clearError ? null : (error ?? this.error),
       outcome: clearOutcome ? null : (outcome ?? this.outcome),
+      progressStats: progressStats ?? this.progressStats,
     );
   }
 }
@@ -144,6 +158,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   String _localDeviceName = '';
   bool _stopped = false;
   Completer<void>? _cancelCompleter;
+  final SyncProgressTracker _progressTracker = SyncProgressTracker();
+  int _lastBundleSizeBytes = 0;
 
   /// Whether a transport has been initialized (test hook).
   bool get isTransportInitialized => _transport?.isInitialized ?? false;
@@ -303,8 +319,14 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     unawaited(_progressSub?.cancel());
     _progressSub = _transport!.progressStream.listen((progress) {
       if (state.phase == SyncPhase.sending) {
+        final totalEst = _lastBundleSizeBytes > 0
+            ? _lastBundleSizeBytes
+            : (state.totalCount > 0 ? state.totalCount * 1024 : 1024);
+        final currentBytes = (progress * totalEst).round();
+        _progressTracker.updateBytes(currentBytes);
         state = state.copyWith(
           sentCount: (progress * state.totalCount).round(),
+          progressStats: _progressTracker.stats,
         );
       }
     });
@@ -684,10 +706,17 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       LogLevel.info,
     );
 
+    _progressTracker.start(totalItems: noteIds.length, totalBytes: 0);
+    _progressTracker.setStage(
+      SyncStage.packaging,
+      description: 'Packing notes...',
+    );
+
     state = state.copyWith(
       phase: SyncPhase.sending,
       sentCount: 0,
       totalCount: noteIds.length,
+      progressStats: _progressTracker.stats,
     );
     _cancelCompleter = Completer<void>();
 
@@ -698,139 +727,40 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       final attachmentRepo = AttachmentRepository(db);
       final notebookRepo = NotebookRepository(db);
 
-      // Pre-fetch tags for all notes in a single query.
-      final tagMap = await tagRepo.getTagsForNotes(noteIds);
+      final packer = SyncBundlePacker(
+        db: db,
+        noteRepo: noteRepo,
+        attachmentRepo: attachmentRepo,
+        tagRepo: tagRepo,
+        notebookRepo: notebookRepo,
+      );
 
-      // Build SyncNoteEntry for each selected note
-      final entries = <SyncNoteEntry>[];
-      for (final noteId in noteIds) {
-        if (_cancelCompleter?.isCompleted == true) {
-          state = state.copyWith(
-            phase: SyncPhase.error,
-            error: 'Transfer cancelled',
-            outcome: SyncOutcomeCategory.cancelled,
+      final bundle = await packer.pack(
+        noteIds: noteIds,
+        senderDeviceId: _localDeviceId,
+        senderDeviceName: _localDeviceName,
+        onProgress: (packedCount, totalCount, currentTitle) {
+          _progressTracker.updateItem(
+            itemName: currentTitle,
+            itemIndex: packedCount,
           );
-          return;
-        }
-        final note = await noteRepo.getNoteById(noteId);
-        if (note == null) continue;
+          state = state.copyWith(
+            sentCount: packedCount,
+            progressStats: _progressTracker.stats,
+          );
+        },
+      );
 
-        // Attach all of the note's attachment file bytes (images + doodle layers).
-        final attachments = <SyncAttachment>[];
-        final attachmentRows = await attachmentRepo.getAllForNote(noteId);
-        for (final row in attachmentRows) {
-          final file = File(row.filePath);
-          if (await file.exists()) {
-            Uint8List? thumbBytes;
-            final thumbPath = row.thumbnailPath;
-            if (thumbPath != null && thumbPath.isNotEmpty) {
-              final thumbFile = File(thumbPath);
-              if (await thumbFile.exists()) {
-                thumbBytes = await thumbFile.readAsBytes();
-              }
-            }
-            attachments.add(SyncAttachment(
-              id: row.id,
-              type: row.type.name,
-              sortOrder: row.sortOrder,
-              bytes: await file.readAsBytes(),
-              filePath: row.filePath,
-              thumbnailPath: thumbPath,
-              thumbnailBytes: thumbBytes,
-            ));
-          } else {
-            nookLog(
-              NookLogKey.sync,
-              'Attachment ${row.id} missing on disk: ${row.filePath}',
-              LogLevel.warning,
-            );
-          }
-        }
-
-        // Pack checklist items for checklist / mixed notes.
-        List<Map<String, dynamic>>? checklistItems;
-        if (note.type == NoteType.checklist || note.type == NoteType.mixed) {
-          final items = await (db.select(db.checklistItems)
-                ..where((t) => t.noteId.equals(noteId))
-                ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
-              .get();
-          if (items.isNotEmpty) {
-            checklistItems = items
-                .map((item) => {
-                      'id': item.id,
-                      'itemText': item.itemText,
-                      'checked': item.checked,
-                      'sortOrder': item.sortOrder,
-                    })
-                .toList();
-          }
-        }
-
-        // Pack tags for this note.
-        final noteTags = tagMap[noteId];
-        final tagsPayload = noteTags
-            ?.map((t) => {
-                  'id': t.id,
-                  'name': t.name,
-                  'colorSeed': t.colorSeed,
-                })
-            .toList();
-
-        // Pack notebook metadata so the receiver can create a properly
-        // named placeholder instead of a generic "Synced Notebook".
-        String? notebookName;
-        String? notebookColorSeed;
-        String? notebookIcon;
-        if (note.notebookId != null) {
-          final notebook = await notebookRepo.getNotebookById(note.notebookId!);
-          if (notebook != null) {
-            notebookName = notebook.name;
-            notebookColorSeed = notebook.colorSeed;
-            notebookIcon = notebook.icon;
-          }
-        }
-
-        entries.add(SyncNoteEntry(
-          noteId: note.id,
-          syncVersion: note.syncVersion,
-          updatedAt: note.updatedAt,
-          deviceOriginId: note.deviceOriginId,
-          noteFields: {
-            'title': note.title,
-            'type': note.type.name,
-            'colorSeed': note.colorSeed,
-            'pinned': note.pinned,
-            'locked': note.locked,
-            'notebookId': note.notebookId,
-            'deltaContent': note.deltaContent,
-            'plainText': note.plainText,
-            'coverImagePath': note.coverImagePath,
-            'createdAt': note.createdAt.millisecondsSinceEpoch,
-            if (tagsPayload != null && tagsPayload.isNotEmpty)
-              'tags': tagsPayload,
-            if (notebookName != null) 'notebookName': notebookName,
-            if (notebookColorSeed != null)
-              'notebookColorSeed': notebookColorSeed,
-            if (notebookIcon != null) 'notebookIcon': notebookIcon,
-          },
-          checklistItems: checklistItems != null && checklistItems.isNotEmpty
-              ? checklistItems
-              : null,
-          attachments: attachments.isEmpty ? null : attachments,
-        ));
-        nookLog(
-          NookLogKey.sync,
-          'Packed note ${note.id} "${note.title}" '
-          '(${attachments.length} attachment(s), ${noteTags?.length ?? 0} tag(s), '
-          '${checklistItems?.length ?? 0} checklist items, '
-          '${note.deltaContent?.length ?? 0} delta bytes)',
-          LogLevel.debug,
+      if (_cancelCompleter?.isCompleted == true) {
+        state = state.copyWith(
+          phase: SyncPhase.error,
+          error: 'Transfer cancelled',
+          outcome: SyncOutcomeCategory.cancelled,
         );
-        // Update progress incrementally as each note is packed.
-        state = state.copyWith(sentCount: entries.length);
+        return;
       }
 
-      if (entries.isEmpty) {
+      if (bundle.notes.isEmpty) {
         nookLog(NookLogKey.sync, 'Send aborted: no valid notes to send',
             LogLevel.warning);
         state = state.copyWith(
@@ -840,20 +770,21 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         return;
       }
 
-      // Build the bundle
-      final bundle = SyncBundle(
-        protocolVersion: '1.0',
-        senderDeviceId: _localDeviceId,
-        senderDeviceName: _localDeviceName,
-        sentAt: DateTime.now(),
-        notes: entries,
-      );
-
       // Serialize to CBOR
       final bundleBytes = bundle.toCbor();
+      _lastBundleSizeBytes = bundleBytes.length;
+      _progressTracker.start(
+        totalItems: bundle.notes.length,
+        totalBytes: bundleBytes.length,
+      );
+      _progressTracker.setStage(
+        SyncStage.transferring,
+        description: 'Streaming notes...',
+      );
+
       nookLog(
         NookLogKey.sync,
-        'Bundle built: ${entries.length} note(s), ${bundleBytes.length} bytes',
+        'Bundle built: ${bundle.notes.length} note(s), ${bundleBytes.length} bytes',
         LogLevel.info,
       );
 
@@ -874,7 +805,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
       // Log each sent note
       final syncLog = SyncLogRepository(db);
-      for (final entry in entries) {
+      for (final entry in bundle.notes) {
         await syncLog.logSent(
           deviceId: _localDeviceId,
           deviceName: _localDeviceName,
@@ -902,15 +833,17 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         );
       }
 
+      _progressTracker.complete();
       state = state.copyWith(
         phase: SyncPhase.complete,
-        sentCount: entries.length,
+        sentCount: bundle.notes.length,
         receivedNoteIds: ack.receivedNoteIds,
         rejectedNoteIds: ack.rejectedNoteIds,
+        progressStats: _progressTracker.stats,
       );
       nookLog(
         NookLogKey.sync,
-        'Sync complete: ${entries.length} notes sent',
+        'Sync complete: ${bundle.notes.length} notes sent',
         LogLevel.info,
       );
     } catch (e) {
@@ -980,97 +913,81 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
 
       state = state.copyWith(phase: SyncPhase.resolving);
 
-      final receivedIds = <String>[];
-      final rejectedIds = <String>[];
-      final conflicts = <SyncConflict>[];
+      _progressTracker.start(
+        totalItems: bundle.notes.length,
+        totalBytes: bytes.length,
+      );
+      _progressTracker.setStage(
+        SyncStage.resolvingConflicts,
+        description: 'Applying incoming notes...',
+      );
 
-      for (final entry in bundle.notes) {
-        final action = await resolver.resolveIncoming(entry);
+      final applier = SyncBundleApplier(
+        db: db,
+        noteRepo: noteRepo,
+        notebookRepo: NotebookRepository(db),
+        attachmentRepo: attachmentRepo,
+        tagRepo: tagRepo,
+        syncLog: syncLog,
+        resolver: resolver,
+        restoreDirectoryOverride: restoredAttachmentsDirectoryOverride,
+      );
 
-        switch (action) {
-          case MergeAction.insertAsNew:
-          case MergeAction.overwrite:
-            nookLog(
-              NookLogKey.sync,
-              'Incoming note ${entry.noteId} — '
-              '${action == MergeAction.insertAsNew ? 'inserting' : 'overwriting'}',
-              LogLevel.info,
-            );
-            await resolver.applyIncoming(entry);
-            await _restoreAttachments(
-                entry: entry, attachmentRepo: attachmentRepo);
-            await _restoreTags(
-                entry: entry, tagRepo: tagRepo, noteRepo: noteRepo);
-            await _restoreChecklistItems(entry: entry, noteRepo: noteRepo);
-            receivedIds.add(entry.noteId);
-            await syncLog.logReceived(
-              deviceId: bundle.senderDeviceId,
-              deviceName: bundle.senderDeviceName,
-              noteId: entry.noteId,
-            );
-            break;
-
-          case MergeAction.promptUser:
-            // Pause and surface conflict for user resolution
-            nookLog(
-              NookLogKey.sync,
-              'Conflict detected: ${entry.noteId}',
-              LogLevel.warning,
-            );
-            conflicts.add(SyncConflict(
-              incoming: entry,
-              localDeviceName: _localDeviceName,
-              remoteDeviceName: bundle.senderDeviceName,
-            ));
-            break;
-
-          case MergeAction.ignore:
-            nookLog(
-              NookLogKey.sync,
-              'Incoming note ${entry.noteId} ignored (older or deleted)',
-              LogLevel.info,
-            );
-            rejectedIds.add(entry.noteId);
-            break;
-        }
-
-        state = state.copyWith(
-          receivedCount: receivedIds.length,
-        );
-      }
+      final result = await applier.apply(
+        bundle: bundle,
+        localDeviceName: _localDeviceName,
+        onProgress: (appliedCount, totalCount, currentTitle) {
+          _progressTracker.updateItem(
+            itemName: currentTitle,
+            itemIndex: appliedCount,
+          );
+          state = state.copyWith(
+            receivedCount: appliedCount,
+            progressStats: _progressTracker.stats,
+          );
+        },
+      );
 
       // Send ack back to sender.
       // Conflicts are NOT included in rejectedNoteIds — the user has not
       // decided yet. The sender learns the outcome only when the user resolves
       // each conflict (via a follow-up ack in resolveConflict()).
-      final ack = SyncAck(
-        receivedNoteIds: receivedIds,
-        rejectedNoteIds: rejectedIds,
-      );
+      final ack = result.ack;
       nookLog(
         NookLogKey.sync,
-        'Acking sender: ${receivedIds.length} received, '
-        '${rejectedIds.length} rejected',
+        'Acking sender: ${result.receivedNoteIds.length} received, '
+        '${result.rejectedNoteIds.length} rejected',
         LogLevel.debug,
       );
       await _transport?.sendAck(ack.toCbor());
 
-      if (conflicts.isNotEmpty) {
+      if (result.conflicts.isNotEmpty) {
         // Deduplicate: only add conflicts for notes not already in the list.
         final existingConflictIds =
             state.conflicts.map((c) => c.incoming.noteId).toSet();
-        final newConflicts = conflicts
+        final newConflicts = result.conflicts
             .where((c) => !existingConflictIds.contains(c.incoming.noteId))
             .toList();
         state = state.copyWith(
           phase: SyncPhase.resolving,
           conflicts: [...state.conflicts, ...newConflicts],
+          receivedCount: result.receivedNoteIds.length,
+          receivedNoteIds: result.receivedNoteIds,
+          rejectedNoteIds: result.rejectedNoteIds,
+          progressStats: _progressTracker.stats,
         );
       } else {
-        state = state.copyWith(phase: SyncPhase.complete);
+        _progressTracker.complete();
+        state = state.copyWith(
+          phase: SyncPhase.complete,
+          receivedCount: result.receivedNoteIds.length,
+          receivedNoteIds: result.receivedNoteIds,
+          rejectedNoteIds: result.rejectedNoteIds,
+          progressStats: _progressTracker.stats,
+        );
         nookLog(
           NookLogKey.sync,
-          'Sync receive complete: ${receivedIds.length} notes',
+          'Sync receive complete: ${result.receivedNoteIds.length} notes',
           LogLevel.info,
         );
       }
@@ -1109,6 +1026,12 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     final attachmentRepo = AttachmentRepository(db);
     final syncLog = SyncLogRepository(db);
     final resolver = MergeResolver(noteRepo, NotebookRepository(db));
+    final applier = SyncBundleApplier(
+      db: db,
+      noteRepo: noteRepo,
+      attachmentRepo: attachmentRepo,
+      restoreDirectoryOverride: restoredAttachmentsDirectoryOverride,
+    );
 
     switch (choice) {
       case 'remote':
@@ -1119,8 +1042,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         );
         // Overwrite local with remote version
         await resolver.forceOverwrite(conflict.incoming);
-        await _restoreAttachments(
-            entry: conflict.incoming, attachmentRepo: attachmentRepo);
+        await applier.restoreAttachments(entry: conflict.incoming);
         await syncLog.logReceived(
           deviceId: conflict.incoming.deviceOriginId,
           deviceName: conflict.remoteDeviceName,
@@ -1152,8 +1074,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
           conflict.incoming,
           originIdOverride: _localDeviceId,
         );
-        await _restoreAttachments(
-            entry: conflict.incoming, attachmentRepo: attachmentRepo);
+        await applier.restoreAttachments(entry: conflict.incoming);
         await syncLog.logReceived(
           deviceId: _localDeviceId,
           deviceName: conflict.remoteDeviceName,
@@ -1218,258 +1139,6 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   /// Where received attachment bytes are re-materialised on disk. Defaults to
   /// the app documents directory; tests override it to avoid path_provider.
   Directory? restoredAttachmentsDirectoryOverride;
-
-  /// Restores all attachment bytes into the app's managed documents directory
-  /// and creates Attachment rows (images + doodle layers) preserving ids/order.
-  ///
-  /// Existing attachment rows for the note are replaced (not duplicated) so a
-  /// re-sync of the same note cannot accumulate orphaned rows or files.
-  ///
-  /// Doodles are restored in the canonical layout `DoodleStorage` expects
-  /// (`<docs>/<id>.doodle.json` + `<docs>/<id>_thumb.png`) so strokes stay
-  /// editable after sync, and the note's delta is re-pointed at the restored
-  /// paths — the sender's absolute paths (e.g. a Windows `C:\Users\...`) do not
-  /// exist on this device and must not be left in the document.
-  Future<void> _restoreAttachments({
-    required SyncNoteEntry entry,
-    required AttachmentRepository attachmentRepo,
-  }) async {
-    final attachments = entry.attachments;
-    if (attachments == null || attachments.isEmpty) return;
-
-    final noteRepo = NoteRepository(ref.read(databaseProvider));
-    final note = await noteRepo.getNoteById(entry.noteId);
-    if (note == null) return;
-
-    final baseDir = restoredAttachmentsDirectoryOverride ??
-        await getApplicationDocumentsDirectory();
-    final noteDir = Directory('${baseDir.path}/sync/attachments');
-    await noteDir.create(recursive: true);
-
-    // Delete existing attachments first so overwrites never duplicate.
-    await attachmentRepo.deleteAllForNote(note.id);
-    nookLog(
-      NookLogKey.sync,
-      'Restoring ${attachments.length} attachment(s) for ${entry.noteId} '
-      'into ${baseDir.path}',
-      LogLevel.info,
-    );
-
-    final restored = <RestoredMedia>[];
-    for (var i = 0; i < attachments.length; i++) {
-      final att = attachments[i];
-      final restoredId =
-          await _resolveSyncedAttachmentId(att.id, attachmentRepo);
-
-      final isDoodle = att.type == 'doodleLayer';
-      if (isDoodle && att.id.isNotEmpty) {
-        // Canonical DoodleStorage layout: sidecar + thumbnail at the documents
-        // root so the doodle stays editable (and its thumbnail renders).
-        await File('${baseDir.path}/$restoredId.doodle.json')
-            .writeAsBytes(att.bytes, flush: true);
-        final thumbBytes = att.thumbnailBytes;
-        if (thumbBytes != null && thumbBytes.isNotEmpty) {
-          await File('${baseDir.path}/${restoredId}_thumb.png')
-              .writeAsBytes(thumbBytes, flush: true);
-        }
-        await attachmentRepo.addDoodle(
-          noteId: note.id,
-          filePath: '${baseDir.path}/$restoredId.doodle.json',
-          id: restoredId,
-          sortOrder: att.sortOrder,
-        );
-        if (att.thumbnailBytes != null && att.thumbnailBytes!.isNotEmpty) {
-          await attachmentRepo.updateThumbnail(
-              restoredId, '${baseDir.path}/${restoredId}_thumb.png');
-        }
-        restored.add(RestoredMedia(
-          attachmentId: att.id,
-          newAttachmentId: restoredId != att.id ? restoredId : null,
-          originalFilePath: att.filePath,
-          originalThumbnailPath: att.thumbnailPath,
-          newFilePath: '${baseDir.path}/$restoredId.doodle.json',
-          newThumbnailPath: '${baseDir.path}/${restoredId}_thumb.png',
-        ));
-        nookLog(
-          NookLogKey.sync,
-          'Restored doodle $restoredId sidecar -> '
-          '${baseDir.path}/$restoredId.doodle.json',
-          LogLevel.debug,
-        );
-        continue;
-      }
-
-      // Image, or a legacy doodle without an id. Content-addressed storage (CAS)
-      // deduplicates identical media across notes.
-      final ext = att.type == 'doodleLayer' ? 'drawn' : 'img';
-      final casStorage = MediaCasStorage(baseDirectory: baseDir);
-      final storedFile = await casStorage.storeMedia(att.bytes, extension: ext);
-      final filePath = storedFile.path;
-
-      String? thumbPath;
-      final thumbBytes = att.thumbnailBytes;
-      if (thumbBytes != null && thumbBytes.isNotEmpty) {
-        final storedThumb =
-            await casStorage.storeMedia(thumbBytes, extension: '$ext.thumb');
-        thumbPath = storedThumb.path;
-      }
-
-      if (att.type == 'doodleLayer') {
-        await attachmentRepo.addDoodle(
-          noteId: note.id,
-          filePath: filePath,
-          id: restoredId,
-          sortOrder: att.sortOrder,
-        );
-      } else {
-        await attachmentRepo.addImage(
-          noteId: note.id,
-          filePath: filePath,
-          id: restoredId,
-          thumbnailPath: thumbPath,
-          sortOrder: att.sortOrder,
-        );
-      }
-      restored.add(RestoredMedia(
-        attachmentId: att.id,
-        newAttachmentId: restoredId != att.id ? restoredId : null,
-        originalFilePath: att.filePath,
-        originalThumbnailPath: att.thumbnailPath,
-        newFilePath: filePath,
-        newThumbnailPath: thumbPath,
-      ));
-      nookLog(
-        NookLogKey.sync,
-        'Restored attachment $restoredId (${att.type}) -> $filePath',
-        LogLevel.debug,
-      );
-    }
-
-    // Re-point the note's delta at the restored files so media renders (and
-    // doodles stay editable) on this device instead of referencing the
-    // sender's absolute paths.
-    final originalDelta = note.deltaContent ?? '';
-    final rewrittenDelta = rewriteMediaPaths(originalDelta, restored);
-    if (rewrittenDelta != originalDelta) {
-      await noteRepo.updateContent(
-        note.id,
-        deltaContent: rewrittenDelta,
-        plainText: note.plainText,
-        updatedAt: note.updatedAt,
-      );
-      nookLog(
-        NookLogKey.sync,
-        'Delta re-pointed for ${entry.noteId} '
-        '(${restored.length} media reference(s) rewritten)',
-        LogLevel.info,
-      );
-    } else {
-      nookLog(
-        NookLogKey.sync,
-        'Delta for ${entry.noteId} unchanged (no media paths to rewrite)',
-        LogLevel.debug,
-      );
-    }
-  }
-
-  /// Returns an attachment id that is free on this device. A sender-chosen id
-  /// that already belongs to a different local attachment is remapped to a
-  /// fresh UUID (and the delta's reference is updated accordingly).
-  Future<String> _resolveSyncedAttachmentId(
-    String incomingId,
-    AttachmentRepository attachmentRepo,
-  ) async {
-    if (incomingId.isEmpty) return const Uuid().v4();
-    final existing = await attachmentRepo.getById(incomingId);
-    if (existing == null) return incomingId;
-    nookLog(
-      NookLogKey.sync,
-      'Attachment id collision $incomingId; remapping to fresh id',
-      LogLevel.warning,
-    );
-    return const Uuid().v4();
-  }
-
-  /// Restores tags for an incoming note. Creates any missing tags locally
-  /// (preserving their remote ID, name, and color) and assigns them to the
-  /// note. Existing tag-note associations are replaced atomically.
-  Future<void> _restoreTags({
-    required SyncNoteEntry entry,
-    required TagRepository tagRepo,
-    required NoteRepository noteRepo,
-  }) async {
-    final rawTags = entry.noteFields['tags'];
-    if (rawTags is! List) return;
-
-    final tagIds = <String>[];
-    for (final raw in rawTags) {
-      if (raw is! Map) continue;
-      final tagId = raw['id'] as String?;
-      final tagName = raw['name'] as String?;
-      final tagColor = raw['colorSeed'] as String?;
-      if (tagId == null || tagId.isEmpty) continue;
-
-      // Ensure the tag exists locally (create if missing, preserving remote ID).
-      final existing = await tagRepo.getTagById(tagId);
-      if (existing == null) {
-        await tagRepo.createTagWithId(
-          tagId,
-          name: tagName ?? 'Synced Tag',
-          colorSeed: tagColor ?? '#6750A4',
-        );
-        nookLog(
-          NookLogKey.sync,
-          'Created placeholder tag for incoming note: $tagId ($tagName)',
-          LogLevel.info,
-        );
-      }
-      tagIds.add(tagId);
-    }
-
-    // Replace tag assignments atomically.
-    if (tagIds.isNotEmpty) {
-      await noteRepo.updateNoteTags(entry.noteId, tagIds);
-    }
-  }
-
-  /// Restores structured checklist items for an incoming checklist/mixed note.
-  /// Existing items are replaced atomically.
-  Future<void> _restoreChecklistItems({
-    required SyncNoteEntry entry,
-    required NoteRepository noteRepo,
-  }) async {
-    final items = entry.checklistItems;
-    if (items == null || items.isEmpty) return;
-
-    final db = ref.read(databaseProvider);
-    // Delete existing checklist items for this note.
-    await (db.delete(db.checklistItems)
-          ..where((t) => t.noteId.equals(entry.noteId)))
-        .go();
-
-    // Insert incoming items.
-    for (final item in items) {
-      final itemId = item['id'] as String? ?? const Uuid().v4();
-      final itemText = item['itemText'] as String? ?? '';
-      final checked = item['checked'] == true;
-      final sortOrder = item['sortOrder'] as int? ?? 0;
-
-      await db.into(db.checklistItems).insert(
-            ChecklistItemsCompanion.insert(
-              id: Value(itemId),
-              noteId: entry.noteId,
-              itemText: itemText,
-              checked: Value(checked),
-              sortOrder: Value(sortOrder),
-            ),
-          );
-    }
-    nookLog(
-      NookLogKey.sync,
-      'Restored ${items.length} checklist item(s) for ${entry.noteId}',
-      LogLevel.debug,
-    );
-  }
 }
 
 /// Provider for the sync orchestrator.
