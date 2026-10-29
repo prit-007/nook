@@ -6,7 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/providers/database_provider.dart';
 import '../../core/router.dart';
+import '../../data/database.dart';
+import '../../data/repositories/note_repository.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
 import 'sync_pairing_screen.dart';
@@ -350,23 +353,78 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
                         ],
                         if (syncState.phase == SyncPhase.receiving) ...[
                           const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2.5),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: scheme.outlineVariant
+                                    .withValues(alpha: 0.3),
                               ),
-                              const SizedBox(width: 12),
-                              Text(
-                                syncState.receivedCount > 0
-                                    ? 'Receiving — ${syncState.receivedCount} notes'
-                                    : 'Receiving notes...',
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                            ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2.5),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        syncState.receivedCount > 0
+                                            ? 'Receiving — ${syncState.receivedCount} notes'
+                                            : 'Receiving notes...',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    if (syncState.formattedSpeed.isNotEmpty)
+                                      Text(
+                                        syncState.formattedSpeed,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: scheme.primary,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                if (syncState.currentItemName != null &&
+                                    syncState.currentItemName!.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      HugeIcon(
+                                        icon: HugeIcons.strokeRoundedNote01,
+                                        size: 14,
+                                        color: scheme.primary,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          syncState.currentItemName!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ],
                         if (syncState.phase == SyncPhase.resolving &&
@@ -385,17 +443,8 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
                           ...syncState.conflicts.map(
                             (conflict) => Padding(
                               padding: const EdgeInsets.only(bottom: 12),
-                              child: ConflictCard(
-                                noteTitle: conflict.incoming.noteFields['title']
-                                        as String? ??
-                                    'Untitled',
-                                localDeviceName: conflict.localDeviceName,
-                                remoteDeviceName: conflict.remoteDeviceName,
-                                localUpdatedAt: null, // resolved from DB below
-                                remoteUpdatedAt: conflict.incoming.updatedAt,
-                                contentPreview: conflict.incoming
-                                        .noteFields['plainText'] as String? ??
-                                    '',
+                              child: _ConflictCardWrapper(
+                                conflict: conflict,
                                 onResolved: (choice) {
                                   ref
                                       .read(syncOrchestratorProvider.notifier)
@@ -591,6 +640,44 @@ class _SyncReceiveScreenState extends ConsumerState<SyncReceiveScreen>
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ConflictCardWrapper extends ConsumerWidget {
+  const _ConflictCardWrapper({
+    required this.conflict,
+    required this.onResolved,
+  });
+
+  final SyncConflict conflict;
+  final void Function(String choice) onResolved;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.watch(databaseProvider);
+    final noteRepo = NoteRepository(db);
+
+    return FutureBuilder<Note?>(
+      future: noteRepo.getNoteById(conflict.incoming.noteId),
+      builder: (context, snapshot) {
+        final localNote = snapshot.data;
+        return ConflictCard(
+          noteTitle: conflict.incoming.noteFields['title'] as String? ??
+              localNote?.title ??
+              'Untitled',
+          localDeviceName: conflict.localDeviceName,
+          remoteDeviceName: conflict.remoteDeviceName,
+          localUpdatedAt: localNote?.updatedAt,
+          remoteUpdatedAt: conflict.incoming.updatedAt,
+          contentPreview:
+              conflict.incoming.noteFields['plainText'] as String? ?? '',
+          localContent: localNote?.plainText ?? localNote?.deltaContent,
+          remoteContent: conflict.incoming.noteFields['plainText'] as String? ??
+              conflict.incoming.noteFields['content'] as String?,
+          onResolved: onResolved,
+        );
+      },
     );
   }
 }

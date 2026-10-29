@@ -6,6 +6,7 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
+import 'widgets/conflict_card.dart';
 
 class SyncTransferScreen extends ConsumerWidget {
   const SyncTransferScreen({super.key, required this.sessionId});
@@ -66,6 +67,8 @@ class SyncTransferScreen extends ConsumerWidget {
     if (syncState.phase == SyncPhase.sending ||
         syncState.phase == SyncPhase.receiving) {
       return _transferring(context, scheme, syncState, ref);
+    } else if (syncState.phase == SyncPhase.resolving) {
+      return _resolving(context, scheme, syncState, ref);
     } else if (syncState.phase == SyncPhase.complete) {
       return _complete(context, scheme, syncState);
     } else if (syncState.phase == SyncPhase.error) {
@@ -112,9 +115,11 @@ class SyncTransferScreen extends ConsumerWidget {
     WidgetRef ref,
   ) {
     final sending = syncState.phase == SyncPhase.sending;
-    final progress = syncState.totalCount > 0
-        ? syncState.sentCount / syncState.totalCount
-        : 0.0;
+    final progress = syncState.byteProgress > 0
+        ? syncState.byteProgress
+        : (syncState.totalCount > 0
+            ? syncState.sentCount / syncState.totalCount
+            : 0.0);
 
     return Column(
       key: const ValueKey('transferring'),
@@ -168,7 +173,7 @@ class SyncTransferScreen extends ConsumerWidget {
             );
           },
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: 36),
         Text(
           sending ? 'Beaming Notes...' : 'Receiving Notes...',
           style: const TextStyle(
@@ -195,6 +200,71 @@ class SyncTransferScreen extends ConsumerWidget {
             ),
           ),
         ),
+        if (syncState.currentItemName != null &&
+            syncState.currentItemName!.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedNote01,
+                  size: 14,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    syncState.currentItemName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (syncState.bytesTransferred > 0 || syncState.totalBytes > 0) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: WrapAlignment.center,
+            children: [
+              if (syncState.formattedBytes.isNotEmpty)
+                _TelemetryBadge(
+                  icon: HugeIcons.strokeRoundedHardDrive,
+                  label: syncState.formattedBytes,
+                  scheme: scheme,
+                ),
+              if (syncState.formattedSpeed.isNotEmpty)
+                _TelemetryBadge(
+                  icon: HugeIcons.strokeRoundedFlash,
+                  label: syncState.formattedSpeed,
+                  scheme: scheme,
+                ),
+              if (syncState.formattedEta.isNotEmpty)
+                _TelemetryBadge(
+                  icon: HugeIcons.strokeRoundedHourglass,
+                  label: syncState.formattedEta,
+                  scheme: scheme,
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 24),
         if (sending) ...[
           OutlinedButton.icon(
@@ -220,6 +290,78 @@ class SyncTransferScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _resolving(
+    BuildContext context,
+    ColorScheme scheme,
+    SyncOrchestratorState syncState,
+    WidgetRef ref,
+  ) {
+    return Column(
+      key: const ValueKey('resolving'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedAlertCircle,
+              color: scheme.error,
+              size: 24,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Conflicting Changes (${syncState.conflicts.length})',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Please choose which version to keep for each conflicted note.',
+          style: TextStyle(
+            fontSize: 13,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: ListView.builder(
+            itemCount: syncState.conflicts.length,
+            itemBuilder: (context, index) {
+              final conflict = syncState.conflicts[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: ConflictCard(
+                  noteTitle: conflict.incoming.noteFields['title'] as String? ??
+                      'Untitled',
+                  localDeviceName: conflict.localDeviceName,
+                  remoteDeviceName: conflict.remoteDeviceName,
+                  remoteUpdatedAt: conflict.incoming.updatedAt,
+                  contentPreview:
+                      conflict.incoming.noteFields['plainText'] as String? ??
+                          '',
+                  remoteContent:
+                      conflict.incoming.noteFields['plainText'] as String? ??
+                          conflict.incoming.noteFields['content'] as String?,
+                  onResolved: (choice) {
+                    ref
+                        .read(syncOrchestratorProvider.notifier)
+                        .resolveConflict(conflict, choice);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -451,6 +593,47 @@ class SyncTransferScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _TelemetryBadge extends StatelessWidget {
+  const _TelemetryBadge({
+    required this.icon,
+    required this.label,
+    required this.scheme,
+  });
+
+  final List<List<dynamic>> icon;
+  final String label;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          HugeIcon(icon: icon, size: 12, color: scheme.primary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
