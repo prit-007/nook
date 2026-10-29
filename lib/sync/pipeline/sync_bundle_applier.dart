@@ -114,8 +114,8 @@ class SyncBundleApplier {
               baseDir: baseDir,
             );
           }
-          await _restoreTags(entry: entry);
-          await _restoreChecklistItems(entry: entry);
+          await restoreTags(entry: entry);
+          await restoreChecklistItems(entry: entry);
 
           receivedIds.add(entry.noteId);
           await syncLog.logReceived(
@@ -271,7 +271,7 @@ class SyncBundleApplier {
     return const Uuid().v4();
   }
 
-  Future<void> _restoreTags({required SyncNoteEntry entry}) async {
+  Future<void> restoreTags({required SyncNoteEntry entry}) async {
     final rawTags = entry.noteFields['tags'];
     if (rawTags is! List) return;
 
@@ -300,7 +300,7 @@ class SyncBundleApplier {
     }
   }
 
-  Future<void> _restoreChecklistItems({required SyncNoteEntry entry}) async {
+  Future<void> restoreChecklistItems({required SyncNoteEntry entry}) async {
     final items = entry.checklistItems;
     if (items == null || items.isEmpty) return;
 

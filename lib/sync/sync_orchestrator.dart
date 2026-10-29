@@ -223,7 +223,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   }) async {
     if (testTransport != null) {
       _transport = testTransport;
-      _localDeviceId = const Uuid().v4();
+      _localDeviceId =
+          await testTransport.getCurrentDeviceId() ?? const Uuid().v4();
       _localDeviceName = localDeviceName ?? 'Test Device';
     } else {
       final SyncTransport transport;
@@ -249,6 +250,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     // outcome treatments (declined vs. timeout vs. connection lost). Subscribe
     // once for the transport's lifetime.
     _ensureStateSubscription();
+    _ensureBytesSubscription();
     nookLog(
       NookLogKey.sync,
       'Sync transport initialized ($_localDeviceName)',
@@ -259,6 +261,20 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   void _ensureStateSubscription() {
     if (_stateSub != null) return;
     _stateSub = _transport!.sessionStateStream.listen(_onTransportState);
+  }
+
+  void _ensureBytesSubscription() {
+    if (_bytesSub != null) return;
+    _bytesSub = _transport?.bytesReceivedStream.listen(
+      _enqueueReceivedBytes,
+      onError: (e) {
+        state = state.copyWith(
+          phase: SyncPhase.error,
+          error: 'Receive error: $e',
+          outcome: SyncOutcomeCategory.protocol,
+        );
+      },
+    );
   }
 
   /// Maps a transport session state into the orchestrator state. Only errors
@@ -413,19 +429,7 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     await _startWifiDirectAdvertising();
 
     _ensureStateSubscription();
-
-    // Listen for incoming connections
-    unawaited(_bytesSub?.cancel());
-    _bytesSub = _transport!.bytesReceivedStream.listen(
-      _enqueueReceivedBytes,
-      onError: (e) {
-        state = state.copyWith(
-          phase: SyncPhase.error,
-          error: 'Receive error: $e',
-          outcome: SyncOutcomeCategory.protocol,
-        );
-      },
-    );
+    _ensureBytesSubscription();
 
     // Surface incoming pairing requests so the receive UI can confirm them,
     // or auto-approve if the device is already in the trusted devices store.
@@ -1051,6 +1055,8 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         // Overwrite local with remote version
         await resolver.forceOverwrite(conflict.incoming);
         await applier.restoreAttachments(entry: conflict.incoming);
+        await applier.restoreTags(entry: conflict.incoming);
+        await applier.restoreChecklistItems(entry: conflict.incoming);
         await syncLog.logReceived(
           deviceId: conflict.incoming.deviceOriginId,
           deviceName: conflict.remoteDeviceName,
