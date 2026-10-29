@@ -9,6 +9,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
 import '../../data/repositories/trusted_device_repository.dart';
+import '../../sync/sync_orchestrator.dart';
 
 final trustedDevicesProvider = FutureProvider<List<TrustedDevice>>((ref) {
   final db = ref.watch(databaseProvider);
@@ -22,6 +23,9 @@ class SyncScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final trustedDevicesAsync = ref.watch(trustedDevicesProvider);
+    final syncState = ref.watch(syncOrchestratorProvider);
+    final isTransferring = syncState.phase == SyncPhase.sending ||
+        syncState.phase == SyncPhase.receiving;
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -52,6 +56,58 @@ class SyncScreen extends ConsumerWidget {
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             children: [
+              if (isTransferring) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 24),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: scheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Transfer in progress (${syncState.phase == SyncPhase.sending ? 'Sending' : 'Receiving'})',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: scheme.onPrimaryContainer,
+                              ),
+                            ),
+                            if (syncState.formattedSpeed.isNotEmpty)
+                              Text(
+                                '${syncState.formattedSpeed} · ${syncState.formattedBytes}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: scheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: () => context.push('/sync/transfer/active'),
+                        child: const Text('View Transfer'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               Text(
                 'Transfer notes directly to nearby devices over your local network. No cloud required.',
                 style: TextStyle(
@@ -61,7 +117,84 @@ class SyncScreen extends ConsumerWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 32),
+              if (syncState.devices.isNotEmpty) ...[
+                Row(
+                  children: [
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedWifi01,
+                      size: 20,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Nearby Devices (${syncState.devices.length})',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...syncState.devices.map((device) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedSmartPhone01,
+                          size: 22,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                device.deviceName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                'Ready to sync',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () {
+                            ref
+                                .read(syncOrchestratorProvider.notifier)
+                                .selectDevice(device);
+                            context.push('/sync/send');
+                          },
+                          child: const Text('Send Notes'),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                const SizedBox(height: 24),
+              ],
               LayoutBuilder(
                 builder: (context, constraints) {
                   final sideBySide = constraints.maxWidth > 500;

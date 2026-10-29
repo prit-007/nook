@@ -631,6 +631,14 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     );
   }
 
+  /// Sets or clears the active target device for synchronization.
+  void selectDevice(SyncDevice? device) {
+    state = state.copyWith(
+      selectedDevice: device,
+      clearSelectedDevice: device == null,
+    );
+  }
+
   /// Connects to a specific device and prepares for transfer.
   Future<void> connectToDevice(SyncDevice device, {String? pairingCode}) async {
     _ensureStateSubscription();
