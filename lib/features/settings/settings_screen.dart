@@ -18,7 +18,7 @@ import 'providers/vault_stats_provider.dart';
 
 /// Settings root screen.
 /// Frosted glass section cards with tight macro-typography and tactile
-/// haptic feedback. Lucide iconography throughout.
+/// haptic feedback. HugeIcons iconography throughout.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -154,6 +154,15 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
+                icon: HugeIcons.strokeRoundedDelete01,
+                title: 'Trash / Bin',
+                value: '30-day retention',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/trash');
+                },
+              ),
+              _SettingsTile(
                 icon: HugeIcons.strokeRoundedWifi01,
                 title: 'Peer Sync',
                 value: 'Send & receive',
@@ -258,6 +267,8 @@ String _autoLockLabel(AutoLockDuration duration) => switch (duration) {
       AutoLockDuration.oneMinute => '1 minute',
       AutoLockDuration.fiveMinutes => '5 minutes',
       AutoLockDuration.fifteenMinutes => '15 minutes',
+      AutoLockDuration.thirtyMinutes => '30 minutes',
+      AutoLockDuration.oneHour => '1 hour',
       AutoLockDuration.never => 'Never',
     };
 
@@ -419,7 +430,7 @@ class _SettingsTile extends StatelessWidget {
                 HugeIcon(
                   icon: HugeIcons.strokeRoundedArrowRight01,
                   size: 18,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
             ],
           ),

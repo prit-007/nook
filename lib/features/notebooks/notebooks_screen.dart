@@ -299,9 +299,11 @@ class _SeedColorDot extends StatelessWidget {
               : null,
         ),
         child: isSelected
-            ? const HugeIcon(
+            ? HugeIcon(
                 icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                color: Colors.white,
+                color: color.computeLuminance() > 0.5
+                    ? Colors.black87
+                    : Colors.white,
                 size: 20,
               )
             : null,
@@ -408,7 +410,7 @@ class _CreateNotebookSheetState extends ConsumerState<_CreateNotebookSheet> {
                   decoration: InputDecoration(
                     hintText: 'e.g. Architectural Studies, Journal',
                     hintStyle: TextStyle(
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
                     filled: true,
                     fillColor: scheme.surface.withValues(alpha: 0.6),
@@ -427,7 +429,7 @@ class _CreateNotebookSheetState extends ConsumerState<_CreateNotebookSheet> {
                   'ACCENT PALETTE',
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 2.0,
                     color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
@@ -475,7 +477,7 @@ class _CreateNotebookSheetState extends ConsumerState<_CreateNotebookSheet> {
                       child: FilledButton(
                         style: FilledButton.styleFrom(
                           backgroundColor: _selectedColor,
-                          foregroundColor: Colors.white,
+                          foregroundColor: scheme.onPrimaryContainer,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),

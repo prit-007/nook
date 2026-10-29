@@ -475,7 +475,7 @@ class _BinTab extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  color: scheme.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
@@ -483,7 +483,7 @@ class _BinTab extends StatelessWidget {
                 emptySubtitle,
                 style: TextStyle(
                   fontSize: 14,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.35),
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -524,7 +524,7 @@ class _BinTab extends StatelessWidget {
                 item.name,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: scheme.onSurface.withValues(alpha: 0.7),
+                  color: scheme.onSurface,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -533,7 +533,7 @@ class _BinTab extends StatelessWidget {
                 'Archived $age',
                 style: TextStyle(
                   fontSize: 12,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
               trailing: Row(
@@ -576,7 +576,7 @@ class _BinTab extends StatelessWidget {
     return HugeIcon(
       icon: iconData,
       size: 24,
-      color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+      color: scheme.onSurfaceVariant,
     );
   }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:drift/drift.dart' show Value;
@@ -21,6 +22,7 @@ import '../../core/providers/database_provider.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/theme/note_theme.dart';
 import '../../core/theme/note_theme_scope.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/database.dart';
 import '../../data/repositories/attachment_repository.dart';
@@ -39,8 +41,10 @@ import 'doodle/doodle_block.dart';
 import 'note_exporter.dart';
 import 'widgets/custom_todo_list_block.dart';
 import 'widgets/image_picker_handler.dart';
+import 'widgets/color_picker_sheet.dart';
 import 'widgets/note_link_picker.dart';
 import 'widgets/note_options_sheet.dart';
+import 'widgets/paper_background.dart';
 import '../security/vault_password_dialog.dart';
 import 'widgets/zoomable_image_block.dart';
 import 'checklist_editor.dart';
@@ -115,6 +119,142 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   AppDatabase? _db;
   bool _corruptedDelta = false;
   List<Attachment> _checklistAttachments = [];
+  NotePaperStyle _paperStyle = NotePaperStyle.blank;
+
+  int get _wordCount {
+    if (_editorState == null) return 0;
+    final nodes = _editorState!.document.root.children;
+    int words = 0;
+    for (final node in nodes) {
+      if (node.delta != null) {
+        for (final op in node.delta!.toList()) {
+          final data = op.data;
+          if (data is String) {
+            final trimmed = data.trim();
+            if (trimmed.isNotEmpty) {
+              words += trimmed.split(RegExp(r'\s+')).length;
+            }
+          }
+        }
+      }
+    }
+    return words;
+  }
+
+  int get _readingTime =>
+      _wordCount > 0 ? max(1, (_wordCount / 200).ceil()) : 0;
+
+  Future<void> _pickColor() async {
+    if (_note == null || _db == null) return;
+    unawaited(HapticFeedback.selectionClick());
+    final newSeed = await ColorPickerSheet.show(
+      context,
+      currentSeed: _colorSeed,
+    );
+    if (!mounted || newSeed == null) return;
+    unawaited(HapticFeedback.mediumImpact());
+    setState(() => _colorSeed = newSeed.isEmpty ? null : newSeed);
+    await NoteRepository(_db!).updateNote(
+      _note!.id,
+      colorSeed: newSeed.isEmpty ? '' : newSeed,
+    );
+  }
+
+  Future<void> _showPaperStyleSheet() async {
+    unawaited(HapticFeedback.selectionClick());
+    final scheme = Theme.of(context).colorScheme;
+    final selected = await showModalBottomSheet<NotePaperStyle>(
+      context: context,
+      useRootNavigator: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 32,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: scheme.onSurface.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Paper Style',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Choose stationery background texture',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: scheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                for (final style in NotePaperStyle.values)
+                  ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    leading: HugeIcon(
+                      icon: switch (style) {
+                        NotePaperStyle.blank => HugeIcons.strokeRoundedFile01,
+                        NotePaperStyle.ruled => HugeIcons.strokeRoundedMenu01,
+                        NotePaperStyle.grid => HugeIcons.strokeRoundedGrid,
+                        NotePaperStyle.dotted => HugeIcons.strokeRoundedCircle,
+                      },
+                      color: _paperStyle == style
+                          ? scheme.primary
+                          : scheme.onSurface,
+                    ),
+                    title: Text(
+                      switch (style) {
+                        NotePaperStyle.blank => 'Blank (Clean)',
+                        NotePaperStyle.ruled => 'Ruled (Lined)',
+                        NotePaperStyle.grid => 'Grid (Graph)',
+                        NotePaperStyle.dotted => 'Dotted (Bullet)',
+                      },
+                      style: TextStyle(
+                        fontWeight: _paperStyle == style
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: _paperStyle == style ? scheme.primary : null,
+                      ),
+                    ),
+                    trailing: _paperStyle == style
+                        ? HugeIcon(
+                            icon: HugeIcons.strokeRoundedTick02,
+                            color: scheme.primary,
+                            size: 20,
+                          )
+                        : null,
+                    onTap: () {
+                      unawaited(HapticFeedback.selectionClick());
+                      Navigator.of(context).pop(style);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (selected != null && mounted) {
+      setState(() => _paperStyle = selected);
+    }
+  }
 
   /// Tracks whether the user has made real edits since the last save.
   bool _dirty = false;
@@ -962,10 +1102,14 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     await WidgetsBinding.instance.endOfFrame;
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
-    // Shutter flash — brief white overlay to confirm the capture.
+    // Shutter flash — brief overlay to confirm the capture.
     if (mounted) {
       final flashEntry = OverlayEntry(
-        builder: (_) => const ColoredBox(color: Colors.white70),
+        builder: (_) => ColoredBox(
+          color: Theme.of(context).colorScheme.brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.4)
+              : Colors.black.withValues(alpha: 0.2),
+        ),
       );
       Overlay.of(context).insert(flashEntry);
       await Future<void>.delayed(const Duration(milliseconds: 80));
@@ -1286,29 +1430,38 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                         ),
                         sliver: SliverFillRemaining(
                           hasScrollBody: true,
-                          child: _note?.type == NoteType.checklist
-                              ? ChecklistEditor(
-                                  noteId: _note!.id,
-                                  title: _title,
-                                  initialAttachments: _checklistAttachments,
-                                  onTitleChanged: _updateChecklistTitle,
-                                  onInsertImage: _note != null
-                                      ? _insertChecklistImage
-                                      : null,
-                                  onInsertDoodle: _note != null
-                                      ? _insertChecklistDoodle
-                                      : null,
-                                  onOpenAttachment: _note != null
-                                      ? _openChecklistAttachment
-                                      : null,
-                                  onDeleteAttachment: _note != null
-                                      ? _deleteChecklistAttachment
-                                      : null,
-                                )
-                              : _buildEditorForPlatform(
-                                  noteScheme: noteScheme,
-                                  dynamicTextTheme: dynamicTextTheme,
-                                ),
+                          child: CustomPaint(
+                            painter: _paperStyle != NotePaperStyle.blank
+                                ? PaperBackgroundPainter(
+                                    style: _paperStyle,
+                                    color: noteScheme.onSurface
+                                        .withValues(alpha: 0.06),
+                                  )
+                                : null,
+                            child: _note?.type == NoteType.checklist
+                                ? ChecklistEditor(
+                                    noteId: _note!.id,
+                                    title: _title,
+                                    initialAttachments: _checklistAttachments,
+                                    onTitleChanged: _updateChecklistTitle,
+                                    onInsertImage: _note != null
+                                        ? _insertChecklistImage
+                                        : null,
+                                    onInsertDoodle: _note != null
+                                        ? _insertChecklistDoodle
+                                        : null,
+                                    onOpenAttachment: _note != null
+                                        ? _openChecklistAttachment
+                                        : null,
+                                    onDeleteAttachment: _note != null
+                                        ? _deleteChecklistAttachment
+                                        : null,
+                                  )
+                                : _buildEditorForPlatform(
+                                    noteScheme: noteScheme,
+                                    dynamicTextTheme: dynamicTextTheme,
+                                  ),
+                          ),
                         ),
                       ),
                     ],
@@ -1347,6 +1500,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                 note: _note,
                                 notebookName: _notebookName,
                                 tagNames: _tagNames,
+                                wordCount: _wordCount,
+                                readingTime: _readingTime,
+                                colorSeed: _colorSeed,
+                                onPickColor: _pickColor,
+                                onPickPaperStyle: _showPaperStyleSheet,
                                 onBack: () async {
                                   final router = GoRouter.of(context);
                                   unawaited(HapticFeedback.lightImpact());
@@ -1434,6 +1592,11 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
     required this.onRedo,
     this.notebookName,
     this.tagNames = const [],
+    this.wordCount = 0,
+    this.readingTime = 0,
+    this.colorSeed,
+    this.onPickColor,
+    this.onPickPaperStyle,
   });
 
   final ColorScheme noteScheme;
@@ -1454,12 +1617,51 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
   final VoidCallback onRedo;
   final String? notebookName;
   final List<String> tagNames;
+  final int wordCount;
+  final int readingTime;
+  final String? colorSeed;
+  final VoidCallback? onPickColor;
+  final VoidCallback? onPickPaperStyle;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 420;
+        final isNarrow = constraints.maxWidth < 460;
+
+        Widget pinButton({required bool compact}) => IconButton(
+              tooltip: pinned ? 'Unpin note' : 'Pin note',
+              icon: HugeIcon(
+                icon: pinned
+                    ? HugeIcons.strokeRoundedPin
+                    : HugeIcons.strokeRoundedPinOff,
+                size: compact ? 19 : 20,
+                color: pinned ? noteScheme.primary : noteScheme.onSurface,
+              ),
+              onPressed: onTogglePin,
+            );
+
+        Widget colorButton({required bool compact}) {
+          final effectiveColor = colorSeed != null && colorSeed!.isNotEmpty
+              ? NookColors.parseHex(colorSeed)
+              : noteScheme.primary;
+          return IconButton(
+            tooltip: 'Note color',
+            icon: Container(
+              width: compact ? 18 : 20,
+              height: compact ? 18 : 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: effectiveColor,
+                border: Border.all(
+                  color: noteScheme.onSurface.withValues(alpha: 0.35),
+                  width: 1.5,
+                ),
+              ),
+            ),
+            onPressed: onPickColor,
+          );
+        }
 
         return Row(
           children: [
@@ -1485,24 +1687,64 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    saving
-                        ? 'Saving...'
-                        : _subtitle(
-                            note?.updatedAt ?? DateTime.now(),
+                  saving
+                      ? Text(
+                          'Saving...',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: noteScheme.onSurfaceVariant,
                           ),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: noteScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _subtitle(
+                                  note?.updatedAt ?? DateTime.now(),
+                                ),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: noteScheme.onSurfaceVariant,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (wordCount > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1.5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: noteScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.8),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '$wordCount words \u00b7 $readingTime min',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: noteScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                 ],
               ),
             ),
             if (isNarrow) ...[
+              colorButton(compact: true),
+              pinButton(compact: true),
               PopupMenuButton<String>(
                 icon: HugeIcon(
                   icon: HugeIcons.strokeRoundedMore01,
@@ -1514,6 +1756,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                       onUndo();
                     case 'redo':
                       onRedo();
+                    case 'paper':
+                      onPickPaperStyle?.call();
                     case 'image':
                       onInsertImage();
                     case 'doodle':
@@ -1556,6 +1800,19 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     ),
                   ),
                   const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'paper',
+                    child: Row(
+                      children: [
+                        HugeIcon(
+                            icon: HugeIcons.strokeRoundedGrid,
+                            size: 20,
+                            color: noteScheme.onSurface),
+                        const SizedBox(width: 12),
+                        const Text('Paper style'),
+                      ],
+                    ),
+                  ),
                   PopupMenuItem(
                     value: 'image',
                     child: Row(
@@ -1643,6 +1900,16 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                     icon: HugeIcons.strokeRoundedRedo02,
                     color: noteScheme.onSurface),
               ),
+              if (onPickPaperStyle != null)
+                IconButton(
+                  tooltip: 'Paper style',
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedGrid,
+                    color: noteScheme.onSurface,
+                    size: 20,
+                  ),
+                  onPressed: onPickPaperStyle,
+                ),
               IconButton(
                 tooltip: 'Insert image',
                 icon: HugeIcon(
@@ -1659,17 +1926,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                 ),
                 onPressed: onInsertDoodle,
               ),
-              IconButton(
-                tooltip: pinned ? 'Unpin note' : 'Pin note',
-                icon: HugeIcon(
-                  icon: pinned
-                      ? HugeIcons.strokeRoundedPin
-                      : HugeIcons.strokeRoundedPinOff,
-                  color: pinned ? noteScheme.primary : noteScheme.onSurface,
-                  size: 20,
-                ),
-                onPressed: onTogglePin,
-              ),
+              colorButton(compact: false),
+              pinButton(compact: false),
               IconButton(
                 tooltip: 'Export note',
                 icon: HugeIcon(
@@ -1894,7 +2152,7 @@ class NoteExportCapture extends StatelessWidget {
                   'nook.',
                   style: TextStyle(
                     fontFamily: 'Playfair Display',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: scheme.primary.withValues(alpha: 0.4),
                     letterSpacing: 2.0,
@@ -1904,8 +2162,8 @@ class NoteExportCapture extends StatelessWidget {
                   DateFormat('yyyy').format(note.updatedAt),
                   style: TextStyle(
                     fontFamily: 'Playfair Display',
-                    fontSize: 10,
-                    color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
                     letterSpacing: 2.0,
                   ),
                 ),

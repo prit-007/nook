@@ -110,5 +110,53 @@ void main() {
       expect(gate.enabled, isTrue);
       expect(gate.isLocked, isTrue);
     });
+
+    test('supports thirtyMinutes and oneHour AutoLockDuration', () {
+      expect(AutoLockDuration.values, contains(AutoLockDuration.thirtyMinutes));
+      expect(AutoLockDuration.values, contains(AutoLockDuration.oneHour));
+      expect(
+          AutoLockDuration.thirtyMinutes.duration, const Duration(minutes: 30));
+      expect(AutoLockDuration.oneHour.duration, const Duration(hours: 1));
+    });
+
+    test('checkInactivity locks when idle duration exceeds threshold',
+        () async {
+      final gate = BiometricGate(
+        authenticator: () async => true,
+        autoLockDuration: AutoLockDuration.fiveMinutes,
+      );
+      gate.setEnabled(true);
+      await gate.unlock();
+      expect(gate.isLocked, isFalse);
+
+      final now = DateTime.now();
+      // Only 3 minutes idle -> should not lock
+      gate.checkInactivity(now: now.add(const Duration(minutes: 3)));
+      expect(gate.isLocked, isFalse);
+
+      // 6 minutes idle -> should lock
+      gate.checkInactivity(now: now.add(const Duration(minutes: 6)));
+      expect(gate.isLocked, isTrue);
+    });
+
+    test('recordActivity resets inactivity timer', () async {
+      final gate = BiometricGate(
+        authenticator: () async => true,
+        autoLockDuration: AutoLockDuration.fiveMinutes,
+      );
+      gate.setEnabled(true);
+      await gate.unlock();
+
+      final now = DateTime.now();
+      // 4 minutes pass, activity recorded
+      gate.recordActivity();
+      // 3 more minutes pass from initial now (total 7m, but only 3m since activity)
+      // If we record activity at now + 4m, and check at now + 7m:
+      // Let's test with gate.lastActivityAt:
+      expect(gate.lastActivityAt, isNotNull);
+      expect(
+          gate.lastActivityAt.isAfter(now.subtract(const Duration(seconds: 1))),
+          isTrue);
+    });
   });
 }

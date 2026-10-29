@@ -103,7 +103,11 @@ class _QuickNoteOverlayState extends ConsumerState<QuickNoteOverlay> {
             Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(color: Colors.black.withValues(alpha: 0.4)),
+                child: Container(
+                  color: scheme.brightness == Brightness.dark
+                      ? Colors.black.withValues(alpha: 0.6)
+                      : Colors.black.withValues(alpha: 0.4),
+                ),
               ),
             ),
 
@@ -131,7 +135,9 @@ class _QuickNoteOverlayState extends ConsumerState<QuickNoteOverlay> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
+                                color: scheme.brightness == Brightness.dark
+                                    ? Colors.white.withValues(alpha: 0.15)
+                                    : Colors.black.withValues(alpha: 0.15),
                                 blurRadius: 40,
                                 offset: const Offset(0, 16),
                               ),

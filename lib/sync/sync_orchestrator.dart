@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,16 +14,19 @@ import '../core/platform/wifi_direct.dart';
 import '../core/providers/database_provider.dart';
 import '../core/providers/talker_provider.dart';
 import '../data/database.dart';
+import '../data/media_cas_storage.dart';
 import '../data/repositories/attachment_repository.dart';
 import '../data/tables/notes.dart';
 import '../data/repositories/note_repository.dart';
 import '../data/repositories/notebook_repository.dart';
 import '../data/repositories/sync_log_repository.dart';
 import '../data/repositories/tag_repository.dart';
+import '../data/repositories/trusted_device_repository.dart';
 import 'crypto/identity_store.dart';
 import 'media_path_rewriter.dart';
 import 'protocol/merge_resolver.dart';
 import 'protocol/sync_bundle.dart';
+import 'protocol/sync_digest.dart';
 import 'transport/libp2p_sync_transport.dart';
 import 'transport/sync_transport.dart';
 import 'transport/tcp_sync_transport.dart';
@@ -400,9 +405,36 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
       },
     );
 
-    // Surface incoming pairing requests so the receive UI can confirm them.
+    // Surface incoming pairing requests so the receive UI can confirm them,
+    // or auto-approve if the device is already in the trusted devices store.
     unawaited(_pairingSub?.cancel());
-    _pairingSub = _transport!.pairingRequestStream.listen((request) {
+    _pairingSub = _transport!.pairingRequestStream.listen((request) async {
+      final db = ref.read(databaseProvider);
+      final trustedRepo = TrustedDeviceRepository(db);
+      final isTrusted =
+          await trustedRepo.isDeviceTrusted(request.remoteDeviceId);
+
+      if (isTrusted) {
+        nookLog(
+          NookLogKey.sync,
+          'Auto-approving pairing from trusted peer: ${request.remoteDeviceName} '
+          '(${request.remoteDeviceId})',
+          LogLevel.info,
+        );
+        await _transport?.respondToPairing(request, true);
+        state = state.copyWith(
+          clearPendingPairing: true,
+          phase: SyncPhase.idle,
+          selectedDevice: SyncDevice(
+            deviceId: request.remoteDeviceId,
+            deviceName: request.remoteDeviceName,
+            isOnline: true,
+          ),
+          clearError: true,
+        );
+        return;
+      }
+
       state = state.copyWith(
         pendingPairing: request,
         phase: SyncPhase.receiving,
@@ -505,11 +537,22 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
   /// Android's standard Wi-Fi Direct group-owner subnet address.
   static const String _defaultP2pOwnerAddress = '192.168.49.1';
 
-  /// Confirms a pending incoming pairing request.
-  Future<void> confirmPairing() async {
+  /// Confirms a pending incoming pairing request, optionally persisting the peer
+  /// in the trusted devices repository to enable future automatic pairing.
+  Future<void> confirmPairing({bool trustDevice = true}) async {
     final request = state.pendingPairing;
     if (request == null) return;
     await _transport?.respondToPairing(request, true);
+
+    if (trustDevice) {
+      final db = ref.read(databaseProvider);
+      final trustedRepo = TrustedDeviceRepository(db);
+      await trustedRepo.addOrUpdateTrustedDevice(
+        peerId: request.remoteDeviceId,
+        deviceName: request.remoteDeviceName,
+      );
+    }
+
     state = state.copyWith(
       clearPendingPairing: true,
       // The pairing was approved: remember who dialed us so this device can
@@ -529,6 +572,41 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
     if (request == null) return;
     await _transport?.respondToPairing(request, false);
     state = state.copyWith(clearPendingPairing: true);
+  }
+
+  /// Builds a lightweight [SyncDigest] of all local notes for two-way delta sync.
+  Future<SyncDigest> buildLocalDigest() async {
+    final db = ref.read(databaseProvider);
+    final allNotes = await db.select(db.notes).get();
+    final entries = allNotes.map((note) {
+      final rawContent =
+          '${note.title}:${note.plainText ?? ''}:${note.deltaContent ?? ''}';
+      final hash = sha256.convert(utf8.encode(rawContent)).toString();
+      return NoteDigestEntry(
+        noteId: note.id,
+        updatedAt: note.updatedAt.toUtc(),
+        syncVersion: note.syncVersion,
+        deleted: note.deleted,
+        contentHash: hash,
+      );
+    }).toList();
+
+    return SyncDigest(
+      deviceId: _localDeviceId,
+      entries: entries,
+    );
+  }
+
+  /// Computes the reconciliation plan (notes to push, notes to pull, identical notes, conflicts)
+  /// given a remote digest.
+  SyncReconciliation reconcile(
+    SyncDigest remoteDigest, {
+    required SyncDigest localDigest,
+  }) {
+    return SyncReconciliation.reconcile(
+      local: localDigest,
+      remote: remoteDigest,
+    );
   }
 
   /// Connects to a specific device and prepares for transfer.
@@ -1221,19 +1299,19 @@ class SyncOrchestrator extends Notifier<SyncOrchestratorState> {
         continue;
       }
 
-      // Image, or a legacy doodle without an id. Keep the existing
-      // `<noteId>_<idPart>` layout under sync/attachments.
+      // Image, or a legacy doodle without an id. Content-addressed storage (CAS)
+      // deduplicates identical media across notes.
       final ext = att.type == 'doodleLayer' ? 'drawn' : 'img';
-      final idPart = att.id.isEmpty ? '${att.sortOrder}_$i' : att.id;
-      final fileName = '${entry.noteId}_$idPart.$ext';
-      final filePath = '${noteDir.path}/$fileName';
-      await File(filePath).writeAsBytes(att.bytes, flush: true);
+      final casStorage = MediaCasStorage(baseDirectory: baseDir);
+      final storedFile = await casStorage.storeMedia(att.bytes, extension: ext);
+      final filePath = storedFile.path;
 
       String? thumbPath;
       final thumbBytes = att.thumbnailBytes;
       if (thumbBytes != null && thumbBytes.isNotEmpty) {
-        thumbPath = '${noteDir.path}/${entry.noteId}_$idPart.thumb.$ext';
-        await File(thumbPath).writeAsBytes(thumbBytes, flush: true);
+        final storedThumb =
+            await casStorage.storeMedia(thumbBytes, extension: '$ext.thumb');
+        thumbPath = storedThumb.path;
       }
 
       if (att.type == 'doodleLayer') {

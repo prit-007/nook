@@ -19,11 +19,15 @@ class NoteMinimalCard extends ConsumerStatefulWidget {
     super.key,
     required this.note,
     this.onTap,
+    this.onLongPress,
+    this.onSelectNote,
     this.preloadedMetadata,
   });
 
   final Note note;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onSelectNote;
   final NoteCardMetadata? preloadedMetadata;
 
   @override
@@ -111,10 +115,15 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
-      onLongPress: () {
-        HapticFeedback.mediumImpact();
-        NoteQuickActionsSheet.show(context, widget.note);
-      },
+      onLongPress: widget.onLongPress ??
+          () {
+            HapticFeedback.mediumImpact();
+            NoteQuickActionsSheet.show(
+              context,
+              widget.note,
+              onSelectNote: widget.onSelectNote,
+            );
+          },
       child: AnimatedScale(
         scale: _isPressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 120),

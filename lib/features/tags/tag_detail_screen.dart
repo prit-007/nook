@@ -307,7 +307,7 @@ class _AddNotesToTagSheetState extends ConsumerState<_AddNotesToTagSheet> {
                             child: Text(
                               'All notes are already tagged',
                               style: TextStyle(
-                                color: scheme.onSurface.withValues(alpha: 0.5),
+                                color: scheme.onSurface.withValues(alpha: 0.7),
                               ),
                             ),
                           )

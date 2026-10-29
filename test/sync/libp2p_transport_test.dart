@@ -90,6 +90,7 @@ class ScriptedSyncPeer {
         case SyncMessageType.ack:
         case SyncMessageType.pairingAccepted:
         case SyncMessageType.pairingRejected:
+        case SyncMessageType.syncDigest:
           await stream.close();
       }
     } catch (_) {

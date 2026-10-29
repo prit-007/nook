@@ -13,6 +13,8 @@ enum AutoLockDuration {
   oneMinute,
   fiveMinutes,
   fifteenMinutes,
+  thirtyMinutes,
+  oneHour,
   never,
 }
 
@@ -42,6 +44,7 @@ class BiometricGate extends ChangeNotifier {
   bool _authenticating = false;
   AutoLockDuration _autoLockDuration;
   DateTime? _lastBackgroundedAt;
+  DateTime _lastActivityAt = DateTime.now();
 
   /// Whether biometric locking is turned on (persisted).
   bool get enabled => _enabled;
@@ -53,6 +56,34 @@ class BiometricGate extends ChangeNotifier {
   bool get isAuthenticating => _authenticating;
 
   AutoLockDuration get autoLockDuration => _autoLockDuration;
+
+  DateTime get lastActivityAt => _lastActivityAt;
+
+  /// Records user interaction to reset inactivity idle timer.
+  void recordActivity() {
+    _lastActivityAt = DateTime.now();
+  }
+
+  /// Checks if idle time exceeds auto-lock duration, and locks if so.
+  void checkInactivity({DateTime? now}) {
+    if (!_enabled || !_hasAuthenticated || _state == AppLockState.locked) {
+      return;
+    }
+    if (_autoLockDuration == AutoLockDuration.never ||
+        _autoLockDuration == AutoLockDuration.immediately) {
+      return;
+    }
+    final current = now ?? DateTime.now();
+    final elapsed = current.difference(_lastActivityAt);
+    if (elapsed >= _autoLockDuration.duration) {
+      _lock();
+      nookLog(
+        NookLogKey.security,
+        'Auto-locked due to inactivity (${elapsed.inMinutes}m idle)',
+        LogLevel.info,
+      );
+    }
+  }
 
   void setEnabled(bool value) {
     if (_enabled == value) return;
@@ -138,6 +169,7 @@ class BiometricGate extends ChangeNotifier {
     }
     _state = AppLockState.unlocked;
     _lastBackgroundedAt = null;
+    _lastActivityAt = DateTime.now();
     notifyListeners();
     return true;
   }
@@ -147,6 +179,7 @@ class BiometricGate extends ChangeNotifier {
     _hasAuthenticated = true;
     _state = AppLockState.unlocked;
     _lastBackgroundedAt = null;
+    _lastActivityAt = DateTime.now();
     notifyListeners();
   }
 
@@ -184,27 +217,68 @@ class BiometricGate extends ChangeNotifier {
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('biometric_enabled', _enabled);
-    await prefs.setInt('auto_lock_duration', _autoLockDuration.index);
+    // Store by name so reordering the enum never silently migrates users.
+    await prefs.setString('auto_lock_duration_v2', _autoLockDuration.name);
+    // Remove stale index key if it exists.
+    await prefs.remove('auto_lock_duration');
   }
 
   static Future<BiometricGate> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final durationIndex = prefs.getInt('auto_lock_duration') ?? 2;
+
+    AutoLockDuration duration = AutoLockDuration.fiveMinutes;
+
+    final name = prefs.getString('auto_lock_duration_v2');
+    if (name != null) {
+      duration = AutoLockDuration.values.firstWhere(
+        (d) => d.name == name,
+        orElse: () => AutoLockDuration.fiveMinutes,
+      );
+    } else {
+      // Migrate from old index-based storage. The old enum only had 5 values
+      // (immediately/oneMinute/fiveMinutes/fifteenMinutes/never at indices 0–4).
+      // Map conservatively: any stored index that matches a current index is
+      // used; out-of-range values fall back to fiveMinutes.
+      final legacyIndex = prefs.getInt('auto_lock_duration');
+      if (legacyIndex != null) {
+        // Old index 4 was "never" — preserve that intention.
+        const legacyMap = {
+          0: AutoLockDuration.immediately,
+          1: AutoLockDuration.oneMinute,
+          2: AutoLockDuration.fiveMinutes,
+          3: AutoLockDuration.fifteenMinutes,
+          4: AutoLockDuration.never,
+        };
+        duration = legacyMap[legacyIndex] ?? AutoLockDuration.fiveMinutes;
+      }
+    }
+
     return BiometricGate(
       enabled: prefs.getBool('biometric_enabled') ?? false,
-      autoLockDuration: AutoLockDuration
-          .values[durationIndex.clamp(0, AutoLockDuration.values.length - 1)],
+      autoLockDuration: duration,
     );
   }
 }
 
-extension _AutoLockDurationExt on AutoLockDuration {
+extension AutoLockDurationExtension on AutoLockDuration {
   Duration get duration => switch (this) {
         AutoLockDuration.immediately => Duration.zero,
         AutoLockDuration.oneMinute => const Duration(minutes: 1),
         AutoLockDuration.fiveMinutes => const Duration(minutes: 5),
         AutoLockDuration.fifteenMinutes => const Duration(minutes: 15),
+        AutoLockDuration.thirtyMinutes => const Duration(minutes: 30),
+        AutoLockDuration.oneHour => const Duration(hours: 1),
         AutoLockDuration.never => const Duration(days: 365),
+      };
+
+  String get label => switch (this) {
+        AutoLockDuration.immediately => 'Immediately',
+        AutoLockDuration.oneMinute => '1 minute',
+        AutoLockDuration.fiveMinutes => '5 minutes',
+        AutoLockDuration.fifteenMinutes => '15 minutes',
+        AutoLockDuration.thirtyMinutes => '30 minutes',
+        AutoLockDuration.oneHour => '1 hour',
+        AutoLockDuration.never => 'Never',
       };
 }
 

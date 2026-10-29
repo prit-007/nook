@@ -7,7 +7,9 @@ import 'package:intl/intl.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../data/database.dart';
+import '../../data/repositories/note_repository.dart';
 import '../../data/repositories/revision_repository.dart';
+import 'widgets/revision_diff_view.dart';
 
 /// Lists local version-history snapshots for a note; tap to restore.
 class VersionHistoryScreen extends ConsumerStatefulWidget {
@@ -22,6 +24,7 @@ class VersionHistoryScreen extends ConsumerStatefulWidget {
 
 class _VersionHistoryScreenState extends ConsumerState<VersionHistoryScreen> {
   List<NoteRevision> _revisions = [];
+  Note? _currentNote;
   bool _loading = true;
   bool _restoring = false;
 
@@ -34,11 +37,41 @@ class _VersionHistoryScreenState extends ConsumerState<VersionHistoryScreen> {
   Future<void> _load() async {
     final db = ref.read(databaseProvider);
     final revisions = await RevisionRepository(db).listForNote(widget.noteId);
+    final note = await NoteRepository(db).getNoteById(widget.noteId);
     if (!mounted) return;
     setState(() {
       _revisions = revisions;
+      _currentNote = note;
       _loading = false;
     });
+  }
+
+  void _openDiffInspector(NoteRevision revision) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) => RevisionDiffView(
+          revisionTitle: revision.title,
+          currentTitle: _currentNote?.title ?? '',
+          revisionText: revision.plainText ?? '',
+          currentText: _currentNote?.plainText ?? '',
+          revisionDate: revision.createdAt,
+          onRestore: () {
+            Navigator.pop(ctx);
+            _restore(revision);
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _restore(NoteRevision revision) async {
@@ -213,12 +246,31 @@ class _VersionHistoryScreenState extends ConsumerState<VersionHistoryScreen> {
                                     ),
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                'Tap to restore',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelSmall
-                                    ?.copyWith(color: scheme.primary),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Tap to restore',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(color: scheme.primary),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () => _openDiffInspector(rev),
+                                    icon: const HugeIcon(
+                                      icon: HugeIcons.strokeRoundedGitFork,
+                                      size: 14,
+                                    ),
+                                    label: const Text('Inspect diff'),
+                                    style: TextButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

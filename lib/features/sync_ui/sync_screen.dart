@@ -2,15 +2,26 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-class SyncScreen extends StatelessWidget {
+import '../../core/providers/database_provider.dart';
+import '../../data/database.dart';
+import '../../data/repositories/trusted_device_repository.dart';
+
+final trustedDevicesProvider = FutureProvider<List<TrustedDevice>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return TrustedDeviceRepository(db).getTrustedDevices();
+});
+
+class SyncScreen extends ConsumerWidget {
   const SyncScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final trustedDevicesAsync = ref.watch(trustedDevicesProvider);
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -92,10 +103,173 @@ class SyncScreen extends StatelessWidget {
                   );
                 },
               ),
+              const SizedBox(height: 48),
+              Row(
+                children: [
+                  HugeIcon(
+                    icon: HugeIcons.strokeRoundedLaptopCheck,
+                    size: 20,
+                    color: scheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Trusted Devices',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              trustedDevicesAsync.when(
+                data: (devices) {
+                  if (devices.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedInformationCircle,
+                            size: 20,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'No trusted devices yet. Paired devices will appear here for fast 1-tap sync.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: devices.map((device) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: scheme.outlineVariant.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            HugeIcon(
+                              icon: HugeIcons.strokeRoundedSmartPhone01,
+                              size: 22,
+                              color: scheme.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    device.deviceName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    device.autoSyncEnabled
+                                        ? 'Auto-sync enabled'
+                                        : 'Auto-sync disabled',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch.adaptive(
+                              value: device.autoSyncEnabled,
+                              onChanged: (val) async {
+                                final repo = TrustedDeviceRepository(
+                                    ref.read(databaseProvider));
+                                await repo.setAutoSyncEnabled(
+                                    device.peerId, val);
+                                ref.invalidate(trustedDevicesProvider);
+                              },
+                            ),
+                            IconButton(
+                              icon: HugeIcon(
+                                icon: HugeIcons.strokeRoundedDelete02,
+                                size: 20,
+                                color: scheme.error,
+                              ),
+                              tooltip: 'Untrust device',
+                              onPressed: () =>
+                                  _confirmUntrust(context, ref, device),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (e, _) => const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _confirmUntrust(
+      BuildContext context, WidgetRef ref, TrustedDevice device) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Untrust Device'),
+          content: Text(
+            'Untrust "${device.deviceName}"? You will need to enter a pairing code next time it connects.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                final repo =
+                    TrustedDeviceRepository(ref.read(databaseProvider));
+                await repo.untrustDevice(device.peerId);
+                ref.invalidate(trustedDevicesProvider);
+              },
+              child: Text(
+                'Untrust',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

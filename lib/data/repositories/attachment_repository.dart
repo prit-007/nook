@@ -77,20 +77,7 @@ class AttachmentRepository {
 
   /// Deletes an attachment row and any files it references on disk.
   Future<void> deleteAttachmentWithFiles(Attachment attachment) async {
-    final paths = <String>[
-      if (attachment.filePath.isNotEmpty) attachment.filePath,
-      if (attachment.thumbnailPath != null &&
-          attachment.thumbnailPath!.isNotEmpty)
-        attachment.thumbnailPath!,
-    ];
-    for (final path in paths) {
-      try {
-        final file = File(path);
-        if (await file.exists()) await file.delete();
-      } catch (_) {
-        // Best-effort — file may already be gone.
-      }
-    }
+    await deleteFilesForAttachment(attachment);
     await deleteImage(attachment.id);
   }
 
@@ -247,6 +234,8 @@ class AttachmentRepository {
   }
 
   /// Deletes the on-disk files (full-size + thumbnail) for an attachment.
+  /// If another attachment row references the same path (e.g. content-addressed
+  /// deduplicated media), the file on disk is preserved.
   Future<void> deleteFilesForAttachment(Attachment attachment) async {
     final paths = <String>[
       if (attachment.filePath.isNotEmpty) attachment.filePath,
@@ -256,6 +245,15 @@ class AttachmentRepository {
     ];
     for (final path in paths) {
       try {
+        final otherRefs = await (_db.select(_db.attachments)
+              ..where((a) =>
+                  (a.filePath.equals(path) | a.thumbnailPath.equals(path)) &
+                  a.id.equals(attachment.id).not()))
+            .get();
+        if (otherRefs.isNotEmpty) {
+          // File is still referenced by other attachments (CAS deduplication)
+          continue;
+        }
         final file = File(path);
         if (await file.exists()) await file.delete();
       } catch (_) {

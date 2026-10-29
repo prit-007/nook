@@ -19,11 +19,15 @@ class NoteBannerCard extends ConsumerStatefulWidget {
     super.key,
     required this.note,
     this.onTap,
+    this.onLongPress,
+    this.onSelectNote,
     this.preloadedMetadata,
   });
 
   final Note note;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onSelectNote;
   final NoteCardMetadata? preloadedMetadata;
 
   @override
@@ -98,10 +102,15 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
-      onLongPress: () {
-        HapticFeedback.mediumImpact();
-        NoteQuickActionsSheet.show(context, widget.note);
-      },
+      onLongPress: widget.onLongPress ??
+          () {
+            HapticFeedback.mediumImpact();
+            NoteQuickActionsSheet.show(
+              context,
+              widget.note,
+              onSelectNote: widget.onSelectNote,
+            );
+          },
       child: AnimatedScale(
         scale: _isPressed ? 0.98 : 1.0,
         duration: const Duration(milliseconds: 120),
@@ -142,7 +151,7 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
                                 child: Text(
                                   _typeLabel.toUpperCase(),
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.5,
                                     color: bannerScheme.onPrimaryContainer,
@@ -254,8 +263,8 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
             child: Text(
               _notebookName!,
               style: TextStyle(
-                fontSize: 10,
-                color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+                fontSize: 11,
+                color: scheme.onPrimaryContainer.withValues(alpha: 0.85),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

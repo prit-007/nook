@@ -63,6 +63,36 @@ void main() {
     expect(find.text('Version history'), findsOneWidget);
     expect(find.text('first body'), findsOneWidget);
     expect(find.text('Tap to restore'), findsOneWidget);
+    expect(find.text('Inspect diff'), findsOneWidget);
     expect(find.text('manual'), findsOneWidget);
+  });
+
+  testWidgets('opens diff inspector when tapping inspect diff', (tester) async {
+    final noteRepo = NoteRepository(db);
+    final note = await noteRepo.createNote(
+      title: 'Current Title',
+      type: NoteType.text,
+      deviceOriginId: 'd1',
+      plainText: 'line 1\nline 2 current',
+    );
+    final revRepo = RevisionRepository(db);
+    await revRepo.maybeSnapshot(
+      noteId: note.id,
+      title: 'Past Title',
+      deltaContent: '{"v":1}',
+      plainText: 'line 1\nline 2 past',
+      source: RevisionSource.manual,
+    );
+
+    await tester.pumpWidget(buildHistory(note.id));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Inspect diff'));
+    await tester.pumpAndSettle();
+
+    // Check that RevisionDiffView is presented in bottom sheet
+    expect(find.text('Diff View'), findsOneWidget);
+    expect(find.text('Full Snapshot'), findsOneWidget);
+    expect(find.text('Restore this version'), findsOneWidget);
   });
 }

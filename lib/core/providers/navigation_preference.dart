@@ -25,6 +25,7 @@ class NavigationPreference extends StateNotifier<String> {
     'notebooks': '/notebooks',
     'tags': '/tags',
     'trash': '/trash',
+    'sync': '/sync',
     'settings': '/settings',
   };
 
@@ -36,6 +37,7 @@ class NavigationPreference extends StateNotifier<String> {
     '/notebooks',
     '/tags',
     '/trash',
+    '/sync',
     '/settings',
   ];
 

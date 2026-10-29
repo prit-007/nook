@@ -259,6 +259,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/sync',
+            pageBuilder: (context, state) => _fadeTransition(
+              context,
+              state,
+              const SyncScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/trash',
             pageBuilder: (context, state) => _fadeTransition(
               context,
@@ -404,14 +412,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           VersionHistoryScreen(
             noteId: state.pathParameters['noteId']!,
           ),
-        ),
-      ),
-      GoRoute(
-        path: '/sync',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          const SyncScreen(),
         ),
       ),
       GoRoute(

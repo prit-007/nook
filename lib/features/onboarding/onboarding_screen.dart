@@ -64,8 +64,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onPressed: _finish,
                 child: Text(
                   'Skip',
-                  style:
-                      TextStyle(color: scheme.onSurface.withValues(alpha: 0.6)),
+                  style: TextStyle(
+                      color: scheme.onSurface.withValues(alpha: 0.87)),
                 ),
               ),
             ),
@@ -204,7 +204,7 @@ class _WelcomePage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
-              color: scheme.onSurface.withValues(alpha: 0.6),
+              color: scheme.onSurface.withValues(alpha: 0.87),
               height: 1.4,
             ),
           ),
@@ -242,7 +242,7 @@ class _NoteTypesPage extends StatelessWidget {
             'Choose the format that fits your thought.',
             style: TextStyle(
               fontSize: 15,
-              color: scheme.onSurface.withValues(alpha: 0.6),
+              color: scheme.onSurface.withValues(alpha: 0.87),
             ),
           ),
           const SizedBox(height: 32),
@@ -383,7 +383,7 @@ class _VibePage extends StatelessWidget {
             'Each note can have its own color theme.',
             style: TextStyle(
               fontSize: 15,
-              color: scheme.onSurface.withValues(alpha: 0.6),
+              color: scheme.onSurface.withValues(alpha: 0.87),
             ),
           ),
           const SizedBox(height: 32),
@@ -423,11 +423,9 @@ class _VibePage extends StatelessWidget {
                     child: isSelected
                         ? HugeIcon(
                             icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                            color: switch (
-                                ThemeData.estimateBrightnessForColor(color)) {
-                              Brightness.dark => Colors.white,
-                              Brightness.light => Colors.black87,
-                            },
+                            color: color.computeLuminance() > 0.5
+                                ? Colors.black87
+                                : Colors.white,
                             size: 24,
                           )
                         : null,
@@ -529,7 +527,7 @@ class _ReadyPage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
-              color: scheme.onSurface.withValues(alpha: 0.6),
+              color: scheme.onSurface.withValues(alpha: 0.87),
               height: 1.4,
             ),
           ),
