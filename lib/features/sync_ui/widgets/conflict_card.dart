@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
+import 'conflict_diff_sheet.dart';
+
 /// Conflict resolution card — editorial split-view layout.
 ///
 /// The local version gets the primary theme tint and the incoming remote
@@ -15,6 +17,8 @@ class ConflictCard extends StatelessWidget {
     this.localUpdatedAt,
     this.remoteUpdatedAt,
     this.contentPreview,
+    this.localContent,
+    this.remoteContent,
     this.onResolved,
   });
 
@@ -24,6 +28,8 @@ class ConflictCard extends StatelessWidget {
   final DateTime? localUpdatedAt;
   final DateTime? remoteUpdatedAt;
   final String? contentPreview;
+  final String? localContent;
+  final String? remoteContent;
   final void Function(String choice)? onResolved;
 
   @override
@@ -74,24 +80,74 @@ class ConflictCard extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          if (contentPreview != null && contentPreview!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                contentPreview!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: scheme.onSurfaceVariant,
-                  height: 1.3,
+          if ((contentPreview != null && contentPreview!.isNotEmpty) ||
+              (localContent != null && localContent!.isNotEmpty) ||
+              (remoteContent != null && remoteContent!.isNotEmpty)) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (contentPreview != null && contentPreview!.isNotEmpty)
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest
+                            .withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        contentPreview!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    showConflictDiffSheet(
+                      context,
+                      noteTitle: noteTitle,
+                      localDeviceName: localDeviceName,
+                      remoteDeviceName: remoteDeviceName,
+                      localText: localContent ?? '',
+                      remoteText: remoteContent ?? (contentPreview ?? ''),
+                      localUpdatedAt: localUpdatedAt,
+                      remoteUpdatedAt: remoteUpdatedAt,
+                      onResolved: onResolved,
+                    );
+                  },
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedGitFork,
+                    size: 16,
+                    color: scheme.primary,
+                  ),
+                  label: const Text(
+                    'Diff',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
           const SizedBox(height: 16),
