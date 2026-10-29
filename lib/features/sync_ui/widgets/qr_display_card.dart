@@ -73,7 +73,7 @@ class QrDisplayCard extends StatelessWidget {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 fontFamily: 'monospace',
                 color: scheme.onSurfaceVariant,
               ),

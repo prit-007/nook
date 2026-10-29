@@ -37,6 +37,11 @@ void main() {
                   const Scaffold(body: Center(child: Text('Trash Content'))),
             ),
             GoRoute(
+              path: '/sync',
+              builder: (_, __) =>
+                  const Scaffold(body: Center(child: Text('Sync Content'))),
+            ),
+            GoRoute(
               path: '/settings',
               builder: (_, __) =>
                   const Scaffold(body: Center(child: Text('Settings Content'))),
@@ -73,7 +78,7 @@ void main() {
 
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Notebooks'), findsOneWidget);
-      expect(find.text('Trash'), findsOneWidget);
+      expect(find.text('Sync'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
     });
 
@@ -134,14 +139,14 @@ void main() {
       expect(find.text('Notebooks Content'), findsOneWidget);
     });
 
-    testWidgets('navigates to trash on dock tap', (tester) async {
+    testWidgets('navigates to sync on dock tap', (tester) async {
       await tester.pumpWidget(buildShell());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Trash'));
+      await tester.tap(find.text('Sync'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Trash Content'), findsOneWidget);
+      expect(find.text('Sync Content'), findsOneWidget);
     });
 
     testWidgets('navigates to settings on dock tap', (tester) async {
@@ -197,7 +202,7 @@ void main() {
 
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Notebooks'), findsOneWidget);
-      expect(find.text('Trash'), findsOneWidget);
+      expect(find.text('Sync'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
     });
 

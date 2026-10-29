@@ -6,16 +6,23 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/adaptive_breakpoints.dart';
+import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
 import '../../core/providers/theme_provider.dart';
-import '../../core/widgets/parallax_card.dart';
 import '../../core/widgets/dock_safe_area.dart';
+import '../../core/widgets/floating_undo_snackbar.dart';
+import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
+import '../../data/repositories/note_repository.dart';
+import '../../data/repositories/tag_repository.dart';
 import '../../data/tables/notes.dart';
-import '../updates/widgets/update_banner.dart';
 import '../templates/template_picker_sheet.dart';
+import '../updates/widgets/update_banner.dart';
+import 'models/note_sort_order.dart';
 import 'providers/notes_list_provider.dart';
 import 'providers/note_card_metadata_provider.dart';
+import 'widgets/batch_action_bar.dart';
+import 'widgets/batch_action_sheets.dart';
 import 'widgets/empty_home.dart';
 import 'widgets/filter_pill_bar.dart';
 import 'widgets/morphing_editorial_fab.dart';
@@ -23,6 +30,7 @@ import 'widgets/note_banner_card.dart';
 import 'widgets/note_doodle_card.dart';
 import 'widgets/note_minimal_card.dart';
 import 'widgets/note_preview_pane.dart';
+import 'widgets/note_sort_sheet.dart';
 import 'widgets/pull_to_search.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -37,6 +45,9 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with AutomaticKeepAliveClientMixin {
   NoteType? _selectedType;
+  NoteSortOrder _sortOrder = NoteSortOrder.updatedDesc;
+  bool _isSelectionMode = false;
+  final Set<String> _selectedNoteIds = {};
 
   String get _timeGreeting {
     final hour = DateTime.now().hour;
@@ -44,6 +55,94 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (hour < 17) return 'Afternoon flow.';
     if (hour < 22) return 'Evening reflections.';
     return 'Late night ideas.';
+  }
+
+  void _toggleSelection(String noteId) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (_selectedNoteIds.contains(noteId)) {
+        _selectedNoteIds.remove(noteId);
+      } else {
+        _selectedNoteIds.add(noteId);
+      }
+    });
+  }
+
+  void _enterSelectionMode([String? initialNoteId]) {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isSelectionMode = true;
+      if (initialNoteId != null) {
+        _selectedNoteIds.add(initialNoteId);
+      }
+    });
+  }
+
+  void _exitSelectionMode() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _isSelectionMode = false;
+      _selectedNoteIds.clear();
+    });
+  }
+
+  Future<void> _batchTogglePin(List<Note> allNotes) async {
+    final selectedNotes =
+        allNotes.where((n) => _selectedNoteIds.contains(n.id)).toList();
+    final allPinned =
+        selectedNotes.isNotEmpty && selectedNotes.every((n) => n.pinned);
+    final newPinned = !allPinned;
+    final db = ref.read(databaseProvider);
+    final repo = NoteRepository(db);
+    for (final id in _selectedNoteIds) {
+      await repo.updateNote(id, pinned: newPinned);
+    }
+    _exitSelectionMode();
+  }
+
+  Future<void> _batchMoveToNotebook() async {
+    final db = ref.read(databaseProvider);
+    final notebookId = await showBatchNotebookPicker(context, db: db);
+    if (notebookId == null || !mounted) return;
+    final repo = NoteRepository(db);
+    final targetId = notebookId.isEmpty ? null : notebookId;
+    for (final id in _selectedNoteIds) {
+      await repo.updateNote(id, notebookId: targetId);
+    }
+    _exitSelectionMode();
+  }
+
+  Future<void> _batchAddTag() async {
+    final db = ref.read(databaseProvider);
+    final tag = await showBatchTagPicker(context, db: db);
+    if (tag == null || !mounted) return;
+    final tagRepo = TagRepository(db);
+    for (final id in _selectedNoteIds) {
+      await tagRepo.assignTagToNote(id, tag.id);
+    }
+    _exitSelectionMode();
+  }
+
+  Future<void> _batchDelete() async {
+    final ids = _selectedNoteIds.toList();
+    final count = ids.length;
+    final db = ref.read(databaseProvider);
+    final repo = NoteRepository(db);
+    for (final id in ids) {
+      await repo.softDelete(id);
+    }
+    _exitSelectionMode();
+    if (mounted) {
+      showUndoSnackBar(
+        context,
+        message: 'Moved $count ${count == 1 ? 'note' : 'notes'} to Bin',
+        onUndo: () async {
+          for (final id in ids) {
+            await repo.restore(id);
+          }
+        },
+      );
+    }
   }
 
   List<Note> _applyFilters(List<Note> notes) {
@@ -69,6 +168,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   bool _animationsAllowed(BuildContext context) {
+    if (!widget.animate) return false;
     final preferredOff = ref.read(themePreferenceProvider).reduceMotion;
     return !preferredOff && !MediaQuery.disableAnimationsOf(context);
   }
@@ -82,7 +182,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final notesAsync = ref.watch(notesListProvider);
     final scheme = Theme.of(context).colorScheme;
     final width = MediaQuery.sizeOf(context).width;
-    final isWide = width >= 600;
+    final sizeClass = _windowSizeClass(width);
+    final isWide = sizeClass != WindowSizeClass.compact;
     final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
     final animate = _animationsAllowed(context);
 
@@ -93,71 +194,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       backgroundColor: scheme.surface,
-      body: Stack(
-        children: [
-          notesAsync.when(
-            loading: () => Center(
-              child: CircularProgressIndicator(color: scheme.primary),
-            ),
-            error: (e, _) => const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Could not load your vault.\nPlease try again later.',
-                  textAlign: TextAlign.center,
+      body: PopScope(
+        canPop: !_isSelectionMode,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _isSelectionMode) {
+            _exitSelectionMode();
+          }
+        },
+        child: Stack(
+          children: [
+            notesAsync.when(
+              loading: () => Center(
+                child: CircularProgressIndicator(color: scheme.primary),
+              ),
+              error: (e, _) => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'Could not load your vault.\nPlease try again later.',
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
-            ),
-            data: (notes) {
-              final filtered = _applyFilters(notes);
-              final counts = _computeCounts(notes);
-              final grid = _buildHomeScroller(
-                context,
-                notes: notes,
-                filtered: filtered,
-                counts: counts,
-                isWide: isWide,
-                animate: animate,
-                safeBottom: safeBottom,
-              );
-
-              if (isDualPane) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Flexible(
-                      flex: 3,
-                      child: Container(
-                        color:
-                            scheme.surfaceContainerLow.withValues(alpha: 0.3),
-                        child: grid,
-                      ),
-                    ),
-                    VerticalDivider(
-                      width: 1,
-                      thickness: 1,
-                      color: scheme.outlineVariant.withValues(alpha: 0.2),
-                    ),
-                    const Flexible(flex: 2, child: NotePreviewPane()),
-                  ],
+              data: (notes) {
+                final sortedNotes = _sortOrder.sort(notes);
+                final filtered = _applyFilters(sortedNotes);
+                final counts = _computeCounts(notes);
+                final grid = _buildHomeScroller(
+                  context,
+                  notes: notes,
+                  filtered: filtered,
+                  counts: counts,
+                  isWide: isWide,
+                  animate: animate,
+                  safeBottom: safeBottom,
                 );
-              }
-              return grid;
-            },
-          ),
-          MorphingEditorialFab(
-            mobileBottomOffset: safeBottom,
-            onCreateNote: (type) async {
-              await HapticFeedback.mediumImpact();
-              if (context.mounted) {
-                await context.push('/note/new?type=${type.name}');
-              }
-            },
-            onFromTemplate: () {
-              showTemplatePickerSheet(context);
-            },
-          ),
-        ],
+
+                if (isDualPane) {
+                  // Responsive split ratio by window size class.
+                  final leftFlex = sizeClass == WindowSizeClass.medium ? 2 : 3;
+                  final rightFlex = sizeClass == WindowSizeClass.medium ? 1 : 2;
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        flex: leftFlex,
+                        child: Container(
+                          color:
+                              scheme.surfaceContainerLow.withValues(alpha: 0.3),
+                          child: grid,
+                        ),
+                      ),
+                      VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: scheme.outlineVariant.withValues(alpha: 0.2),
+                      ),
+                      Flexible(flex: rightFlex, child: const NotePreviewPane()),
+                    ],
+                  );
+                }
+                return grid;
+              },
+            ),
+            if (_isSelectionMode)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: safeBottom,
+                child: BatchActionBar(
+                  selectedCount: _selectedNoteIds.length,
+                  allPinned: _selectedNoteIds.isNotEmpty &&
+                      (notesAsync.value ?? [])
+                          .where((n) => _selectedNoteIds.contains(n.id))
+                          .every((n) => n.pinned),
+                  onTogglePin: () => _batchTogglePin(notesAsync.value ?? []),
+                  onMoveToNotebook: _batchMoveToNotebook,
+                  onAddTag: _batchAddTag,
+                  onDelete: _batchDelete,
+                  onClose: _exitSelectionMode,
+                ),
+              )
+            else
+              MorphingEditorialFab(
+                mobileBottomOffset: safeBottom,
+                onCreateNote: (type) async {
+                  await HapticFeedback.mediumImpact();
+                  if (context.mounted) {
+                    await context.push('/note/new?type=${type.name}');
+                  }
+                },
+                onFromTemplate: () {
+                  showTemplatePickerSheet(context);
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -175,7 +307,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Batch-load card metadata (tags, notebooks, checklists, thumbnails)
     // so individual cards don't each fire 2+ DB queries.
-    final metadataAsync = ref.watch(noteCardMetadataProvider(filtered));
+    final metadataAsync = ref.watch(noteCardMetadataProvider(notes));
     final metadata = metadataAsync.when(
       data: (data) => data,
       loading: () => <String, NoteCardMetadata>{},
@@ -296,6 +428,73 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             pinned: true,
             backgroundColor: scheme.surface,
             surfaceTintColor: Colors.transparent,
+            leading: _isSelectionMode
+                ? IconButton(
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedCancel01,
+                      size: 22,
+                    ),
+                    tooltip: 'Exit selection',
+                    onPressed: _exitSelectionMode,
+                  )
+                : null,
+            actions: [
+              if (!_isSelectionMode) ...[
+                IconButton(
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedSorting01,
+                    size: 22,
+                  ),
+                  tooltip: 'Sort notes',
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    NoteSortSheet.show(
+                      context,
+                      current: _sortOrder,
+                      onSelected: (order) {
+                        setState(() => _sortOrder = order);
+                      },
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkSquare02,
+                    size: 22,
+                  ),
+                  tooltip: 'Select notes',
+                  onPressed: () => _enterSelectionMode(),
+                ),
+                const SizedBox(width: 8),
+              ] else ...[
+                TextButton.icon(
+                  icon: HugeIcon(
+                    icon: _selectedNoteIds.length == filtered.length &&
+                            filtered.isNotEmpty
+                        ? HugeIcons.strokeRoundedSquare
+                        : HugeIcons.strokeRoundedCheckmarkBadge01,
+                    size: 18,
+                  ),
+                  label: Text(
+                    _selectedNoteIds.length == filtered.length &&
+                            filtered.isNotEmpty
+                        ? 'Deselect all'
+                        : 'Select all',
+                  ),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      if (_selectedNoteIds.length == filtered.length) {
+                        _selectedNoteIds.clear();
+                      } else {
+                        _selectedNoteIds.addAll(filtered.map((n) => n.id));
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
+            ],
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: EdgeInsets.symmetric(
                 horizontal: isWide ? 32 : 24,
@@ -305,9 +504,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  greeting,
+                  if (_isSelectionMode)
+                    Text(
+                      _selectedNoteIds.isEmpty
+                          ? 'Select notes'
+                          : '${_selectedNoteIds.length} selected',
+                      style: TextStyle(
+                        fontFamily: 'Playfair Display',
+                        fontSize: isWide ? 28 : 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.2,
+                        height: 1.1,
+                        color: scheme.onSurface,
+                      ),
+                    )
+                  else
+                    greeting,
                   const SizedBox(height: 2),
-                  vaultLabel,
+                  if (_isSelectionMode)
+                    Text(
+                      'BATCH ACTIONS',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2.0,
+                        color: scheme.primary,
+                      ),
+                    )
+                  else
+                    vaultLabel,
                 ],
               ),
             ),
@@ -333,7 +558,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: EmptyHome(animate: widget.animate),
             )
           else if (isWide)
-            _buildWideGrid(filtered, metadata)
+            _buildWideGrid(context, filtered, metadata)
           else
             _buildNarrowStream(filtered, metadata),
           SliverToBoxAdapter(child: SizedBox(height: safeBottom + 72)),
@@ -359,48 +584,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildWideGrid(
-      List<Note> filtered, Map<String, NoteCardMetadata> metadata) {
-    // Interleave notes into two columns for a masonry-like layout.
-    final left = <(Note, int)>[];
-    final right = <(Note, int)>[];
+    BuildContext context,
+    List<Note> filtered,
+    Map<String, NoteCardMetadata> metadata,
+  ) {
+    // Interleave notes into columns for a masonry-like layout.
+    final width = MediaQuery.sizeOf(context).width;
+    // Use 3 columns only on extra-wide screens; 2 columns otherwise.
+    final columnCount = width >= 1400 ? 3 : 2;
+    final columns = <List<(Note, int)>>[];
+    for (var i = 0; i < columnCount; i++) {
+      columns.add([]);
+    }
     for (var i = 0; i < filtered.length; i++) {
-      if (i.isEven) {
-        left.add((filtered[i], i));
-      } else {
-        right.add((filtered[i], i));
-      }
+      columns[i % columnCount].add((filtered[i], i));
     }
 
-    // Build rows lazily — each row is one left + one right card (or just left
-    // if the list has odd length).
-    final rowCount = left.length;
+    final rowCount =
+        columns.map((c) => c.length).reduce((a, b) => a > b ? a : b);
 
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       sliver: SliverList.builder(
         itemCount: rowCount,
         itemBuilder: (context, rowIndex) {
-          final leftPair = left[rowIndex];
-          final rightPair = rowIndex < right.length ? right[rowIndex] : null;
-
           return RepaintBoundary(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 20),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _buildAnimatedCard(
-                        context, leftPair.$1, leftPair.$2, metadata),
-                  ),
-                  const SizedBox(width: 20),
-                  if (rightPair != null)
+                  for (var c = 0; c < columnCount; c++) ...[
+                    if (c > 0) const SizedBox(width: 20),
                     Expanded(
-                      child: _buildAnimatedCard(
-                          context, rightPair.$1, rightPair.$2, metadata),
-                    )
-                  else
-                    const Spacer(),
+                      child: rowIndex < columns[c].length
+                          ? _buildAnimatedCard(
+                              context,
+                              columns[c][rowIndex].$1,
+                              columns[c][rowIndex].$2,
+                              metadata,
+                            )
+                          : const Spacer(),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -413,24 +639,95 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildAnimatedCard(BuildContext context, Note note, int index,
       Map<String, NoteCardMetadata> metadata) {
     final noteMetadata = metadata[note.id];
+    final isSelected = _selectedNoteIds.contains(note.id);
     Widget card;
     if (note.pinned) {
       card = NoteBannerCard(
         note: note,
-        onTap: () => _openNote(note.id),
+        onTap: _isSelectionMode
+            ? () => _toggleSelection(note.id)
+            : () => _openNote(note.id),
+        onLongPress: _isSelectionMode ? () => _toggleSelection(note.id) : null,
+        onSelectNote: () => _enterSelectionMode(note.id),
         preloadedMetadata: noteMetadata,
       );
     } else if (note.type == NoteType.doodle || note.type == NoteType.mixed) {
       card = NoteDoodleCard(
         note: note,
-        onTap: () => _openNote(note.id),
+        onTap: _isSelectionMode
+            ? () => _toggleSelection(note.id)
+            : () => _openNote(note.id),
+        onLongPress: _isSelectionMode ? () => _toggleSelection(note.id) : null,
+        onSelectNote: () => _enterSelectionMode(note.id),
         preloadedMetadata: noteMetadata,
       );
     } else {
       card = NoteMinimalCard(
         note: note,
-        onTap: () => _openNote(note.id),
+        onTap: _isSelectionMode
+            ? () => _toggleSelection(note.id)
+            : () => _openNote(note.id),
+        onLongPress: _isSelectionMode ? () => _toggleSelection(note.id) : null,
+        onSelectNote: () => _enterSelectionMode(note.id),
         preloadedMetadata: noteMetadata,
+      );
+    }
+
+    if (_isSelectionMode) {
+      final scheme = Theme.of(context).colorScheme;
+      card = Stack(
+        children: [
+          AnimatedScale(
+            scale: isSelected ? 0.98 : 1.0,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            child: card,
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Semantics(
+              label: isSelected ? 'Selected' : 'Not selected',
+              checked: isSelected,
+              child: IgnorePointer(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? scheme.primary
+                        : scheme.surfaceContainerHighest
+                            .withValues(alpha: 0.85),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected
+                          ? scheme.primary
+                          : scheme.outlineVariant.withValues(alpha: 0.6),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: isSelected
+                        ? const HugeIcon(
+                            icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+                            color: Colors.white,
+                            size: 18,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -449,5 +746,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             curve: Curves.easeOutCubic,
           ),
     );
+  }
+
+  /// Material 3 window size class based on width.
+  WindowSizeClass _windowSizeClass(double width) {
+    if (width < 600) return WindowSizeClass.compact;
+    if (width < 840) return WindowSizeClass.medium;
+    if (width < 1200) return WindowSizeClass.expanded;
+    return WindowSizeClass.large;
   }
 }

@@ -348,7 +348,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                       hintText: 'Untitled checklist',
                       hintStyle: textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: scheme.onSurface.withValues(alpha: 0.3),
+                        color: scheme.onSurface.withValues(alpha: 0.6),
                       ),
                       filled: false,
                       border: InputBorder.none,
@@ -387,7 +387,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                         child: Text(
                           'A fresh start.',
                           style: textTheme.titleMedium?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.4),
+                            color: scheme.onSurface.withValues(alpha: 0.7),
                           ),
                         ),
                       )
@@ -468,8 +468,11 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                           if (_archivedItems.isNotEmpty) ...[
                             SliverToBoxAdapter(
                               child: GestureDetector(
-                                onTap: () => setState(() =>
-                                    _completedExpanded = !_completedExpanded),
+                                onTap: () {
+                                  unawaited(HapticFeedback.selectionClick());
+                                  setState(() =>
+                                      _completedExpanded = !_completedExpanded);
+                                },
                                 behavior: HitTestBehavior.opaque,
                                 child: Padding(
                                   padding:
@@ -925,7 +928,7 @@ class _ChecklistTileState extends State<_ChecklistTile> {
             icon: HugeIcon(
                 icon: HugeIcons.strokeRoundedCancelCircle,
                 size: 20,
-                color: scheme.onSurface.withValues(alpha: 0.3)),
+                color: scheme.onSurface.withValues(alpha: 0.6)),
             tooltip: 'Delete item',
             onPressed: widget.onDelete,
             visualDensity: VisualDensity.compact,
@@ -935,7 +938,7 @@ class _ChecklistTileState extends State<_ChecklistTile> {
             child: HugeIcon(
                 icon: HugeIcons.strokeRoundedDrag01,
                 size: 22,
-                color: scheme.onSurface.withValues(alpha: 0.35)),
+                color: scheme.onSurface.withValues(alpha: 0.6)),
           ),
         ],
       ),

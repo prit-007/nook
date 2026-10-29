@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -321,6 +323,40 @@ void main() {
 
       final all = await repo.getAllForNoteIncludingDeleted('note-1');
       expect(all, hasLength(2));
+    });
+  });
+
+  group('deleteFilesForAttachment', () {
+    test('deletes file when no other attachment references it', () async {
+      final tempDir = await Directory.systemTemp.createTemp('nook_att_test_');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final testFile = File('${tempDir.path}/shared.jpg');
+      await testFile.writeAsString('image data');
+
+      final id = await repo.addImage(noteId: 'note-1', filePath: testFile.path);
+      final att = await repo.getById(id);
+
+      await repo.deleteFilesForAttachment(att!);
+      expect(await testFile.exists(), isFalse);
+    });
+
+    test('preserves file when another attachment shares the same filePath',
+        () async {
+      final tempDir = await Directory.systemTemp.createTemp('nook_att_test_');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final testFile = File('${tempDir.path}/shared.jpg');
+      await testFile.writeAsString('shared image data');
+
+      final id1 =
+          await repo.addImage(noteId: 'note-1', filePath: testFile.path);
+      // Another attachment referencing identical file (CAS deduplication)
+      await repo.addImage(noteId: 'note-1', filePath: testFile.path);
+
+      final att1 = await repo.getById(id1);
+      await repo.deleteFilesForAttachment(att1!);
+
+      // The file on disk should NOT be deleted because the second attachment still references it!
+      expect(await testFile.exists(), isTrue);
     });
   });
 }

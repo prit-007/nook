@@ -3,7 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import 'dart:math';
+import 'dart:ui';
+
+import '../adaptive_breakpoints.dart';
 import 'dock_safe_area.dart';
+
+/// Material 3 window size class based on width.
 
 /// Responsive navigation shell with magical micro-animations.
 class AppShell extends StatelessWidget {
@@ -15,8 +21,9 @@ class AppShell extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/home')) return 0;
     if (location.startsWith('/notebooks')) return 1;
-    if (location.startsWith('/trash')) return 2;
+    if (location.startsWith('/sync')) return 2;
     if (location.startsWith('/settings')) return 3;
+    if (location.startsWith('/trash')) return 3;
     return 0;
   }
 
@@ -28,7 +35,7 @@ class AppShell extends StatelessWidget {
       case 1:
         context.go('/notebooks');
       case 2:
-        context.go('/trash');
+        context.go('/sync');
       case 3:
         context.go('/settings');
     }
@@ -37,13 +44,16 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final isWide = width >= 600;
+    final sizeClass = _windowSizeClass(width);
+    final isWide = sizeClass != WindowSizeClass.compact;
     final selectedIndex = _currentIndex(context);
+    final displayFeatures = MediaQuery.displayFeaturesOf(context);
 
     if (isWide) {
       return _WideShell(
         selectedIndex: selectedIndex,
         onTap: (i) => _onTap(context, i),
+        displayFeatures: displayFeatures,
         child: child,
       );
     }
@@ -53,6 +63,14 @@ class AppShell extends StatelessWidget {
       onTap: (i) => _onTap(context, i),
       child: child,
     );
+  }
+
+  /// Material 3 window size class based on width.
+  WindowSizeClass _windowSizeClass(double width) {
+    if (width < 600) return WindowSizeClass.compact;
+    if (width < 840) return WindowSizeClass.medium;
+    if (width < 1200) return WindowSizeClass.expanded;
+    return WindowSizeClass.large;
   }
 }
 
@@ -123,9 +141,9 @@ class _MobileShell extends StatelessWidget {
                     onTap: () => onTap(1),
                   ),
                   _DockItem(
-                    icon: HugeIcons.strokeRoundedDelete01,
-                    activeIcon: HugeIcons.strokeRoundedDelete02,
-                    label: 'Trash',
+                    icon: HugeIcons.strokeRoundedWifi01,
+                    activeIcon: HugeIcons.strokeRoundedWifi02,
+                    label: 'Sync',
                     isSelected: selectedIndex == 2,
                     onTap: () => onTap(2),
                   ),
@@ -300,11 +318,13 @@ class _WideShell extends StatelessWidget {
     required this.selectedIndex,
     required this.onTap,
     required this.child,
+    this.displayFeatures = const [],
   });
 
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final Widget child;
+  final List<DisplayFeature> displayFeatures;
 
   static const _destinations = [
     NavigationRailDestination(
@@ -318,9 +338,9 @@ class _WideShell extends StatelessWidget {
       label: Text('Notebooks'),
     ),
     NavigationRailDestination(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 26),
-      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: 26),
-      label: Text('Trash'),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedWifi01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedWifi02, size: 26),
+      label: Text('Sync'),
     ),
     NavigationRailDestination(
       icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 26),
@@ -332,6 +352,21 @@ class _WideShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
+    // Foldable/hinge awareness: pad content away from display features.
+    final featurePadding = EdgeInsets.only(
+      right: displayFeatures.where((f) {
+        final type = f.type;
+        return type == DisplayFeatureType.fold ||
+            type == DisplayFeatureType.hinge;
+      }).fold<double>(
+        0,
+        (prev, f) {
+          final bounds = f.bounds;
+          return max(prev, bounds.width);
+        },
+      ),
+    );
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -408,7 +443,12 @@ class _WideShell extends StatelessWidget {
                 },
               ),
             ),
-            Expanded(child: child),
+            Expanded(
+              child: Padding(
+                padding: featurePadding,
+                child: child,
+              ),
+            ),
           ],
         ),
       ),

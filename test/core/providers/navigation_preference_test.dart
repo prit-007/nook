@@ -22,6 +22,7 @@ void main() {
         '/notebooks',
         '/tags',
         '/trash',
+        '/sync',
         '/settings'
       ]) {
         await NavigationPreference.rememberPath(root);
@@ -41,7 +42,8 @@ void main() {
         '/settings/logs',
         '/note/new',
         '/note/abc-123',
-        '/sync',
+        '/sync/send',
+        '/sync/receive',
       ];
       for (final leaf in leaves) {
         await NavigationPreference.rememberPath(leaf);

@@ -337,7 +337,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
             Text(
               '$checkedCount/$totalCount',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: scheme.primary,
               ),
@@ -395,8 +395,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                     child: Text(
                       '+${totalCount - 4} more',
                       style: TextStyle(
-                        fontSize: 10,
-                        color: scheme.onSurface.withValues(alpha: 0.4),
+                        fontSize: 11,
+                        color: scheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
@@ -422,7 +422,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
             child: Text(
               _notebookName!,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 color: scheme.onSurfaceVariant,
               ),
               maxLines: 1,

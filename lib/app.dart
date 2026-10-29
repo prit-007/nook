@@ -13,6 +13,7 @@ import 'core/providers/theme_provider.dart';
 import 'core/router.dart';
 import 'core/commands/command_registry.dart';
 import 'core/widgets/command_palette.dart';
+import 'core/widgets/inactivity_detector.dart';
 import 'core/widgets/keyboard_shortcuts.dart';
 import 'features/security/frosted_shield.dart';
 import 'features/templates/template_picker_sheet.dart';
@@ -138,11 +139,13 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
             ),
           );
         },
-        child: Stack(
-          children: [
-            child ?? const SizedBox.shrink(),
-            const FrostedShield(),
-          ],
+        child: InactivityDetector(
+          child: Stack(
+            children: [
+              child ?? const SizedBox.shrink(),
+              const FrostedShield(),
+            ],
+          ),
         ),
       ),
     );

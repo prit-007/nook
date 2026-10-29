@@ -642,6 +642,7 @@ class Libp2pSyncTransport implements SyncTransport {
         case SyncMessageType.ack:
         case SyncMessageType.pairingAccepted:
         case SyncMessageType.pairingRejected:
+        case SyncMessageType.syncDigest:
           // Unexpected on a fresh incoming stream; close politely.
           await stream.close();
       }

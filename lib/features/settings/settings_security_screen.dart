@@ -169,7 +169,7 @@ class SettingsSecurityScreen extends ConsumerWidget {
                                 HugeIcon(
                                   icon: HugeIcons.strokeRoundedCircle,
                                   color: scheme.onSurfaceVariant
-                                      .withValues(alpha: 0.4),
+                                      .withValues(alpha: 0.6),
                                   size: 22,
                                 ),
                             ],
@@ -178,6 +178,36 @@ class SettingsSecurityScreen extends ConsumerWidget {
                       ),
                     ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildGlassCard(
+              scheme,
+              child: ListTile(
+                leading: HugeIcon(
+                  icon: HugeIcons.strokeRoundedLock,
+                  color: scheme.primary,
+                  size: 24,
+                ),
+                title: const Text(
+                  'Lock Vault Now',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  'Immediately lock app and require authentication',
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+                trailing: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowRight01,
+                  size: 18,
+                ),
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  ref.read(biometricGateProvider).lock();
+                },
               ),
             ),
           ],
@@ -318,6 +348,8 @@ class SettingsSecurityScreen extends ConsumerWidget {
         AutoLockDuration.oneMinute => 'After 1 minute',
         AutoLockDuration.fiveMinutes => 'After 5 minutes',
         AutoLockDuration.fifteenMinutes => 'After 15 minutes',
+        AutoLockDuration.thirtyMinutes => 'After 30 minutes',
+        AutoLockDuration.oneHour => 'After 1 hour',
         AutoLockDuration.never => 'Never',
       };
 }

@@ -46,6 +46,24 @@ void main() {
       expect(decoded.bundleBytes, payload);
     });
 
+    test('round-trips a syncDigest envelope', () {
+      final digestPayload = Uint8List.fromList([1, 2, 3, 4, 5]);
+      final message = SyncMessage(
+        type: SyncMessageType.syncDigest,
+        senderDeviceId: 'device-d',
+        senderDeviceName: 'Laptop',
+        digestBytes: digestPayload,
+      );
+
+      final framed = SyncMessageCodec.encode(message);
+      final decoded = SyncMessageCodec.decode(framed);
+
+      expect(decoded.type, SyncMessageType.syncDigest);
+      expect(decoded.senderDeviceId, 'device-d');
+      expect(decoded.senderDeviceName, 'Laptop');
+      expect(decoded.digestBytes, digestPayload);
+    });
+
     test('round-trips an ack envelope', () {
       const message = SyncMessage(
         type: SyncMessageType.ack,

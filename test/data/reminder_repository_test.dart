@@ -167,8 +167,8 @@ void main() {
       expect(scheduler.scheduled.length, before + 1);
     });
 
-    test('schemaVersion is 7', () {
-      expect(db.schemaVersion, 7);
+    test('schemaVersion is 8', () {
+      expect(db.schemaVersion, 8);
     });
   });
 }

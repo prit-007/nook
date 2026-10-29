@@ -12,6 +12,7 @@ enum SyncMessageType {
   pairingRejected,
   dataBundle,
   ack,
+  syncDigest,
 }
 
 /// The unified wire envelope exchanged over a libp2p stream.
@@ -30,6 +31,7 @@ class SyncMessage {
     this.requestId,
     this.pairingCode,
     this.bundleBytes,
+    this.digestBytes,
     this.ack,
   });
 
@@ -45,6 +47,9 @@ class SyncMessage {
 
   /// Raw CBOR bytes of the [SyncBundle] for `dataBundle` messages.
   final Uint8List? bundleBytes;
+
+  /// Raw CBOR bytes of the [SyncDigest] for `syncDigest` messages.
+  final Uint8List? digestBytes;
 
   /// Receiver acknowledgment for `ack` messages.
   final SyncAck? ack;
@@ -141,6 +146,8 @@ class SyncMessageCodec {
         MapEntry(CborString('pairingCode'), CborString(message.pairingCode!)),
       if (message.bundleBytes != null)
         MapEntry(CborString('bundle'), CborBytes(message.bundleBytes!)),
+      if (message.digestBytes != null)
+        MapEntry(CborString('digest'), CborBytes(message.digestBytes!)),
       if (message.ack != null)
         MapEntry(CborString('ack'), CborBytes(message.ack!.toCbor())),
     ]);
@@ -193,6 +200,14 @@ class SyncMessageCodec {
       bundleBytes = Uint8List.fromList(rawBundle);
     }
 
+    Uint8List? digestBytes;
+    final rawDigest = map['digest'];
+    if (rawDigest is Uint8List) {
+      digestBytes = rawDigest;
+    } else if (rawDigest is List<int>) {
+      digestBytes = Uint8List.fromList(rawDigest);
+    }
+
     SyncAck? ack;
     final rawAck = map['ack'];
     if (rawAck is Uint8List) {
@@ -208,6 +223,7 @@ class SyncMessageCodec {
       requestId: requestId,
       pairingCode: pairingCode,
       bundleBytes: bundleBytes,
+      digestBytes: digestBytes,
       ack: ack,
     );
   }

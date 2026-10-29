@@ -442,4 +442,61 @@ void main() {
     // via body padding, so the FAB offset is just the small gap above it.
     expect(fab.mobileBottomOffset, equals(16));
   });
+
+  testWidgets('sort button opens NoteSortSheet and allows selecting sort order',
+      (tester) async {
+    final notes = await insertNotes([
+      (title: 'Banana Note', type: NoteType.text, pinned: false),
+      (title: 'Apple Note', type: NoteType.text, pinned: false),
+    ]);
+
+    await tester.pumpWidget(buildHome(notes: notes));
+    await tester.pumpAndSettle();
+
+    final sortBtn = find.byTooltip('Sort notes');
+    expect(sortBtn, findsOneWidget);
+    await tester.tap(sortBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sort Vault'), findsOneWidget);
+    await tester.tap(find.text('Title (A to Z)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sort Vault'), findsNothing);
+  });
+
+  testWidgets('select button enters multi-select mode and toggles selection',
+      (tester) async {
+    final notes = await insertNotes([
+      (title: 'First Note', type: NoteType.text, pinned: false),
+      (title: 'Second Note', type: NoteType.text, pinned: false),
+    ]);
+
+    await tester.pumpWidget(buildHome(notes: notes));
+    await tester.pumpAndSettle();
+
+    final selectBtn = find.byTooltip('Select notes');
+    expect(selectBtn, findsOneWidget);
+    await tester.tap(selectBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select notes'), findsWidgets);
+    expect(find.byType(MorphingEditorialFab), findsNothing);
+
+    await tester.tap(find.text('First Note'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 selected'), findsWidgets);
+
+    await tester.tap(find.text('Select all'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 selected'), findsWidgets);
+    expect(find.text('Deselect all'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Exit selection'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MorphingEditorialFab), findsOneWidget);
+  });
 }

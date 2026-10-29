@@ -23,11 +23,15 @@ class NoteDoodleCard extends ConsumerStatefulWidget {
     super.key,
     required this.note,
     this.onTap,
+    this.onLongPress,
+    this.onSelectNote,
     this.preloadedMetadata,
   });
 
   final Note note;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onSelectNote;
   final NoteCardMetadata? preloadedMetadata;
 
   @override
@@ -114,10 +118,15 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
-      onLongPress: () {
-        HapticFeedback.mediumImpact();
-        NoteQuickActionsSheet.show(context, widget.note);
-      },
+      onLongPress: widget.onLongPress ??
+          () {
+            HapticFeedback.mediumImpact();
+            NoteQuickActionsSheet.show(
+              context,
+              widget.note,
+              onSelectNote: widget.onSelectNote,
+            );
+          },
       child: AnimatedScale(
         scale: _isPressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 120),
@@ -144,7 +153,7 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
                   Expanded(
                     flex: 3,
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(18),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -255,17 +264,20 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
     return Row(
       children: [
         if (_notebookName != null) ...[
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedFolder01,
-            size: 10,
-            color: scheme.onSurfaceVariant,
+          Container(
+            padding: const EdgeInsets.all(4),
+            child: HugeIcon(
+              icon: HugeIcons.strokeRoundedFolder01,
+              size: 18,
+              color: scheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(width: 3),
           Flexible(
             child: Text(
               _notebookName!,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 color: scheme.onSurfaceVariant,
               ),
               maxLines: 1,

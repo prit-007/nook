@@ -32,7 +32,10 @@ class EmptyState extends StatelessWidget {
       child: HugeIcon(icon: icon, size: 48, color: scheme.primary),
     );
 
-    if (animate) {
+    final animationsAllowed =
+        animate && !MediaQuery.disableAnimationsOf(context);
+
+    if (animationsAllowed) {
       iconWidget = iconWidget
           .animate(onPlay: (c) => c.repeat(reverse: true))
           .moveY(

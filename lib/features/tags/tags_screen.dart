@@ -429,7 +429,7 @@ class _CreateTagSheetState extends ConsumerState<_CreateTagSheet> {
                   decoration: InputDecoration(
                     hintText: 'e.g. Ideas, Journal, Work',
                     hintStyle: TextStyle(
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
                     filled: true,
                     fillColor: scheme.surface.withValues(alpha: 0.6),
@@ -448,7 +448,7 @@ class _CreateTagSheetState extends ConsumerState<_CreateTagSheet> {
                   'COLOR THEME',
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 2.0,
                     color: scheme.onSurfaceVariant.withValues(alpha: 0.7),

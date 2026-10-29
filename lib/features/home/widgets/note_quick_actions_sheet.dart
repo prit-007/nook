@@ -10,6 +10,7 @@ import 'package:local_auth/local_auth.dart';
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/floating_undo_snackbar.dart';
 import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/note_repository.dart';
@@ -18,17 +19,29 @@ import '../../../data/repositories/tag_repository.dart';
 
 /// Contextual bottom sheet shown when long-pressing any note card.
 class NoteQuickActionsSheet extends ConsumerWidget {
-  const NoteQuickActionsSheet({super.key, required this.note});
+  const NoteQuickActionsSheet({
+    super.key,
+    required this.note,
+    this.onSelectNote,
+  });
 
   final Note note;
+  final VoidCallback? onSelectNote;
 
-  static Future<void> show(BuildContext context, Note note) {
+  static Future<void> show(
+    BuildContext context,
+    Note note, {
+    VoidCallback? onSelectNote,
+  }) {
     return showModalBottomSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => NoteQuickActionsSheet(note: note),
+      builder: (_) => NoteQuickActionsSheet(
+        note: note,
+        onSelectNote: onSelectNote,
+      ),
     );
   }
 
@@ -59,6 +72,7 @@ class NoteQuickActionsSheet extends ConsumerWidget {
             child: _QuickActionsBody(
               note: note,
               db: db,
+              onSelectNote: onSelectNote,
             ),
           ),
         ),
@@ -72,10 +86,12 @@ class _QuickActionsBody extends StatefulWidget {
   const _QuickActionsBody({
     required this.note,
     required this.db,
+    this.onSelectNote,
   });
 
   final Note note;
   final AppDatabase db;
+  final VoidCallback? onSelectNote;
 
   @override
   State<_QuickActionsBody> createState() => _QuickActionsBodyState();
@@ -195,6 +211,19 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // ── Quick actions ──
+                      if (widget.onSelectNote != null)
+                        _ActionButton(
+                          icon: HugeIcons.strokeRoundedCheckmarkSquare02,
+                          label: 'Select Note',
+                          color: scheme.onSurface,
+                          onTap: () async {
+                            await HapticFeedback.lightImpact();
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              widget.onSelectNote!();
+                            }
+                          },
+                        ),
                       _ActionButton(
                         icon: _currentNote.pinned
                             ? HugeIcons.strokeRoundedPin
@@ -312,6 +341,13 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
                           await _noteRepo.softDelete(_currentNote.id);
                           if (context.mounted) {
                             Navigator.pop(context);
+                            showUndoSnackBar(
+                              context,
+                              message: '"$title" moved to Bin',
+                              onUndo: () async {
+                                await _noteRepo.restore(_currentNote.id);
+                              },
+                            );
                           }
                         },
                       ),

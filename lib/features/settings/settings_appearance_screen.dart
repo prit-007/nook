@@ -231,7 +231,7 @@ class _ThemeModeTile extends StatelessWidget {
               else
                 HugeIcon(
                   icon: HugeIcons.strokeRoundedCircle,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
                   size: 22,
                 ),
             ],

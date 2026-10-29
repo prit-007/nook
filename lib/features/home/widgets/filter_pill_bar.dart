@@ -121,7 +121,7 @@ class _FilterPill extends StatelessWidget {
                     child: Text(
                       '$count',
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: isActive
                             ? scheme.onPrimary

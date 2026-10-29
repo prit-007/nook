@@ -154,7 +154,7 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
                       'NOTEBOOK',
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.8,
                         color: textColor,

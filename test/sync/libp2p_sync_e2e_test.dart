@@ -314,8 +314,8 @@ void main() {
         ((restoredDoc['document'] as Map)['children'] as List).cast<Map>();
     final imageNode = children.firstWhere((n) => n['type'] == 'image');
     final doodleNode = children.firstWhere((n) => n['type'] == 'doodle');
-    expect(imageNode['data']['url'],
-        '${receiverRestoreDir.path}/sync/attachments/e2e-note-1_img-1.img');
+    expect(imageNode['data']['url'], contains('/media/cas/'));
+    expect(imageNode['data']['url'], endsWith('.img'));
     expect(doodleNode['data']['attachment_id'], 'doodle-1');
     expect(doodleNode['data']['thumbnail_path'],
         '${receiverRestoreDir.path}/doodle-1_thumb.png');

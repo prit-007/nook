@@ -27,3 +27,6 @@ class AdaptiveBreakpoints {
   /// Whether the current width is wide enough for a master-detail layout.
   static bool supportsDualPane(BuildContext context) => isExpanded(context);
 }
+
+/// Material 3 window size class based on width.
+enum WindowSizeClass { compact, medium, expanded, large }
