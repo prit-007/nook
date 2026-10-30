@@ -50,6 +50,22 @@ class NookColors {
     'Lavender',
   ];
 
+  /// Mihon-inspired theme personas / flavor subtitles for each seed.
+  static const List<String> seedDescriptions = [
+    'Iris Dream',
+    'Mihon Classic',
+    'Strawberry Milk',
+    'Tea Garden',
+    'Autumn Amber',
+    'Sakura Blossom',
+    'Nordic Frost',
+    'Monochrome',
+    'Midnight Dusk',
+    'Green Apple',
+    'Tidal Peach',
+    'Lilac Mist',
+  ];
+
   /// Default seed when no preference is set.
   static const defaultSeed = violet;
 
