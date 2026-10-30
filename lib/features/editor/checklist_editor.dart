@@ -185,11 +185,54 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
   }
 
   Future<void> _toggleItem(String id) async {
-    unawaited(HapticFeedback.lightImpact());
+    final willCompleteAll = _items.length == 1 && _items.any((i) => i.id == id);
+    if (willCompleteAll) {
+      unawaited(HapticFeedback.heavyImpact());
+    } else {
+      unawaited(HapticFeedback.lightImpact());
+    }
     _recordHistory();
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.toggleChecked(id);
+    await _load();
+  }
+
+  Future<void> _checkAll() async {
+    if (_items.isEmpty) return;
+    unawaited(HapticFeedback.mediumImpact());
+    _recordHistory();
+    final db = ref.read(databaseProvider);
+    final repo = ChecklistItemRepository(db);
+    await repo.setAllChecked(widget.noteId, true);
+    await _load();
+  }
+
+  Future<void> _uncheckAll() async {
+    if (_archivedItems.isEmpty) return;
+    unawaited(HapticFeedback.mediumImpact());
+    _recordHistory();
+    final db = ref.read(databaseProvider);
+    final repo = ChecklistItemRepository(db);
+    await repo.setAllChecked(widget.noteId, false);
+    await _load();
+  }
+
+  Future<void> _clearCompleted() async {
+    if (_archivedItems.isEmpty) return;
+    final count = _archivedItems.length;
+    final confirmed = await showConfirmDeleteDialog(
+      context,
+      title: 'Clear $count completed ${count == 1 ? 'task' : 'tasks'}?',
+      message: 'Completed tasks will be removed from this checklist.',
+      confirmLabel: 'Clear',
+    );
+    if (!confirmed) return;
+    unawaited(HapticFeedback.mediumImpact());
+    _recordHistory();
+    final db = ref.read(databaseProvider);
+    final repo = ChecklistItemRepository(db);
+    await repo.deleteCompletedItems(widget.noteId);
     await _load();
   }
 
@@ -270,6 +313,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final checkedCount = _archivedItems.length;
     final totalCount = _items.length + _archivedItems.length;
     final progress = totalCount > 0 ? checkedCount / totalCount : 0.0;
+    final isAllCompleted = totalCount > 0 && checkedCount == totalCount;
     final viewInsets = MediaQuery.viewInsetsOf(context);
 
     return Scaffold(
@@ -279,24 +323,51 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
           // 1. Dynamic Progress Capsule
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: isAllCompleted
+                    ? scheme.primaryContainer.withValues(alpha: 0.35)
+                    : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isAllCompleted
+                      ? scheme.primary.withValues(alpha: 0.4)
+                      : scheme.outlineVariant.withValues(alpha: 0.15),
+                  width: 1,
+                ),
               ),
               child: Row(
                 children: [
-                  Text(
-                    totalCount == 0
-                        ? 'No tasks yet'
-                        : '$checkedCount of $totalCount Done',
-                    style: textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+                  if (isAllCompleted) ...[
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedSparkles,
+                      size: 18,
                       color: scheme.primary,
-                      letterSpacing: 0.5,
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'All Done! 🎉',
+                      style: textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: scheme.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ] else ...[
+                    Text(
+                      totalCount == 0
+                          ? 'No tasks yet'
+                          : '$checkedCount of $totalCount Done',
+                      style: textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: scheme.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 16),
                   Expanded(
                     child: ClipRRect(
@@ -326,6 +397,84 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                         color: scheme.onSurface),
                     visualDensity: VisualDensity.compact,
                   ),
+                  if (totalCount > 0)
+                    PopupMenuButton<String>(
+                      tooltip: 'Checklist actions',
+                      padding: EdgeInsets.zero,
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedMoreVertical,
+                        size: 20,
+                        color: scheme.onSurface,
+                      ),
+                      onSelected: (action) {
+                        switch (action) {
+                          case 'check_all':
+                            _checkAll();
+                          case 'uncheck_all':
+                            _uncheckAll();
+                          case 'clear_completed':
+                            _clearCompleted();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        if (_items.isNotEmpty)
+                          PopupMenuItem(
+                            value: 'check_all',
+                            child: Row(
+                              children: [
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedCheckmarkBadge01,
+                                  size: 18,
+                                  color: scheme.primary,
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text('Check all'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (_archivedItems.isNotEmpty) ...[
+                          PopupMenuItem(
+                            value: 'uncheck_all',
+                            child: Row(
+                              children: [
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedSquare01,
+                                  size: 18,
+                                  color: scheme.onSurface,
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text('Uncheck all'),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'clear_completed',
+                            child: Row(
+                              children: [
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedDelete02,
+                                  size: 18,
+                                  color: scheme.error,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Clear completed (${_archivedItems.length})',
+                                    style: TextStyle(color: scheme.error),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                 ],
               ),
             ),

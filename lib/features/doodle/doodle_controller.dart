@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -81,6 +82,11 @@ class DoodleController extends ChangeNotifier {
   ShapeMatch? _pendingSuggestion;
   Stroke? _pendingSuggestionStroke;
 
+  // Draw-and-hold live shape snap state (Samsung Notes signature interaction).
+  bool _isHoldSnapped = false;
+  Offset? _holdAnchor;
+  RecognizedShape? _holdShapeType;
+
   /// Increments on every stroke mutation so the painter can detect changes
   /// even though the Stroke object is mutated in place.
   int _activeStrokeVersion = 0;
@@ -95,6 +101,7 @@ class DoodleController extends ChangeNotifier {
   DoodleBackground get background => _background;
   bool get isDrawing => _isDrawing;
   bool get shapeAssistEnabled => _shapeAssistEnabled;
+  bool get isHoldSnapped => _isHoldSnapped;
   bool get canUndo => _strokes.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
 
@@ -140,6 +147,9 @@ class DoodleController extends ChangeNotifier {
     _preSnapPoints = null;
     _pendingSuggestion = null;
     _pendingSuggestionStroke = null;
+    _isHoldSnapped = false;
+    _holdAnchor = null;
+    _holdShapeType = null;
 
     double opacity = 1.0;
     double actualWidth = _currentWidth;
@@ -174,9 +184,97 @@ class DoodleController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Triggers live shape snap when the user pauses their pen at the end of a stroke
+  /// (draw-and-hold interaction popularized by Samsung Notes and Apple Pencil).
+  bool triggerHoldToSnap() {
+    final active = _activeStroke;
+    if (active == null || active.tool == DoodleTool.eraser) return false;
+    if (active.points.length < 8) return false;
+
+    final raw = active.points.map((p) => p.position).toList();
+    final match = recognizeShape(raw);
+    if (!match.isRecognized) return false;
+
+    _preSnapPoints = List.of(active.points);
+    _holdAnchor = active.points.first.position;
+    _holdShapeType = match.shape;
+    _isHoldSnapped = true;
+
+    active.points = match.points.map((p) => StrokePoint(p)).toList();
+    active.isPerfectShape = true;
+    active.shapeType = match.shape;
+    _lastSnappedStroke = active;
+    _activeStrokeVersion++;
+
+    HapticFeedback.mediumImpact();
+    notifyListeners();
+    return true;
+  }
+
+  /// While holding down after a snap, moving the finger/stylus interactively
+  /// resizes/transforms the snapped shape in real time.
+  void updateHoldSnappedStroke(Offset currentPoint) {
+    final active = _activeStroke;
+    if (active == null || !_isHoldSnapped || _holdAnchor == null) return;
+
+    final anchor = _holdAnchor!;
+    final shape = _holdShapeType;
+
+    switch (shape) {
+      case RecognizedShape.line:
+      case RecognizedShape.arrow:
+        active.points = [StrokePoint(anchor), StrokePoint(currentPoint)];
+      case RecognizedShape.rectangle:
+        final rect = Rect.fromPoints(anchor, currentPoint);
+        active.points = [
+          StrokePoint(rect.topLeft),
+          StrokePoint(rect.topRight),
+          StrokePoint(rect.bottomRight),
+          StrokePoint(rect.bottomLeft),
+          StrokePoint(rect.topLeft),
+        ];
+      case RecognizedShape.oval:
+        final rect = Rect.fromPoints(anchor, currentPoint);
+        final center = rect.center;
+        final rx = rect.width.abs() / 2;
+        final ry = rect.height.abs() / 2;
+        active.points = [
+          for (int i = 0; i <= 60; i++)
+            StrokePoint(Offset(
+              center.dx + rx * math.cos((i / 60) * math.pi * 2),
+              center.dy + ry * math.sin((i / 60) * math.pi * 2),
+            )),
+        ];
+      case RecognizedShape.triangle:
+        final minX = math.min(anchor.dx, currentPoint.dx);
+        final maxX = math.max(anchor.dx, currentPoint.dx);
+        final topY = math.min(anchor.dy, currentPoint.dy);
+        final botY = math.max(anchor.dy, currentPoint.dy);
+        final top = Offset((minX + maxX) / 2, topY);
+        final bLeft = Offset(minX, botY);
+        final bRight = Offset(maxX, botY);
+        active.points = [
+          StrokePoint(top),
+          StrokePoint(bRight),
+          StrokePoint(bLeft),
+          StrokePoint(top),
+        ];
+      default:
+        break;
+    }
+
+    _activeStrokeVersion++;
+    notifyListeners();
+  }
+
   void endStroke() {
     if (_activeStroke == null) return;
-    if (_shapeAssistEnabled) _attemptShapeSnap();
+    if (!_isHoldSnapped && _shapeAssistEnabled) {
+      _attemptShapeSnap();
+    }
+    _isHoldSnapped = false;
+    _holdAnchor = null;
+    _holdShapeType = null;
     _activeStroke = null;
     _isDrawing = false;
     _rebake();
@@ -187,6 +285,9 @@ class DoodleController extends ChangeNotifier {
   void cancelStroke() {
     if (_activeStroke == null) return;
     _strokes.remove(_activeStroke);
+    _isHoldSnapped = false;
+    _holdAnchor = null;
+    _holdShapeType = null;
     _activeStroke = null;
     _isDrawing = false;
     notifyListeners();
@@ -203,20 +304,19 @@ class DoodleController extends ChangeNotifier {
 
     _preSnapPoints = active.points;
 
-    if (match.confidence >= 0.60) {
-      // High confidence: commit immediately, offer the usual undo chip.
+    if (match.confidence >= 0.50) {
+      // High confidence: commit immediately with haptic feedback.
       active.points = match.points.map((p) => StrokePoint(p)).toList();
       active.isPerfectShape = true;
       active.shapeType = match.shape;
       _lastSnappedStroke = active;
       HapticFeedback.mediumImpact();
-    } else if (match.confidence >= 0.38) {
-      // Ambiguous: stash as a pending suggestion, don't mutate yet.
+    } else if (match.confidence >= 0.35) {
+      // Ambiguous: stash as a pending suggestion.
       _pendingSuggestion = match;
       _pendingSuggestionStroke = active;
-      HapticFeedback.selectionClick(); // lighter tick — "noticed", not "did"
+      HapticFeedback.selectionClick();
     }
-    // Below 0.45: leave the freehand stroke alone entirely, no feedback.
   }
 
   /// Reverts the most recent shape snap back to the original hand-drawn

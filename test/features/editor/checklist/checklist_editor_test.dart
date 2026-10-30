@@ -38,12 +38,14 @@ void main() {
     String noteId = 'note-1',
     String title = '',
     ValueChanged<String>? onTitleChanged,
+    Key? key,
   }) {
     return ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
       child: MaterialApp(
         home: Scaffold(
           body: ChecklistEditor(
+            key: key,
             noteId: noteId,
             title: title,
             onTitleChanged: onTitleChanged,
@@ -368,6 +370,71 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(strikeWidth(tester, 'Done'), 1.0);
+    });
+
+    testWidgets('shows All Done celebration banner when all tasks are checked',
+        (tester) async {
+      await repo.addItem(noteId: 'note-1', text: 'Task 1');
+      await repo.addItem(noteId: 'note-1', text: 'Task 2');
+
+      await tester.pumpWidget(buildEditor());
+      await tester.pumpAndSettle();
+
+      expect(find.text('All Done! 🎉'), findsNothing);
+      expect(find.text('0 of 2 Done'), findsOneWidget);
+
+      // Check both tasks
+      await repo.setAllChecked('note-1', true);
+      await tester.pumpWidget(buildEditor(key: const ValueKey('checked')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('All Done! 🎉'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedSparkles),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('bulk check all checks all items', (tester) async {
+      await repo.addItem(noteId: 'note-1', text: 'Alpha');
+      await repo.addItem(noteId: 'note-1', text: 'Beta');
+
+      await tester.pumpWidget(buildEditor());
+      await tester.pumpAndSettle();
+
+      // Open checklist actions menu
+      await tester.tap(find.byWidgetPredicate((w) =>
+          w is HugeIcon && w.icon == HugeIcons.strokeRoundedMoreVertical));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Check all'));
+      await tester.pumpAndSettle();
+
+      final items = await repo.getItems('note-1');
+      expect(items.every((i) => i.checked), isTrue);
+      expect(find.text('All Done! 🎉'), findsOneWidget);
+    });
+
+    testWidgets('bulk uncheck all restores all items', (tester) async {
+      await repo.addItem(noteId: 'note-1', text: 'Alpha');
+      await repo.setAllChecked('note-1', true);
+
+      await tester.pumpWidget(buildEditor(key: const ValueKey('all_checked')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('All Done! 🎉'), findsOneWidget);
+
+      await tester.tap(find.byWidgetPredicate((w) =>
+          w is HugeIcon && w.icon == HugeIcons.strokeRoundedMoreVertical));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Uncheck all'));
+      await tester.pumpAndSettle();
+
+      final items = await repo.getItems('note-1');
+      expect(items.every((i) => !i.checked), isTrue);
+      expect(find.text('0 of 1 Done'), findsOneWidget);
     });
   });
 }

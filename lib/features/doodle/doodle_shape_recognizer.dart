@@ -48,32 +48,31 @@ ShapeMatch recognizeShape(List<Offset> raw) {
   if (diagonal < 12) return ShapeMatch.none;
 
   final closedGap = (last - first).distance;
-  final closed = closedGap < diagonal * 0.15;
+  final pathLength = _pathLength(raw);
+  final directDistance = (last - first).distance;
 
-  final simplified = _mergeCollinear(_simplifyRDP(raw, diagonal * 0.03));
+  // A path is closed if the gap is within 25% of diagonal or 18% of path length.
+  final closed = closedGap < diagonal * 0.25 ||
+      (pathLength > 0 && closedGap < pathLength * 0.18);
+
+  final simplified = _mergeCollinear(_simplifyRDP(raw, diagonal * 0.035));
   final cornerCount = closed ? simplified.length - 1 : simplified.length;
 
-  // --- Open path: line or arrow ---
-  if (!closed && cornerCount <= 3) {
-    final pathLength = _pathLength(raw);
-    final directDistance = (last - first).distance;
-    // Straightness: 1.0 for a perfectly direct path, drops as it wanders.
-    final straightness = directDistance == 0
-        ? 0.0
-        : (directDistance / pathLength).clamp(0.0, 1.0);
+  // Straightness: 1.0 for a perfectly direct path, drops as it wanders.
+  final straightness =
+      directDistance == 0 ? 0.0 : (directDistance / pathLength).clamp(0.0, 1.0);
 
-    // For 2-corner paths (line or simple arrow), check the tail bend.
-    // For 3-corner paths, the middle corner IS the arrow's elbow.
+  // --- Open path: line or arrow ---
+  if (!closed) {
+    // Arrow detection: 3-corner path with hook, or shaft with bend near the end.
     if (cornerCount == 3) {
-      // The middle corner is the elbow of the arrow.
       final elbow = simplified[1];
       final beforeElbow = (elbow - first).direction;
       final afterElbow = (last - elbow).direction;
       final elbowAngle = (beforeElbow - afterElbow).abs();
       final elbowDeg = elbowAngle * 180 / math.pi;
-      // An arrow elbow is typically 20-160° (a sharp hook).
       if (elbowDeg > 20 && elbowDeg < 160) {
-        final idealBend = 45.0;
+        const idealBend = 45.0;
         final bendConfidence =
             1.0 - ((elbowDeg - idealBend).abs() / 60).clamp(0.0, 1.0);
         return ShapeMatch(
@@ -89,9 +88,8 @@ ShapeMatch recognizeShape(List<Offset> raw) {
     final shaftVec = last - first;
     final bendDeg = _angleBetweenDeg(tailVec, shaftVec);
 
-    if (bendDeg > 25 && bendDeg < 155) {
-      // Arrow confidence peaks around a 30-60° bend — a sharp, deliberate hook.
-      final idealBend = 45.0;
+    if (bendDeg > 25 && bendDeg < 155 && straightness > 0.65) {
+      const idealBend = 45.0;
       final bendConfidence =
           1.0 - ((bendDeg - idealBend).abs() / 60).clamp(0.0, 1.0);
       return ShapeMatch(
@@ -100,7 +98,11 @@ ShapeMatch recognizeShape(List<Offset> raw) {
         straightness * 0.4 + bendConfidence * 0.6,
       );
     }
-    return ShapeMatch(RecognizedShape.line, [first, last], straightness);
+
+    // Straight line: high straightness irrespective of intermediate micro-corners.
+    if (straightness >= 0.75) {
+      return ShapeMatch(RecognizedShape.line, [first, last], straightness);
+    }
   }
 
   // --- Closed path: triangle ---
@@ -129,28 +131,73 @@ ShapeMatch recognizeShape(List<Offset> raw) {
     );
   }
 
-  // --- Closed path: oval / circle ---
+  // --- Closed path: oval / circle (works for both true circles and elongated ovals) ---
   if (closed) {
     final centroid = _centroidOf(raw);
-    final radii = raw.map((p) => (p - centroid).distance).toList();
-    final meanR = radii.reduce((a, b) => a + b) / radii.length;
-    if (meanR < 1) return ShapeMatch.none;
-    final variance =
-        radii.map((r) => math.pow(r - meanR, 2)).reduce((a, b) => a + b) /
-            radii.length;
-    final coeffOfVariation = math.sqrt(variance) / meanR;
-    final circularityConfidence =
-        1.0 - (coeffOfVariation / 0.45).clamp(0.0, 1.0);
-    if (circularityConfidence > 0.2) {
-      return ShapeMatch(
-        RecognizedShape.oval,
-        _generateOvalFromBounds(bounds),
-        circularityConfidence,
-      );
+    final rx = bounds.width / 2;
+    final ry = bounds.height / 2;
+
+    if (rx > 2 && ry > 2) {
+      // Normalized elliptical radius deviation: (dx/rx)^2 + (dy/ry)^2 should be ~ 1
+      double sumDev = 0;
+      for (final p in raw) {
+        final ndx = (p.dx - centroid.dx) / rx;
+        final ndy = (p.dy - centroid.dy) / ry;
+        final normalizedDist = math.sqrt(ndx * ndx + ndy * ndy);
+        sumDev += (normalizedDist - 1.0).abs();
+      }
+      final meanDeviation = sumDev / raw.length;
+      final ellipseConfidence = 1.0 - (meanDeviation / 0.45).clamp(0.0, 1.0);
+
+      // Verify angular sweep is roughly 360° (excludes U-shapes and zigzags)
+      final sweepAngle = _calculateSweepAngle(raw, centroid);
+      final isFullLoop = sweepAngle.abs() >= (math.pi * 1.55);
+
+      if (ellipseConfidence > 0.35 && isFullLoop) {
+        final aspectRatio = bounds.width / bounds.height;
+        final isNearCircle = aspectRatio >= 0.82 && aspectRatio <= 1.22;
+        final outputPoints = isNearCircle
+            ? _generateCircleFromCenter(
+                bounds.center, (bounds.width + bounds.height) / 4)
+            : _generateOvalFromBounds(bounds);
+
+        return ShapeMatch(
+          RecognizedShape.oval,
+          outputPoints,
+          ellipseConfidence,
+        );
+      }
     }
   }
 
   return ShapeMatch.none;
+}
+
+double _calculateSweepAngle(List<Offset> points, Offset center) {
+  double total = 0;
+  for (int i = 1; i < points.length; i++) {
+    final a = (points[i - 1] - center).direction;
+    final b = (points[i] - center).direction;
+    var diff = b - a;
+    while (diff > math.pi) {
+      diff -= 2 * math.pi;
+    }
+    while (diff < -math.pi) {
+      diff += 2 * math.pi;
+    }
+    total += diff;
+  }
+  return total;
+}
+
+List<Offset> _generateCircleFromCenter(Offset center, double radius) {
+  return [
+    for (int i = 0; i <= 60; i++)
+      Offset(
+        center.dx + radius * math.cos((i / 60) * math.pi * 2),
+        center.dy + radius * math.sin((i / 60) * math.pi * 2),
+      ),
+  ];
 }
 
 // --- Geometry helpers ---

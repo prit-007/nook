@@ -76,6 +76,32 @@ class ChecklistItemRepository {
     );
   }
 
+  /// Sets the checked state of all items for a note.
+  Future<void> setAllChecked(String noteId, bool checked) async {
+    await (_db.update(_db.checklistItems)
+          ..where((t) => t.noteId.equals(noteId)))
+        .write(
+      ChecklistItemsCompanion(checked: Value(checked)),
+    );
+    nookLog(
+      NookLogKey.database,
+      'Checklist all items checked=$checked for note: $noteId',
+      LogLevel.debug,
+    );
+  }
+
+  /// Deletes all completed (checked == true) items for a note.
+  Future<void> deleteCompletedItems(String noteId) async {
+    await (_db.delete(_db.checklistItems)
+          ..where((t) => t.noteId.equals(noteId) & t.checked.equals(true)))
+        .go();
+    nookLog(
+      NookLogKey.database,
+      'Checklist completed items cleared for note: $noteId',
+      LogLevel.debug,
+    );
+  }
+
   /// Updates the text of an item.
   Future<void> updateText(String id, String text) async {
     await (_db.update(_db.checklistItems)..where((t) => t.id.equals(id))).write(
