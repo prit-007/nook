@@ -94,7 +94,10 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
       theme: buildLightTheme(seed),
       darkTheme: buildDarkTheme(seed, amoled: themePref.amoledDark),
       themeMode: themePref.themeMode,
-      themeAnimationDuration: Duration.zero,
+      themeAnimationDuration: themePref.reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 350),
+      themeAnimationCurve: Curves.easeInOutCubic,
       routerConfig: router,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
