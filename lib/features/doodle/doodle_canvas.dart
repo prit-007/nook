@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -42,6 +43,8 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
   final Map<int, Offset> _activePointers = {};
   Offset _lastFocalDelta = Offset.zero;
   bool _multiTouch = false;
+  Timer? _holdSnapTimer;
+  Offset? _lastHoldPosition;
 
   @override
   void initState() {
@@ -60,11 +63,22 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
 
   @override
   void dispose() {
+    _holdSnapTimer?.cancel();
     widget.controller.removeListener(_onControllerUpdate);
     super.dispose();
   }
 
   void _onControllerUpdate() => setState(() {});
+
+  void _scheduleHoldTimer(Offset position) {
+    _holdSnapTimer?.cancel();
+    if (!widget.controller.shapeAssistEnabled) return;
+    _lastHoldPosition = position;
+    _holdSnapTimer = Timer(const Duration(milliseconds: 440), () {
+      if (!mounted) return;
+      widget.controller.triggerHoldToSnap();
+    });
+  }
 
   Offset _focalPoint() {
     final points = _activePointers.values.toList();
@@ -75,6 +89,8 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
   void _handlePointerDown(PointerDownEvent event) {
     _activePointers[event.pointer] = event.localPosition;
     if (_activePointers.length >= 2) {
+      _holdSnapTimer?.cancel();
+      _holdSnapTimer = null;
       _multiTouch = true;
       widget.controller.cancelStroke();
       _lastFocalDelta = _focalPoint();
@@ -83,12 +99,15 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
     _lastFocalDelta = event.localPosition;
     widget.controller
         .startStroke(event.localPosition, pressure: event.pressure);
+    _scheduleHoldTimer(event.localPosition);
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
     if (!_activePointers.containsKey(event.pointer)) return;
     _activePointers[event.pointer] = event.localPosition;
     if (_multiTouch) {
+      _holdSnapTimer?.cancel();
+      _holdSnapTimer = null;
       final focal = _focalPoint();
       final delta = focal - _lastFocalDelta;
       _lastFocalDelta = focal;
@@ -96,11 +115,23 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
       widget.onTwoFingerPan?.call(delta.dy);
       return;
     }
+    if (widget.controller.isHoldSnapped) {
+      widget.controller.updateHoldSnappedStroke(event.localPosition);
+      return;
+    }
     widget.controller
         .continueStroke(event.localPosition, pressure: event.pressure);
+    if ((event.localPosition - (_lastHoldPosition ?? event.localPosition))
+            .distance >
+        12) {
+      _scheduleHoldTimer(event.localPosition);
+    }
   }
 
   void _handlePointerEnd(int pointer) {
+    _holdSnapTimer?.cancel();
+    _holdSnapTimer = null;
+    _lastHoldPosition = null;
     _activePointers.remove(pointer);
     if (_multiTouch) {
       if (_activePointers.length < 2) {

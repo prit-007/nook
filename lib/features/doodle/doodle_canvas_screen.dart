@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nook/core/providers/database_provider.dart';
 import 'package:nook/core/providers/talker_provider.dart';
@@ -149,6 +150,8 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
     final storage = _storage;
     if (storage == null) return;
 
+    unawaited(HapticFeedback.mediumImpact());
+
     final attachmentId = widget.attachmentId ??
         await storage.attachments
             .addDoodle(noteId: widget.noteId, filePath: '');
@@ -238,6 +241,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
   void _showBackgroundSheet(BuildContext context) {
     final noteScheme = noteSchemeFor(context, _noteColorSeed);
+    unawaited(HapticFeedback.lightImpact());
     showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
@@ -248,6 +252,17 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
           decoration: BoxDecoration(
             color: noteScheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: noteScheme.outlineVariant.withValues(alpha: 0.3),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: SafeArea(
             child: Column(
@@ -267,8 +282,30 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                   Material(
                     type: MaterialType.transparency,
                     child: ListTile(
+                      leading: HugeIcon(
+                        icon: switch (option) {
+                          DoodleBackground.blank =>
+                            HugeIcons.strokeRoundedFile01,
+                          DoodleBackground.ruled =>
+                            HugeIcons.strokeRoundedMenu01,
+                          DoodleBackground.graph => HugeIcons.strokeRoundedGrid,
+                          DoodleBackground.dotted =>
+                            HugeIcons.strokeRoundedCircle,
+                        },
+                        color: option == _controller.background
+                            ? noteScheme.primary
+                            : noteScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
                       title: Text(option.name.capitalize(),
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                          style: TextStyle(
+                            fontWeight: option == _controller.background
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                            color: option == _controller.background
+                                ? noteScheme.primary
+                                : null,
+                          )),
                       trailing: option == _controller.background
                           ? HugeIcon(
                               icon: HugeIcons.strokeRoundedCheckmarkCircle01,
@@ -276,6 +313,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                               size: 24)
                           : null,
                       onTap: () {
+                        unawaited(HapticFeedback.selectionClick());
                         _controller.setBackground(option);
                         Navigator.of(sheetContext).pop();
                       },
@@ -600,12 +638,18 @@ class _GlassButton extends StatelessWidget {
       child: Tooltip(
         message: tooltip ?? '',
         child: Material(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.8),
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
           shape: const CircleBorder(),
-          elevation: 0,
+          elevation: isEnabled ? 2 : 0,
+          shadowColor: Colors.black.withValues(alpha: 0.08),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: isEnabled ? onTap : null,
+            onTap: isEnabled
+                ? () {
+                    HapticFeedback.lightImpact();
+                    onTap();
+                  }
+                : null,
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: HugeIcon(

@@ -144,6 +144,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   int get _readingTime =>
       _wordCount > 0 ? max(1, (_wordCount / 200).ceil()) : 0;
 
+  bool get _hasDoodleBlock {
+    if (_editorState == null) return false;
+    return _editorState!.document.root.children
+        .any((n) => n.type == DoodleBlockKeys.type);
+  }
+
   Future<void> _pickColor() async {
     if (_note == null || _db == null) return;
     unawaited(HapticFeedback.selectionClick());
@@ -991,6 +997,69 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     );
 
     if (isMobile) {
+      final childWidget = (_note?.type == NoteType.doodle && !_hasDoodleBlock)
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    unawaited(_insertDoodle());
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 24, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color:
+                          noteScheme.primaryContainer.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: noteScheme.primary.withValues(alpha: 0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: noteScheme.primary.withValues(alpha: 0.15),
+                          ),
+                          child: Center(
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedDrawingMode,
+                              size: 24,
+                              color: noteScheme.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Add a drawing to this note',
+                          style: dynamicTextTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: noteScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tap to open the drawing canvas',
+                          style: dynamicTextTheme.bodySmall?.copyWith(
+                            color: noteScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(child: editor),
+              ],
+            )
+          : editor;
+
       return MobileToolbarV2(
         editorState: _editorState!,
         backgroundColor:
@@ -1002,7 +1071,68 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         onPrimaryColor: noteScheme.onPrimary,
         itemOutlineColor: noteScheme.outlineVariant.withValues(alpha: 0.4),
         toolbarItems: _buildMobileToolbarItems(),
-        child: editor,
+        child: childWidget,
+      );
+    }
+
+    if (_note?.type == NoteType.doodle && !_hasDoodleBlock) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              unawaited(_insertDoodle());
+            },
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+              decoration: BoxDecoration(
+                color: noteScheme.primaryContainer.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: noteScheme.primary.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: noteScheme.primary.withValues(alpha: 0.15),
+                    ),
+                    child: Center(
+                      child: HugeIcon(
+                        icon: HugeIcons.strokeRoundedDrawingMode,
+                        size: 24,
+                        color: noteScheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Add a drawing to this note',
+                    style: dynamicTextTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: noteScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap to open the drawing canvas',
+                    style: dynamicTextTheme.bodySmall?.copyWith(
+                      color: noteScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: editor),
+        ],
       );
     }
 
@@ -1663,6 +1793,40 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
           );
         }
 
+        Widget noteTypeBadge() {
+          final (icon, label) = switch (note?.type) {
+            NoteType.checklist => (
+                HugeIcons.strokeRoundedCheckList,
+                'Checklist'
+              ),
+            NoteType.doodle => (HugeIcons.strokeRoundedDrawingMode, 'Doodle'),
+            _ => (HugeIcons.strokeRoundedNotebook01, 'Text'),
+          };
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: noteScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HugeIcon(icon: icon, size: 10, color: noteScheme.primary),
+                const SizedBox(width: 3.5),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: noteScheme.primary,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         return Row(
           children: [
             IconButton(
@@ -1678,14 +1842,23 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title.isNotEmpty ? title : 'New Note',
-                    style: dynamicTextTheme.titleMedium?.copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title.isNotEmpty ? title : 'New Note',
+                          style: dynamicTextTheme.titleMedium?.copyWith(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      noteTypeBadge(),
+                    ],
                   ),
                   saving
                       ? Text(
@@ -1743,6 +1916,16 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
               ),
             ),
             if (isNarrow) ...[
+              if (note?.type == NoteType.doodle)
+                IconButton(
+                  tooltip: 'Draw',
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedDrawingMode,
+                    size: 19,
+                    color: noteScheme.primary,
+                  ),
+                  onPressed: onInsertDoodle,
+                ),
               colorButton(compact: true),
               pinButton(compact: true),
               PopupMenuButton<String>(
@@ -1922,7 +2105,9 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                 tooltip: 'Insert doodle',
                 icon: HugeIcon(
                   icon: HugeIcons.strokeRoundedDrawingMode,
-                  color: noteScheme.onSurface,
+                  color: note?.type == NoteType.doodle
+                      ? noteScheme.primary
+                      : noteScheme.onSurface,
                 ),
                 onPressed: onInsertDoodle,
               ),
