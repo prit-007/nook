@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,8 +10,9 @@ import '../../core/theme/design_tokens.dart';
 
 /// Multi-page onboarding flow.
 /// Page 1: Welcome (prompt #1)
-/// Page 2: Pick Your Vibe (prompt #2)
-/// Page 3: Ready
+/// Page 2: Three Ways to Capture (screen mockups)
+/// Page 3: Pick Your Vibe (theme preview)
+/// Page 4: Ready (offline & sync ready)
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -163,7 +163,7 @@ class _WelcomePage extends StatelessWidget {
       child: Column(
         children: [
           const Spacer(flex: 2),
-          // Animated illustration mockup
+          // Illustration mockup
           Container(
             width: 200,
             height: 200,
@@ -204,10 +204,7 @@ class _WelcomePage extends StatelessWidget {
                 ),
               ],
             ),
-          )
-              .animate(onPlay: (c) => c.repeat(reverse: true))
-              .moveY(begin: -8, end: 8, duration: 2500.ms, curve: Curves.easeInOut)
-              .scaleXY(begin: 0.96, end: 1.04, duration: 2500.ms),
+          ),
           const Spacer(flex: 2),
           Text(
             'Your notes. Your device. Yours.',
@@ -234,7 +231,7 @@ class _WelcomePage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Page 2: Note Types
+// Page 2: Note Types (Screen Mockups)
 // ---------------------------------------------------------------------------
 
 class _NoteTypesPage extends StatelessWidget {
@@ -263,9 +260,10 @@ class _NoteTypesPage extends StatelessWidget {
               color: scheme.onSurface.withValues(alpha: 0.87),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           Expanded(
-            child: Column(
+            child: ListView(
+              padding: EdgeInsets.zero,
               children: [
                 _NoteTypeCard(
                   scheme: scheme,
@@ -274,10 +272,10 @@ class _NoteTypesPage extends StatelessWidget {
                   description:
                       'Rich text with headings, lists, and formatting. Your everyday journal.',
                   color: scheme.primary,
-                  delayMs: 100,
                   preview: Container(
                     margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: scheme.surface.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(8),
@@ -313,10 +311,10 @@ class _NoteTypesPage extends StatelessWidget {
                   description:
                       'Interactive task lists with drag-to-reorder and swipe-to-complete.',
                   color: scheme.tertiary,
-                  delayMs: 200,
                   preview: Container(
                     margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: scheme.surface.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(8),
@@ -335,7 +333,8 @@ class _NoteTypesPage extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             decoration: TextDecoration.lineThrough,
-                            color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.7),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -344,7 +343,8 @@ class _NoteTypesPage extends StatelessWidget {
                           height: 12,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: scheme.outline, width: 1.5),
+                            border:
+                                Border.all(color: scheme.outline, width: 1.5),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -367,10 +367,10 @@ class _NoteTypesPage extends StatelessWidget {
                   description:
                       'Freehand drawing with pressure sensitivity and shape recognition.',
                   color: scheme.secondary,
-                  delayMs: 300,
                   preview: Container(
                     margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: scheme.surface.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(8),
@@ -431,7 +431,6 @@ class _NoteTypeCard extends StatelessWidget {
     required this.description,
     required this.color,
     this.preview,
-    this.delayMs = 0,
   });
 
   final ColorScheme scheme;
@@ -440,7 +439,6 @@ class _NoteTypeCard extends StatelessWidget {
   final String description;
   final Color color;
   final Widget? preview;
-  final int delayMs;
 
   @override
   Widget build(BuildContext context) {
@@ -495,15 +493,7 @@ class _NoteTypeCard extends StatelessWidget {
           if (preview != null) preview!,
         ],
       ),
-    )
-        .animate()
-        .fadeIn(delay: Duration(milliseconds: delayMs), duration: 350.ms)
-        .slideY(
-          begin: 0.08,
-          end: 0,
-          duration: 350.ms,
-          curve: Curves.easeOutCubic,
-        );
+    );
   }
 }
 
@@ -643,7 +633,7 @@ class _VibePage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Page 3: Ready
+// Page 4: Ready
 // ---------------------------------------------------------------------------
 
 class _ReadyPage extends StatelessWidget {
@@ -677,14 +667,7 @@ class _ReadyPage extends StatelessWidget {
               size: 80,
               color: scheme.onPrimaryContainer,
             ),
-          )
-              .animate()
-              .scale(
-                begin: const Offset(0.7, 0.7),
-                end: const Offset(1.0, 1.0),
-                duration: 600.ms,
-                curve: Curves.elasticOut,
-              ),
+          ),
           const Spacer(flex: 2),
           Text(
             "You're all set!",
@@ -703,7 +686,7 @@ class _ReadyPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // Animated security & sync badge
+          // Security & sync badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
@@ -717,7 +700,7 @@ class _ReadyPage extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 HugeIcon(
-                  icon: HugeIcons.strokeRoundedShieldSecurity,
+                  icon: HugeIcons.strokeRoundedShield01,
                   size: 16,
                   color: scheme.primary,
                 ),
@@ -732,10 +715,7 @@ class _ReadyPage extends StatelessWidget {
                 ),
               ],
             ),
-          )
-              .animate()
-              .fadeIn(delay: 250.ms, duration: 400.ms)
-              .slideY(begin: 0.15, end: 0, duration: 400.ms),
+          ),
           const Spacer(flex: 2),
         ],
       ),

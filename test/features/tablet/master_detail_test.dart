@@ -12,6 +12,7 @@ import 'package:nook/data/repositories/tag_repository.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/collections/collections_screen.dart';
 import 'package:nook/features/home/home_screen.dart';
+import 'package:nook/features/home/providers/note_card_metadata_provider.dart';
 import 'package:nook/features/home/providers/notes_list_provider.dart';
 import 'package:nook/features/home/widgets/note_preview_pane.dart';
 import 'package:nook/features/notebooks/notebooks_screen.dart';
@@ -57,12 +58,20 @@ void main() {
   }
 
   Widget wrapScreen(Widget screen) => ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db)],
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          checklistItemsRevisionProvider
+              .overrideWith((ref) => const Stream<void>.empty()),
+        ],
         child: MaterialApp(home: screen),
       );
 
   Widget wrapWithRouter(GoRouter router) => ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db)],
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          checklistItemsRevisionProvider
+              .overrideWith((ref) => const Stream<void>.empty()),
+        ],
         child: MaterialApp.router(routerConfig: router),
       );
 
@@ -137,6 +146,8 @@ void main() {
           overrides: [
             databaseProvider.overrideWithValue(db),
             notesListProvider.overrideWith((ref) => Stream.value(notes)),
+            checklistItemsRevisionProvider
+                .overrideWith((ref) => const Stream<void>.empty()),
           ],
           child: MaterialApp.router(routerConfig: router),
         ),
@@ -166,6 +177,8 @@ void main() {
           overrides: [
             databaseProvider.overrideWithValue(db),
             notesListProvider.overrideWith((ref) => Stream.value(notes)),
+            checklistItemsRevisionProvider
+                .overrideWith((ref) => const Stream<void>.empty()),
           ],
           child: MaterialApp.router(routerConfig: router),
         ),

@@ -10,6 +10,7 @@ import 'package:nook/core/providers/theme_provider.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/home/home_screen.dart';
+import 'package:nook/features/home/providers/note_card_metadata_provider.dart';
 import 'package:nook/features/home/providers/notes_list_provider.dart';
 import 'package:nook/features/home/search_screen.dart';
 import 'package:nook/features/home/widgets/morphing_editorial_fab.dart';
@@ -66,6 +67,8 @@ void main() {
           themePreferenceProvider.overrideWith((ref) => preference),
         if (notes != null)
           notesListProvider.overrideWith((ref) => Stream.value(notes)),
+        checklistItemsRevisionProvider
+            .overrideWith((ref) => const Stream<void>.empty()),
       ],
       child: MaterialApp(
         home: MediaQuery(
