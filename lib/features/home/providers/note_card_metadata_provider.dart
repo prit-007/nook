@@ -24,19 +24,25 @@ class NoteCardMetadata {
   final String? thumbnailPath;
 }
 
+/// Emits whenever the checklist_items table changes.
+final checklistItemsRevisionProvider = StreamProvider.autoDispose<void>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.select(db.checklistItems).watch().map((_) {});
+});
+
 /// Batch-loads metadata (tags, notebook names, checklist items, thumbnails)
 /// for all visible notes in just 4 queries instead of 2N+2.
 ///
 /// Reactive: re-runs when the notes list changes (via [notesListProvider])
-/// so card metadata stays in sync after note edits, creates, and deletes.
+/// or checklist items change so card metadata stays in sync.
 final noteCardMetadataProvider =
     FutureProvider.family<Map<String, NoteCardMetadata>, List<Note>>(
   (ref, notes) async {
     if (notes.isEmpty) return {};
 
-    // Re-run whenever the notes table changes (note created/edited/deleted)
-    // so metadata stays fresh.
+    // Re-run whenever notes or checklist items change.
     ref.watch(notesListProvider);
+    ref.watch(checklistItemsRevisionProvider);
 
     final db = ref.read(databaseProvider);
     final noteIds = notes.map((n) => n.id).toList();

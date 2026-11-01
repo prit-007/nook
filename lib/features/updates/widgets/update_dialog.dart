@@ -536,7 +536,7 @@ class _VersionBadge extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            version,
+            version.startsWith('v') ? version : 'v$version',
             style: TextStyle(fontWeight: FontWeight.w800, color: textColor),
           ),
         ),

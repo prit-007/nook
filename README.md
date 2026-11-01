@@ -80,7 +80,7 @@ Three clauses, three promises:
 
 ## Status
 
-🚧 **Alpha — v0.9.4** — Phases 0–4 complete (foundation, core notes,
+🚧 **Alpha — v0.9.5** — Phases 0–4 complete (foundation, core notes,
 checklists + doodles, theming, security). Sync (Phase 5) is implemented on
 **libp2p over UDX** with a stable keystore identity, an own mDNS discovery
 fork, pairing codes on both devices, and categorized failure outcomes. Legacy
@@ -92,7 +92,7 @@ viewer, and Windows/Linux installers are in place.
 > validated on real hardware, and mDNS discovery is unproven on some Android
 > stacks. Do not rely on sync for anything you cannot afford to lose.
 
-Current `pubspec.yaml` version: **0.9.4+16**. See
+Current `pubspec.yaml` version: **0.9.5+17**. See
 [`docs/IMPLEMENTATION-CHECKLIST.md`](docs/IMPLEMENTATION-CHECKLIST.md).
 
 ## Features

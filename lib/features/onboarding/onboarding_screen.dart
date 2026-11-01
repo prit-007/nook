@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -57,15 +58,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Skip button
+            // Skip button (hidden on final page)
             Align(
               alignment: Alignment.topRight,
-              child: TextButton(
-                onPressed: _finish,
-                child: Text(
-                  'Skip',
-                  style: TextStyle(
-                      color: scheme.onSurface.withValues(alpha: 0.87)),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _currentPage == 3 ? 0.0 : 1.0,
+                child: IgnorePointer(
+                  ignoring: _currentPage == 3,
+                  child: TextButton(
+                    onPressed: _finish,
+                    child: Text(
+                      'Skip',
+                      style: TextStyle(
+                          color: scheme.onSurface.withValues(alpha: 0.87)),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -155,13 +163,20 @@ class _WelcomePage extends StatelessWidget {
       child: Column(
         children: [
           const Spacer(flex: 2),
-          // Illustration placeholder
+          // Animated illustration mockup
           Container(
             width: 200,
             height: 200,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: scheme.primaryContainer,
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: 0.15),
+                  blurRadius: 32,
+                  spreadRadius: 4,
+                ),
+              ],
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -189,7 +204,10 @@ class _WelcomePage extends StatelessWidget {
                 ),
               ],
             ),
-          ),
+          )
+              .animate(onPlay: (c) => c.repeat(reverse: true))
+              .moveY(begin: -8, end: 8, duration: 2500.ms, curve: Curves.easeInOut)
+              .scaleXY(begin: 0.96, end: 1.04, duration: 2500.ms),
           const Spacer(flex: 2),
           Text(
             'Your notes. Your device. Yours.',
@@ -256,8 +274,38 @@ class _NoteTypesPage extends StatelessWidget {
                   description:
                       'Rich text with headings, lists, and formatting. Your everyday journal.',
                   color: scheme.primary,
+                  delayMs: 100,
+                  preview: Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: scheme.surface.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '#journal',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: scheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '• Morning reflections',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _NoteTypeCard(
                   scheme: scheme,
                   icon: HugeIcons.strokeRoundedCheckList,
@@ -265,8 +313,53 @@ class _NoteTypesPage extends StatelessWidget {
                   description:
                       'Interactive task lists with drag-to-reorder and swipe-to-complete.',
                   color: scheme.tertiary,
+                  delayMs: 200,
+                  preview: Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: scheme.surface.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                          size: 14,
+                          color: scheme.tertiary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Pack camera',
+                          style: TextStyle(
+                            fontSize: 11,
+                            decoration: TextDecoration.lineThrough,
+                            color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: scheme.outline, width: 1.5),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Sketch sunset',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _NoteTypeCard(
                   scheme: scheme,
                   icon: HugeIcons.strokeRoundedDrawingMode,
@@ -274,6 +367,52 @@ class _NoteTypesPage extends StatelessWidget {
                   description:
                       'Freehand drawing with pressure sensitivity and shape recognition.',
                   color: scheme.secondary,
+                  delayMs: 300,
+                  preview: Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: scheme.surface.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedPaintBoard,
+                          size: 14,
+                          color: scheme.secondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Vector ink canvas',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: scheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: scheme.tertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -291,6 +430,8 @@ class _NoteTypeCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.color,
+    this.preview,
+    this.delayMs = 0,
   });
 
   final ColorScheme scheme;
@@ -298,6 +439,8 @@ class _NoteTypeCard extends StatelessWidget {
   final String title;
   final String description;
   final Color color;
+  final Widget? preview;
+  final int delayMs;
 
   @override
   Widget build(BuildContext context) {
@@ -308,45 +451,59 @@ class _NoteTypeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: HugeIcon(icon: icon, size: 24, color: color),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onSurface,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: scheme.onSurfaceVariant,
-                    height: 1.3,
-                  ),
+                child: HugeIcon(icon: icon, size: 24, color: color),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: scheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+          if (preview != null) preview!,
         ],
       ),
-    );
+    )
+        .animate()
+        .fadeIn(delay: Duration(milliseconds: delayMs), duration: 350.ms)
+        .slideY(
+          begin: 0.08,
+          end: 0,
+          duration: 350.ms,
+          curve: Curves.easeOutCubic,
+        );
   }
 }
 
@@ -507,13 +664,27 @@ class _ReadyPage extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: scheme.primaryContainer,
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: 0.2),
+                  blurRadius: 32,
+                  spreadRadius: 4,
+                ),
+              ],
             ),
             child: HugeIcon(
               icon: HugeIcons.strokeRoundedCheckmarkCircle01,
               size: 80,
               color: scheme.onPrimaryContainer,
             ),
-          ),
+          )
+              .animate()
+              .scale(
+                begin: const Offset(0.7, 0.7),
+                end: const Offset(1.0, 1.0),
+                duration: 600.ms,
+                curve: Curves.elasticOut,
+              ),
           const Spacer(flex: 2),
           Text(
             "You're all set!",
@@ -531,6 +702,40 @@ class _ReadyPage extends StatelessWidget {
               height: 1.4,
             ),
           ),
+          const SizedBox(height: 16),
+          // Animated security & sync badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: scheme.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedShieldSecurity,
+                  size: 16,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Encrypted Local Storage • Peer Sync Ready',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          )
+              .animate()
+              .fadeIn(delay: 250.ms, duration: 400.ms)
+              .slideY(begin: 0.15, end: 0, duration: 400.ms),
           const Spacer(flex: 2),
         ],
       ),

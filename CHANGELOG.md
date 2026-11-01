@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-11-01
+
+### F-Droid Compliance & Privacy
+- **Decoupled in-app update checks**: Removed automatic network calls to
+  `api.github.com` on application startup and resume; removed "Check for Updates"
+  action from Settings; removed update banner from Home screen. Nook is now
+  100% offline-first at startup with zero outbound network traffic.
+- **Dropped `REQUEST_INSTALL_PACKAGES`**: Removed package installation
+  permission from `AndroidManifest.xml` to comply with F-Droid inclusion
+  policies and security best practices.
+
+### UI & UX Polish
+- **Home empty state layout**: Added bottom clearance (`safeBottom + 72`) to the
+  empty state container in `SliverFillRemaining`, preventing the extended "New Note"
+  FAB from overlapping the "Your canvas is clear / Tap New Note below..." text on
+  tall (e.g. 1080x2400) and compact displays.
+- **Light mode status bar icons**: Explicitly configured `systemOverlayStyle` in
+  `AppBarTheme` (`statusBarIconBrightness: Brightness.dark` in light mode), making
+  status bar icons (battery, clock, wifi) clearly legible across Settings, Search,
+  and Peer Sync screens.
+- **Checklist card reactivity**: Fixed an issue where checklist cards on Home
+  remained displaying "No tasks yet" after items were added in the editor.
+  `NoteCard` and `NoteMinimalCard` now respond to metadata and note updates,
+  `noteCardMetadataProvider` invalidates on checklist database writes, and
+  `checklist_editor` touches note `updatedAt`.
+- **Bin tab bar**: Enabled `isScrollable: true` with start alignment and custom
+  horizontal padding on the Bin `TabBar`, preventing truncation of longer labels
+  ("Notebooks", "Attachments") on narrow mobile screens.
+- **Pin / Unpin icon semantics**: Inverted pin icon ternary across the editor
+  app bar, overflow menu, and quick actions sheet. Unpinned notes now display
+  standard pin (`strokeRoundedPin` for "Pin note"), while pinned notes display
+  crossed-out pin (`strokeRoundedPinOff` for "Unpin note").
+- **Onboarding tour**: Hidden "Skip" button on the final page (`Get Started`),
+  and added rich animated screen mockups demonstrating text notes (`#journal`),
+  task checklists (`[✓] Completed`), doodles (vector ink canvas), and
+  noise-encrypted peer sync.
+- **Version string formatting**: Sanitized update dialog version badges to avoid
+  duplicate 'v' prefixes (`vv0.9.4`).
+
 ### Exports
 - **Exports library** (new): Settings → Storage → Manage exports
   (`/settings/exports`). Stable folder `nook_exports` under app documents
@@ -975,7 +1014,8 @@ Editor UX upgrades, shape assist, checklist polish, and the CI release pipeline.
 - CI: GitHub Actions release pipeline with `softprops/action-gh-release`,
   tag-triggered APK builds, and auto-generated release notes.
 
-[Unreleased]: https://github.com/prit-007/nook/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/prit-007/nook/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/prit-007/nook/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/prit-007/nook/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/prit-007/nook/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/prit-007/nook/compare/v0.9.1...v0.9.2

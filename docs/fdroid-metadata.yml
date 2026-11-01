@@ -9,9 +9,9 @@ AutoName: Nook
 Name: Nook
 
 Builds:
-  - versionName: 0.8.2
-    versionCode: 3
-    commit: v0.8.2
+  - versionName: 0.9.5
+    versionCode: 17
+    commit: v0.9.5
     subdir: android
     sudo:
       - apt-get update

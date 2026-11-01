@@ -66,7 +66,9 @@ class _NoteCardState extends ConsumerState<NoteCard> {
   @override
   void didUpdateWidget(covariant NoteCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.note.id != widget.note.id) {
+    if (oldWidget.note.id != widget.note.id ||
+        oldWidget.preloadedMetadata != widget.preloadedMetadata ||
+        oldWidget.note.updatedAt != widget.note.updatedAt) {
       final meta = widget.preloadedMetadata;
       if (meta != null) {
         _checklistItems = meta.checklistItems;

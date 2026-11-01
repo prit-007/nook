@@ -161,6 +161,8 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     await repo.addItem(noteId: widget.noteId, text: text.trim());
     if (wasEmpty && widget.title.isEmpty) {
       await NoteRepository(db).updateNote(widget.noteId, title: text.trim());
+    } else {
+      await NoteRepository(db).updateNote(widget.noteId);
     }
     _addController.clear();
     await _load();
@@ -181,6 +183,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
       widget.noteId,
       _items.map((i) => i.id).toList(),
     );
+    await NoteRepository(db).updateNote(widget.noteId);
     if (mounted) setState(() {});
   }
 
@@ -195,6 +198,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.toggleChecked(id);
+    await NoteRepository(db).updateNote(widget.noteId);
     await _load();
   }
 
@@ -205,6 +209,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.setAllChecked(widget.noteId, true);
+    await NoteRepository(db).updateNote(widget.noteId);
     await _load();
   }
 
@@ -215,11 +220,11 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.setAllChecked(widget.noteId, false);
+    await NoteRepository(db).updateNote(widget.noteId);
     await _load();
   }
 
   Future<void> _clearCompleted() async {
-    if (_archivedItems.isEmpty) return;
     final count = _archivedItems.length;
     final confirmed = await showConfirmDeleteDialog(
       context,
@@ -233,6 +238,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.deleteCompletedItems(widget.noteId);
+    await NoteRepository(db).updateNote(widget.noteId);
     await _load();
   }
 
@@ -242,6 +248,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.updateText(id, newText.trim());
+    await NoteRepository(db).updateNote(widget.noteId);
     await _load();
   }
 
@@ -265,6 +272,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
     final db = ref.read(databaseProvider);
     final repo = ChecklistItemRepository(db);
     await repo.deleteItem(id);
+    await NoteRepository(db).updateNote(widget.noteId);
     await _load();
   }
 

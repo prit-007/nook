@@ -17,7 +17,6 @@ import '../../data/repositories/note_repository.dart';
 import '../../data/repositories/tag_repository.dart';
 import '../../data/tables/notes.dart';
 import '../templates/template_picker_sheet.dart';
-import '../updates/widgets/update_banner.dart';
 import 'models/note_sort_order.dart';
 import 'providers/notes_list_provider.dart';
 import 'providers/note_card_metadata_provider.dart';
@@ -540,7 +539,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           SliverToBoxAdapter(
             child: searchPill,
           ),
-          const SliverToBoxAdapter(child: UpdateBanner()),
           SliverToBoxAdapter(
             child: FilterPillBar(
               selectedType: _selectedType,
@@ -555,7 +553,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           if (filtered.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
-              child: EmptyHome(animate: widget.animate),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: safeBottom + 72,
+                  left: 24,
+                  right: 24,
+                ),
+                child: EmptyHome(animate: widget.animate),
+              ),
             )
           else if (isWide)
             _buildWideGrid(context, filtered, metadata)

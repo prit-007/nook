@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Builds a ColorScheme from a seed color.
 ColorScheme buildSchemeForSeed(Color seed, Brightness brightness) {
@@ -175,6 +176,11 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent, // Force transparent for clean look
       foregroundColor: scheme.onSurface,
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+        statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
+      ),
       titleTextStyle: const TextStyle(
         fontFamily: 'Inter',
         fontWeight: FontWeight.w600,
