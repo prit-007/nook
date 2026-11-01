@@ -118,3 +118,15 @@ Generated from comprehensive codebase audit. Track completion status here.
 - [x] **M17** `doodle_toolbar.dart` — Colors derived from `scheme.onSurface` instead of hardcoded black
 - [x] **H20** `note_editor_screen.dart` — (Doodle canvas uses Navigator for modal; acceptable)
 - [x] Tests updated to match all changes — 430 passing, 0 analysis issues
+
+## v0.9.5 F-Droid & Device Review (ColorOS 14 / Android 14)
+
+- [x] **FD1** `AndroidManifest.xml` — Removed `REQUEST_INSTALL_PACKAGES` permission; 100% offline-first at startup.
+- [x] **FD2** `app.dart` + `settings_screen.dart` + `home_screen.dart` — Decoupled automatic update check at launch; removed update banner and settings tile.
+- [x] **FD3** `app_theme.dart` — `AppBarTheme.systemOverlayStyle` configured explicitly; status bar icons dark in light mode across Settings, Search, and Sync.
+- [x] **FD4** `home_screen.dart` — Added `safeBottom + 72` bottom clearance to `SliverFillRemaining` around `EmptyHome`, resolving FAB collision on tall 1080x2400 displays.
+- [x] **FD5** `note_card.dart` + `note_minimal_card.dart` + `note_card_metadata_provider.dart` + `checklist_editor.dart` — Checklist items reactively update note cards on Home without app restart.
+- [x] **FD6** `trash_screen.dart` — `TabBar.isScrollable: true` with start alignment; tab labels ("Notebooks", "Attachments") no longer truncated.
+- [x] **FD7** `note_editor_screen.dart` + `note_quick_actions_sheet.dart` — Inverted pin icon logic: unpinned shows standard pin (`strokeRoundedPin`), pinned shows crossed-out pin (`strokeRoundedPinOff`).
+- [x] **FD8** `onboarding_screen.dart` — "Skip" button hidden on final page; animated screen mockups added for notes, checklists, doodles, and peer sync.
+- [x] **FD9** `update_dialog.dart` — Version badge formatting sanitized to eliminate double 'v' (`vv0.9.4`).

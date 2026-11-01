@@ -1,0 +1,9 @@
+Nook 0.9.5 — F-Droid compliance & UI refinements.
+
+- F-Droid compliance: 100% offline-first at startup with zero outbound network calls and package installation permission dropped.
+- Home screen layout: resolved empty-state FAB overlap on tall displays.
+- Visual polish: high-contrast status bar icons in light mode across Settings, Search, and Sync.
+- Checklist reactivity: note cards on Home immediately reflect tasks added in the editor.
+- Bin improvements: scrollable tabs prevent truncation on narrow screens.
+- Pin icon: corrected pin/unpin semantics.
+- Onboarding: animated capability mockups and refined page flow.

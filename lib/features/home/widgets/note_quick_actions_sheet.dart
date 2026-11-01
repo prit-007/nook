@@ -226,8 +226,8 @@ class _QuickActionsBodyState extends State<_QuickActionsBody> {
                         ),
                       _ActionButton(
                         icon: _currentNote.pinned
-                            ? HugeIcons.strokeRoundedPin
-                            : HugeIcons.strokeRoundedPinOff,
+                            ? HugeIcons.strokeRoundedPinOff
+                            : HugeIcons.strokeRoundedPin,
                         label: _currentNote.pinned ? 'Unpin Note' : 'Pin Note',
                         color: _currentNote.pinned
                             ? scheme.primary

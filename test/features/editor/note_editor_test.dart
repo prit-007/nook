@@ -100,7 +100,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
         find.byWidgetPredicate(
-            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPinOff),
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPin),
         findsOneWidget);
   });
 
@@ -163,16 +163,16 @@ void main() {
 
     expect(
         find.byWidgetPredicate(
-            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPinOff),
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPin),
         findsOneWidget);
 
     await tester.tap(find.byWidgetPredicate(
-        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPinOff));
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPin));
     await tester.pump();
 
     expect(
         find.byWidgetPredicate(
-            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPin),
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedPinOff),
         findsOneWidget);
   });
 

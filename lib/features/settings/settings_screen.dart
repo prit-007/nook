@@ -12,8 +12,6 @@ import '../../core/providers/screenshot_blocker_provider.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../sync/sync_orchestrator.dart';
-import '../updates/update_provider.dart';
-import '../updates/widgets/update_dialog.dart';
 import 'providers/vault_stats_provider.dart';
 
 /// Settings root screen.
@@ -38,7 +36,6 @@ class SettingsScreen extends ConsumerWidget {
           data: (info) => info.version,
           orElse: () => '',
         );
-    final updateStatus = ref.watch(updateStatusProvider);
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -235,15 +232,6 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
-                icon: HugeIcons.strokeRoundedRefresh,
-                title: 'Check for Updates',
-                value: _updateLabel(updateStatus),
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  unawaited(_checkForUpdates(context, ref));
-                },
-              ),
-              _SettingsTile(
                 icon: HugeIcons.strokeRoundedPlay,
                 title: 'Replay Onboarding',
                 onTap: () async {
@@ -271,62 +259,6 @@ String _autoLockLabel(AutoLockDuration duration) => switch (duration) {
       AutoLockDuration.oneHour => '1 hour',
       AutoLockDuration.never => 'Never',
     };
-
-String _updateLabel(UpdateStatus status) {
-  if (status.checking) return 'Checking\u2026';
-  if (status.hasUpdate) return 'v${status.available!.latestVersion}';
-  if (status.hasError) return 'Update failed';
-  if (status.latestChecked != null) return 'Up to date';
-  return '\u2014';
-}
-
-Future<void> _checkForUpdates(BuildContext context, WidgetRef ref) async {
-  final notifier = ref.read(updateStatusProvider.notifier);
-  final status = await notifier.check(force: true);
-  if (!context.mounted) return;
-
-  final info = status.available;
-  if (info != null) {
-    await UpdateDialog.show(
-      context,
-      current: info.currentVersion.toString(),
-      newVer: info.latestVersion.toString(),
-      changelog: info.changelog,
-      apkUrl: info.apkUrl,
-      releaseUrl: info.releaseUrl,
-    );
-  } else if (status.hasError) {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Couldn't check for updates"),
-        content: const Text(
-          'nook could not reach the release feed. Check your connection.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  } else {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("You're up to date"),
-        content: Text('nook v${status.latestChecked ?? ''} is the latest.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});

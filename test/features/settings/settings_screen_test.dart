@@ -106,10 +106,10 @@ void main() {
     expect(find.text('0.7.9'), findsOneWidget);
   });
 
-  testWidgets('renders check for updates tile', (tester) async {
+  testWidgets('renders replay onboarding tile', (tester) async {
     await tester.pumpWidget(buildScreen());
-    await tester.scrollUntilVisible(find.text('Check for Updates'), 100);
-    expect(find.text('Check for Updates'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Replay Onboarding'), 100);
+    expect(find.text('Replay Onboarding'), findsOneWidget);
   });
 
   testWidgets('renders two switches', (tester) async {

@@ -17,7 +17,6 @@ import 'core/widgets/inactivity_detector.dart';
 import 'core/widgets/keyboard_shortcuts.dart';
 import 'features/security/frosted_shield.dart';
 import 'features/templates/template_picker_sheet.dart';
-import 'features/updates/update_provider.dart';
 import 'sync/sync_orchestrator.dart';
 
 class NookApp extends ConsumerStatefulWidget {
@@ -52,9 +51,6 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         gate.onAppResumed();
-        unawaited(
-          ref.read(updateStatusProvider.notifier).checkIfStale(),
-        );
       case AppLifecycleState.paused:
         gate.onAppPaused();
         // Stop any active sync when the app is backgrounded — discovery

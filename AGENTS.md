@@ -4,7 +4,7 @@
 - Single-package Flutter app (not a monorepo).
 - SDK constraint: Dart `>=3.6.0 <4.0.0`, Flutter stable (CI pins 3.44.8).
 - Entry point: `lib/main.dart`.
-- Status: Alpha — v0.9.4 (full-fidelity sync, pairing code on both devices, 964 tests).
+- Status: Alpha — v0.9.5 (full-fidelity sync, pairing code on both devices, 964 tests).
 - Docs: `docs/notes-app-masterplan.md` (product/roadmap), `docs/notes-app-detailed-plan.md` (schema/architecture/protocols), `docs/SYNC-LIBP2P-TRANSPORT.md` (current sync transport reference), `docs/adr/` (architecture decision records).
 
 ## Code generation
@@ -151,7 +151,7 @@ Android, iOS, macOS, Linux, Windows, and Web targets are present. `flutter run` 
 - **Linux window icon**: `linux/runner/icon.png` installs to `bundle/data/icon.png` via `linux/CMakeLists.txt`; `linux/runner/my_application.cc` applies it with `gtk_window_set_icon_from_file` (path derived from `fl_dart_project_get_assets_path`). If the icon ever moves, both the CMake DESTINATION and the C++ path must change together.
 - **Windows installer**: `dart run tool/build_installer.dart` (run after `flutter build windows --release`, on a Windows host with Inno Setup installed) writes `build/installers/nook_setup_<ver>.iss` and compiles it with `iscc`. Flags: `--dry-run` validates ISS generation on any host; `--iscc <path>` points at ISCC.exe. A real build **fails loudly** (exit 1) if `iscc` is missing — it must never report success without an `.exe`. Installs to `{localappdata}\nook` with `PrivilegesRequired=lowest` (no admin), stable `AppId`, modern wizard, LZMA2, Start Menu folder + opt-in desktop shortcut. `_homeUrl` points at the `prit-007/nook` repo. CI (`.github/workflows/ci.yml` `build-windows`) installs Inno Setup via Chocolatey, builds the installer, verifies the `.exe` was produced, and ships it.
 - **Linux build prerequisite**: Linux desktop builds require the system package `libsecret-1-dev` (`pkg_check_modules` in `flutter_secure_storage_linux`). `sudo apt-get install -y libsecret-1-dev`.
-- **Docs**: ADRs `docs/adr/0009-app-launcher-icons-and-linux-window-icon.md` and `docs/adr/0010-windows-installer.md` record the decisions.
+- **Docs**: ADRs `docs/adr/0009-app-launcher-icons-and-linux-window-icon.md`, `docs/adr/0010-windows-installer.md`, and `docs/adr/0011-offline-first-fdroid-compliance-and-updates.md` record the decisions.
 
 ## Implementation checklist
 - Full task-by-task checklist: `docs/IMPLEMENTATION-CHECKLIST.md`

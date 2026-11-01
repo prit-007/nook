@@ -76,6 +76,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text("You're all set!"), findsOneWidget);
     expect(find.text('Get Started'), findsOneWidget);
+    // Skip button should be invisible on the final page
+    final opacityFinder = find.ancestor(
+      of: find.text('Skip'),
+      matching: find.byType(AnimatedOpacity),
+    );
+    expect(tester.widget<AnimatedOpacity>(opacityFinder).opacity, 0.0);
   });
 
   testWidgets('dot indicators exist', (tester) async {

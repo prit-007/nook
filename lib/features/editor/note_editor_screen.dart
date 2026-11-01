@@ -1763,8 +1763,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
               tooltip: pinned ? 'Unpin note' : 'Pin note',
               icon: HugeIcon(
                 icon: pinned
-                    ? HugeIcons.strokeRoundedPin
-                    : HugeIcons.strokeRoundedPinOff,
+                    ? HugeIcons.strokeRoundedPinOff
+                    : HugeIcons.strokeRoundedPin,
                 size: compact ? 19 : 20,
                 color: pinned ? noteScheme.primary : noteScheme.onSurface,
               ),
@@ -2028,8 +2028,8 @@ class _ResponsiveEditorAppBar extends StatelessWidget {
                       children: [
                         HugeIcon(
                           icon: pinned
-                              ? HugeIcons.strokeRoundedPin
-                              : HugeIcons.strokeRoundedPinOff,
+                              ? HugeIcons.strokeRoundedPinOff
+                              : HugeIcons.strokeRoundedPin,
                           size: 20,
                           color: pinned
                               ? noteScheme.primary

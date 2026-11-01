@@ -60,7 +60,9 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
   @override
   void didUpdateWidget(covariant NoteMinimalCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.note.id != widget.note.id) {
+    if (oldWidget.note.id != widget.note.id ||
+        oldWidget.preloadedMetadata != widget.preloadedMetadata ||
+        oldWidget.note.updatedAt != widget.note.updatedAt) {
       final meta = widget.preloadedMetadata;
       if (meta != null) {
         _checklistItems = meta.checklistItems;

@@ -282,6 +282,10 @@ class _TrashScreenState extends ConsumerState<TrashScreen>
         backgroundColor: Colors.transparent,
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 14),
           tabs: const [
             Tab(text: 'Notes'),
             Tab(text: 'Notebooks'),

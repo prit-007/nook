@@ -289,6 +289,9 @@ installs Inno Setup via Chocolatey and produces a setup wizard
 - **Windows installer**: `tool/build_installer.dart` (pure Dart) generates a
   no-admin, modern Inno Setup wizard and compiles it with `iscc` —
   see `docs/adr/0010-windows-installer.md`.
+- **F-Droid & Offline-First Distribution**: updates are managed via F-Droid &
+  external release channels; in-app automated updates and package installer
+  permissions are omitted — see `docs/adr/0011-offline-first-fdroid-compliance-and-updates.md`.
 - Linux desktop builds require the system package `libsecret-1-dev`.
 | Security/scanner UI | `core/providers/*_provider.dart` + `features/security/` |
 | CI / release | `.github/workflows/ci.yml` |
