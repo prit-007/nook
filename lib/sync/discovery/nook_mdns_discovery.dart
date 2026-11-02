@@ -535,6 +535,7 @@ class NookMdnsDiscovery {
         if (ip == null) continue;
         if (ip.isLoopback || ip.isLinkLocal || ip.isMulticast) continue;
         if (_isIpv6Ula(ip)) continue;
+        if (_isIpv6GlobalUnicast(ip)) continue;
         if (virtualInterfaceIps.contains(ip.address)) continue;
         dialable.add(addr);
       }
@@ -567,6 +568,18 @@ class NookMdnsDiscovery {
     if (bytes.isEmpty) return false;
     // fc00::/7 → the first byte is 0xfc or 0xfd.
     return (bytes[0] & 0xfe) == 0xfc;
+  }
+
+  /// Whether [ip] falls in the IPv6 global unicast range 2000::/3 (publicly
+  /// routable internet addresses assigned by ISPs / cellular carriers).
+  /// Excluded so "Connect manually" is restricted strictly to local network
+  /// peers as intended ("over your local network").
+  static bool _isIpv6GlobalUnicast(InternetAddress ip) {
+    if (ip.type != InternetAddressType.IPv6) return false;
+    final bytes = ip.rawAddress;
+    if (bytes.isEmpty) return false;
+    // 2000::/3 → the top 3 bits are 001, so (bytes[0] & 0xe0) == 0x20.
+    return (bytes[0] & 0xe0) == 0x20;
   }
 
   /// Convenience instance wrapper for [_resolveActiveInterface] usage in

@@ -36,19 +36,49 @@ final vaultStatsProvider = FutureProvider<VaultStats>((ref) async {
 
   final attachmentCountExpr = db.attachments.id.count();
   final attachmentQuery = db.selectOnly(db.attachments)
+    ..where(db.attachments.deleted.equals(false))
     ..addColumns([attachmentCountExpr]);
   final attachmentResult = await attachmentQuery.getSingle();
   final attachmentCountValue = attachmentResult.read(attachmentCountExpr) ?? 0;
 
   var dbBytes = 0;
   var mediaBytes = 0;
+
+  // Measure actual attachment files (doodles, images, thumbnails).
+  try {
+    final attachments = await (db.select(db.attachments)
+          ..where((a) => a.deleted.equals(false)))
+        .get();
+    final countedPaths = <String>{};
+    for (final att in attachments) {
+      if (countedPaths.add(att.filePath)) {
+        try {
+          final file = File(att.filePath);
+          if (await file.exists()) {
+            mediaBytes += await file.length();
+          }
+        } catch (_) {}
+      }
+      final thumb = att.thumbnailPath;
+      if (thumb != null && thumb.isNotEmpty && countedPaths.add(thumb)) {
+        try {
+          final thumbFile = File(thumb);
+          if (await thumbFile.exists()) {
+            mediaBytes += await thumbFile.length();
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  // Measure database and sync staging directory on disk.
   try {
     final documentsDir = await getApplicationDocumentsDirectory();
     final dbFile = File(p.join(documentsDir.path, 'notes.db'));
     if (await dbFile.exists()) {
       dbBytes = await dbFile.length();
     }
-    mediaBytes = await _directorySize(
+    mediaBytes += await _directorySize(
       Directory(p.join(documentsDir.path, 'sync')),
     );
   } catch (_) {

@@ -216,6 +216,17 @@ void main() {
       expect(filtered.single.ip4, '192.168.1.50');
     });
 
+    test('drops global unicast IPv6 addresses (public 2000::/3)', () {
+      final filtered = NookMdnsDiscovery.filterDialableAddrs([
+        lan6('2001:db8::1'),
+        lan6('2607:fb90:e800::1'),
+        lan('192.168.1.50'),
+      ]);
+
+      expect(filtered, hasLength(1));
+      expect(filtered.single.ip4, '192.168.1.50');
+    });
+
     test('drops link-local and loopback addresses', () {
       final filtered = NookMdnsDiscovery.filterDialableAddrs([
         lan6('fe80::1'),
