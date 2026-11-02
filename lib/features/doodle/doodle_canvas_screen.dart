@@ -95,10 +95,29 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   /// Scrolls the canvas from a two-finger swipe. [deltaY] is positive when the
   /// fingers move downward, which scrolls the paper up (towards the top).
   void _handleTwoFingerPan(double deltaY) {
+    if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
     if (!position.hasContentDimensions) return;
     final target = position.pixels - deltaY;
     _scrollController.jumpTo(target.clamp(0.0, position.maxScrollExtent));
+  }
+
+  bool _isAutoExtending = false;
+
+  /// Automatically extends the canvas downward when drawing reaches within
+  /// 120px of the bottom edge, providing an infinite paper feel.
+  void _handleNearBottomEdge() {
+    if (_isAutoExtending) return;
+    _isAutoExtending = true;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _canvasHeightMultiplier += 0.5;
+    });
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) {
+        _isAutoExtending = false;
+      }
+    });
   }
 
   Future<DoodleStorage> _resolveStorage() async {
@@ -233,6 +252,8 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
         return 'rectangle';
       case RecognizedShape.oval:
         return 'oval';
+      case RecognizedShape.star:
+        return 'star';
       case RecognizedShape.none:
       case null:
         return 'shape';
@@ -369,6 +390,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                                 controller: _controller,
                                 noteScheme: noteScheme,
                                 onTwoFingerPan: _handleTwoFingerPan,
+                                onNearBottomEdge: _handleNearBottomEdge,
                               ),
                             ),
                             // Extend Paper Trigger
@@ -389,6 +411,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                                         color: scheme.onSurface),
                                     label: const Text('Extend Paper'),
                                     onPressed: () {
+                                      HapticFeedback.mediumImpact();
                                       setState(() {
                                         _canvasHeightMultiplier += 0.5;
                                       });
@@ -495,37 +518,50 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                   child: Center(
                     child: GestureDetector(
                       onTap: () {
+                        HapticFeedback.lightImpact();
                         _controller.revertLastSnap();
                         _snapDismissTimer?.cancel();
                       },
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: noteScheme.primaryContainer
-                                .withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              HugeIcon(
-                                icon: HugeIcons.strokeRoundedUndo02,
-                                size: 16,
-                                color: noteScheme.onPrimaryContainer,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Shape recognized \u00b7 tap to undo',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
+                      child: AnimatedScale(
+                        scale: _controller.hasPendingSnapToUndo ? 1.0 : 0.85,
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutBack,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: noteScheme.primaryContainer
+                                  .withValues(alpha: 0.90),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedUndo02,
+                                  size: 16,
                                   color: noteScheme.onPrimaryContainer,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Shape recognized \u00b7 tap to undo',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: noteScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -565,6 +601,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                             const SizedBox(width: 4),
                             GestureDetector(
                               onTap: () {
+                                HapticFeedback.mediumImpact();
                                 _controller.acceptPendingSuggestion();
                                 _suggestionDismissTimer?.cancel();
                               },
@@ -603,6 +640,48 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // 6. Floating Canvas Extension Indicator & Quick Scroll
+              if (_canvasHeightMultiplier > 1.0)
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 16,
+                  right: 76,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: isDrawing ? 0.0 : 1.0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest
+                            .withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedDrawingMode,
+                            size: 14,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${_canvasHeightMultiplier.toStringAsFixed(1)}x',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
