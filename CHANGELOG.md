@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-11-03
+
+### Doodle & Shape Assist (Samsung Notes-Caliber)
+- **Multi-candidate geometric recognizer**:
+  - Cardinal & 45° angle snapping: snaps straight lines within ±6° of 0°, 45°, 90°, 135°, 180°, 225°, 270°, 315° to exact axes.
+  - Arrow tip detection: isolates arrow shaft from angled arrowhead barbs across all directions.
+  - Rectangles and squares: recognizes arbitrary rotated rectangles and snaps aspect ratios $\ge 0.82$ to perfect squares.
+  - Triangles: recognizes equilateral and isosceles triangles and snaps vertex coordinates.
+  - 5-point stars: detects star doodles via 72° sector peak identification.
+  - Closed polygon seam joining: calls `path.close()` on snapped closed shapes (`rectangle`, `oval`, `triangle`, `star`) to produce clean, rounded vertex seams without open corner gaps.
+- **Eraser ring cursor preview**: Displays a real-time circular ring matching the eraser radius following active finger/stylus touch.
+- **Auto-extending paper**: Automatically extends canvas height by +0.5x when drawing approaches within 120px of the canvas bottom edge.
+- **Unsaved canvas protection**: Added `PopScope` dialog ("Unsaved Doodle" → "Keep Drawing", "Discard", "Save & Exit") on back gesture or Close button when unsaved strokes exist, preventing accidental data loss while allowing clean empty canvases to exit immediately.
+- **Animations & tactile haptics**: Shape suggestion badge animates in with `Curves.easeOutBack` spring pop; integrated `HapticFeedback` across hold-to-snap, auto-extension, manual extend button, and undo revert.
+
+### Search & Discovery
+- **Quick filter chips**: Added "Checklists", "Doodles", and "Pinned" quick filter chips with active container highlight styling that perform true category database-backed query filtering across both empty and populated searches.
+- **Instant search clear**: Added animated clear button (`HugeIcons.strokeRoundedCancel01`) with tactile feedback to immediately clear search query and reset results.
+
+### Checklists & Bin / Trash
+- **Checklist celebration**: Progress bar header displays celebratory micro-copy (`All complete! 🎉`) when 100% of checklist items are completed.
+- **Auto-purge retention countdown**: Added 30-day retention countdown badges (`Archived Xd ago · Y days left`) to all trashed cards in the Bin for clear visibility before permanent deletion.
+
+### Security & Media Fixes
+- **IPv6 exposure mitigation**: Filtered out public IPv6 global unicast addresses (`2000::/3`) on manual sync device entry, keeping peer sync strictly bound to local private LAN / link-local subnets.
+- **Camera permission handling**: Handled `CameraException` (`CameraAccessDenied`) in QR scanner with user guidance to enable camera permissions in system Settings.
+- **Doodle thumbnail scaling**: Enhanced thumbnail renderer to calculate actual stroke bounding boxes and scale/translate drawings to fit thumbnail previews on tall mobile screens without clipping.
+- **Vault storage statistics**: Updated vault stats provider to physically measure attachment and doodle files on disk (`filePath` and `thumbnailPath`), resolving `0 B` media reporting.
+
 ## [0.9.5] - 2026-11-01
 
 ### F-Droid Compliance & Privacy
@@ -1014,7 +1043,8 @@ Editor UX upgrades, shape assist, checklist polish, and the CI release pipeline.
 - CI: GitHub Actions release pipeline with `softprops/action-gh-release`,
   tag-triggered APK builds, and auto-generated release notes.
 
-[Unreleased]: https://github.com/prit-007/nook/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/prit-007/nook/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/prit-007/nook/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/prit-007/nook/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/prit-007/nook/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/prit-007/nook/compare/v0.9.2...v0.9.3

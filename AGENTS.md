@@ -4,7 +4,7 @@
 - Single-package Flutter app (not a monorepo).
 - SDK constraint: Dart `>=3.6.0 <4.0.0`, Flutter stable (CI pins 3.44.8).
 - Entry point: `lib/main.dart`.
-- Status: Alpha — v0.9.5 (full-fidelity sync, pairing code on both devices, 964 tests).
+- Status: Alpha — v0.9.6 (full-fidelity sync, pairing code on both devices, 1,186 tests).
 - Docs: `docs/notes-app-masterplan.md` (product/roadmap), `docs/notes-app-detailed-plan.md` (schema/architecture/protocols), `docs/SYNC-LIBP2P-TRANSPORT.md` (current sync transport reference), `docs/adr/` (architecture decision records).
 
 ## Code generation
