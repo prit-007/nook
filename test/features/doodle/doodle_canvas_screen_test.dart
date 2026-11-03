@@ -87,6 +87,40 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('tapping close with unsaved strokes shows unsaved dialog',
+      (tester) async {
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    // Draw a stroke so canUndo becomes true
+    final canvasFinder = find.byType(DoodleCanvas);
+    expect(canvasFinder, findsOneWidget);
+    final canvasCenter = tester.getCenter(canvasFinder);
+
+    final gesture = await tester.startGesture(canvasCenter);
+    await tester.pump();
+    await gesture.moveBy(const Offset(30, 30));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // Now tap close button
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedCancelCircle));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unsaved Doodle'), findsOneWidget);
+    expect(find.text('Keep Drawing'), findsOneWidget);
+    expect(find.text('Discard'), findsOneWidget);
+    expect(find.text('Save & Exit'), findsOneWidget);
+
+    // Tap Keep Drawing
+    await tester.tap(find.text('Keep Drawing'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unsaved Doodle'), findsNothing);
+  });
+
   testWidgets('renders background selector button', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();

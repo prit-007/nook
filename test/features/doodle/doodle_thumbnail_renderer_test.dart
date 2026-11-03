@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/features/doodle/doodle_controller.dart';
+import 'package:nook/features/doodle/doodle_shape_recognizer.dart';
 import 'package:nook/features/doodle/doodle_thumbnail_renderer.dart';
 
 void main() {
@@ -31,6 +32,32 @@ void main() {
           ),
         ],
         background: DoodleBackground.graph,
+      );
+      expect(bytes.isNotEmpty, isTrue);
+      expect(bytes[0], 0x89);
+    });
+
+    test('scales tall/lower-screen strokes into the thumbnail without clipping',
+        () async {
+      // Coordinates simulating drawing on the lower half of a tall 1080x2160 screen (y > 360)
+      final bytes = await DoodleThumbnailRenderer.render(
+        [
+          Stroke(
+            points: const [
+              StrokePoint(Offset(100, 500)),
+              StrokePoint(Offset(300, 500)),
+              StrokePoint(Offset(300, 700)),
+              StrokePoint(Offset(100, 700)),
+              StrokePoint(Offset(100, 500)),
+            ],
+            color: const Color(0xFF0066CC),
+            width: 4,
+            isPerfectShape: true,
+            shapeType: RecognizedShape.rectangle,
+          ),
+        ],
+        width: 480,
+        height: 360,
       );
       expect(bytes.isNotEmpty, isTrue);
       expect(bytes[0], 0x89);

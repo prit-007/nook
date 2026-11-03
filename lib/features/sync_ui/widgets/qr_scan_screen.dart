@@ -64,10 +64,33 @@ class _QrScanScreenState extends State<QrScanScreen> {
     _controller = controller;
     try {
       await controller.initialize();
+    } on CameraException catch (e) {
+      if (mounted) {
+        final isDenied = e.code == 'CameraAccessDenied' ||
+            e.code == 'CameraAccessDeniedWithoutPrompt' ||
+            e.code == 'CameraAccessRestricted';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isDenied
+                  ? 'Camera permission denied. Allow camera access in App Settings to scan QR codes.'
+                  : 'Could not start camera: ${e.description ?? e.code}',
+            ),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+      return;
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not start the camera.')),
+          const SnackBar(
+            content: Text(
+              'Could not start camera. Check permissions in App Settings.',
+            ),
+            duration: Duration(seconds: 4),
+          ),
         );
         Navigator.of(context).pop();
       }

@@ -130,3 +130,17 @@ Generated from comprehensive codebase audit. Track completion status here.
 - [x] **FD7** `note_editor_screen.dart` + `note_quick_actions_sheet.dart` — Inverted pin icon logic: unpinned shows standard pin (`strokeRoundedPin`), pinned shows crossed-out pin (`strokeRoundedPinOff`).
 - [x] **FD8** `onboarding_screen.dart` — "Skip" button hidden on final page; animated screen mockups added for notes, checklists, doodles, and peer sync.
 - [x] **FD9** `update_dialog.dart` — Version badge formatting sanitized to eliminate double 'v' (`vv0.9.4`).
+
+## v0.9.6 Reviewer Follow-up & Samsung Notes-Level Polish
+
+- [x] **RF1** `nook_mdns_discovery.dart` — Blocked public global unicast IPv6 addresses (`2000::/3`) in manual device entry to keep peer sync private to LAN.
+- [x] **RF2** `qr_scan_screen.dart` — Caught `CameraException` (`CameraAccessDenied`) and displayed polite permission guidance banner.
+- [x] **RF3** `doodle_thumbnail_renderer.dart` — Calculated stroke bounding box and applied scale/translation transforms to prevent clipping on tall screens.
+- [x] **RF4** `vault_stats_provider.dart` — Calculated attachment and doodle file sizes on disk (`filePath` and `thumbnailPath`), fixing `0 B` media reporting.
+- [x] **RF5** `doodle_shape_recognizer.dart` — Elevated shape recognizer with cardinal/45° angle snapping, arrowheads, rotated rectangles/squares ($\ge 0.82$), triangles, and 5-point stars.
+- [x] **RF6** `doodle_painter.dart` — Ensured `path.close()` is invoked on snapped perfect closed shapes for seamless rounded vertex joins.
+- [x] **RF7** `doodle_canvas.dart` — Added real-time circular eraser preview ring matching eraser stroke radius under active touch coordinates.
+- [x] **RF8** `doodle_canvas_screen.dart` — Added auto-extending paper (+0.5x height) near bottom edge and `PopScope` unsaved canvas dialog.
+- [x] **RF9** `search_screen.dart` — Added animated clear button and quick filter chips ("Checklists", "Doodles", "Pinned") with selected highlight styling and database filtering.
+- [x] **RF10** `checklist_editor.dart` — Added completion celebration micro-copy (`All complete! 🎉`) upon 100% checklist item completion.
+- [x] **RF11** `trash_screen.dart` — Added 30-day auto-purge countdown badge (`Archived Xd ago · Y days left`) on all trashed cards.

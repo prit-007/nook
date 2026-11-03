@@ -368,7 +368,9 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                     Text(
                       totalCount == 0
                           ? 'No tasks yet'
-                          : '$checkedCount of $totalCount Done',
+                          : checkedCount == totalCount
+                              ? 'All complete! 🎉'
+                              : '$checkedCount of $totalCount Done',
                       style: textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: scheme.primary,

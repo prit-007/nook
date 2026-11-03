@@ -24,3 +24,19 @@ Builds:
       - dart run build_runner build --delete-conflicting-outputs
     build:
       - flutter build apk --release
+
+  - versionName: 0.9.6
+    versionCode: 18
+    commit: v0.9.6
+    subdir: android
+    sudo:
+      - apt-get update
+      - apt-get install -y --no-install-recommends libsecret-1-dev ninja-build cmake
+    init:
+      - flutter pub get
+      - dart run tool/patch_appflowy_editor.dart
+      - dart run tool/patch_talker_flutter.dart
+      - dart run tool/patch_mdns_dart.dart
+      - dart run build_runner build --delete-conflicting-outputs
+    build:
+      - flutter build apk --release

@@ -21,6 +21,7 @@ class DoodleCanvas extends StatefulWidget {
     this.boundaryKey,
     this.noteScheme,
     this.onTwoFingerPan,
+    this.onNearBottomEdge,
   });
 
   final DoodleController controller;
@@ -34,6 +35,10 @@ class DoodleCanvas extends StatefulWidget {
   /// Called when the user pans with two or more pointers (used to scroll the
   /// infinite canvas). [deltaY] is positive when the fingers move downward.
   final ValueChanged<double>? onTwoFingerPan;
+
+  /// Called when an active stroke approaches the bottom edge of the canvas,
+  /// triggering auto-expansion of the paper height.
+  final VoidCallback? onNearBottomEdge;
 
   @override
   State<DoodleCanvas> createState() => _DoodleCanvasState();
@@ -121,6 +126,15 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
     }
     widget.controller
         .continueStroke(event.localPosition, pressure: event.pressure);
+
+    // Auto-extend canvas when drawing near the bottom edge
+    final box = context.findRenderObject();
+    if (box is RenderBox && box.hasSize) {
+      if (event.localPosition.dy > box.size.height - 120) {
+        widget.onNearBottomEdge?.call();
+      }
+    }
+
     if ((event.localPosition - (_lastHoldPosition ?? event.localPosition))
             .distance >
         12) {
@@ -207,6 +221,22 @@ class _DoodlePainter extends CustomPainter {
     }
 
     canvas.restore();
+
+    // Subtle eraser cursor indicator following the active touch/stylus
+    if (activeStroke != null &&
+        activeStroke!.tool == DoodleTool.eraser &&
+        activeStroke!.points.isNotEmpty) {
+      final pos = activeStroke!.points.last.position;
+      final radius = activeStroke!.width * 1.5;
+      final cursorPaint = Paint()
+        ..color = (backgroundColor.computeLuminance() > 0.4
+                ? Colors.black
+                : Colors.white)
+            .withValues(alpha: 0.45)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawCircle(pos, radius, cursorPaint);
+    }
   }
 
   @override

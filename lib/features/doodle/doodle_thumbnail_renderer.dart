@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -39,7 +40,51 @@ class DoodleThumbnailRenderer {
       background: background,
       color: lineColor,
     );
-    paintDoodleStrokes(canvas, Size(width, height), strokes);
+
+    final hasPoints = strokes.any((s) => s.points.isNotEmpty);
+    if (hasPoints) {
+      double minX = double.infinity;
+      double maxX = -double.infinity;
+      double minY = double.infinity;
+      double maxY = -double.infinity;
+
+      for (final stroke in strokes) {
+        for (final pt in stroke.points) {
+          final x = pt.position.dx;
+          final y = pt.position.dy;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+
+      final strokeWidthMax = strokes.fold<double>(
+        4.0,
+        (maxW, s) => s.width > maxW ? s.width : maxW,
+      );
+      final padding = 24.0 + strokeWidthMax / 2;
+      final contentW = (maxX - minX).clamp(1.0, double.infinity);
+      final contentH = (maxY - minY).clamp(1.0, double.infinity);
+
+      final availW = (width - 2 * padding).clamp(1.0, double.infinity);
+      final availH = (height - 2 * padding).clamp(1.0, double.infinity);
+
+      final scaleX = availW / contentW;
+      final scaleY = availH / contentH;
+      final scale = math.min(scaleX, scaleY).clamp(0.01, 1.2);
+
+      final centerOffsetX = (width - contentW * scale) / 2 - minX * scale;
+      final centerOffsetY = (height - contentH * scale) / 2 - minY * scale;
+
+      canvas.save();
+      canvas.translate(centerOffsetX, centerOffsetY);
+      canvas.scale(scale);
+      paintDoodleStrokes(canvas, Size(width, height), strokes);
+      canvas.restore();
+    } else {
+      paintDoodleStrokes(canvas, Size(width, height), strokes);
+    }
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(width.toInt(), height.toInt());

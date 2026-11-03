@@ -259,6 +259,23 @@ class DoodleController extends ChangeNotifier {
           StrokePoint(bLeft),
           StrokePoint(top),
         ];
+      case RecognizedShape.star:
+        final rect = Rect.fromPoints(anchor, currentPoint);
+        final center = rect.center;
+        final outerR = math.min(rect.width.abs(), rect.height.abs()) / 2;
+        final innerR = outerR * 0.40;
+        const startAngle = -math.pi / 2;
+        active.points = [
+          for (int i = 0; i < 10; i++)
+            StrokePoint(center +
+                Offset(
+                  math.cos(startAngle + i * math.pi / 5) *
+                      ((i % 2 == 0) ? outerR : innerR),
+                  math.sin(startAngle + i * math.pi / 5) *
+                      ((i % 2 == 0) ? outerR : innerR),
+                )),
+          StrokePoint(center + Offset(0, -outerR)),
+        ];
       default:
         break;
     }
