@@ -221,6 +221,22 @@ class _DoodlePainter extends CustomPainter {
     }
 
     canvas.restore();
+
+    // Subtle eraser cursor indicator following the active touch/stylus
+    if (activeStroke != null &&
+        activeStroke!.tool == DoodleTool.eraser &&
+        activeStroke!.points.isNotEmpty) {
+      final pos = activeStroke!.points.last.position;
+      final radius = activeStroke!.width * 1.5;
+      final cursorPaint = Paint()
+        ..color = (backgroundColor.computeLuminance() > 0.4
+                ? Colors.black
+                : Colors.white)
+            .withValues(alpha: 0.45)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawCircle(pos, radius, cursorPaint);
+    }
   }
 
   @override

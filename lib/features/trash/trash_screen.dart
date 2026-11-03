@@ -508,7 +508,6 @@ class _BinTab extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        final age = _formatAge(item.deletedAt);
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
@@ -534,7 +533,7 @@ class _BinTab extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               subtitle: Text(
-                'Archived $age',
+                _formatRetentionSubtitle(item.deletedAt),
                 style: TextStyle(
                   fontSize: 12,
                   color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
@@ -592,5 +591,14 @@ class _BinTab extends StatelessWidget {
     if (diff.inDays < 1) return '${diff.inHours}h ago';
     if (diff.inDays < 30) return '${diff.inDays}d ago';
     return '${(diff.inDays / 30).floor()}mo ago';
+  }
+
+  String _formatRetentionSubtitle(DateTime? deletedAt) {
+    final age = _formatAge(deletedAt);
+    if (deletedAt == null) return 'Archived recently';
+    final passedDays = DateTime.now().difference(deletedAt).inDays;
+    final remainingDays =
+        (kTrashRetentionDays - passedDays).clamp(1, kTrashRetentionDays);
+    return 'Archived $age \u00b7 $remainingDays days left';
   }
 }

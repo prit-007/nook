@@ -52,6 +52,10 @@ void paintDoodleStrokes(Canvas canvas, Size size, List<Stroke> strokes) {
       for (int i = 1; i < stroke.points.length; i++) {
         path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
       }
+      if (stroke.shapeType != RecognizedShape.line &&
+          stroke.shapeType != RecognizedShape.arrow) {
+        path.close();
+      }
       canvas.drawPath(path, paint);
 
       if (stroke.shapeType == RecognizedShape.arrow &&

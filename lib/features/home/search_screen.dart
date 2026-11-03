@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -91,7 +92,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             hintText: 'Search notes...',
             border: InputBorder.none,
           ),
-          onChanged: _onSearchChanged,
+          onChanged: (text) {
+            setState(() {});
+            _onSearchChanged(text);
+          },
         ),
         leading: IconButton(
           icon: const HugeIcon(
@@ -99,13 +103,70 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           tooltip: 'Go back',
           onPressed: () => context.pop(),
         ),
+        actions: [
+          if (_controller.text.isNotEmpty)
+            IconButton(
+              icon: const HugeIcon(
+                icon: HugeIcons.strokeRoundedCancel01,
+                size: 20,
+              ),
+              tooltip: 'Clear search',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _controller.clear();
+                _search('');
+              },
+            ),
+        ],
       ),
       body: _query.trim().isEmpty
-          ? const EmptyState(
-              icon: HugeIcons.strokeRoundedSearch01,
-              title: 'Search notes',
-              subtitle: 'Type to find your notes',
-              animate: false,
+          ? SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: Column(
+                children: [
+                  const EmptyState(
+                    icon: HugeIcons.strokeRoundedSearch01,
+                    title: 'Search notes',
+                    subtitle: 'Type words, tags, or choose a category below',
+                    animate: false,
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _QuickFilterChip(
+                        icon: HugeIcons.strokeRoundedTask01,
+                        label: 'Checklists',
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _controller.text = 'checklist';
+                          _search('checklist');
+                        },
+                      ),
+                      _QuickFilterChip(
+                        icon: HugeIcons.strokeRoundedPencilEdit02,
+                        label: 'Doodles',
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _controller.text = 'doodle';
+                          _search('doodle');
+                        },
+                      ),
+                      _QuickFilterChip(
+                        icon: HugeIcons.strokeRoundedPin,
+                        label: 'Pinned',
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _controller.text = 'pinned';
+                          _search('pinned');
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             )
           : _searching
               ? const Center(child: CircularProgressIndicator())
@@ -227,6 +288,49 @@ class _SectionHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickFilterChip extends StatelessWidget {
+  const _QuickFilterChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final List<List<dynamic>> icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HugeIcon(icon: icon, size: 16, color: scheme.primary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
