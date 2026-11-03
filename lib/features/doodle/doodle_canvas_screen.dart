@@ -260,6 +260,46 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
     }
   }
 
+  Future<void> _handleClose() async {
+    if (!_controller.canUndo) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+    unawaited(HapticFeedback.lightImpact());
+    final noteScheme = noteSchemeFor(context, _noteColorSeed);
+    final action = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Unsaved Doodle'),
+        content: const Text(
+          'You have unsaved changes on your canvas. Would you like to save or discard them?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop('cancel'),
+            child: const Text('Keep Drawing'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: noteScheme.error),
+            onPressed: () => Navigator.of(dialogContext).pop('discard'),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop('save'),
+            child: const Text('Save & Exit'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (action == 'discard') {
+      Navigator.of(context).pop();
+    } else if (action == 'save') {
+      await _handleDone();
+    }
+  }
+
   void _showBackgroundSheet(BuildContext context) {
     final noteScheme = noteSchemeFor(context, _noteColorSeed);
     unawaited(HapticFeedback.lightImpact());
@@ -356,286 +396,336 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
     return Scaffold(
       backgroundColor: noteScheme.surface,
-      body: ListenableBuilder(
-        listenable: _controller,
-        builder: (context, _) {
-          final isDrawing = _controller.isDrawing;
+      body: PopScope(
+        canPop: !_controller.canUndo,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          _handleClose();
+        },
+        child: ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) {
+            final isDrawing = _controller.isDrawing;
 
-          return Stack(
-            children: [
-              // 1. Interactive Scrollable Canvas (infinite vertical scroll).
-              // Scrolling is driven by two-finger pans via [DoodleCanvas];
-              // single-finger drags draw instead of scrolling. The scroll view
-              // never claims drag gestures itself, so the first finger always
-              // reaches the drawing [Listener] while a second finger can scroll.
-              Positioned.fill(
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final baseHeight = MediaQuery.sizeOf(context).height;
-                      const affordanceHeight = 160.0;
-                      return SizedBox(
-                        height: baseHeight * _canvasHeightMultiplier +
-                            affordanceHeight,
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: baseHeight * _canvasHeightMultiplier,
-                              child: DoodleCanvas(
-                                controller: _controller,
-                                noteScheme: noteScheme,
-                                onTwoFingerPan: _handleTwoFingerPan,
-                                onNearBottomEdge: _handleNearBottomEdge,
+            return Stack(
+              children: [
+                // 1. Interactive Scrollable Canvas (infinite vertical scroll).
+                // Scrolling is driven by two-finger pans via [DoodleCanvas];
+                // single-finger drags draw instead of scrolling. The scroll view
+                // never claims drag gestures itself, so the first finger always
+                // reaches the drawing [Listener] while a second finger can scroll.
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final baseHeight = MediaQuery.sizeOf(context).height;
+                        const affordanceHeight = 160.0;
+                        return SizedBox(
+                          height: baseHeight * _canvasHeightMultiplier +
+                              affordanceHeight,
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: baseHeight * _canvasHeightMultiplier,
+                                child: DoodleCanvas(
+                                  controller: _controller,
+                                  noteScheme: noteScheme,
+                                  onTwoFingerPan: _handleTwoFingerPan,
+                                  onNearBottomEdge: _handleNearBottomEdge,
+                                ),
                               ),
-                            ),
-                            // Extend Paper Trigger
-                            Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              height: affordanceHeight,
-                              child: Center(
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 200),
-                                  opacity: isDrawing ? 0.0 : 1.0,
-                                  child: FilledButton.tonalIcon(
-                                    icon: HugeIcon(
-                                        icon:
-                                            HugeIcons.strokeRoundedArrowDown01,
-                                        size: 24,
-                                        color: scheme.onSurface),
-                                    label: const Text('Extend Paper'),
-                                    onPressed: () {
-                                      HapticFeedback.mediumImpact();
-                                      setState(() {
-                                        _canvasHeightMultiplier += 0.5;
-                                      });
-                                      _scrollController.animateTo(
-                                        _scrollController
-                                            .position.maxScrollExtent,
-                                        duration:
-                                            const Duration(milliseconds: 300),
-                                        curve: Curves.easeOutCubic,
-                                      );
-                                    },
+                              // Extend Paper Trigger
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                height: affordanceHeight,
+                                child: Center(
+                                  child: AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 200),
+                                    opacity: isDrawing ? 0.0 : 1.0,
+                                    child: FilledButton.tonalIcon(
+                                      icon: HugeIcon(
+                                          icon: HugeIcons
+                                              .strokeRoundedArrowDown01,
+                                          size: 24,
+                                          color: scheme.onSurface),
+                                      label: const Text('Extend Paper'),
+                                      onPressed: () {
+                                        HapticFeedback.mediumImpact();
+                                        setState(() {
+                                          _canvasHeightMultiplier += 0.5;
+                                        });
+                                        _scrollController.animateTo(
+                                          _scrollController
+                                              .position.maxScrollExtent,
+                                          duration:
+                                              const Duration(milliseconds: 300),
+                                          curve: Curves.easeOutCubic,
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
 
-              // 2. Auto-Hiding Top Bar
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                top: isDrawing ? -100 : MediaQuery.paddingOf(context).top + 16,
-                left: 16,
-                right: 16,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _GlassButton(
-                      icon: HugeIcons.strokeRoundedCancelCircle,
-                      tooltip: 'Close',
-                      onTap: () => Navigator.maybePop(context),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _GlassButton(
-                          icon: HugeIcons.strokeRoundedGridView,
-                          tooltip: 'Background',
-                          onTap: () => _showBackgroundSheet(context),
-                        ),
-                        const SizedBox(width: 8),
-                        _GlassButton(
-                          icon: HugeIcons.strokeRoundedUndo02,
-                          tooltip: 'Undo',
-                          isEnabled: _controller.canUndo,
-                          onTap: _controller.undo,
-                        ),
-                        const SizedBox(width: 8),
-                        _GlassButton(
-                          icon: HugeIcons.strokeRoundedRedo02,
-                          tooltip: 'Redo',
-                          isEnabled: _controller.canRedo,
-                          onTap: _controller.redo,
-                        ),
-                      ],
-                    ),
-                    FilledButton(
-                      onPressed: _handleDone,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: scheme.primary,
-                        foregroundColor: scheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24)),
-                        elevation: 4,
+                // 2. Auto-Hiding Top Bar
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  top:
+                      isDrawing ? -100 : MediaQuery.paddingOf(context).top + 16,
+                  left: 16,
+                  right: 16,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _GlassButton(
+                        icon: HugeIcons.strokeRoundedCancelCircle,
+                        tooltip: 'Close',
+                        onTap: _handleClose,
                       ),
-                      child: const Text('Done',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
-
-              // 3. Auto-Hiding Bottom Dock
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutBack,
-                bottom: isDrawing
-                    ? -120
-                    : MediaQuery.paddingOf(context).bottom + 24,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: DoodleToolbar(
-                    controller: _controller,
-                    noteScheme: noteScheme,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _GlassButton(
+                            icon: HugeIcons.strokeRoundedGridView,
+                            tooltip: 'Background',
+                            onTap: () => _showBackgroundSheet(context),
+                          ),
+                          const SizedBox(width: 8),
+                          _GlassButton(
+                            icon: HugeIcons.strokeRoundedUndo02,
+                            tooltip: 'Undo',
+                            isEnabled: _controller.canUndo,
+                            onTap: _controller.undo,
+                          ),
+                          const SizedBox(width: 8),
+                          _GlassButton(
+                            icon: HugeIcons.strokeRoundedRedo02,
+                            tooltip: 'Redo',
+                            isEnabled: _controller.canRedo,
+                            onTap: _controller.redo,
+                          ),
+                        ],
+                      ),
+                      FilledButton(
+                        onPressed: _handleDone,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: scheme.primary,
+                          foregroundColor: scheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24)),
+                          elevation: 4,
+                        ),
+                        child: const Text('Done',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
                   ),
                 ),
-              ),
 
-              // 4. "Shape recognized · tap to undo" chip
-              if (_controller.hasPendingSnapToUndo)
-                Positioned(
-                  top: MediaQuery.paddingOf(context).top + 72,
+                // 3. Auto-Hiding Bottom Dock
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutBack,
+                  bottom: isDrawing
+                      ? -120
+                      : MediaQuery.paddingOf(context).bottom + 24,
                   left: 0,
                   right: 0,
                   child: Center(
-                    child: GestureDetector(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        _controller.revertLastSnap();
-                        _snapDismissTimer?.cancel();
-                      },
-                      child: AnimatedScale(
-                        scale: _controller.hasPendingSnapToUndo ? 1.0 : 0.85,
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutBack,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: noteScheme.primaryContainer
-                                  .withValues(alpha: 0.90),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.12),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                HugeIcon(
-                                  icon: HugeIcons.strokeRoundedUndo02,
-                                  size: 16,
-                                  color: noteScheme.onPrimaryContainer,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Shape recognized \u00b7 tap to undo',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
+                    child: DoodleToolbar(
+                      controller: _controller,
+                      noteScheme: noteScheme,
+                    ),
+                  ),
+                ),
+
+                // 4. "Shape recognized · tap to undo" chip
+                if (_controller.hasPendingSnapToUndo)
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + 72,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _controller.revertLastSnap();
+                          _snapDismissTimer?.cancel();
+                        },
+                        child: AnimatedScale(
+                          scale: _controller.hasPendingSnapToUndo ? 1.0 : 0.85,
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutBack,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: noteScheme.primaryContainer
+                                    .withValues(alpha: 0.90),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.12),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  HugeIcon(
+                                    icon: HugeIcons.strokeRoundedUndo02,
+                                    size: 16,
                                     color: noteScheme.onPrimaryContainer,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Shape recognized \u00b7 tap to undo',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: noteScheme.onPrimaryContainer,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
 
-              // 5. Mid-confidence shape suggestion chip
-              if (_controller.hasPendingSuggestion &&
-                  !_controller.hasPendingSnapToUndo)
-                Positioned(
-                  top: MediaQuery.paddingOf(context).top + 72,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
+                // 5. Mid-confidence shape suggestion chip
+                if (_controller.hasPendingSuggestion &&
+                    !_controller.hasPendingSnapToUndo)
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + 72,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: noteScheme.secondaryContainer
+                                .withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Make it a ${_suggestionLabel(_controller.pendingSuggestionShape)}?',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: noteScheme.onSecondaryContainer,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.mediumImpact();
+                                  _controller.acceptPendingSuggestion();
+                                  _suggestionDismissTimer?.cancel();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: noteScheme.primary,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Text(
+                                    'Yes',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: noteScheme.onPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap: () {
+                                  _controller.dismissPendingSuggestion();
+                                  _suggestionDismissTimer?.cancel();
+                                },
+                                child: Text(
+                                  'No',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: noteScheme.onSecondaryContainer
+                                        .withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // 6. Floating Canvas Extension Indicator & Quick Scroll
+                if (_canvasHeightMultiplier > 1.0)
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + 16,
+                    right: 76,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: isDrawing ? 0.0 : 1.0,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 6),
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: noteScheme.secondaryContainer
+                          color: scheme.surfaceContainerHighest
                               .withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: scheme.outlineVariant.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'Make it a ${_suggestionLabel(_controller.pendingSuggestionShape)}?',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: noteScheme.onSecondaryContainer,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () {
-                                HapticFeedback.mediumImpact();
-                                _controller.acceptPendingSuggestion();
-                                _suggestionDismissTimer?.cancel();
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: noteScheme.primary,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Text(
-                                  'Yes',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: noteScheme.onPrimary,
-                                  ),
-                                ),
-                              ),
+                            HugeIcon(
+                              icon: HugeIcons.strokeRoundedDrawingMode,
+                              size: 14,
+                              color: scheme.primary,
                             ),
                             const SizedBox(width: 6),
-                            GestureDetector(
-                              onTap: () {
-                                _controller.dismissPendingSuggestion();
-                                _suggestionDismissTimer?.cancel();
-                              },
-                              child: Text(
-                                'No',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: noteScheme.onSecondaryContainer
-                                      .withValues(alpha: 0.7),
-                                ),
+                            Text(
+                              '${_canvasHeightMultiplier.toStringAsFixed(1)}x',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurface,
                               ),
                             ),
                           ],
@@ -643,52 +733,10 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                       ),
                     ),
                   ),
-                ),
-
-              // 6. Floating Canvas Extension Indicator & Quick Scroll
-              if (_canvasHeightMultiplier > 1.0)
-                Positioned(
-                  top: MediaQuery.paddingOf(context).top + 16,
-                  right: 76,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: isDrawing ? 0.0 : 1.0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHighest
-                            .withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          HugeIcon(
-                            icon: HugeIcons.strokeRoundedDrawingMode,
-                            size: 14,
-                            color: scheme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${_canvasHeightMultiplier.toStringAsFixed(1)}x',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
