@@ -6,6 +6,10 @@ import 'package:perfect_freehand/perfect_freehand.dart';
 import 'doodle_controller.dart';
 import 'doodle_shape_recognizer.dart';
 
+/// Minimum rendered size (logical pixels) for any perfect shape, so a shape
+/// is never too small for the user to verify it was recognized correctly.
+const double _minRenderSize = 40.0;
+
 /// Paints the background template for a [DoodleBackground].
 void paintDoodleBackground(
   Canvas canvas,
@@ -46,22 +50,31 @@ void paintDoodleStrokes(Canvas canvas, Size size, List<Stroke> strokes) {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
 
+      // Regenerate crisp geometry from canonical fit parameters so the shape
+      // can be rendered at any size (resizable), clamped to minRenderSize so
+      // it is never too small to verify. Fall back to baked points when no
+      // fit is available (e.g. legacy doodles).
+      final geometry = stroke.fit != null
+          ? stroke.fit!.generatePoints(size, minRenderSize: _minRenderSize)
+          : stroke.points.map((p) => p.position).toList();
+
+      if (geometry.isEmpty) continue;
+
       final path = Path()
-        ..moveTo(
-            stroke.points.first.position.dx, stroke.points.first.position.dy);
-      for (int i = 1; i < stroke.points.length; i++) {
-        path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
+        ..moveTo(geometry.first.dx, geometry.first.dy);
+      for (int i = 1; i < geometry.length; i++) {
+        path.lineTo(geometry[i].dx, geometry[i].dy);
       }
-      if (stroke.shapeType != RecognizedShape.line &&
-          stroke.shapeType != RecognizedShape.arrow) {
+      final isLineOrArrow = stroke.shapeType == RecognizedShape.line ||
+          stroke.shapeType == RecognizedShape.arrow;
+      if (!isLineOrArrow) {
         path.close();
       }
       canvas.drawPath(path, paint);
 
       if (stroke.shapeType == RecognizedShape.arrow &&
-          stroke.points.length == 2) {
-        _drawArrowhead(canvas, paint, stroke.points[0].position,
-            stroke.points[1].position);
+          geometry.length == 2) {
+        _drawArrowhead(canvas, paint, geometry[0], geometry[1]);
       }
       continue;
     }
