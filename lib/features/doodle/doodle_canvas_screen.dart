@@ -613,10 +613,67 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                           ),
                         ),
                       ),
+                  ),
+                ),
+
+                // 5. "Restore freehand" chip — shown when a perfect shape is
+                // selected, lets the user revert it back to freehand strokes.
+                if (_controller.isShapeSelected &&
+                    !_controller.hasPendingSnapToUndo &&
+                    !_controller.hasPendingSuggestion)
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + 72,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _controller.restoreFreehand();
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: noteScheme.secondaryContainer
+                                  .withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedUndo02,
+                                  size: 16,
+                                  color: noteScheme.onSecondaryContainer,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Restore freehand',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: noteScheme.onSecondaryContainer,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
 
-                // 5. Mid-confidence shape suggestion chip
+                // 6. Mid-confidence shape suggestion chip
                 if (_controller.hasPendingSuggestion &&
                     !_controller.hasPendingSnapToUndo)
                   Positioned(

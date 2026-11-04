@@ -5,8 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'doodle_painter.dart';
+import 'doodle_shape_fit.dart';
 import 'doodle_shape_recognizer.dart';
 
+/// Minimum rendered size (logical pixels) for any perfect shape, so a shape
+/// is never too small for the user to verify it was recognized correctly.
+const double _minRenderSize = 40.0;
 /// Drawing tools for the doodle canvas.
 enum DoodleTool { pen, eraser, highlighter, shapeAssist }
 
@@ -31,6 +35,9 @@ class Stroke {
     this.opacity = 1.0,
     this.isPerfectShape = false,
     this.shapeType,
+    this.originalPoints,
+    this.recognitionConfidence,
+    this.fit,
   });
 
   List<StrokePoint> points;
@@ -44,6 +51,30 @@ class Stroke {
   /// recognizer — lets the painter draw shape-specific extras (e.g. an
   /// arrowhead) instead of just a generic polygon/line.
   RecognizedShape? shapeType;
+
+  /// The raw freehand points captured before the most recent shape snap.
+  /// Preserved so [revertLastSnap] can restore the original drawing.
+  List<Offset>? originalPoints;
+
+  /// Confidence (0.0–1.0) of the most recent shape recognition for this
+  /// stroke. Null when the stroke has never been recognized or when
+  /// shape assist is disabled.
+  double? recognitionConfidence;
+
+  /// Canonical shape parameters, so the painter can regenerate crisp
+  /// geometry at any size (resizable). Null for freehand strokes.
+  ShapeFit? fit;
+}
+
+/// Handle shown on a selected perfect shape for interactive resize.
+enum ResizeHandleType { nw, n, ne, w, center, e, sw, s, se }
+
+/// A single resize handle on a selected shape.
+class ResizeHandle {
+  const ResizeHandle({required this.position, required this.type});
+
+  final Offset position;
+  final ResizeHandleType type;
 }
 
 /// Controller for doodle drawing state.
@@ -87,6 +118,10 @@ class DoodleController extends ChangeNotifier {
   Offset? _holdAnchor;
   RecognizedShape? _holdShapeType;
 
+  // Shape selection state for post-snap resize / restore.
+  int? _selectedStrokeIndex;
+  bool _aspectLockEnabled = false;
+
   /// Increments on every stroke mutation so the painter can detect changes
   /// even though the Stroke object is mutated in place.
   int _activeStrokeVersion = 0;
@@ -115,9 +150,313 @@ class DoodleController extends ChangeNotifier {
   /// The pending suggestion's recognized shape, for the UI to display.
   RecognizedShape? get pendingSuggestionShape => _pendingSuggestion?.shape;
 
+  /// The currently selected stroke, or null if nothing is selected.
+  Stroke? get selectedStroke =>
+      _selectedStrokeIndex != null && _selectedStrokeIndex! < _strokes.length
+          ? _strokes[_selectedStrokeIndex!]
+          : null;
+
+  /// True when a shape is currently selected for resize / restore.
+  bool get isShapeSelected => _selectedStrokeIndex != null;
+
+  /// When true, corner/edge drags preserve the shape's aspect ratio.
+  bool get aspectLockEnabled => _aspectLockEnabled;
+
   void toggleShapeAssist() {
     _shapeAssistEnabled = !_shapeAssistEnabled;
     notifyListeners();
+  }
+
+  void toggleAspectLock() {
+    _aspectLockEnabled = !_aspectLockEnabled;
+    notifyListeners();
+  }
+
+  /// Selects the stroke at [index] for resize / restore. Clears any previous
+  /// selection. Out-of-range indices are ignored.
+  void selectStroke(int index) {
+    if (index < 0 || index >= _strokes.length) {
+      _selectedStrokeIndex = null;
+      notifyListeners();
+      return;
+    }
+    _selectedStrokeIndex = index;
+    notifyListeners();
+  }
+
+  /// Clears the current selection without modifying any stroke.
+  void deselect() {
+    if (_selectedStrokeIndex == null) return;
+    _selectedStrokeIndex = null;
+    notifyListeners();
+  }
+
+  /// Reverts the selected perfect shape back to its original freehand points
+  /// and clears the selection. No-op when nothing is selected.
+  void restoreFreehand() {
+    final stroke = selectedStroke;
+    if (stroke == null) return;
+
+    if (stroke.originalPoints != null) {
+      stroke.points =
+          stroke.originalPoints!.map((p) => StrokePoint(p)).toList();
+    }
+    stroke.isPerfectShape = false;
+    stroke.shapeType = null;
+    stroke.recognitionConfidence = null;
+    stroke.fit = null;
+    _selectedStrokeIndex = null;
+    _rebake();
+    notifyListeners();
+  }
+
+  /// Returns resize handles for the selected perfect shape, or an empty list
+  /// when nothing is selected or the selected stroke is not a perfect shape.
+  ///
+  /// Handles are placed at the 4 corners, 4 edge midpoints, and center of the
+  /// shape's bounding box.
+  List<ResizeHandle> getResizeHandles() {
+    final stroke = selectedStroke;
+    if (stroke == null || !stroke.isPerfectShape || stroke.fit == null) {
+      return const [];
+    }
+
+    final geometry = stroke.fit!.generatePoints(
+      const Size(double.infinity, double.infinity),
+      minRenderSize: _minRenderSize,
+    );
+    if (geometry.isEmpty) return const [];
+
+    // Compute bounding box of the geometry.
+    double minX = geometry.first.dx, maxX = geometry.first.dx;
+    double minY = geometry.first.dy, maxY = geometry.first.dy;
+    for (final p in geometry) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+
+    final center = Offset((minX + maxX) / 2, (minY + maxY) / 2);
+
+    return [
+      ResizeHandle(position: Offset(minX, minY), type: ResizeHandleType.nw),
+      ResizeHandle(
+          position: Offset(center.dx, minY), type: ResizeHandleType.n),
+      ResizeHandle(position: Offset(maxX, minY), type: ResizeHandleType.ne),
+      ResizeHandle(
+          position: Offset(minX, center.dy), type: ResizeHandleType.w),
+      ResizeHandle(position: center, type: ResizeHandleType.center),
+      ResizeHandle(
+          position: Offset(maxX, center.dy), type: ResizeHandleType.e),
+      ResizeHandle(position: Offset(minX, maxY), type: ResizeHandleType.sw),
+      ResizeHandle(
+          position: Offset(center.dx, maxY), type: ResizeHandleType.s),
+      ResizeHandle(position: Offset(maxX, maxY), type: ResizeHandleType.se),
+    ];
+  }
+
+  /// Returns the resize handle at [point] within [handleRadius], or null.
+  ResizeHandle? hitTestResizeHandle(Offset point,
+      {double handleRadius = 12.0}) {
+    for (final handle in getResizeHandles()) {
+      if ((handle.position - point).distance <= handleRadius) {
+        return handle;
+      }
+    }
+    return null;
+  }
+
+  /// Drags the selected shape's [handle] from its current position to
+  /// [newPosition], updating the fit parameters in place.
+  ///
+  /// Corner/edge drags resize the bounding box; the center handle translates
+  /// the shape. When [aspectLockEnabled] is true, corner drags preserve the
+  /// aspect ratio.
+  void resizeDrag(Offset handlePosition, Offset newPosition) {
+    final stroke = selectedStroke;
+    if (stroke == null || !stroke.isPerfectShape || stroke.fit == null) {
+      return;
+    }
+
+    final handle = hitTestResizeHandle(handlePosition);
+    if (handle == null) return;
+
+    final fit = stroke.fit!;
+    final geometry = fit.generatePoints(
+      const Size(double.infinity, double.infinity),
+      minRenderSize: _minRenderSize,
+    );
+    if (geometry.isEmpty) return;
+
+    double minX = geometry.first.dx, maxX = geometry.first.dx;
+    double minY = geometry.first.dy, maxY = geometry.first.dy;
+    for (final p in geometry) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+
+    switch (handle.type) {
+      case ResizeHandleType.center:
+        final delta = newPosition - handlePosition;
+        stroke.fit = _translateFit(fit, delta);
+        break;
+      case ResizeHandleType.nw:
+        // Drag top-left corner: minX/minY move with cursor; maxX/maxY fixed.
+        if (fit is RectFit) {
+          _applyCornerResize(stroke, fit, newPosition.dx, maxX,
+              newPosition.dy, maxY);
+        } else if (fit is OvalFit) {
+          _applyCornerResizeOval(stroke, fit, newPosition.dx, maxX,
+              newPosition.dy, maxY);
+        }
+        break;
+      case ResizeHandleType.ne:
+        if (fit is RectFit) {
+          _applyCornerResize(stroke, fit, minX, newPosition.dx,
+              newPosition.dy, maxY);
+        } else if (fit is OvalFit) {
+          _applyCornerResizeOval(stroke, fit, minX, newPosition.dx,
+              newPosition.dy, maxY);
+        }
+        break;
+      case ResizeHandleType.sw:
+        if (fit is RectFit) {
+          _applyCornerResize(stroke, fit, newPosition.dx, maxX, minY,
+              newPosition.dy);
+        } else if (fit is OvalFit) {
+          _applyCornerResizeOval(stroke, fit, newPosition.dx, maxX, minY,
+              newPosition.dy);
+        }
+        break;
+      case ResizeHandleType.se:
+        if (fit is RectFit) {
+          _applyCornerResize(stroke, fit, minX, newPosition.dx, minY,
+              newPosition.dy);
+        } else if (fit is OvalFit) {
+          _applyCornerResizeOval(stroke, fit, minX, newPosition.dx, minY,
+              newPosition.dy);
+        }
+        break;
+      case ResizeHandleType.n:
+        if (fit is RectFit) {
+          _applyEdgeResize(stroke, fit, minX, maxX, newPosition.dy, maxY);
+        } else if (fit is OvalFit) {
+          _applyEdgeResize(stroke, fit, minX, maxX, newPosition.dy, maxY);
+        }
+        break;
+      case ResizeHandleType.s:
+        if (fit is RectFit) {
+          _applyEdgeResize(stroke, fit, minX, maxX, minY, newPosition.dy);
+        } else if (fit is OvalFit) {
+          _applyEdgeResize(stroke, fit, minX, maxX, minY, newPosition.dy);
+        }
+        break;
+      case ResizeHandleType.w:
+        if (fit is RectFit) {
+          _applyEdgeResize(stroke, fit, newPosition.dx, maxX, minY, maxY);
+        } else if (fit is OvalFit) {
+          _applyEdgeResize(stroke, fit, newPosition.dx, maxX, minY, maxY);
+        }
+        break;
+      case ResizeHandleType.e:
+        if (fit is RectFit) {
+          _applyEdgeResize(stroke, fit, minX, newPosition.dx, minY, maxY);
+        } else if (fit is OvalFit) {
+          _applyEdgeResize(stroke, fit, minX, newPosition.dx, minY, maxY);
+        }
+        break;
+    }
+
+    _activeStrokeVersion++;
+    notifyListeners();
+  }
+
+  ShapeFit _translateFit(ShapeFit fit, Offset delta) {
+    if (fit is RectFit) {
+      return RectFit(
+        center: fit.center + delta,
+        uAxis: fit.uAxis,
+        vAxis: fit.vAxis,
+        halfWidth: fit.halfWidth,
+        halfHeight: fit.halfHeight,
+      );
+    }
+    if (fit is OvalFit) {
+      return OvalFit(
+        center: fit.center + delta,
+        rx: fit.rx,
+        ry: fit.ry,
+      );
+    }
+    if (fit is TriangleFit) {
+      return TriangleFit(
+        a: fit.a + delta,
+        b: fit.b + delta,
+        c: fit.c + delta,
+      );
+    }
+    if (fit is StarFit) {
+      return StarFit(center: fit.center + delta, outerRadius: fit.outerRadius);
+    }
+    if (fit is LineFit) {
+      return LineFit(start: fit.start + delta, end: fit.end + delta);
+    }
+    return fit;
+  }
+
+  void _applyCornerResize(Stroke stroke, RectFit fit, double newMinX,
+      double newMaxX, double newMinY, double newMaxY) {
+    final newW = (newMaxX - newMinX).clamp(_minRenderSize, double.infinity);
+    final newH = (newMaxY - newMinY).clamp(_minRenderSize, double.infinity);
+    final newCenter =
+        Offset((newMinX + newMaxX) / 2, (newMinY + newMaxY) / 2);
+    stroke.fit = RectFit(
+      center: newCenter,
+      uAxis: const Offset(1, 0),
+      vAxis: const Offset(0, 1),
+      halfWidth: newW / 2,
+      halfHeight: newH / 2,
+    );
+  }
+
+  void _applyCornerResizeOval(Stroke stroke, OvalFit fit, double newMinX,
+      double newMaxX, double newMinY, double newMaxY) {
+    final newW = (newMaxX - newMinX).clamp(_minRenderSize, double.infinity);
+    final newH = (newMaxY - newMinY).clamp(_minRenderSize, double.infinity);
+    final newCenter =
+        Offset((newMinX + newMaxX) / 2, (newMinY + newMaxY) / 2);
+    stroke.fit = OvalFit(
+      center: newCenter,
+      rx: newW / 2,
+      ry: newH / 2,
+    );
+  }
+
+  void _applyEdgeResize(Stroke stroke, ShapeFit fit, double newMinX,
+      double newMaxX, double newMinY, double newMaxY) {
+    final newW = (newMaxX - newMinX).clamp(_minRenderSize, double.infinity);
+    final newH = (newMaxY - newMinY).clamp(_minRenderSize, double.infinity);
+    final newCenter =
+        Offset((newMinX + newMaxX) / 2, (newMinY + newMaxY) / 2);
+
+    if (fit is RectFit) {
+      stroke.fit = RectFit(
+        center: newCenter,
+        uAxis: const Offset(1, 0),
+        vAxis: const Offset(0, 1),
+        halfWidth: newW / 2,
+        halfHeight: newH / 2,
+      );
+    } else if (fit is OvalFit) {
+      stroke.fit = OvalFit(
+        center: newCenter,
+        rx: newW / 2,
+        ry: newH / 2,
+      );
+    }
   }
 
   void setCurrentTool(DoodleTool tool) {
@@ -150,7 +489,6 @@ class DoodleController extends ChangeNotifier {
     _isHoldSnapped = false;
     _holdAnchor = null;
     _holdShapeType = null;
-
     double opacity = 1.0;
     double actualWidth = _currentWidth;
 
@@ -195,6 +533,11 @@ class DoodleController extends ChangeNotifier {
     final match = recognizeShape(raw);
     if (!match.isRecognized) return false;
 
+    // Preserve the original freehand points before snapping.
+    active.originalPoints = active.points.map((p) => p.position).toList();
+    active.recognitionConfidence = match.confidence;
+    active.fit = shapeFitFromMatch(match);
+
     _preSnapPoints = List.of(active.points);
     _holdAnchor = active.points.first.position;
     _holdShapeType = match.shape;
@@ -212,7 +555,9 @@ class DoodleController extends ChangeNotifier {
   }
 
   /// While holding down after a snap, moving the finger/stylus interactively
-  /// resizes/transforms the snapped shape in real time.
+  /// resizes/transforms the snapped shape in real time. Recognition runs
+  /// continuously during the hold so the preview stays accurate as the user
+  /// reshapes the stroke.
   void updateHoldSnappedStroke(Offset currentPoint) {
     final active = _activeStroke;
     if (active == null || !_isHoldSnapped || _holdAnchor == null) return;
@@ -280,13 +625,27 @@ class DoodleController extends ChangeNotifier {
         break;
     }
 
+    // Re-recognize the resized stroke so confidence stays current.
+    final raw = active.points.map((p) => p.position).toList();
+    if (raw.length >= 8) {
+      final match = recognizeShape(raw);
+      if (match.isRecognized) {
+        active.recognitionConfidence = match.confidence;
+    active.fit = shapeFitFromMatch(match);
+        active.shapeType = match.shape;
+      }
+    }
+
     _activeStrokeVersion++;
     notifyListeners();
   }
 
   void endStroke() {
     if (_activeStroke == null) return;
-    if (!_isHoldSnapped && _shapeAssistEnabled) {
+    // Always attempt recognition on stroke end — recognition is not gated
+    // by whether a hold snap already fired. This lets a resized hold-snap
+    // be re-recognized to its final shape.
+    if (_shapeAssistEnabled) {
       _attemptShapeSnap();
     }
     _isHoldSnapped = false;
@@ -319,16 +678,21 @@ class DoodleController extends ChangeNotifier {
     final match = recognizeShape(raw);
     if (!match.isRecognized) return;
 
-    _preSnapPoints = active.points;
+    // Preserve the original freehand points before snapping.
+    active.originalPoints = active.points.map((p) => p.position).toList();
+    active.recognitionConfidence = match.confidence;
+    active.fit = shapeFitFromMatch(match);
 
-    if (match.confidence >= 0.50) {
+    _preSnapPoints = List.of(active.points);
+
+    if (match.confidence >= 0.60) {
       // High confidence: commit immediately with haptic feedback.
       active.points = match.points.map((p) => StrokePoint(p)).toList();
       active.isPerfectShape = true;
       active.shapeType = match.shape;
       _lastSnappedStroke = active;
       HapticFeedback.mediumImpact();
-    } else if (match.confidence >= 0.35) {
+    } else if (match.confidence >= 0.40) {
       // Ambiguous: stash as a pending suggestion.
       _pendingSuggestion = match;
       _pendingSuggestionStroke = active;
@@ -341,11 +705,21 @@ class DoodleController extends ChangeNotifier {
   /// [hasPendingSnapToUndo] is true.
   void revertLastSnap() {
     final stroke = _lastSnappedStroke;
-    final original = _preSnapPoints;
-    if (stroke == null || original == null) return;
-    stroke.points = original;
+    if (stroke == null) return;
+
+    // Prefer stroke.originalPoints (List<Offset>), fall back to
+    // _preSnapPoints (List<StrokePoint>) for backward compatibility.
+    if (stroke.originalPoints != null) {
+      stroke.points =
+          stroke.originalPoints!.map((p) => StrokePoint(p)).toList();
+    } else if (_preSnapPoints != null) {
+      stroke.points = List.of(_preSnapPoints!);
+    } else {
+      return;
+    }
     stroke.isPerfectShape = false;
     stroke.shapeType = null;
+    stroke.recognitionConfidence = null;
     _lastSnappedStroke = null;
     _preSnapPoints = null;
     _rebake();

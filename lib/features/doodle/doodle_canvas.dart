@@ -51,6 +51,11 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
   Timer? _holdSnapTimer;
   Offset? _lastHoldPosition;
 
+  // Selection / resize state for post-snap shapes.
+  bool _isResizing = false;
+  ResizeHandle? _resizeHandle;
+  Offset? _resizeStartPosition;
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +107,30 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
       return;
     }
     _lastFocalDelta = event.localPosition;
+
+    // Selection mode: no active stroke and a shape is already selected —
+    // tapping a handle starts a resize drag, tapping elsewhere deselects.
+    // When nothing is selected, always start drawing (current behavior).
+    if (widget.controller.activeStroke == null &&
+        !widget.controller.isHoldSnapped &&
+        widget.controller.isShapeSelected) {
+      final handle = widget.controller.hitTestResizeHandle(
+        event.localPosition,
+        handleRadius: 14.0,
+      );
+      if (handle != null) {
+        _isResizing = true;
+        _resizeHandle = handle;
+        _resizeStartPosition = event.localPosition;
+        _holdSnapTimer?.cancel();
+        return;
+      }
+
+      // Tap on the selected shape keeps it selected; tap elsewhere deselects
+      // and falls through to start a new stroke at the tap point.
+      widget.controller.deselect();
+    }
+
     widget.controller
         .startStroke(event.localPosition, pressure: event.pressure);
     _scheduleHoldTimer(event.localPosition);
@@ -122,6 +151,14 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
     }
     if (widget.controller.isHoldSnapped) {
       widget.controller.updateHoldSnappedStroke(event.localPosition);
+      return;
+    }
+
+    // Resize drag: update the selected shape's fit parameters live.
+    if (_isResizing && _resizeHandle != null) {
+      widget.controller.resizeDrag(_resizeStartPosition!,
+          event.localPosition);
+      _resizeStartPosition = event.localPosition;
       return;
     }
     widget.controller
@@ -147,6 +184,15 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
     _holdSnapTimer = null;
     _lastHoldPosition = null;
     _activePointers.remove(pointer);
+
+    // End a resize drag.
+    if (_isResizing) {
+      _isResizing = false;
+      _resizeHandle = null;
+      _resizeStartPosition = null;
+      return;
+    }
+
     if (_multiTouch) {
       if (_activePointers.length < 2) {
         _multiTouch = false;
@@ -174,15 +220,29 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
         onPointerMove: _handlePointerMove,
         onPointerUp: (event) => _handlePointerEnd(event.pointer),
         onPointerCancel: (event) => _handlePointerEnd(event.pointer),
-        child: CustomPaint(
-          painter: _DoodlePainter(
-            background: widget.controller.background,
-            backgroundColor: gridColor,
-            bakedPicture: widget.controller.bakedPicture,
-            activeStroke: widget.controller.activeStroke,
-            activeStrokeVersion: widget.controller.activeStrokeVersion,
-          ),
-          size: Size.infinite,
+        child: Stack(
+          children: [
+            CustomPaint(
+              painter: _DoodlePainter(
+                background: widget.controller.background,
+                backgroundColor: gridColor,
+                bakedPicture: widget.controller.bakedPicture,
+                activeStroke: widget.controller.activeStroke,
+                activeStrokeVersion: widget.controller.activeStrokeVersion,
+              ),
+              size: Size.infinite,
+            ),
+            // Selection handles overlay — painted on top of the drawing layer.
+            if (widget.controller.isShapeSelected)
+              CustomPaint(
+                painter: _SelectionHandlesPainter(
+                  handles: widget.controller.getResizeHandles(),
+                  isResizing: _isResizing,
+                  activeHandle: _resizeHandle,
+                ),
+                size: Size.infinite,
+              ),
+          ],
         ),
       ),
     );
@@ -245,5 +305,63 @@ class _DoodlePainter extends CustomPainter {
         oldDelegate.activeStrokeVersion != activeStrokeVersion ||
         oldDelegate.background != background ||
         oldDelegate.backgroundColor != backgroundColor;
+  }
+}
+
+/// Paints selection handles (corners, edges, center) around a selected
+/// perfect shape so the user can resize it by dragging.
+class _SelectionHandlesPainter extends CustomPainter {
+  const _SelectionHandlesPainter({
+    required this.handles,
+    required this.isResizing,
+    required this.activeHandle,
+  });
+
+  final List<ResizeHandle> handles;
+  final bool isResizing;
+  final ResizeHandle? activeHandle;
+
+  static const double _handleRadius = 7.0;
+  static const double _handleStrokeWidth = 2.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fillPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final strokePaint = Paint()
+      ..color = Colors.blueAccent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _handleStrokeWidth;
+
+    for (final handle in handles) {
+      final isActive = activeHandle != null &&
+          handle.position == activeHandle!.position &&
+          handle.type == activeHandle!.type;
+
+      // Outer ring
+      canvas.drawCircle(handle.position, _handleRadius + 2, strokePaint);
+      // Inner fill
+      canvas.drawCircle(
+        handle.position,
+        isActive ? _handleRadius : _handleRadius - 1,
+        fillPaint,
+      );
+      // Center dot for active handle
+      if (isActive) {
+        final dotPaint = Paint()
+          ..color = Colors.blueAccent
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(handle.position, 3, dotPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SelectionHandlesPainter oldDelegate) {
+    return oldDelegate.handles != handles ||
+        oldDelegate.isResizing != isResizing ||
+        oldDelegate.activeHandle != activeHandle;
   }
 }
