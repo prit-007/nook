@@ -440,7 +440,7 @@ class _SyncSendScreenState extends ConsumerState<SyncSendScreen>
                                                     ? 'Deselect All'
                                                     : 'Select All',
                                                 style: TextStyle(
-                                                  fontSize: 11,
+                                                  fontSize: 12,
                                                   fontWeight: FontWeight.w600,
                                                   color:
                                                       scheme.onSurfaceVariant,

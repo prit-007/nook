@@ -9,7 +9,9 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
+import '../../core/theme/app_motion.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/theme/nook_tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/masked_reveal.dart';
@@ -29,7 +31,7 @@ class TagsScreen extends ConsumerStatefulWidget {
   final bool embedded;
 
   /// When set, the screen registers its create action with this callback so
-  /// an external widget (e.g. [CollectionsScreen]) can trigger creation.
+  /// an external widget (e.g. [NotebooksScreen]) can trigger creation.
   final void Function(VoidCallback onShowCreate)? onCreateRegistered;
 
   @override
@@ -180,7 +182,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen>
               ),
               child: FloatingActionButton.extended(
                 // Unique hero tag: TagsScreen stays alive next to NotebooksScreen
-                // inside the CollectionsScreen IndexedStack.
+                // inside the NotebooksScreen IndexedStack.
                 heroTag: 'fab-tags',
                 backgroundColor: scheme.primaryContainer.withValues(alpha: 0.9),
                 foregroundColor: scheme.onPrimaryContainer,
@@ -292,13 +294,13 @@ class _TagPillState extends State<_TagPill> {
       onLongPress: widget.onLongPress,
       child: AnimatedScale(
         scale: _isPressed ? 0.95 : 1.0,
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOutBack,
+        duration: AppMotion.short3,
+        curve: AppMotion.emphasizedDecelerate,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
             color: widget.color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: context.tokens.borderRadiusLg,
             border: Border.all(
               color: widget.color.withValues(alpha: 0.25),
               width: 1,
@@ -445,13 +447,13 @@ class _CreateTagSheetState extends ConsumerState<_CreateTagSheet> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'COLOR THEME',
+                  'Color theme',
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 2.0,
-                    color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -466,8 +468,8 @@ class _CreateTagSheetState extends ConsumerState<_CreateTagSheet> {
                           setState(() => _selectedColor = seed);
                         },
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeOutBack,
+                          duration: AppMotion.medium1,
+                          curve: AppMotion.emphasizedDecelerate,
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(

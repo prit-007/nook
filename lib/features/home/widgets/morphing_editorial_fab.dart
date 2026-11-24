@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/theme/app_motion.dart';
+import '../../../core/theme/nook_tokens.dart';
 import '../../../data/tables/notes.dart';
 
 /// Editorial compose FAB that owns its full-screen scrim.
@@ -53,10 +55,8 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final openDuration =
-        reduceMotion ? Duration.zero : const Duration(milliseconds: 280);
-    final closeDuration =
-        reduceMotion ? Duration.zero : const Duration(milliseconds: 200);
+    final openDuration = reduceMotion ? Duration.zero : AppMotion.medium1;
+    final closeDuration = reduceMotion ? Duration.zero : AppMotion.short4;
     final isWide = MediaQuery.sizeOf(context).width >= 840;
 
     return Stack(
@@ -84,7 +84,7 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
               AnimatedScale(
                 scale: _isOpen ? 1.0 : 0.0,
                 duration: openDuration,
-                curve: Curves.easeOutBack,
+                curve: AppMotion.emphasizedDecelerate,
                 alignment: Alignment.bottomRight,
                 child: AnimatedOpacity(
                   opacity: _isOpen ? 1.0 : 0.0,
@@ -140,13 +140,11 @@ class _MorphingEditorialFabState extends State<MorphingEditorialFab> {
                 backgroundColor: _isOpen ? scheme.surface : scheme.primary,
                 foregroundColor: _isOpen ? scheme.onSurface : scheme.onPrimary,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: context.tokens.borderRadiusXxl,
                 ),
                 icon: AnimatedRotation(
                   turns: _isOpen ? 0.125 : 0.0,
-                  duration: reduceMotion
-                      ? Duration.zero
-                      : const Duration(milliseconds: 250),
+                  duration: reduceMotion ? Duration.zero : AppMotion.short4,
                   child: HugeIcon(
                     icon: _isOpen
                         ? HugeIcons.strokeRoundedAdd01

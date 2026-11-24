@@ -97,7 +97,7 @@ void main() {
     }
 
     expect(find.text(expectedGreeting), findsOneWidget);
-    expect(find.text('YOUR VAULT'), findsOneWidget);
+    expect(find.text('Your vault'), findsOneWidget);
   });
 
   testWidgets('shows a tappable search bar', (tester) async {
@@ -119,9 +119,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('All notes'), findsOneWidget);
+    expect(find.text('Favorites'), findsOneWidget);
     expect(find.text('Text'), findsOneWidget);
     expect(find.text('Checklists'), findsOneWidget);
     expect(find.text('Doodles'), findsOneWidget);
+  });
+
+  testWidgets('filters by favorites when Favorites pill is tapped',
+      (tester) async {
+    final notes = await insertNotes([
+      (title: 'Pinned Note', type: NoteType.text, pinned: true),
+      (title: 'Regular Note', type: NoteType.text, pinned: false),
+    ]);
+
+    await tester.pumpWidget(buildHome(notes: notes));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pinned Note'), findsOneWidget);
+    expect(find.text('Regular Note'), findsOneWidget);
+
+    await tester.tap(find.text('Favorites'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pinned Note'), findsOneWidget);
+    expect(find.text('Regular Note'), findsNothing);
   });
 
   testWidgets('shows filter pill counts when notes exist', (tester) async {
@@ -325,7 +346,7 @@ void main() {
       await tester.pumpWidget(buildHome(notes: [], screenWidth: 800));
       await tester.pumpAndSettle();
 
-      expect(find.text('YOUR VAULT'), findsOneWidget);
+      expect(find.text('Your vault'), findsOneWidget);
     });
   });
 
@@ -422,7 +443,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('YOUR VAULT'), findsOneWidget);
+    expect(find.text('Your vault'), findsOneWidget);
     expect(find.text('Pinned Thought'), findsOneWidget);
     expect(find.text('Sketch'), findsOneWidget);
     await tester.scrollUntilVisible(

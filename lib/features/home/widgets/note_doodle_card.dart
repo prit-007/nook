@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/app_motion.dart';
+import '../../../core/theme/nook_tokens.dart';
 import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/attachment_repository.dart';
@@ -129,8 +131,8 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
           },
       child: AnimatedScale(
         scale: _isPressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
+        duration: AppMotion.short2,
+        curve: AppMotion.emphasizedDecelerate,
         child: Hero(
           tag: 'note-${widget.note.id}',
           child: Material(
@@ -145,7 +147,7 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
                         cardScheme.surfaceContainerLow,
                       )
                     : cardScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: context.tokens.borderRadiusXl,
               ),
               clipBehavior: Clip.hardEdge,
               child: Row(
@@ -153,7 +155,10 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
                   Expanded(
                     flex: 3,
                     child: Padding(
-                      padding: const EdgeInsets.all(18),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -264,20 +269,17 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
     return Row(
       children: [
         if (_notebookName != null) ...[
-          Container(
-            padding: const EdgeInsets.all(4),
-            child: HugeIcon(
-              icon: HugeIcons.strokeRoundedFolder01,
-              size: 18,
-              color: scheme.onSurfaceVariant,
-            ),
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedFolder01,
+            size: 12,
+            color: scheme.onSurfaceVariant,
           ),
           const SizedBox(width: 3),
           Flexible(
             child: Text(
               _notebookName!,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: scheme.onSurfaceVariant,
               ),
               maxLines: 1,

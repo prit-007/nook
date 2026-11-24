@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/theme/app_motion.dart';
+
 /// A modern, tactile 3-way segmented control for switching theme modes
 /// (System, Light, Dark) with iconography and haptic feedback.
 class ThemeModeSegmentedBar extends StatelessWidget {
@@ -94,8 +96,8 @@ class _ModeSegment extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           onTap: onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
+            duration: AppMotion.short4,
+            curve: AppMotion.emphasizedDecelerate,
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: isSelected ? scheme.primary : Colors.transparent,

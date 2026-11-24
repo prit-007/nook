@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nook/core/theme/design_tokens.dart';
+import 'package:nook/core/theme/nook_tokens.dart';
 
 /// A small tag pill displayed on note cards for view-only purposes.
 class CardTagPill extends StatelessWidget {
@@ -20,7 +21,7 @@ class CardTagPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: tagColor.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: context.tokens.borderRadiusXs,
       ),
       constraints: const BoxConstraints(
         minWidth: 32,
@@ -31,7 +32,7 @@ class CardTagPill extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           color: tagColor,
           letterSpacing: 0.1,
@@ -55,7 +56,7 @@ class CardTagOverflowPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: context.tokens.borderRadiusXs,
       ),
       constraints: const BoxConstraints(
         minWidth: 32,
@@ -64,7 +65,7 @@ class CardTagOverflowPill extends StatelessWidget {
       child: Text(
         '+$count',
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           color: scheme.onSurfaceVariant,
         ),

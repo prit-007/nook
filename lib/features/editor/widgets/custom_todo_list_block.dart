@@ -2,6 +2,7 @@ import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/note_theme_scope.dart';
 
 /// Re-skins the built-in `todo_list` block with a Material 3 checkbox and a
@@ -53,8 +54,8 @@ class _NookTodoCheckbox extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           child: AnimatedContainer(
             key: NookTodoListBlock.checkboxKey,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
+            duration: AppMotion.short4,
+            curve: AppMotion.emphasizedDecelerate,
             width: 22,
             height: 22,
             decoration: BoxDecoration(

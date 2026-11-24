@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/theme/app_motion.dart';
+import '../../../core/theme/nook_tokens.dart';
 import '../models/note_sort_order.dart';
 
 /// Editorial bottom sheet for choosing note feed sort order.
@@ -155,16 +157,17 @@ class _SortOptionTile extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: context.tokens.borderRadiusMd,
           onTap: onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: AppMotion.short3,
+            curve: AppMotion.emphasizedDecelerate,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: isSelected
                   ? scheme.primary.withValues(alpha: 0.12)
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: context.tokens.borderRadiusMd,
               border: Border.all(
                 color: isSelected
                     ? scheme.primary.withValues(alpha: 0.3)

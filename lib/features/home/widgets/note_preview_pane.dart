@@ -102,7 +102,7 @@ class NotePreviewPane extends ConsumerWidget {
                         Text(
                           'Checklist',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.2,
                             color: noteScheme.primary.withValues(alpha: 0.8),
@@ -148,7 +148,7 @@ class NotePreviewPane extends ConsumerWidget {
                         Text(
                           'Attachments',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.2,
                             color: noteScheme.primary.withValues(alpha: 0.8),

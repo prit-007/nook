@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
 
 /// An interactive, miniature phone screen mockup card inspired by the Mihon
@@ -56,8 +57,8 @@ class MihonThemeCard extends StatelessWidget {
         },
         child: AnimatedScale(
           scale: isSelected ? 1.03 : 1.0,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutBack,
+          duration: AppMotion.short4,
+          curve: AppMotion.emphasizedDecelerate,
           child: SizedBox(
             width: 104,
             child: Column(
@@ -65,8 +66,8 @@ class MihonThemeCard extends StatelessWidget {
               children: [
                 // ── Miniature Phone Mockup Frame ──────────────────────────────
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
+                  duration: AppMotion.medium1,
+                  curve: AppMotion.emphasizedDecelerate,
                   width: 104,
                   height: 156,
                   decoration: BoxDecoration(
@@ -398,7 +399,7 @@ class MihonThemeCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: ambientScheme.onSurfaceVariant
                         .withValues(alpha: isSelected ? 0.9 : 0.65),

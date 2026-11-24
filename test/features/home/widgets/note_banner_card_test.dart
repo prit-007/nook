@@ -72,7 +72,7 @@ void main() {
       await tester.pumpWidget(buildCard(note));
       await tester.pump();
 
-      expect(find.text('CHECKLIST'), findsOneWidget);
+      expect(find.text('Checklist'), findsOneWidget);
     });
 
     testWidgets('shows pin icon when pinned', (tester) async {

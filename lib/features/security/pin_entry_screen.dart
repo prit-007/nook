@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/pin_provider.dart';
+import '../../core/theme/app_motion.dart';
 
 /// Native-style PIN entry screen — borderless keypad with clean,
 /// unbordered typography mimicking iOS and Android lock screens.
@@ -124,7 +125,8 @@ class _PinEntryScreenState extends ConsumerState<PinEntryScreen> {
               children: List.generate(_pinLength, (i) {
                 final filled = i < _entered.length;
                 return AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                  duration: AppMotion.short3,
+                  curve: AppMotion.emphasizedDecelerate,
                   width: 14,
                   height: 14,
                   margin: const EdgeInsets.symmetric(horizontal: 12),

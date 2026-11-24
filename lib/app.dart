@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_motion.dart';
 import 'core/providers/biometric_provider.dart';
 import 'core/providers/talker_provider.dart';
 import 'core/providers/theme_provider.dart';
@@ -83,17 +84,22 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
     final themePref = ref.watch(themePreferenceProvider);
     final router = ref.watch(routerProvider);
     final seed = themePref.seedColor;
+    final locale = Localizations.maybeLocaleOf(context) ??
+        View.of(context).platformDispatcher.locale;
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Nook',
-      theme: buildLightTheme(seed),
-      darkTheme: buildDarkTheme(seed, amoled: themePref.amoledDark),
+      theme: buildLightTheme(seed, locale: locale),
+      darkTheme: buildDarkTheme(
+        seed,
+        amoled: themePref.amoledDark,
+        locale: locale,
+      ),
       themeMode: themePref.themeMode,
-      themeAnimationDuration: themePref.reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 350),
-      themeAnimationCurve: Curves.easeInOutCubic,
+      themeAnimationDuration:
+          themePref.reduceMotion ? Duration.zero : AppMotion.medium3,
+      themeAnimationCurve: AppMotion.standardEasing,
       routerConfig: router,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

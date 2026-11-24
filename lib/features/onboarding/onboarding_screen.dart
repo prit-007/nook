@@ -6,6 +6,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../core/providers/navigation_preference.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/theme/app_motion.dart';
 import '../../core/theme/design_tokens.dart';
 
 /// Multi-page onboarding flow.
@@ -34,8 +35,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void _nextPage() {
     if (_currentPage < 3) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
+        duration: AppMotion.medium2,
+        curve: AppMotion.emphasizedDecelerate,
       );
     } else {
       _finish();
@@ -286,7 +287,7 @@ class _NoteTypesPage extends StatelessWidget {
                         Text(
                           '#journal',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: scheme.primary,
                           ),
@@ -295,7 +296,7 @@ class _NoteTypesPage extends StatelessWidget {
                         Text(
                           '• Morning reflections',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
@@ -331,7 +332,7 @@ class _NoteTypesPage extends StatelessWidget {
                         Text(
                           'Pack camera',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             decoration: TextDecoration.lineThrough,
                             color:
                                 scheme.onSurfaceVariant.withValues(alpha: 0.7),
@@ -351,7 +352,7 @@ class _NoteTypesPage extends StatelessWidget {
                         Text(
                           'Sketch sunset',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
@@ -387,7 +388,7 @@ class _NoteTypesPage extends StatelessWidget {
                         Text(
                           'Vector ink canvas',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.w500,
                             color: scheme.onSurfaceVariant,
                           ),

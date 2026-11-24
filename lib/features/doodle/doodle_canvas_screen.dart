@@ -14,9 +14,12 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:nook/core/theme/note_theme.dart';
 import 'package:nook/core/theme/design_tokens.dart';
+import 'package:nook/core/theme/app_motion.dart';
+import 'package:nook/core/platform/frame_rate.dart';
 
 import 'doodle_controller.dart';
 import 'doodle_canvas.dart';
+import 'doodle_input_policy.dart';
 import 'doodle_strokes_codec.dart';
 import 'doodle_shape_recognizer.dart' show RecognizedShape;
 import 'doodle_thumbnail_renderer.dart';
@@ -58,11 +61,15 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
   /// Track canvas height for "extend paper" feature.
   double _canvasHeightMultiplier = 1.0;
 
+  /// Viewport pinch-zoom scale, clamped to [0.5, 3.0].
+  double _viewportScale = 1.0;
+
   @override
   void initState() {
     super.initState();
     _controller = DoodleController(defaultColor: Colors.black);
     _init();
+    unawaited(requestHighRefreshRate());
   }
 
   @override
@@ -432,11 +439,25 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                                 left: 0,
                                 right: 0,
                                 height: baseHeight * _canvasHeightMultiplier,
-                                child: DoodleCanvas(
-                                  controller: _controller,
-                                  noteScheme: noteScheme,
-                                  onTwoFingerPan: _handleTwoFingerPan,
-                                  onNearBottomEdge: _handleNearBottomEdge,
+                                child: Transform.scale(
+                                  scale: _viewportScale,
+                                  alignment: Alignment.center,
+                                  child: DoodleCanvas(
+                                    controller: _controller,
+                                    noteScheme: noteScheme,
+                                    policy: DoodleInputPolicy(),
+                                    onTwoFingerPan: _handleTwoFingerPan,
+                                    onPinchScale: (scale) {
+                                      setState(() {
+                                        _viewportScale =
+                                            _viewportScale.clamp(0.5, 3.0) *
+                                                scale.clamp(0.5, 2.0);
+                                        _viewportScale =
+                                            _viewportScale.clamp(0.5, 3.0);
+                                      });
+                                    },
+                                    onNearBottomEdge: _handleNearBottomEdge,
+                                  ),
                                 ),
                               ),
                               // Extend Paper Trigger
@@ -447,7 +468,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                                 height: affordanceHeight,
                                 child: Center(
                                   child: AnimatedOpacity(
-                                    duration: const Duration(milliseconds: 200),
+                                    duration: AppMotion.short4,
                                     opacity: isDrawing ? 0.0 : 1.0,
                                     child: FilledButton.tonalIcon(
                                       icon: HugeIcon(
@@ -464,9 +485,8 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                                         _scrollController.animateTo(
                                           _scrollController
                                               .position.maxScrollExtent,
-                                          duration:
-                                              const Duration(milliseconds: 300),
-                                          curve: Curves.easeOutCubic,
+                                          duration: AppMotion.short4,
+                                          curve: AppMotion.emphasizedDecelerate,
                                         );
                                       },
                                     ),
@@ -483,8 +503,8 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
                 // 2. Auto-Hiding Top Bar
                 AnimatedPositioned(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
+                  duration: AppMotion.short4,
+                  curve: AppMotion.emphasizedDecelerate,
                   top:
                       isDrawing ? -100 : MediaQuery.paddingOf(context).top + 16,
                   left: 16,
@@ -541,8 +561,8 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
 
                 // 3. Auto-Hiding Bottom Dock
                 AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutBack,
+                  duration: AppMotion.short4,
+                  curve: AppMotion.emphasizedBack,
                   bottom: isDrawing
                       ? -120
                       : MediaQuery.paddingOf(context).bottom + 24,
@@ -571,8 +591,8 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                         },
                         child: AnimatedScale(
                           scale: _controller.hasPendingSnapToUndo ? 1.0 : 0.85,
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOutBack,
+                          duration: AppMotion.short4,
+                          curve: AppMotion.emphasizedDecelerate,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
@@ -616,7 +636,64 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                     ),
                   ),
 
-                // 5. Mid-confidence shape suggestion chip
+                // 5. "Restore freehand" chip — shown when a perfect shape is
+                // selected, lets the user revert it back to freehand strokes.
+                if (_controller.isShapeSelected &&
+                    !_controller.hasPendingSnapToUndo &&
+                    !_controller.hasPendingSuggestion)
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + 72,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _controller.restoreFreehand();
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: noteScheme.secondaryContainer
+                                  .withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedUndo02,
+                                  size: 16,
+                                  color: noteScheme.onSecondaryContainer,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Restore freehand',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: noteScheme.onSecondaryContainer,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // 6. Mid-confidence shape suggestion chip
                 if (_controller.hasPendingSuggestion &&
                     !_controller.hasPendingSnapToUndo)
                   Positioned(
@@ -698,7 +775,7 @@ class _DoodleCanvasScreenState extends ConsumerState<DoodleCanvasScreen> {
                     top: MediaQuery.paddingOf(context).top + 16,
                     right: 76,
                     child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
+                      duration: AppMotion.short4,
                       opacity: isDrawing ? 0.0 : 1.0,
                       child: Container(
                         padding: const EdgeInsets.symmetric(

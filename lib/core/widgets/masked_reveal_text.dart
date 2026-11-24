@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_motion.dart';
 import 'masked_reveal.dart';
 
 /// Text convenience wrapper around [MaskedReveal] for macro typography.
@@ -15,9 +16,9 @@ class MaskedRevealText extends StatelessWidget {
     this.textAlign,
     this.maxLines,
     this.overflow,
-    this.duration = const Duration(milliseconds: 700),
+    this.duration = AppMotion.medium4,
     this.delay = Duration.zero,
-    this.curve = Curves.easeOutCubic,
+    this.curve = AppMotion.emphasizedDecelerate,
     this.begin = const Offset(0, 1),
     this.fade = false,
     this.onComplete,

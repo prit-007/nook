@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_motion.dart';
+
 /// A staggered reveal widget for cascading entrance animations.
 ///
 /// Wraps a child in a fade + translate-up animation that starts after [delay].
@@ -12,8 +14,8 @@ class StaggeredReveal extends StatelessWidget {
     super.key,
     required this.child,
     this.delay = Duration.zero,
-    this.duration = const Duration(milliseconds: 900),
-    this.curve = Curves.easeOutExpo,
+    this.duration = AppMotion.medium4,
+    this.curve = AppMotion.emphasizedDecelerate,
     this.slideDistance = 30,
   });
 

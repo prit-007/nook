@@ -10,6 +10,7 @@ import '../../core/app_info.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
 import '../../core/providers/talker_provider.dart';
+import '../../core/theme/nook_tokens.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../sync/sync_orchestrator.dart';
 import 'providers/vault_stats_provider.dart';
@@ -275,21 +276,21 @@ class _Section extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 16, bottom: 8),
           child: Text(
-            title.toUpperCase(),
+            title,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: scheme.primary.withValues(alpha: 0.8),
-              letterSpacing: 1.2,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: scheme.primary,
+              letterSpacing: 0.2,
             ),
           ),
         ),
         ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: context.tokens.borderRadiusXl,
           child: Container(
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: context.tokens.borderRadiusXl,
             ),
             child: Column(children: children),
           ),

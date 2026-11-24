@@ -30,7 +30,7 @@ class NotebookDetailPane extends ConsumerWidget {
         child: const Center(
           child: EmptyState(
             icon: HugeIcons.strokeRoundedBookOpen01,
-            title: 'Select a collection',
+            title: 'Select a notebook',
             subtitle: 'Choose a notebook from the left pane to view notes.',
             animate: false,
           ),
@@ -116,17 +116,42 @@ class _NotebookNotesPaneState extends ConsumerState<_NotebookNotesPane> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    _notebookName.isEmpty ? 'Notebook' : _notebookName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Playfair Display',
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                      color: scheme.onSurface,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_notebookName.contains('/'))
+                        Text(
+                          _notebookName
+                              .split('/')
+                              .sublist(0, _notebookName.split('/').length - 1)
+                              .map((s) => s.trim())
+                              .join(' › '),
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurfaceVariant,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      Text(
+                        _notebookName.isEmpty
+                            ? 'Notebook'
+                            : (_notebookName.contains('/')
+                                ? _notebookName.split('/').last.trim()
+                                : _notebookName),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Playfair Display',
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Text(
@@ -152,7 +177,7 @@ class _NotebookNotesPaneState extends ConsumerState<_NotebookNotesPane> {
                 : _notes.isEmpty
                     ? const EmptyState(
                         icon: HugeIcons.strokeRoundedNotebook01,
-                        title: 'No notes in this collection',
+                        title: 'No notes in this notebook',
                         subtitle: 'Create a note and assign it here.',
                         animate: false,
                       )
@@ -168,9 +193,8 @@ class _NotebookNotesPaneState extends ConsumerState<_NotebookNotesPane> {
                         itemCount: _notes.length,
                         itemBuilder: (context, index) => NoteCard(
                           note: _notes[index],
-                          // Scope the hero tag per pane so the same note
-                          // rendered in the TagDetailPane (kept alive in the
-                          // CollectionsScreen IndexedStack) never collides.
+                          // rendered in the NotebookDetailPane (kept alive in
+                          // the NotebooksScreen IndexedStack) never collides.
                           heroTag:
                               'nb-${widget.notebookId}-${_notes[index].id}',
                           onTap: () =>

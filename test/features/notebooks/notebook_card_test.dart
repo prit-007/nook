@@ -96,7 +96,17 @@ void main() {
       final nameText = tester.widget<Text>(find.text('Ideas'));
       expect(nameText.style?.fontSize, 32);
       expect(nameText.style?.fontWeight, FontWeight.w800);
-      expect(find.text('NOTEBOOK'), findsOneWidget);
+      expect(find.text('Notebook'), findsOneWidget);
+    });
+
+    testWidgets('renders hierarchical kicker for nested notebook',
+        (tester) async {
+      final nb = await insertNotebook('Work / Mobile / Nook');
+      await tester.pumpWidget(buildCard(nb));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Notebook · Work › Mobile'), findsOneWidget);
+      expect(find.text('Nook'), findsOneWidget);
     });
 
     testWidgets('falls back to seed color without images', (tester) async {

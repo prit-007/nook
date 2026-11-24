@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/app_motion.dart';
+import '../../../core/theme/nook_tokens.dart';
 import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/checklist_item_repository.dart';
@@ -113,8 +115,8 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
           },
       child: AnimatedScale(
         scale: _isPressed ? 0.98 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
+        duration: AppMotion.short2,
+        curve: AppMotion.emphasizedDecelerate,
         child: Hero(
           tag: 'note-${widget.note.id}',
           child: Material(
@@ -123,7 +125,7 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
               height: 220,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: context.tokens.borderRadiusXxl,
                 color: bannerScheme.primaryContainer,
               ),
               clipBehavior: Clip.hardEdge,
@@ -131,7 +133,10 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
                 children: [
                   Positioned.fill(
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 18,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -149,11 +154,11 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  _typeLabel.toUpperCase(),
+                                  _typeLabel,
                                   style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.5,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.2,
                                     color: bannerScheme.onPrimaryContainer,
                                   ),
                                 ),
@@ -263,7 +268,7 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
             child: Text(
               _notebookName!,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: scheme.onPrimaryContainer.withValues(alpha: 0.85),
               ),
               maxLines: 1,

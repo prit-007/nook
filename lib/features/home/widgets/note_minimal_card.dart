@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/note_theme.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/checklist_item_repository.dart';
@@ -128,8 +129,8 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
           },
       child: AnimatedScale(
         scale: _isPressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
+        duration: AppMotion.short2,
+        curve: AppMotion.emphasizedDecelerate,
         child: Hero(
           tag: 'note-${widget.note.id}',
           child: Material(
@@ -159,23 +160,30 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              HugeIcon(
-                                  icon: _typeIcon,
-                                  size: 15,
-                                  color: cardScheme.primary),
-                              const SizedBox(width: 6),
-                              Text(
-                                _typeLabel,
-                                style: TextStyle(
-                                  color: cardScheme.primary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.2,
+                          Flexible(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                HugeIcon(
+                                    icon: _typeIcon,
+                                    size: 15,
+                                    color: cardScheme.primary),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    _typeLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: cardScheme.primary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                           if (widget.note.pinned)
                             HugeIcon(
@@ -301,7 +309,7 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
             Text(
               '$checkedCount/$totalCount',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: scheme.primary,
               ),
@@ -347,7 +355,7 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
             child: Text(
               '+${totalCount - 5} more',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: scheme.onSurface.withValues(alpha: 0.4),
               ),
             ),
@@ -398,7 +406,7 @@ class _NoteMinimalCardState extends ConsumerState<NoteMinimalCard> {
             child: Text(
               _notebookName!,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 12,
                 color: scheme.onSurfaceVariant,
               ),
               maxLines: 1,

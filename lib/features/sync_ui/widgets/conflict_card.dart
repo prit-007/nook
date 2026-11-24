@@ -289,7 +289,7 @@ class _VersionPanel extends StatelessWidget {
             Text(
               DateFormat.yMMMd().add_jm().format(updatedAt!),
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: onContainerColor.withValues(alpha: 0.7),
               ),
             ),

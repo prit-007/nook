@@ -6,6 +6,8 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+
+import '../../../core/theme/app_motion.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Premium update dialog with animated download state.
@@ -286,10 +288,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
             // 3. Dynamic Content Area
             AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
+              duration: AppMotion.medium2,
+              curve: AppMotion.emphasizedDecelerate,
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
+                duration: AppMotion.short4,
                 child: _isDownloading
                     ? _buildDownloadingState(scheme)
                     : _buildChangelogState(scheme),

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/theme/nook_tokens.dart';
+
 /// Floating batch action dock for multi-selected notes.
 class BatchActionBar extends StatelessWidget {
   const BatchActionBar({
@@ -33,14 +35,14 @@ class BatchActionBar extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: context.tokens.borderRadiusXxl,
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(32),
+                borderRadius: context.tokens.borderRadiusXxl,
                 border: Border.all(
                   color: scheme.outlineVariant.withValues(alpha: 0.35),
                 ),
@@ -60,7 +62,7 @@ class BatchActionBar extends StatelessWidget {
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: scheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: context.tokens.borderRadiusLg,
                     ),
                     child: Text(
                       selectedCount == 0

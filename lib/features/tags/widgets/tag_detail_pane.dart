@@ -158,7 +158,7 @@ class _TagNotesPaneState extends ConsumerState<_TagNotesPane> {
                           note: _notes[index],
                           // Scope the hero tag per pane so the same note
                           // rendered in the NotebookDetailPane (kept alive in
-                          // the CollectionsScreen IndexedStack) never collides.
+                          // the NotebooksScreen IndexedStack) never collides.
                           heroTag: 'tag-${widget.tagId}-${_notes[index].id}',
                           onTap: () =>
                               context.push('/note/${_notes[index].id}'),

@@ -25,8 +25,8 @@ void main() {
       expect(db, isNotNull);
     });
 
-    test('schema version is 8', () {
-      expect(db.schemaVersion, 8);
+    test('schema version is 9', () {
+      expect(db.schemaVersion, 9);
     });
   });
 

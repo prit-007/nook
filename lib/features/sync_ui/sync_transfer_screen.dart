@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/theme/app_motion.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
 import 'widgets/conflict_card.dart';
@@ -44,9 +45,9 @@ class SyncTransferScreen extends ConsumerWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
+                    duration: AppMotion.long1,
+                    switchInCurve: AppMotion.emphasizedDecelerate,
+                    switchOutCurve: AppMotion.emphasizedAccelerate,
                     child: _buildStateContent(context, scheme, syncState, ref),
                   ),
                 ),
@@ -129,8 +130,8 @@ class SyncTransferScreen extends ConsumerWidget {
         // transferred count instead of jumping.
         TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0.0, end: progress),
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutCubic,
+          duration: AppMotion.short4,
+          curve: AppMotion.emphasizedDecelerate,
           builder: (context, value, child) {
             return Stack(
               alignment: Alignment.center,
@@ -377,8 +378,8 @@ class SyncTransferScreen extends ConsumerWidget {
       children: [
         TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0.5, end: 1.0),
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.elasticOut,
+          duration: AppMotion.long1,
+          curve: AppMotion.emphasizedDecelerate,
           builder: (context, scale, child) {
             return Transform.scale(
               scale: scale,
@@ -628,7 +629,7 @@ class _TelemetryBadge extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               color: scheme.onSurfaceVariant,
             ),

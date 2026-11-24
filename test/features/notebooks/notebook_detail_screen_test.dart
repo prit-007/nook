@@ -56,7 +56,18 @@ void main() {
       await tester.pumpWidget(buildScreen(nbId));
       await tester.pumpAndSettle();
 
-      expect(find.text('No notes in this collection'), findsOneWidget);
+      expect(find.text('No notes in this notebook'), findsOneWidget);
+    });
+
+    testWidgets('renders breadcrumbs when notebook name contains slashes',
+        (tester) async {
+      final nbId = await createNotebook('Work / Mobile / Nook');
+
+      await tester.pumpWidget(buildScreen(nbId));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Work › Mobile'), findsOneWidget);
+      expect(find.text('Nook'), findsOneWidget);
     });
 
     testWidgets('FAB for adding notes is visible', (tester) async {

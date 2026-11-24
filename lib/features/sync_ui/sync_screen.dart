@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/theme/app_motion.dart';
+
 import '../../core/providers/database_provider.dart';
 import '../../data/database.dart';
 import '../../data/repositories/trusted_device_repository.dart';
@@ -442,8 +444,8 @@ class _GlassModeCardState extends State<_GlassModeCard> {
         onTap: widget.onTap,
         child: AnimatedScale(
           scale: _isPressed ? 0.96 : 1.0,
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOutCubic,
+          duration: AppMotion.short3,
+          curve: AppMotion.emphasizedDecelerate,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(32),
             child: BackdropFilter(

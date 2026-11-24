@@ -78,7 +78,7 @@ void main() {
 
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Notebooks'), findsOneWidget);
-      expect(find.text('Sync'), findsOneWidget);
+      expect(find.text('Tags'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
     });
 
@@ -139,14 +139,14 @@ void main() {
       expect(find.text('Notebooks Content'), findsOneWidget);
     });
 
-    testWidgets('navigates to sync on dock tap', (tester) async {
+    testWidgets('navigates to tags on dock tap', (tester) async {
       await tester.pumpWidget(buildShell());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Sync'));
+      await tester.tap(find.text('Tags'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sync Content'), findsOneWidget);
+      expect(find.text('Tags Content'), findsOneWidget);
     });
 
     testWidgets('navigates to settings on dock tap', (tester) async {
@@ -202,7 +202,7 @@ void main() {
 
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Notebooks'), findsOneWidget);
-      expect(find.text('Sync'), findsOneWidget);
+      expect(find.text('Tags'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
     });
 
