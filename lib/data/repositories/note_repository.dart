@@ -28,6 +28,8 @@ class NoteRepository {
     String? colorSeed,
     String? deltaContent,
     String? plainText,
+    bool? pinned,
+    bool? locked,
     int? syncVersion,
     DateTime? createdAt,
   }) async {
@@ -44,6 +46,8 @@ class NoteRepository {
               colorSeed: Value(colorSeed),
               deltaContent: Value(deltaContent),
               plainText: Value(plainText),
+              pinned: pinned != null ? Value(pinned) : const Value.absent(),
+              locked: locked != null ? Value(locked) : const Value.absent(),
               syncVersion: syncVersion != null
                   ? Value(syncVersion)
                   : const Value.absent(),

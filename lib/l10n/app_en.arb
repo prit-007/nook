@@ -1,0 +1,87 @@
+{
+  "@@locale": "en",
+  "appTitle": "Nook",
+  "@appTitle": {
+    "description": "Application name"
+  },
+  "searchHint": "Search thoughts, doodles, checklists...",
+  "@searchHint": {
+    "description": "Placeholder for search bar"
+  },
+  "allNotes": "All notes",
+  "@allNotes": {
+    "description": "Filter tab for all notes"
+  },
+  "favorites": "Favorites",
+  "@favorites": {
+    "description": "Filter tab for favorite notes"
+  },
+  "text": "Text",
+  "@text": {
+    "description": "Filter tab for text notes"
+  },
+  "checklists": "Checklists",
+  "@checklists": {
+    "description": "Filter tab for checklist notes"
+  },
+  "doodles": "Doodles",
+  "@doodles": {
+    "description": "Filter tab for doodle canvas notes"
+  },
+  "newNote": "New note",
+  "@newNote": {
+    "description": "Create new note action"
+  },
+  "newChecklist": "New checklist",
+  "@newChecklist": {
+    "description": "Create new checklist action"
+  },
+  "newDoodle": "New doodle",
+  "@newDoodle": {
+    "description": "Create new doodle action"
+  },
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings navigation title"
+  },
+  "trash": "Trash",
+  "@trash": {
+    "description": "Bin/trash navigation title"
+  },
+  "notebooks": "Notebooks",
+  "@notebooks": {
+    "description": "Notebooks navigation title"
+  },
+  "tags": "Tags",
+  "@tags": {
+    "description": "Tags navigation title"
+  },
+  "sync": "Sync",
+  "@sync": {
+    "description": "Sync navigation title"
+  },
+  "security": "Security",
+  "@security": {
+    "description": "Security settings title"
+  },
+  "encryptedOnDevice": "Encrypted on this device",
+  "@encryptedOnDevice": {
+    "description": "Local-first encryption status"
+  },
+  "backupRecoveryKey": "Backup Recovery Key",
+  "@backupRecoveryKey": {
+    "description": "Button to backup 12-word recovery key"
+  },
+  "importNotes": "Import Notes",
+  "@importNotes": {
+    "description": "Button to import notes from external apps"
+  },
+  "highContrast": "High Contrast",
+  "@highContrast": {
+    "description": "High contrast mode toggle title"
+  },
+  "reduceMotion": "Reduce motion",
+  "@reduceMotion": {
+    "description": "Reduce motion toggle title"
+  }
+}

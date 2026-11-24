@@ -33,52 +33,20 @@ import '../../features/settings/settings_logs_screen.dart';
 import '../../features/exports/exports_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import 'widgets/app_shell.dart';
+import 'widgets/editorial_page_transition.dart';
 import 'providers/navigation_preference.dart';
-import 'theme/app_motion.dart';
 
-/// Reusable Material 3 page transition helper for GoRouter routes.
+export 'widgets/editorial_page_transition.dart';
+
+/// Backward-compatible alias for [EditorialPageTransitions].
 abstract class AppPageTransitions {
   /// Material 3 Shared Axis transition (fade + subtle scale) for hierarchical
   /// and detail page navigation.
   static CustomTransitionPage<T> sharedAxis<T>({
     required LocalKey key,
     required Widget child,
-  }) {
-    return CustomTransitionPage<T>(
-      key: key,
-      child: child,
-      transitionDuration: AppMotion.page,
-      reverseTransitionDuration: AppMotion.medium2,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final enterCurve = CurvedAnimation(
-          parent: animation,
-          curve: AppMotion.emphasizedDecelerate,
-          reverseCurve: AppMotion.emphasizedAccelerate,
-        );
-
-        final exitCurve = CurvedAnimation(
-          parent: secondaryAnimation,
-          curve: AppMotion.emphasizedDecelerate,
-          reverseCurve: AppMotion.emphasizedAccelerate,
-        );
-
-        return FadeTransition(
-          opacity: enterCurve,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.95, end: 1.0).animate(enterCurve),
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 1.0, end: 1.03).animate(exitCurve),
-              child: FadeTransition(
-                opacity:
-                    Tween<double>(begin: 1.0, end: 0.85).animate(exitCurve),
-                child: RepaintBoundary(child: child),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+  }) =>
+      EditorialPageTransitions.sharedAxis<T>(key: key, child: child);
 
   /// Material 3 Slide-Up transition builder for modals, full-screen editors, and canvases.
   static Widget buildSlideUpTransitions(
@@ -86,80 +54,27 @@ abstract class AppPageTransitions {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) {
-    final enterCurve = CurvedAnimation(
-      parent: animation,
-      curve: AppMotion.emphasizedDecelerate,
-      reverseCurve: AppMotion.emphasizedAccelerate,
-    );
-
-    final exitCurve = CurvedAnimation(
-      parent: secondaryAnimation,
-      curve: AppMotion.emphasizedDecelerate,
-      reverseCurve: AppMotion.emphasizedAccelerate,
-    );
-
-    return FadeTransition(
-      opacity: enterCurve,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0.0, 0.06),
-          end: Offset.zero,
-        ).animate(enterCurve),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 1.0, end: 0.96).animate(exitCurve),
-          child: RepaintBoundary(child: child),
-        ),
-      ),
-    );
-  }
+  ) =>
+      EditorialPageTransitions.buildSlideUp(
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
 
   /// Material 3 Slide-Up transition for modals, full-screen editors, and canvases.
   static CustomTransitionPage<T> slideUp<T>({
     required LocalKey key,
     required Widget child,
-  }) {
-    return CustomTransitionPage<T>(
-      key: key,
-      child: child,
-      transitionDuration: AppMotion.modal,
-      reverseTransitionDuration: AppMotion.medium2,
-      transitionsBuilder: buildSlideUpTransitions,
-    );
-  }
+  }) =>
+      EditorialPageTransitions.slideUp<T>(key: key, child: child);
 
   /// Material 3 Fade-Through transition for NavigationBar / Shell tab switches.
   static CustomTransitionPage<T> fadeThrough<T>({
     required LocalKey key,
     required Widget child,
-  }) {
-    return CustomTransitionPage<T>(
-      key: key,
-      child: child,
-      transitionDuration: AppMotion.standard,
-      reverseTransitionDuration: AppMotion.short4,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final enterAnimation = CurvedAnimation(
-          parent: animation,
-          curve: const Interval(0.2, 1.0, curve: AppMotion.standardDecelerate),
-        );
-        final scaleAnimation = Tween<double>(begin: 0.96, end: 1.0).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: AppMotion.emphasizedDecelerate,
-          ),
-        );
-
-        return FadeTransition(
-          opacity: enterAnimation,
-          child: ScaleTransition(
-            scale: scaleAnimation,
-            child: RepaintBoundary(child: child),
-          ),
-        );
-      },
-    );
-  }
+  }) =>
+      EditorialPageTransitions.fadeThrough<T>(key: key, child: child);
 }
 
 /// Bespoke page transition for a luxury editorial feel.
@@ -168,22 +83,10 @@ CustomTransitionPage<T> buildEditorialTransition<T>({
   required GoRouterState state,
   required Widget child,
 }) {
-  return AppPageTransitions.slideUp<T>(
+  return EditorialPageTransitions.slideUp<T>(
     key: state.pageKey,
     child: child,
   );
-}
-
-/// Lightweight editorial page route for imperative [Navigator.push] calls.
-class EditorialPageRoute<T> extends PageRouteBuilder<T> {
-  EditorialPageRoute({required WidgetBuilder builder})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              builder(context),
-          transitionDuration: AppMotion.modal,
-          reverseTransitionDuration: AppMotion.medium2,
-          transitionsBuilder: AppPageTransitions.buildSlideUpTransitions,
-        );
 }
 
 /// Custom page transition: Material 3 shared axis for hierarchical sub-pages.
@@ -192,7 +95,7 @@ CustomTransitionPage<void> _sharedAxisTransition(
   GoRouterState state,
   Widget child,
 ) {
-  return AppPageTransitions.sharedAxis<void>(
+  return EditorialPageTransitions.sharedAxis<void>(
     key: state.pageKey,
     child: child,
   );
@@ -204,7 +107,7 @@ CustomTransitionPage<void> _slideUpTransition(
   GoRouterState state,
   Widget child,
 ) {
-  return AppPageTransitions.slideUp<void>(
+  return EditorialPageTransitions.slideUp<void>(
     key: state.pageKey,
     child: child,
   );
@@ -216,7 +119,19 @@ CustomTransitionPage<void> _fadeTransition(
   GoRouterState state,
   Widget child,
 ) {
-  return AppPageTransitions.fadeThrough<void>(
+  return EditorialPageTransitions.fadeThrough<void>(
+    key: state.pageKey,
+    child: child,
+  );
+}
+
+/// Custom page transition: Container transform for card-to-editor transitions.
+CustomTransitionPage<void> _containerTransformTransition(
+  BuildContext context,
+  GoRouterState state,
+  Widget child,
+) {
+  return EditorialPageTransitions.containerTransform<void>(
     key: state.pageKey,
     child: child,
   );
@@ -460,7 +375,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/note/new',
-        pageBuilder: (context, state) => _slideUpTransition(
+        pageBuilder: (context, state) => _containerTransformTransition(
           context,
           state,
           NoteEditorScreen(
@@ -471,7 +386,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/note/:noteId',
-        pageBuilder: (context, state) => _slideUpTransition(
+        pageBuilder: (context, state) => _containerTransformTransition(
           context,
           state,
           NoteEditorScreen(

@@ -1011,31 +1011,39 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                         ),
                         sliver: SliverFillRemaining(
                           hasScrollBody: true,
-                          child: EditorBody(
-                            editorState: _editorState!,
-                            note: _note,
-                            noteScheme: noteScheme,
-                            dynamicTextTheme: dynamicTextTheme,
-                            paperStyle: _paperStyle,
-                            readOnly: _readOnly,
-                            hasDoodleBlock: _hasDoodleBlock,
-                            onInsertDoodle: _insertDoodle,
-                            onInsertImage: _insertImage,
-                            onInsertNoteLink: _insertNoteLink,
-                            onOpenDoodleCanvas: _openDoodleCanvas,
-                            onDeleteMediaBlock: _deleteMediaBlock,
-                            checklistAttachments: _checklistAttachments,
-                            checklistTitle: _title,
-                            onUpdateChecklistTitle: _updateChecklistTitle,
-                            onInsertChecklistImage:
-                                _note != null ? _insertChecklistImage : null,
-                            onInsertChecklistDoodle:
-                                _note != null ? _insertChecklistDoodle : null,
-                            onOpenChecklistAttachment:
-                                _note != null ? _openChecklistAttachment : null,
-                            onDeleteChecklistAttachment: _note != null
-                                ? _deleteChecklistAttachment
-                                : null,
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 760),
+                              child: EditorBody(
+                                editorState: _editorState!,
+                                note: _note,
+                                noteScheme: noteScheme,
+                                dynamicTextTheme: dynamicTextTheme,
+                                paperStyle: _paperStyle,
+                                readOnly: _readOnly,
+                                hasDoodleBlock: _hasDoodleBlock,
+                                onInsertDoodle: _insertDoodle,
+                                onInsertImage: _insertImage,
+                                onInsertNoteLink: _insertNoteLink,
+                                onOpenDoodleCanvas: _openDoodleCanvas,
+                                onDeleteMediaBlock: _deleteMediaBlock,
+                                checklistAttachments: _checklistAttachments,
+                                checklistTitle: _title,
+                                onUpdateChecklistTitle: _updateChecklistTitle,
+                                onInsertChecklistImage: _note != null
+                                    ? _insertChecklistImage
+                                    : null,
+                                onInsertChecklistDoodle: _note != null
+                                    ? _insertChecklistDoodle
+                                    : null,
+                                onOpenChecklistAttachment: _note != null
+                                    ? _openChecklistAttachment
+                                    : null,
+                                onDeleteChecklistAttachment: _note != null
+                                    ? _deleteChecklistAttachment
+                                    : null,
+                              ),
+                            ),
                           ),
                         ),
                       ),

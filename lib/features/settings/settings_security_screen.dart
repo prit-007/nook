@@ -8,12 +8,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/haptics/haptics.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
 import '../../core/providers/vault_password_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../features/security/pin_entry_screen.dart';
+import '../../features/security/recovery_key_dialog.dart';
 import '../../features/security/vault_password_dialog.dart';
 
 class SettingsSecurityScreen extends ConsumerWidget {
@@ -310,6 +312,48 @@ class SettingsSecurityScreen extends ConsumerWidget {
                 } else {
                   await ref.read(vaultPasswordProvider).clearPassword();
                 }
+              },
+            ),
+          ),
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, bottom: 8),
+            child: Text(
+              'Vault recovery',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+                color: scheme.primary,
+              ),
+            ),
+          ),
+          _buildGlassCard(
+            scheme,
+            child: ListTile(
+              leading: HugeIcon(
+                icon: HugeIcons.strokeRoundedShield01,
+                color: scheme.primary,
+                size: 24,
+              ),
+              title: const Text(
+                'Recovery Key',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                '24-word phrase to restore vault if PIN or password is lost',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 13,
+                ),
+              ),
+              trailing: const HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowRight01,
+                size: 18,
+              ),
+              onTap: () {
+                unawaited(AppHaptics.medium());
+                unawaited(showRecoveryKeyDialog(context));
               },
             ),
           ),

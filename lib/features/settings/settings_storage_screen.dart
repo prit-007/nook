@@ -17,6 +17,7 @@ import '../../data/repositories/notebook_repository.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../features/editor/markdown_import.dart';
 import '../../features/exports/exports_directory.dart';
+import '../importers/import_dialog.dart';
 import 'providers/vault_stats_provider.dart';
 import 'widgets/bulk_export.dart';
 import 'widgets/export_handler.dart';
@@ -675,6 +676,69 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                   'Bring in .md files from Obsidian, Keep, or '
                                   'any editor. New notes are always created — '
                                   'existing data is never overwritten.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: scheme.onSurfaceVariant,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
+                            size: 18,
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      showImportNotesSheet(context, ref);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: scheme.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedExchange01,
+                              size: 20,
+                              color: scheme.onTertiaryContainer,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Import from other apps',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Migrate from Google Keep, Evernote, Notesnook, or plain text.',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: scheme.onSurfaceVariant,

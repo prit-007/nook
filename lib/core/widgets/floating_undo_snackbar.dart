@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../haptics/haptics.dart';
 
 /// Shows a floating Material 3 Undo SnackBar with haptics and rounded pill shape.
 void showUndoSnackBar(
@@ -11,6 +14,7 @@ void showUndoSnackBar(
   final scheme = Theme.of(context).colorScheme;
   final messenger = ScaffoldMessenger.of(context);
   messenger.hideCurrentSnackBar();
+  unawaited(AppHaptics.warning());
   messenger.showSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
@@ -31,7 +35,7 @@ void showUndoSnackBar(
         label: 'Undo',
         textColor: scheme.inversePrimary,
         onPressed: () {
-          HapticFeedback.mediumImpact();
+          unawaited(AppHaptics.success());
           onUndo();
         },
       ),

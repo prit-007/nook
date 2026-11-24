@@ -14,6 +14,7 @@ import '../../core/theme/nook_tokens.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/floating_undo_snackbar.dart';
 import '../../core/widgets/parallax_card.dart';
+import '../../core/widgets/resizable_split_view.dart';
 import '../../core/widgets/sync_status_indicator.dart';
 import '../../data/database.dart';
 import '../../data/repositories/note_repository.dart';
@@ -250,27 +251,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 );
 
                 if (isDualPane) {
-                  // Responsive split ratio by window size class.
-                  final leftFlex = sizeClass == WindowSizeClass.medium ? 2 : 3;
-                  final rightFlex = sizeClass == WindowSizeClass.medium ? 1 : 2;
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Flexible(
-                        flex: leftFlex,
-                        child: Container(
-                          color:
-                              scheme.surfaceContainerLow.withValues(alpha: 0.3),
-                          child: grid,
-                        ),
-                      ),
-                      VerticalDivider(
-                        width: 1,
-                        thickness: 1,
-                        color: scheme.outlineVariant.withValues(alpha: 0.2),
-                      ),
-                      Flexible(flex: rightFlex, child: const NotePreviewPane()),
-                    ],
+                  return ResizableSplitView(
+                    storageKey: 'nook_home_split_ratio',
+                    initialRatio:
+                        sizeClass == WindowSizeClass.medium ? 0.45 : 0.40,
+                    left: Container(
+                      color: scheme.surfaceContainerLow.withValues(alpha: 0.3),
+                      child: grid,
+                    ),
+                    right: const NotePreviewPane(),
                   );
                 }
                 return grid;
@@ -1148,40 +1137,44 @@ class _CollapsingHeaderTitleState extends State<_CollapsingHeaderTitle> {
           );
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.isSelectionMode)
-          Text(
-            widget.selectedCount == 0
-                ? 'Select notes'
-                : '${widget.selectedCount} selected',
-            style: TextStyle(
-              fontFamily: 'Playfair Display',
-              fontSize: widget.isWide ? 26 : 22,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -1.0,
-              height: 1.1,
-              color: scheme.onSurface,
-            ),
-          )
-        else
-          greetingWidget,
-        const SizedBox(height: 2),
-        if (widget.isSelectionMode)
-          Text(
-            'Batch actions',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-              color: scheme.primary,
-            ),
-          )
-        else
-          vaultLabelWidget,
-      ],
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.bottomLeft,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.isSelectionMode)
+            Text(
+              widget.selectedCount == 0
+                  ? 'Select notes'
+                  : '${widget.selectedCount} selected',
+              style: TextStyle(
+                fontFamily: 'Playfair Display',
+                fontSize: widget.isWide ? 26 : 22,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1.0,
+                height: 1.1,
+                color: scheme.onSurface,
+              ),
+            )
+          else
+            greetingWidget,
+          const SizedBox(height: 2),
+          if (widget.isSelectionMode)
+            Text(
+              'Batch actions',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+                color: scheme.primary,
+              ),
+            )
+          else
+            vaultLabelWidget,
+        ],
+      ),
     );
   }
 }

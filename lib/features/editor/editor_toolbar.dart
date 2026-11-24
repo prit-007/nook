@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:appflowy_editor/appflowy_editor.dart';
+import 'package:appflowy_editor/appflowy_editor.dart'
+    hide tableMenuItem, dividerMenuItem;
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -7,6 +8,8 @@ import '../../data/repositories/note_link_repository.dart';
 import 'widgets/callout_block.dart';
 import 'widgets/code_block.dart';
 import 'widgets/collapsible_block.dart';
+import 'widgets/divider_block.dart';
+import 'widgets/table_block.dart';
 
 /// Markdown character shortcut converting '[[' to a note link trigger.
 CharacterShortcutEvent formatDoubleBracketToNoteLink({

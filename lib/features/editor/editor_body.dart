@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:appflowy_editor/appflowy_editor.dart';
+import 'package:appflowy_editor/appflowy_editor.dart'
+    hide DividerBlockComponentBuilder, TableBlockComponentBuilder;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,7 +15,9 @@ import 'widgets/callout_block.dart';
 import 'widgets/code_block.dart';
 import 'widgets/collapsible_block.dart';
 import 'widgets/custom_todo_list_block.dart';
+import 'widgets/divider_block.dart';
 import 'widgets/paper_background.dart';
+import 'widgets/table_block.dart';
 import 'widgets/zoomable_image_block.dart';
 
 export 'widgets/paper_background.dart' show NotePaperStyle;
@@ -211,6 +214,8 @@ class _EditorBodyState extends State<EditorBody> {
         CalloutBlockKeys.type: CalloutBlockComponentBuilder(),
         CodeBlockKeys.type: CodeBlockComponentBuilder(),
         CollapsibleBlockKeys.type: CollapsibleBlockComponentBuilder(),
+        DividerBlockKeys.type: DividerBlockComponentBuilder(),
+        TableBlockKeys.type: TableBlockComponentBuilder(),
       },
       characterShortcutEvents: [
         ...standardCharacterShortcutEvents,

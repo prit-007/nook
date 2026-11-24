@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 
+import '../../../core/haptics/haptics.dart';
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../data/database.dart';
+import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
 
 /// Editorial "magazine cover" notebook card.
@@ -82,151 +84,179 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
         ? widget.notebook.name.split('/').last.trim()
         : widget.notebook.name;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: coverColor,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: coverColor.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          // Subtle radial glow element in top right
-          Positioned(
-            top: -50,
-            right: -50,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    textColor.withValues(alpha: 0.12),
-                    textColor.withValues(alpha: 0.0),
-                  ],
-                ),
+    return DragTarget<Note>(
+      onWillAcceptWithDetails: (details) =>
+          details.data.notebookId != widget.notebook.id,
+      onAcceptWithDetails: (details) async {
+        final note = details.data;
+        final db = ref.read(databaseProvider);
+        await NoteRepository(db)
+            .updateNote(note.id, notebookId: widget.notebook.id);
+        await AppHaptics.success();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Moved "${note.title.isEmpty ? 'Untitled' : note.title}" to ${widget.notebook.name}',
               ),
+              duration: const Duration(seconds: 2),
             ),
-          ),
-
-          // Simulated book spine lighting edge (left side)
-          Positioned(
-            top: 0,
-            bottom: 0,
-            left: 0,
-            width: 3,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    textColor.withValues(alpha: 0.25),
-                    textColor.withValues(alpha: 0.05),
-                  ],
-                ),
+          );
+        }
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: coverColor,
+            borderRadius: BorderRadius.circular(24),
+            border: isHovering
+                ? Border.all(color: baseScheme.primary, width: 2.5)
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: coverColor.withValues(alpha: isHovering ? 0.5 : 0.3),
+                blurRadius: isHovering ? 28 : 20,
+                offset: const Offset(0, 10),
               ),
-            ),
+            ],
           ),
-
-          // Card Content Layout
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Frosted Glass Header Badge
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: textColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: textColor.withValues(alpha: 0.15),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Text(
-                      kickerLabel,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                        color: textColor,
-                      ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              // Subtle radial glow element in top right
+              Positioned(
+                top: -50,
+                right: -50,
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        textColor.withValues(alpha: 0.12),
+                        textColor.withValues(alpha: 0.0),
+                      ],
                     ),
                   ),
                 ),
+              ),
 
-                const Spacer(),
-
-                // Macro Magazine Title (Playfair Serif). Flexible so long names
-                // ellipsize instead of overflowing short portrait cards.
-                Flexible(
-                  child: Text(
-                    displayName,
-                    style: TextStyle(
-                      fontFamily: 'Playfair Display',
-                      fontSize: 32,
-                      height: 0.95,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.8,
-                      color: textColor,
+              // Simulated book spine lighting edge (left side)
+              Positioned(
+                top: 0,
+                bottom: 0,
+                left: 0,
+                width: 3,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        textColor.withValues(alpha: 0.25),
+                        textColor.withValues(alpha: 0.05),
+                      ],
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 12),
-
-                // Note Count Label
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+              // Card Content Layout
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _seedColor,
+                    // Frosted Glass Header Badge
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: textColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: textColor.withValues(alpha: 0.15),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          kickerLabel,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                            color: textColor,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+
+                    const Spacer(),
+
+                    // Macro Magazine Title (Playfair Serif). Flexible so long names
+                    // ellipsize instead of overflowing short portrait cards.
                     Flexible(
                       child: Text(
-                        '${widget.noteCount} ${widget.noteCount == 1 ? 'entry' : 'entries'}',
+                        displayName,
                         style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.2,
-                          color: subtextColor,
+                          fontFamily: 'Playfair Display',
+                          fontSize: 32,
+                          height: 0.95,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.8,
+                          color: textColor,
                         ),
-                        maxLines: 1,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+
+                    const SizedBox(height: 12),
+
+                    // Note Count Label
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _seedColor,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            '${widget.noteCount} ${widget.noteCount == 1 ? 'entry' : 'entries'}',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                              color: subtextColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

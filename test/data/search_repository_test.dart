@@ -94,6 +94,24 @@ void main() {
       expect(results, isEmpty);
     });
 
+    test('searchNotes excludes locked notes by default', () async {
+      final locked = await noteRepo.createNote(
+        title: 'Secret vault memo',
+        type: NoteType.text,
+        deviceOriginId: 'local',
+        plainText: 'Top secret credentials',
+        locked: true,
+      );
+
+      final results = await searchRepo.searchNotes('Secret');
+      expect(results, isEmpty);
+
+      final resultsWithLocked =
+          await searchRepo.searchNotes('Secret', includeLocked: true);
+      expect(resultsWithLocked.length, 1);
+      expect(resultsWithLocked.first.id, locked.id);
+    });
+
     test('searchNotes filters by type', () async {
       final results = await searchRepo.searchNotes(
         'Shopping',
