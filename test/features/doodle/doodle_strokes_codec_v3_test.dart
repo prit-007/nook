@@ -35,10 +35,10 @@ void main() {
       expect(decoded.shapeType, RecognizedShape.line);
       expect(decoded.recognitionConfidence, 0.85);
       expect(decoded.fit, isA<LineFit>());
-      expect((decoded.fit as LineFit).start, Offset(10, 20));
-      expect((decoded.fit as LineFit).end, Offset(110, 20));
+      expect((decoded.fit as LineFit).start, const Offset(10, 20));
+      expect((decoded.fit as LineFit).end, const Offset(110, 20));
       expect(decoded.originalPoints, hasLength(3));
-      expect(decoded.originalPoints!.first, Offset(10, 22));
+      expect(decoded.originalPoints!.first, const Offset(10, 22));
       expect(decoded.points.length, 2);
     });
 
@@ -48,7 +48,7 @@ void main() {
         isPerfectShape: true,
         shapeType: RecognizedShape.rectangle,
         recognitionConfidence: 0.9,
-        fit: RectFit(
+        fit: const RectFit(
           center: Offset(100, 60),
           uAxis: Offset(1, 0),
           vAxis: Offset(0, 1),
@@ -64,7 +64,7 @@ void main() {
       expect(decoded.shapeType, RecognizedShape.rectangle);
       expect(decoded.fit, isA<RectFit>());
       final fit = decoded.fit as RectFit;
-      expect(fit.center, Offset(100, 60));
+      expect(fit.center, const Offset(100, 60));
       expect(fit.halfWidth, 100);
       expect(fit.halfHeight, 60);
     });
@@ -85,7 +85,7 @@ void main() {
       expect(decoded.shapeType, RecognizedShape.oval);
       expect(decoded.fit, isA<OvalFit>());
       final fit = decoded.fit as OvalFit;
-      expect(fit.center, Offset(60, 40));
+      expect(fit.center, const Offset(60, 40));
       expect(fit.rx, 60);
       expect(fit.ry, 40);
     });
@@ -96,7 +96,7 @@ void main() {
         isPerfectShape: true,
         shapeType: RecognizedShape.triangle,
         recognitionConfidence: 0.82,
-        fit: TriangleFit(
+        fit: const TriangleFit(
           a: Offset(100, 0),
           b: Offset(200, 173),
           c: Offset(0, 173),
@@ -110,9 +110,9 @@ void main() {
       expect(decoded.shapeType, RecognizedShape.triangle);
       expect(decoded.fit, isA<TriangleFit>());
       final fit = decoded.fit as TriangleFit;
-      expect(fit.a, Offset(100, 0));
-      expect(fit.b, Offset(200, 173));
-      expect(fit.c, Offset(0, 173));
+      expect(fit.a, const Offset(100, 0));
+      expect(fit.b, const Offset(200, 173));
+      expect(fit.c, const Offset(0, 173));
     });
 
     test('encodes and decodes a StarFit stroke', () {
@@ -131,7 +131,7 @@ void main() {
       expect(decoded.shapeType, RecognizedShape.star);
       expect(decoded.fit, isA<StarFit>());
       final fit = decoded.fit as StarFit;
-      expect(fit.center, Offset(200, 200));
+      expect(fit.center, const Offset(200, 200));
       expect(fit.outerRadius, 80);
     });
 
@@ -166,7 +166,10 @@ void main() {
           fit: const LineFit(start: Offset(0, 0), end: Offset(50, 0)),
         ),
         Stroke(
-          points: const [StrokePoint(Offset(0, 0)), StrokePoint(Offset(30, 30))],
+          points: const [
+            StrokePoint(Offset(0, 0)),
+            StrokePoint(Offset(30, 30))
+          ],
           isPerfectShape: false,
           shapeType: RecognizedShape.none,
           recognitionConfidence: null,
@@ -322,12 +325,12 @@ void main() {
       expect(decoded.shapeType, RecognizedShape.oval);
       expect(decoded.recognitionConfidence, 0.77);
       expect(decoded.fit, isA<OvalFit>());
-      expect((decoded.fit as OvalFit).center, Offset(50, 55));
+      expect((decoded.fit as OvalFit).center, const Offset(50, 55));
       expect((decoded.fit as OvalFit).rx, 45);
       expect((decoded.fit as OvalFit).ry, 45);
       expect(decoded.originalPoints, hasLength(3));
       expect(decoded.points.length, 2);
-      expect(decoded.points[0].position, Offset(5.5, 10.25));
+      expect(decoded.points[0].position, const Offset(5.5, 10.25));
       expect(decoded.points[0].pressure, 0.6);
     });
   });

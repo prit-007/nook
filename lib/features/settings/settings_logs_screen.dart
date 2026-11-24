@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../core/providers/talker_provider.dart';
+import '../../core/theme/app_motion.dart';
 import '../../core/widgets/dock_safe_area.dart';
 
 /// In-app log viewer powered by talker_flutter's [TalkerScreen].
@@ -279,9 +280,9 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
                 constraints: const BoxConstraints(
                     maxWidth: 420), // Prevents ultra-wide stretching
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 400),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
+                  duration: AppMotion.medium2,
+                  switchInCurve: AppMotion.emphasizedDecelerate,
+                  switchOutCurve: AppMotion.emphasizedAccelerate,
                   transitionBuilder: (child, animation) => FadeTransition(
                     opacity: animation,
                     child: SlideTransition(
@@ -315,8 +316,8 @@ class _LogsHelpOverlayState extends State<_LogsHelpOverlay> {
               children: List.generate(steps.length, (i) {
                 final active = i == _step;
                 return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutBack,
+                  duration: AppMotion.short4,
+                  curve: AppMotion.emphasizedDecelerate,
                   margin: const EdgeInsets.symmetric(horizontal: 6),
                   width: active ? 32 : 8,
                   height: 8,

@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/theme/nook_tokens.dart';
+
 import '../../core/providers/database_provider.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../data/repositories/search_repository.dart';
@@ -330,7 +332,7 @@ class _SectionHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: scheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: context.tokens.borderRadiusPill,
             ),
             child: Text(
               '$count',
@@ -366,9 +368,9 @@ class _QuickFilterChip extends StatelessWidget {
       color: isSelected
           ? scheme.primaryContainer
           : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: context.tokens.borderRadiusLg,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: context.tokens.borderRadiusLg,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

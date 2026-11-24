@@ -19,6 +19,7 @@ void main() {
       expect(DoodleBlockKeys.thumbnailPath, 'thumbnail_path');
       expect(DoodleBlockKeys.aspectRatio, 'aspect_ratio');
       expect(DoodleBlockKeys.backgroundTemplate, 'background_template');
+      expect(DoodleBlockKeys.altText, 'alt_text');
     });
   });
 
@@ -44,6 +45,19 @@ void main() {
         aspectRatio: 2.0,
       );
       expect(node.attributes[DoodleBlockKeys.aspectRatio], 2.0);
+    });
+
+    test('stores altText in attributes', () {
+      final node = doodleNode(
+        attachmentId: 'a1',
+        altText: 'A flowchart',
+      );
+      expect(node.attributes[DoodleBlockKeys.altText], 'A flowchart');
+    });
+
+    test('defaults altText to empty string', () {
+      final node = doodleNode(attachmentId: 'a1');
+      expect(node.attributes[DoodleBlockKeys.altText], '');
     });
 
     test('accepts an explicit thumbnail path', () {
@@ -112,19 +126,21 @@ void main() {
     Widget buildWidget({
       DoodleBlockTapCallback? onTap,
       String thumbnailBackgroundTemplate = 'dotted',
+      Node? node,
     }) {
       final editorState = EditorState.blank();
-      final node = doodleNode(
-        attachmentId: 'a1',
-        backgroundTemplate: thumbnailBackgroundTemplate,
-      );
+      final blockNode = node ??
+          doodleNode(
+            attachmentId: 'a1',
+            backgroundTemplate: thumbnailBackgroundTemplate,
+          );
 
       return MaterialApp(
         home: Scaffold(
           body: Provider.value(
             value: editorState,
             child: DoodleBlockComponentWidget(
-              node: node,
+              node: blockNode,
               onTap: onTap,
             ),
           ),
@@ -183,6 +199,42 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Tap to edit doodle'), findsOneWidget);
+    });
+
+    testWidgets('exposes alt text as semantics label', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        buildWidget(
+          node: doodleNode(attachmentId: 'a1', altText: 'A flowchart'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final semanticsWidgets = tester.widgetList<Semantics>(
+        find.byType(Semantics),
+      );
+      final labels = semanticsWidgets.map((w) {
+        return tester.getSemantics(find.byWidget(w)).label;
+      });
+      expect(labels, contains('A flowchart'));
+      handle.dispose();
+    });
+
+    testWidgets('falls back to Doodle drawing label', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        buildWidget(node: doodleNode(attachmentId: 'a1')),
+      );
+      await tester.pumpAndSettle();
+
+      final semanticsWidgets = tester.widgetList<Semantics>(
+        find.byType(Semantics),
+      );
+      final labels = semanticsWidgets.map((w) {
+        return tester.getSemantics(find.byWidget(w)).label;
+      });
+      expect(labels, contains('Doodle drawing'));
+      handle.dispose();
     });
 
     testWidgets('renders container with minimum height', (tester) async {

@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/database_provider.dart';
 import '../../../core/platform/local_reminder_scheduler.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/widgets/semantics.dart';
 import '../../../data/database.dart';
@@ -13,12 +14,13 @@ import '../../../data/repositories/attachment_repository.dart';
 import '../../../data/repositories/checklist_item_repository.dart';
 import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
-import '../../../data/repositories/reminder_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
 import '../../../data/repositories/template_repository.dart';
+import '../../../core/theme/note_theme_scope.dart';
 import '../../security/vault_password_dialog.dart';
 import '../../settings/widgets/bulk_export.dart';
 import 'note_link_picker.dart';
+import 'note_reminders_sheet.dart';
 
 /// Combined bottom sheet for note options: notebook, tags, and color.
 class NoteOptionsSheet extends ConsumerStatefulWidget {
@@ -28,19 +30,27 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
     this.currentNotebookId,
     this.currentColorSeed,
     this.currentlyLocked = false,
+    this.currentFontStyle,
+    this.currentReadOnly,
     this.onNotebookChanged,
     this.onTagsChanged,
     this.onColorChanged,
+    this.onFontStyleChanged,
+    this.onReadOnlyChanged,
     this.onLockedChanged,
   });
 
   final String noteId;
   final String? currentNotebookId;
   final String? currentColorSeed;
+  final NoteFontStyle? currentFontStyle;
+  final bool? currentReadOnly;
   final bool currentlyLocked;
   final ValueChanged<String?>? onNotebookChanged;
   final ValueChanged<List<String>>? onTagsChanged;
   final ValueChanged<String?>? onColorChanged;
+  final ValueChanged<NoteFontStyle>? onFontStyleChanged;
+  final ValueChanged<bool>? onReadOnlyChanged;
   final ValueChanged<bool>? onLockedChanged;
 
   static Future<void> show(
@@ -48,10 +58,14 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
     required String noteId,
     String? currentNotebookId,
     String? currentColorSeed,
+    NoteFontStyle? currentFontStyle,
+    bool? currentReadOnly,
     bool currentlyLocked = false,
     ValueChanged<String?>? onNotebookChanged,
     ValueChanged<List<String>>? onTagsChanged,
     ValueChanged<String?>? onColorChanged,
+    ValueChanged<NoteFontStyle>? onFontStyleChanged,
+    ValueChanged<bool>? onReadOnlyChanged,
     ValueChanged<bool>? onLockedChanged,
   }) {
     return showModalBottomSheet(
@@ -65,10 +79,14 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
         noteId: noteId,
         currentNotebookId: currentNotebookId,
         currentColorSeed: currentColorSeed,
+        currentFontStyle: currentFontStyle,
+        currentReadOnly: currentReadOnly,
         currentlyLocked: currentlyLocked,
         onNotebookChanged: onNotebookChanged,
         onTagsChanged: onTagsChanged,
         onColorChanged: onColorChanged,
+        onFontStyleChanged: onFontStyleChanged,
+        onReadOnlyChanged: onReadOnlyChanged,
         onLockedChanged: onLockedChanged,
       ),
     );
@@ -81,6 +99,8 @@ class NoteOptionsSheet extends ConsumerStatefulWidget {
 class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
   String? _selectedNotebookId;
   String? _selectedColorSeed;
+  NoteFontStyle _selectedFontStyle = NoteFontStyle.auto;
+  bool _isReadOnly = false;
   List<String> _selectedTagIds = [];
   List<Notebook> _notebooks = [];
   List<Tag> _tags = [];
@@ -103,6 +123,8 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
     super.initState();
     _selectedNotebookId = widget.currentNotebookId;
     _selectedColorSeed = widget.currentColorSeed;
+    _selectedFontStyle = widget.currentFontStyle ?? NoteFontStyle.auto;
+    _isReadOnly = widget.currentReadOnly ?? false;
     _isLocked = widget.currentlyLocked;
     _load();
   }
@@ -181,8 +203,8 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
     if (sc == null || !sc.hasClients || !mounted) return;
     await sc.animateTo(
       sc.position.minScrollExtent,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
+      duration: AppMotion.short4,
+      curve: AppMotion.standardDecelerate,
     );
   }
 
@@ -209,8 +231,8 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
     if (sc != null && sc.hasClients && mounted) {
       await sc.animateTo(
         sc.position.minScrollExtent,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
+        duration: AppMotion.short4,
+        curve: AppMotion.standardDecelerate,
       );
     }
   }
@@ -529,6 +551,53 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
 
                     const SizedBox(height: 24),
 
+                    // ── Typography section ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'Note style',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              scheme.onSurfaceVariant.withValues(alpha: 0.65),
+                        ),
+                      ),
+                    ),
+                    for (final style in NoteFontStyle.values)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          _fontStyleLabel(style),
+                          style: TextStyle(
+                            fontWeight: _selectedFontStyle == style
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: _selectedFontStyle == style
+                                ? scheme.primary
+                                : null,
+                          ),
+                        ),
+                        subtitle: Text(
+                          _fontStyleSubtitle(style),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                        trailing: _selectedFontStyle == style
+                            ? HugeIcon(
+                                icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+                                size: 18,
+                                color: scheme.primary,
+                              )
+                            : null,
+                        onTap: () {
+                          setState(() => _selectedFontStyle = style);
+                          widget.onFontStyleChanged?.call(style);
+                        },
+                      ),
+
                     // ── Lock section ──
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -552,6 +621,29 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                       onChanged: (v) {
                         setState(() => _isLocked = v);
                         widget.onLockedChanged?.call(v);
+                      },
+                    ),
+
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Read-only mode'),
+                      subtitle: Text(
+                        'Disable editing and insert actions',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      secondary: HugeIcon(
+                        icon: HugeIcons.strokeRoundedViewOff,
+                        color: _isReadOnly
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
+                      value: _isReadOnly,
+                      onChanged: (v) {
+                        setState(() => _isReadOnly = v);
+                        widget.onReadOnlyChanged?.call(v);
                       },
                     ),
 
@@ -759,56 +851,19 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                       ),
                       onTap: () async {
                         final db = ref.read(databaseProvider);
+                        final note =
+                            await NoteRepository(db).getNoteById(widget.noteId);
+                        final title = (note == null || note.title.isEmpty)
+                            ? 'Untitled'
+                            : note.title;
                         final scheduler = LocalReminderScheduler();
-                        final repo = ReminderRepository(
-                          db,
-                          scheduler: scheduler,
-                        );
                         await scheduler.requestPermissions();
-                        final existing = await repo.forNote(widget.noteId);
                         if (!mounted) return;
-                        await showDialog<void>(
-                          context: this.context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Reminders'),
-                            content: existing.isEmpty
-                                ? const Text(
-                                    'No reminders yet. In a follow-up, a date '
-                                    'picker will let you schedule one for this '
-                                    'note. For now, reminders are stored and '
-                                    'scheduled via the local notification '
-                                    'pipeline.',
-                                  )
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      for (final r in existing.take(8))
-                                        ListTile(
-                                          dense: true,
-                                          title: Text(r.title),
-                                          subtitle: Text(
-                                            '${r.fireAt} · ${r.repeat}',
-                                          ),
-                                          trailing: IconButton(
-                                            icon: const Icon(
-                                                Icons.delete_outline),
-                                            onPressed: () async {
-                                              await repo.delete(r.id);
-                                              if (ctx.mounted) {
-                                                Navigator.pop(ctx);
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                child: const Text('Close'),
-                              ),
-                            ],
-                          ),
+                        await showNoteRemindersSheet(
+                          this.context,
+                          noteId: widget.noteId,
+                          noteTitle: title,
+                          scheduler: scheduler,
                         );
                       },
                     ),
@@ -824,6 +879,32 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
         );
       },
     );
+  }
+}
+
+String _fontStyleLabel(NoteFontStyle style) {
+  switch (style) {
+    case NoteFontStyle.auto:
+      return 'Automatic';
+    case NoteFontStyle.sans:
+      return 'Sans Serif';
+    case NoteFontStyle.serif:
+      return 'Serif';
+    case NoteFontStyle.mono:
+      return 'Monospace';
+  }
+}
+
+String _fontStyleSubtitle(NoteFontStyle style) {
+  switch (style) {
+    case NoteFontStyle.auto:
+      return 'Theme-based serif or modern';
+    case NoteFontStyle.sans:
+      return 'Clean, high-tracking modern';
+    case NoteFontStyle.serif:
+      return 'Editorial Playfair Display';
+    case NoteFontStyle.mono:
+      return 'Monospace developer style';
   }
 }
 
@@ -849,7 +930,7 @@ class _ColorDot extends StatelessWidget {
         button: true,
         selected: isSelected,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: AppMotion.short4,
           width: 48,
           height: 48,
           decoration: BoxDecoration(
@@ -948,7 +1029,7 @@ class _TagChip extends StatelessWidget {
         button: true,
         selected: isSelected,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: AppMotion.short4,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected

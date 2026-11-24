@@ -74,6 +74,14 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
         ? Colors.white.withValues(alpha: 0.7)
         : const Color(0xFF1A1A1A).withValues(alpha: 0.65);
 
+    final hasParent = widget.notebook.name.contains('/');
+    final kickerLabel = hasParent
+        ? 'Notebook · ${widget.notebook.name.split('/').sublist(0, widget.notebook.name.split('/').length - 1).map((s) => s.trim()).join(' › ')}'
+        : 'Notebook';
+    final displayName = hasParent
+        ? widget.notebook.name.split('/').last.trim()
+        : widget.notebook.name;
+
     return Container(
       decoration: BoxDecoration(
         color: coverColor,
@@ -151,12 +159,12 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
                       ),
                     ),
                     child: Text(
-                      'NOTEBOOK',
+                      kickerLabel,
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.8,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
                         color: textColor,
                       ),
                     ),
@@ -169,7 +177,7 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
                 // ellipsize instead of overflowing short portrait cards.
                 Flexible(
                   child: Text(
-                    widget.notebook.name,
+                    displayName,
                     style: TextStyle(
                       fontFamily: 'Playfair Display',
                       fontSize: 32,

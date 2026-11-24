@@ -60,8 +60,7 @@ void paintDoodleStrokes(Canvas canvas, Size size, List<Stroke> strokes) {
 
       if (geometry.isEmpty) continue;
 
-      final path = Path()
-        ..moveTo(geometry.first.dx, geometry.first.dy);
+      final path = Path()..moveTo(geometry.first.dx, geometry.first.dy);
       for (int i = 1; i < geometry.length; i++) {
         path.lineTo(geometry[i].dx, geometry[i].dy);
       }
@@ -72,8 +71,7 @@ void paintDoodleStrokes(Canvas canvas, Size size, List<Stroke> strokes) {
       }
       canvas.drawPath(path, paint);
 
-      if (stroke.shapeType == RecognizedShape.arrow &&
-          geometry.length == 2) {
+      if (stroke.shapeType == RecognizedShape.arrow && geometry.length == 2) {
         _drawArrowhead(canvas, paint, geometry[0], geometry[1]);
       }
       continue;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/widgets/semantics.dart';
 
@@ -88,7 +89,7 @@ class _ColorPickerSheetState extends State<ColorPickerSheet> {
                   setState(() => _selectedColor = null);
                 },
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: AppMotion.short4,
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
@@ -118,7 +119,7 @@ class _ColorPickerSheetState extends State<ColorPickerSheet> {
                     setState(() => _selectedColor = NookColors.seeds[i]);
                   },
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
+                    duration: AppMotion.short4,
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(

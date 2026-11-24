@@ -7,6 +7,7 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/talker_provider.dart';
+import '../../core/theme/app_motion.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/tables/notes.dart';
 
@@ -225,7 +226,7 @@ class _QuickNoteOverlayState extends ConsumerState<QuickNoteOverlay> {
                                     Text(
                                       'Auto-saves',
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 12,
                                         color: scheme.onSurfaceVariant
                                             .withValues(alpha: 0.5),
                                       ),
@@ -261,12 +262,12 @@ Future<void> showQuickNoteOverlay(BuildContext context) {
     barrierDismissible: true,
     barrierLabel: 'Quick Note',
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 250),
+    transitionDuration: AppMotion.medium1,
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       return FadeTransition(
         opacity: CurvedAnimation(
           parent: animation,
-          curve: Curves.easeOutCubic,
+          curve: AppMotion.emphasizedDecelerate,
         ),
         child: child,
       );

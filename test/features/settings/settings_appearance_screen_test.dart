@@ -23,7 +23,7 @@ void main() {
 
   testWidgets('shows theme mode selector', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('THEME MODE'), findsOneWidget);
+    expect(find.text('Theme Mode'), findsOneWidget);
     expect(find.text('System'), findsOneWidget);
     expect(find.text('Light'), findsOneWidget);
     expect(find.text('Dark'), findsOneWidget);
@@ -31,7 +31,7 @@ void main() {
 
   testWidgets('shows seed color section', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('SEED COLOR SIGNATURE'), findsOneWidget);
+    expect(find.text('Seed Color Signature'), findsOneWidget);
   });
 
   testWidgets('shows all 12 seed swatches', (tester) async {
@@ -43,7 +43,7 @@ void main() {
 
   testWidgets('shows reduce motion toggle', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('REDUCE MOTION'), findsOneWidget);
+    expect(find.text('Reduce Motion'), findsOneWidget);
     expect(
       find.widgetWithText(SwitchListTile, 'Reduce motion'),
       findsOneWidget,
@@ -88,7 +88,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(buildScreen());
-    expect(find.text('TRUE BLACK (AMOLED)'), findsOneWidget);
+    expect(find.text('True Black (AMOLED)'), findsOneWidget);
     expect(find.text('True black (AMOLED)'), findsOneWidget);
   });
 

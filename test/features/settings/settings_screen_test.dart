@@ -30,23 +30,23 @@ void main() {
 
   testWidgets('renders Appearance section header', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('APPEARANCE'), findsOneWidget);
+    expect(find.text('Appearance'), findsOneWidget);
   });
 
   testWidgets('renders Security section header', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('SECURITY & PRIVACY'), findsOneWidget);
+    expect(find.text('Security & Privacy'), findsOneWidget);
   });
 
   testWidgets('renders Storage & Sync section header', (tester) async {
     await tester.pumpWidget(buildScreen());
-    expect(find.text('STORAGE & SYNC'), findsOneWidget);
+    expect(find.text('Storage & Sync'), findsOneWidget);
   });
 
   testWidgets('renders About section header', (tester) async {
     await tester.pumpWidget(buildScreen());
-    await tester.scrollUntilVisible(find.text('ABOUT'), 100);
-    expect(find.text('ABOUT'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('About'), 100);
+    expect(find.text('About'), findsOneWidget);
   });
 
   testWidgets('renders theme tile with System value', (tester) async {

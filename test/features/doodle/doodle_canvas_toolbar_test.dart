@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/features/doodle/doodle_canvas.dart';
 import 'package:nook/features/doodle/doodle_controller.dart';
+import 'package:nook/features/doodle/doodle_input_policy.dart';
 import 'package:nook/features/doodle/doodle_toolbar.dart';
 
 void main() {
@@ -253,7 +254,8 @@ void main() {
       final controller = DoodleController();
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: DoodleCanvas(controller: controller),
+          body:
+              DoodleCanvas(controller: controller, policy: DoodleInputPolicy()),
         ),
       ));
 
@@ -268,7 +270,8 @@ void main() {
           body: SizedBox(
             width: 400,
             height: 400,
-            child: DoodleCanvas(controller: controller),
+            child: DoodleCanvas(
+                controller: controller, policy: DoodleInputPolicy()),
           ),
         ),
       ));
@@ -291,7 +294,8 @@ void main() {
           body: SizedBox(
             width: 400,
             height: 400,
-            child: DoodleCanvas(controller: controller),
+            child: DoodleCanvas(
+                controller: controller, policy: DoodleInputPolicy()),
           ),
         ),
       ));

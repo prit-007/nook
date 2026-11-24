@@ -7,6 +7,8 @@ import 'dart:math';
 import 'dart:ui';
 
 import '../adaptive_breakpoints.dart';
+import '../theme/app_motion.dart';
+import '../theme/nook_tokens.dart';
 import 'dock_safe_area.dart';
 
 /// Material 3 window size class based on width.
@@ -21,7 +23,7 @@ class AppShell extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/home')) return 0;
     if (location.startsWith('/notebooks')) return 1;
-    if (location.startsWith('/sync')) return 2;
+    if (location.startsWith('/tags')) return 2;
     if (location.startsWith('/settings')) return 3;
     if (location.startsWith('/trash')) return 3;
     return 0;
@@ -35,7 +37,7 @@ class AppShell extends StatelessWidget {
       case 1:
         context.go('/notebooks');
       case 2:
-        context.go('/sync');
+        context.go('/tags');
       case 3:
         context.go('/settings');
     }
@@ -111,14 +113,14 @@ class _MobileShell extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(36),
+                borderRadius: context.tokens.borderRadiusDock,
                 border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.15),
+                  color: context.tokens.dockBorder,
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.06),
+                    color: context.tokens.dockShadow,
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -141,9 +143,9 @@ class _MobileShell extends StatelessWidget {
                     onTap: () => onTap(1),
                   ),
                   _DockItem(
-                    icon: HugeIcons.strokeRoundedWifi01,
-                    activeIcon: HugeIcons.strokeRoundedWifi02,
-                    label: 'Sync',
+                    icon: HugeIcons.strokeRoundedTag01,
+                    activeIcon: HugeIcons.strokeRoundedTag02,
+                    label: 'Tags',
                     isSelected: selectedIndex == 2,
                     onTap: () => onTap(2),
                   ),
@@ -183,40 +185,11 @@ class _DockItem extends StatefulWidget {
   State<_DockItem> createState() => _DockItemState();
 }
 
-class _DockItemState extends State<_DockItem>
-    with SingleTickerProviderStateMixin {
-  static const _selectionDuration = Duration(milliseconds: 320);
-  static const _iconSwapDuration = Duration(milliseconds: 260);
+class _DockItemState extends State<_DockItem> {
+  static const _selectionDuration = AppMotion.medium1;
+  static const _iconSwapDuration = AppMotion.short4;
 
-  late final AnimationController _controller;
-  late final Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _handleTapDown(TapDownDetails details) => _controller.forward();
-
-  void _handleTapUp(TapUpDetails details) {
-    _controller.reverse();
-    widget.onTap();
-  }
-
-  void _handleTapCancel() => _controller.reverse();
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -229,35 +202,45 @@ class _DockItemState extends State<_DockItem>
         button: true,
         selected: widget.isSelected,
         onTap: widget.onTap,
-        child: GestureDetector(
-          onTapDown: _handleTapDown,
-          onTapUp: _handleTapUp,
-          onTapCancel: _handleTapCancel,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedBuilder(
-            animation: _scaleAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _scaleAnimation.value,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkResponse(
+            onTap: widget.onTap,
+            onTapDown: (_) => setState(() => _isPressed = true),
+            onTapUp: (_) => setState(() => _isPressed = false),
+            onTapCancel: () => setState(() => _isPressed = false),
+            radius: 36,
+            highlightShape: BoxShape.rectangle,
+            borderRadius: context.tokens.borderRadiusLg,
+            splashColor: scheme.primary.withValues(alpha: 0.12),
+            highlightColor: scheme.primary.withValues(alpha: 0.08),
+            focusColor: scheme.primary.withValues(alpha: 0.15),
+            hoverColor: scheme.primary.withValues(alpha: 0.06),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+              child: AnimatedScale(
+                scale: _isPressed ? 0.92 : 1.0,
+                duration: AppMotion.short3,
+                curve: AppMotion.emphasizedDecelerate,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     AnimatedContainer(
                       duration: _selectionDuration,
-                      curve: Curves.easeOutCubic,
+                      curve: AppMotion.emphasizedDecelerate,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
                         color: widget.isSelected
                             ? scheme.primary.withValues(alpha: 0.15)
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: context.tokens.borderRadiusLg,
                       ),
                       child: AnimatedSwitcher(
                         duration: _iconSwapDuration,
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeIn,
+                        switchInCurve: AppMotion.emphasizedDecelerate,
+                        switchOutCurve: AppMotion.emphasizedAccelerate,
                         transitionBuilder: (child, animation) => FadeTransition(
                           opacity: animation,
                           child: ScaleTransition(
@@ -282,17 +265,17 @@ class _DockItemState extends State<_DockItem>
                         fit: BoxFit.scaleDown,
                         child: AnimatedDefaultTextStyle(
                           duration: _selectionDuration,
-                          curve: Curves.easeOutCubic,
+                          curve: AppMotion.emphasizedDecelerate,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: widget.isSelected
                                 ? FontWeight.w800
                                 : FontWeight.w600,
                             color: widget.isSelected
                                 ? scheme.primary
                                 : scheme.onSurfaceVariant
-                                    .withValues(alpha: 0.7),
-                            letterSpacing: 0.3,
+                                    .withValues(alpha: 0.8),
+                            letterSpacing: 0.2,
                           ),
                           child: Text(widget.label, maxLines: 1),
                         ),
@@ -300,8 +283,8 @@ class _DockItemState extends State<_DockItem>
                     ),
                   ],
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ),
       ),
@@ -338,9 +321,9 @@ class _WideShell extends StatelessWidget {
       label: Text('Notebooks'),
     ),
     NavigationRailDestination(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedWifi01, size: 26),
-      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedWifi02, size: 26),
-      label: Text('Sync'),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedTag01, size: 26),
+      selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedTag02, size: 26),
+      label: Text('Tags'),
     ),
     NavigationRailDestination(
       icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 26),
@@ -391,7 +374,7 @@ class _WideShell extends StatelessWidget {
                           BoxConstraints(minHeight: constraints.maxHeight),
                       child: IntrinsicHeight(
                         child: NavigationRail(
-                          minWidth: 110,
+                          minWidth: 80,
                           selectedIndex: selectedIndex,
                           onDestinationSelected: onTap,
                           backgroundColor: Colors.transparent,
@@ -436,6 +419,25 @@ class _WideShell extends StatelessWidget {
                             ),
                           ),
                           destinations: _destinations,
+                          trailing: Expanded(
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 24),
+                                child: IconButton(
+                                  icon: const HugeIcon(
+                                    icon: HugeIcons.strokeRoundedDelete01,
+                                    size: 24,
+                                  ),
+                                  tooltip: 'Bin / Trash',
+                                  onPressed: () {
+                                    HapticFeedback.selectionClick();
+                                    context.push('/trash');
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),

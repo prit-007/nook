@@ -454,7 +454,7 @@ class _ConflictDiffSheetState extends State<ConflictDiffSheet> {
           Text(
             subtitle,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color: scheme.onSurfaceVariant,
             ),
           ),
@@ -463,7 +463,7 @@ class _ConflictDiffSheetState extends State<ConflictDiffSheet> {
             Text(
               date,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 12,
                 color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
             ),

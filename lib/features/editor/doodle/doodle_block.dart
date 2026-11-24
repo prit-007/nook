@@ -15,6 +15,7 @@ class DoodleBlockKeys {
   static const String type = 'doodle';
   static const String attachmentId = 'attachment_id';
   static const String thumbnailPath = 'thumbnail_path';
+  static const String altText = 'alt_text';
   static const String aspectRatio = 'aspect_ratio';
   static const String backgroundTemplate = 'background_template';
 }
@@ -28,12 +29,14 @@ Node doodleNode({
   String? thumbnailPath,
   double aspectRatio = 1.333,
   String backgroundTemplate = 'dotted',
+  String altText = '',
 }) {
   return Node(
     type: DoodleBlockKeys.type,
     attributes: {
       DoodleBlockKeys.attachmentId: attachmentId,
       DoodleBlockKeys.thumbnailPath: thumbnailPath ?? '',
+      DoodleBlockKeys.altText: altText,
       DoodleBlockKeys.aspectRatio: aspectRatio,
       DoodleBlockKeys.backgroundTemplate: backgroundTemplate,
     },
@@ -138,40 +141,50 @@ class _DoodleBlockComponentWidgetState extends State<DoodleBlockComponentWidget>
     final backgroundTemplate =
         node.attributes[DoodleBlockKeys.backgroundTemplate] as String? ??
             'dotted';
+    final altText = node.attributes[DoodleBlockKeys.altText] as String? ?? '';
 
     Widget visual;
     if (thumbnailPath.isNotEmpty && File(thumbnailPath).existsSync()) {
-      visual = AspectRatio(
-        aspectRatio: aspectRatio,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.file(
-            File(thumbnailPath),
-            fit: BoxFit.contain,
-            gaplessPlayback: true,
+      visual = Semantics(
+        label: altText.isNotEmpty ? altText : 'Doodle drawing',
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              File(thumbnailPath),
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+            ),
           ),
         ),
       );
     } else {
-      visual = AspectRatio(
-        aspectRatio: aspectRatio,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            HugeIcon(
-              icon: DoodleBlockBackgroundIcons.fromTemplate(backgroundTemplate),
-              size: 48,
-              color: scheme.primary.withValues(alpha: 0.6),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap to edit doodle',
-              style: TextStyle(
-                fontSize: 13,
-                color: scheme.onSurface.withValues(alpha: 0.5),
+      visual = Semantics(
+        label: altText.isNotEmpty ? altText : 'Doodle drawing',
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              HugeIcon(
+                icon:
+                    DoodleBlockBackgroundIcons.fromTemplate(backgroundTemplate),
+                size: 48,
+                color: scheme.primary.withValues(alpha: 0.6),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              ExcludeSemantics(
+                child: Text(
+                  'Tap to edit doodle',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: scheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -181,6 +194,9 @@ class _DoodleBlockComponentWidgetState extends State<DoodleBlockComponentWidget>
       children: [
         GestureDetector(
           onTap: () => widget.onTap?.call(node, editorState),
+          onLongPress: () async {
+            await _editAltText(context);
+          },
           child: Container(
             constraints: const BoxConstraints(minHeight: 120),
             decoration: BoxDecoration(
@@ -217,6 +233,43 @@ class _DoodleBlockComponentWidgetState extends State<DoodleBlockComponentWidget>
     }
 
     return child;
+  }
+
+  /// Opens a dialog to add or edit the doodle's alt text (accessibility
+  /// label) and persists it to the node attributes.
+  Future<void> _editAltText(BuildContext context) async {
+    final editorState = Provider.of<EditorState>(context, listen: false);
+    final currentAlt =
+        node.attributes[DoodleBlockKeys.altText] as String? ?? '';
+    final controller = TextEditingController(text: currentAlt);
+    final confirmed = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add description'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Describe the doodle',
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == null || !mounted) return;
+    final transaction = editorState.transaction;
+    transaction.updateNode(node, {DoodleBlockKeys.altText: confirmed});
+    await editorState.apply(transaction);
   }
 
   // --- SelectableMixin overrides (non-text block pattern) ---

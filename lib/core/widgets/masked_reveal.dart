@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_motion.dart';
+
 /// GSAP-style masked reveal for any widget.
 ///
 /// The child slides up from behind a hard clip (an invisible baseline mask)
@@ -10,9 +12,9 @@ class MaskedReveal extends StatefulWidget {
   const MaskedReveal({
     super.key,
     required this.child,
-    this.duration = const Duration(milliseconds: 700),
+    this.duration = AppMotion.medium4,
     this.delay = Duration.zero,
-    this.curve = Curves.easeOutCubic,
+    this.curve = AppMotion.emphasizedDecelerate,
     this.begin = const Offset(0, 1),
     this.fade = false,
     this.onComplete,

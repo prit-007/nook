@@ -87,14 +87,39 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: MaskedRevealText(
-          _notebookName.isEmpty ? 'Notebook' : _notebookName,
-          style: TextStyle(
-            fontFamily: 'Playfair Display',
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_notebookName.contains('/'))
+              Text(
+                _notebookName
+                    .split('/')
+                    .sublist(0, _notebookName.split('/').length - 1)
+                    .map((s) => s.trim())
+                    .join(' › '),
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            MaskedRevealText(
+              _notebookName.isEmpty
+                  ? 'Notebook'
+                  : (_notebookName.contains('/')
+                      ? _notebookName.split('/').last.trim()
+                      : _notebookName),
+              style: TextStyle(
+                fontFamily: 'Playfair Display',
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurface,
+              ),
+            ),
+          ],
         ),
         iconTheme: IconThemeData(color: seedColor),
       ),
@@ -114,7 +139,7 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
           : _notes.isEmpty
               ? const EmptyState(
                   icon: HugeIcons.strokeRoundedNotebook01,
-                  title: 'No notes in this collection',
+                  title: 'No notes in this notebook',
                   subtitle: 'Create a note and assign it here.',
                   animate: false,
                 )

@@ -11,6 +11,7 @@ import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
 import '../../core/providers/talker_provider.dart';
 import 'pin_entry_screen.dart';
+import 'widgets/lock_illustration.dart';
 
 /// Dedicated lock screen with automatic biometric prompt.
 ///
@@ -62,12 +63,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              HugeIcon(
-                icon: HugeIcons.strokeRoundedFingerPrint,
-                size: 72,
-                color: scheme.primary,
+              const LockIllustration(
+                primaryIcon: HugeIcons.strokeRoundedFingerPrint,
+                badgeIcon: HugeIcons.strokeRoundedLock,
+                size: 112,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
               const Text(
                 'nook. is locked',
                 style: TextStyle(

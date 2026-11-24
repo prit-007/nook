@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/features/doodle/doodle_controller.dart';
@@ -130,7 +129,8 @@ void main() {
 
       // Center handle
       final center = handles[4];
-      final centerHit = c.hitTestResizeHandle(center.position, handleRadius: 12);
+      final centerHit =
+          c.hitTestResizeHandle(center.position, handleRadius: 12);
       expect(centerHit, isNotNull);
       expect(centerHit!.type, ResizeHandleType.center);
       c.dispose();
@@ -143,8 +143,8 @@ void main() {
       c.selectStroke(0);
 
       final handles = c.getResizeHandles();
-      final farPoint = Offset(handles.first.position.dx + 1000,
-          handles.first.position.dy + 1000);
+      final farPoint = Offset(
+          handles.first.position.dx + 1000, handles.first.position.dy + 1000);
       expect(c.hitTestResizeHandle(farPoint, handleRadius: 12), isNull);
       c.dispose();
     });
@@ -152,7 +152,7 @@ void main() {
     test('resizeDrag updates selected rect fit parameters', () {
       final c = DoodleController();
       // Directly create a perfect rect stroke to avoid RNG-dependent recognition
-      final fit = RectFit(
+      final fit = const RectFit(
         center: Offset(100, 60),
         uAxis: Offset(1, 0),
         vAxis: Offset(0, 1),
@@ -187,7 +187,7 @@ void main() {
 
     test('resizeDrag maintains center when dragging center handle', () {
       final c = DoodleController();
-      final fit = RectFit(
+      final fit = const RectFit(
         center: Offset(100, 60),
         uAxis: Offset(1, 0),
         vAxis: Offset(0, 1),
@@ -245,7 +245,7 @@ void main() {
       stroke.isPerfectShape = true;
       stroke.shapeType = RecognizedShape.rectangle;
       stroke.recognitionConfidence = 0.9;
-      stroke.fit = RectFit(
+      stroke.fit = const RectFit(
         center: Offset(100, 60),
         uAxis: Offset(1, 0),
         vAxis: Offset(0, 1),

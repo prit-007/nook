@@ -115,9 +115,12 @@ List<Offset> generateScribble(Offset center,
 void main() {
   group('doodle_shape_recognizer v2 — normalization invariance', () {
     test('same circle at 3 scales -> same class + high confidence', () {
-      final base = generateCircle(const Offset(200, 200), 60, noise: 1, seed: 7);
-      final small = generateCircle(const Offset(200, 200), 30, noise: 1, seed: 7);
-      final large = generateCircle(const Offset(200, 200), 120, noise: 1, seed: 7);
+      final base =
+          generateCircle(const Offset(200, 200), 60, noise: 1, seed: 7);
+      final small =
+          generateCircle(const Offset(200, 200), 30, noise: 1, seed: 7);
+      final large =
+          generateCircle(const Offset(200, 200), 120, noise: 1, seed: 7);
 
       final m1 = recognizeShape(base);
       final m2 = recognizeShape(small);
@@ -134,18 +137,19 @@ void main() {
     test('same rectangle at 4 rotations -> rectangle every time', () {
       final rect = const Rect.fromLTWH(0, 0, 200, 120);
       for (final rot in [0.0, 15.0, 45.0, 90.0, 135.0]) {
-        final stroke = generateRectangle(rect, rotationDeg: rot, noise: 1.5, seed: 11);
+        final stroke =
+            generateRectangle(rect, rotationDeg: rot, noise: 1.5, seed: 11);
         final match = recognizeShape(stroke);
         expect(match.shape, RecognizedShape.rectangle,
-            reason: 'rotation=$rot shape=${match.shape} conf=${match.confidence}');
+            reason:
+                'rotation=$rot shape=${match.shape} conf=${match.confidence}');
         expect(match.confidence, greaterThan(0.6), reason: 'rotation=$rot');
       }
     });
 
     test('same line at 3 speeds (point counts) -> line every time', () {
       for (final count in [20, 40, 90]) {
-        final stroke = generateLine(
-            const Offset(0, 0), const Offset(200, 40),
+        final stroke = generateLine(const Offset(0, 0), const Offset(200, 40),
             noise: 1.5, points: count, seed: 13);
         final match = recognizeShape(stroke);
         expect(match.shape, RecognizedShape.line,
@@ -154,9 +158,12 @@ void main() {
       }
     });
 
-    test('scale invariance: tiny circle still recognized if above adaptive floor', () {
+    test(
+        'scale invariance: tiny circle still recognized if above adaptive floor',
+        () {
       // A deliberately drawn small circle (~30px diagonal) should be recognized.
-      final stroke = generateCircle(const Offset(100, 100), 15, noise: 1, seed: 17);
+      final stroke =
+          generateCircle(const Offset(100, 100), 15, noise: 1, seed: 17);
       final match = recognizeShape(stroke);
       expect(match.isRecognized, isTrue,
           reason: 'small circle should be recognized, got ${match.shape}');
@@ -165,7 +172,8 @@ void main() {
 
   group('doodle_shape_recognizer v2 — per-shape classification', () {
     test('recognizes a rough hand-drawn circle', () {
-      final raw = generateCircle(const Offset(200, 200), 80, noise: 3, seed: 42);
+      final raw =
+          generateCircle(const Offset(200, 200), 80, noise: 3, seed: 42);
       final match = recognizeShape(raw);
       expect(match.isRecognized, isTrue);
       expect(match.shape, RecognizedShape.oval);
@@ -226,8 +234,8 @@ void main() {
       final hookAngle = shaftDir + math.pi - (40 * math.pi / 180);
       final hookEnd =
           end + Offset(math.cos(hookAngle), math.sin(hookAngle)) * hookLen;
-      final hook = generateLine(end, hookEnd,
-          noise: 1.5 * 0.5, points: 10, seed: 142);
+      final hook =
+          generateLine(end, hookEnd, noise: 1.5 * 0.5, points: 10, seed: 142);
       final raw = [...shaft, ...hook];
 
       final match = recognizeShape(raw);
@@ -347,7 +355,8 @@ void main() {
       for (int i = 0; i < 80; i++) {
         final angle = i * 0.3;
         final r = 10 + i * 1.5;
-        result.add(Offset(200 + r * math.cos(angle), 200 + r * math.sin(angle)));
+        result
+            .add(Offset(200 + r * math.cos(angle), 200 + r * math.sin(angle)));
       }
       final match = recognizeShape(result);
       expect(
@@ -363,7 +372,8 @@ void main() {
       final result = <Offset>[];
       for (int i = 0; i <= 40; i++) {
         final angle = math.pi * (i / 40);
-        result.add(Offset(100 + 80 * math.cos(angle), 100 + 80 * math.sin(angle)));
+        result.add(
+            Offset(100 + 80 * math.cos(angle), 100 + 80 * math.sin(angle)));
       }
       final match = recognizeShape(result);
       expect(match.shape, isNot(RecognizedShape.oval));

@@ -1,5 +1,31 @@
 import 'package:flutter/material.dart';
 
+/// Explicit font style selection for a note.
+enum NoteFontStyle {
+  auto,
+  sans,
+  serif,
+  mono,
+}
+
+/// Parses a stored font-style name, falling back to [NoteFontStyle.auto] for
+/// null or unrecognised values (e.g. legacy records written before this
+/// column existed).
+NoteFontStyle parseFontStyle(String? value) {
+  switch (value) {
+    case 'sans':
+      return NoteFontStyle.sans;
+    case 'serif':
+      return NoteFontStyle.serif;
+    case 'mono':
+      return NoteFontStyle.mono;
+    case 'auto':
+    case null:
+    default:
+      return NoteFontStyle.auto;
+  }
+}
+
 /// Provides theme tokens and dynamic typography tailored to a note's seed color.
 class NoteThemeScope extends InheritedWidget {
   const NoteThemeScope({
@@ -24,19 +50,27 @@ class NoteThemeScope extends InheritedWidget {
     return maybeOf(context)?.textTheme ?? Theme.of(context).textTheme;
   }
 
-  /// Builds a custom [TextTheme] based on the primary seed hue.
+  /// Builds a custom [TextTheme] based on the primary seed hue or explicit style.
   ///
-  /// Warm seeds (Terracotta/Gold/Rose): Editorial Serif Style.
-  /// Cool seeds (Sage/Navy/Cyan): Precision High-Tracking Modern Style.
+  /// Warm seeds (Terracotta/Gold/Rose) or [NoteFontStyle.serif]: Editorial Serif Style.
+  /// Cool seeds (Sage/Navy/Cyan) or [NoteFontStyle.sans]: Precision High-Tracking Modern Style.
+  /// [NoteFontStyle.mono]: Monospace developer style.
   static TextTheme buildDynamicTextTheme(
     BuildContext context,
-    ColorScheme scheme,
-  ) {
+    ColorScheme scheme, {
+    NoteFontStyle fontStyle = NoteFontStyle.auto,
+  }) {
     final base = Theme.of(context).textTheme;
+    if (fontStyle == NoteFontStyle.mono) {
+      return base.apply(fontFamily: 'monospace');
+    }
+
     final hue = HSLColor.fromColor(scheme.primary).hue;
     final isWarm = (hue >= 0 && hue <= 60) || hue >= 330;
+    final isSerif = fontStyle == NoteFontStyle.serif ||
+        (fontStyle == NoteFontStyle.auto && isWarm);
 
-    if (isWarm) {
+    if (isSerif) {
       return base.copyWith(
         displayLarge: base.displayLarge?.copyWith(
           fontFamily: 'Playfair Display',

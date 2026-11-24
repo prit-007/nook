@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/providers/talker_provider.dart';
+import '../../core/theme/note_theme_scope.dart';
 import '../database.dart';
 import '../tables/notes.dart';
 import 'attachment_repository.dart';
@@ -98,6 +99,7 @@ class NoteRepository {
     String? title,
     NoteType? type,
     String? colorSeed,
+    NoteFontStyle? fontStyle,
     bool? pinned,
     bool? locked,
     String? notebookId,
@@ -109,6 +111,8 @@ class NoteRepository {
         title: title != null ? Value(title) : const Value.absent(),
         type: type != null ? Value(type) : const Value.absent(),
         colorSeed: colorSeed != null ? Value(colorSeed) : const Value.absent(),
+        fontStyle:
+            fontStyle != null ? Value(fontStyle.name) : const Value.absent(),
         pinned: pinned != null ? Value(pinned) : const Value.absent(),
         locked: locked != null ? Value(locked) : const Value.absent(),
         notebookId:

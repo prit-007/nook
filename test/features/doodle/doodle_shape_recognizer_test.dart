@@ -243,5 +243,135 @@ void main() {
       expect(match.isRecognized, isFalse);
       expect(match.shape, RecognizedShape.none);
     });
+
+    test(
+        'does NOT misclassify closed kidney/bean doodle into rectangle or circle',
+        () {
+      // An organic closed kidney-bean shape: concave notch on one side
+      final raw = <Offset>[];
+      for (int i = 0; i <= 50; i++) {
+        final t = i / 50 * 2 * math.pi;
+        // r(t) = 80 + 35 * cos(t) - 20 * sin(2*t)
+        final r = 80 + 35 * math.cos(t) - 25 * math.sin(2 * t);
+        raw.add(Offset(200 + r * math.cos(t), 200 + r * math.sin(t)));
+      }
+      final match = recognizeShape(raw);
+      expect(match.isRecognized, isFalse,
+          reason:
+              'Organic kidney doodle should remain freehand ink, got ${match.shape}');
+    });
+
+    test('does NOT misclassify closed heart doodle into rectangle', () {
+      // Classic parametric heart curve
+      final raw = <Offset>[];
+      for (int i = 0; i <= 60; i++) {
+        final t = i / 60 * 2 * math.pi;
+        final x = (200 + 10 * 16 * math.pow(math.sin(t), 3)).toDouble();
+        final y = (200 -
+                10 *
+                    (13 * math.cos(t) -
+                        5 * math.cos(2 * t) -
+                        2 * math.cos(3 * t) -
+                        math.cos(4 * t)))
+            .toDouble();
+        raw.add(Offset(x, y));
+      }
+      final match = recognizeShape(raw);
+      expect(match.shape, isNot(RecognizedShape.rectangle),
+          reason: 'Heart doodle must never be recognized as a rectangle');
+    });
+
+    test('does NOT misclassify wavy/sinusoidal open line into straight line',
+        () {
+      // S-curve / wavy stroke with distinct waves
+      final raw = <Offset>[];
+      for (int i = 0; i <= 50; i++) {
+        final x = 50.0 + i * 5.0;
+        final y = 150.0 + 40.0 * math.sin(i / 50 * 2 * math.pi);
+        raw.add(Offset(x, y));
+      }
+      final match = recognizeShape(raw);
+      expect(match.isRecognized, isFalse,
+          reason: 'Wavy stroke should not be flattened to a straight line');
+    });
+
+    test('recognizes triangle with rounded corners as triangle, NOT rectangle',
+        () {
+      // Equilateral triangle with rounded corners and hand noise
+      final raw = <Offset>[
+        // Vertex 1 to Vertex 2
+        const Offset(200, 100),
+        const Offset(225, 140),
+        const Offset(250, 180),
+        const Offset(275, 220),
+        const Offset(300, 260),
+        // Rounded corner at bottom-right
+        const Offset(290, 265),
+        const Offset(270, 265),
+        // Vertex 2 to Vertex 3
+        const Offset(200, 263),
+        const Offset(130, 265),
+        const Offset(110, 265),
+        const Offset(100, 260),
+        // Vertex 3 to Vertex 1
+        const Offset(125, 220),
+        const Offset(150, 180),
+        const Offset(175, 140),
+        const Offset(200, 100),
+      ];
+      final match = recognizeShape(raw);
+      expect(match.isRecognized, isTrue);
+      expect(match.shape, RecognizedShape.triangle,
+          reason:
+              'Triangle with rounded corners must be triangle, not rectangle');
+    });
+
+    test('recognizes circle starting from 6 oclock as oval, NOT rectangle', () {
+      final raw = <Offset>[];
+      const center = Offset(250, 250);
+      const r = 70.0;
+      // Start at angle pi/2 (bottom)
+      for (int i = 0; i <= 50; i++) {
+        final angle = math.pi / 2 + (i / 50) * 2 * math.pi;
+        raw.add(center + Offset(r * math.cos(angle), r * math.sin(angle)));
+      }
+      final match = recognizeShape(raw);
+      expect(match.isRecognized, isTrue);
+      expect(match.shape, RecognizedShape.oval);
+      expect(match.shape, isNot(RecognizedShape.rectangle));
+    });
+
+    test('recognizes a right-angled triangle and snaps 90° corner', () {
+      final raw = <Offset>[
+        const Offset(100, 100),
+        const Offset(101, 150),
+        const Offset(100, 200),
+        const Offset(102, 250),
+        const Offset(150, 251),
+        const Offset(200, 250),
+        const Offset(250, 248),
+        const Offset(200, 200),
+        const Offset(150, 150),
+        const Offset(100, 100),
+      ];
+      final match = recognizeShape(raw);
+      expect(match.isRecognized, isTrue);
+      expect(match.shape, RecognizedShape.triangle);
+      expect(match.points.length, 4); // 3 vertices + closed loop
+    });
+
+    test('snaps line near 30° to 30° isometric angle', () {
+      const rad32 = 32.0 * math.pi / 180;
+      final raw = <Offset>[
+        for (int i = 0; i <= 20; i++)
+          Offset(i * 5.0 * math.cos(rad32), i * 5.0 * math.sin(rad32)),
+      ];
+      final match = recognizeShape(raw);
+      expect(match.isRecognized, isTrue);
+      expect(match.shape, RecognizedShape.line);
+      final snappedDir =
+          (match.points.last - match.points.first).direction * 180 / math.pi;
+      expect((snappedDir - 30.0).abs(), lessThan(0.5));
+    });
   });
 }

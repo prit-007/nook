@@ -120,12 +120,12 @@ class SettingsSecurityScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(left: 16, bottom: 8),
               child: Text(
-                'AUTO-LOCK TIMER',
+                'Auto-lock timer',
                 style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                  color: scheme.primary.withValues(alpha: 0.8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                  color: scheme.primary,
                 ),
               ),
             ),
@@ -215,12 +215,12 @@ class SettingsSecurityScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(left: 16, bottom: 8),
             child: Text(
-              'PIN FALLBACK',
+              'Pin fallback',
               style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-                color: scheme.primary.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+                color: scheme.primary,
               ),
             ),
           ),
@@ -268,12 +268,12 @@ class SettingsSecurityScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(left: 16, bottom: 8),
             child: Text(
-              'VAULT PASSWORD',
+              'Vault password',
               style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-                color: scheme.primary.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+                color: scheme.primary,
               ),
             ),
           ),

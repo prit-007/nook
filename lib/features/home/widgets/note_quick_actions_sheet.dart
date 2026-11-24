@@ -8,7 +8,9 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../core/theme/nook_tokens.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/floating_undo_snackbar.dart';
 import '../../../core/widgets/semantics.dart';
@@ -550,13 +552,14 @@ class _TagChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: AppMotion.short4,
+        curve: AppMotion.emphasizedDecelerate,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? tagColor.withValues(alpha: 0.15)
               : scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: context.tokens.borderRadiusLg,
           border: Border.all(
             color: isSelected
                 ? tagColor
@@ -712,7 +715,8 @@ class _ColorChoice extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: AppMotion.short3,
+        curve: AppMotion.emphasizedDecelerate,
         width: 36,
         height: 36,
         decoration: BoxDecoration(

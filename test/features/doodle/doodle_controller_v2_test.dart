@@ -121,9 +121,9 @@ void main() {
       }
       c.triggerHoldToSnap();
 
-      final firstConfidence = c.activeStroke!.recognitionConfidence;
+      expect(c.activeStroke!.recognitionConfidence, greaterThan(0.0));
       // Resize to a different aspect — recognition should still be a line
-      c.updateHoldSnappedStroke(Offset(500, 300));
+      c.updateHoldSnappedStroke(const Offset(500, 300));
       expect(c.activeStroke!.recognitionConfidence, greaterThan(0.0));
       c.dispose();
     });
@@ -193,6 +193,36 @@ void main() {
       c.endStroke();
       expect(c.strokes.first.isPerfectShape, isFalse);
       expect(c.strokes.first.recognitionConfidence, isNull);
+      c.dispose();
+    });
+
+    test('updateHoldSnappedStroke scales circle smoothly from center', () {
+      final c = DoodleController();
+      // Draw a circle of radius ~50 centered around (150, 150)
+      const center = Offset(150, 150);
+      const r = 50.0;
+      c.startStroke(const Offset(200, 150));
+      for (int i = 1; i <= 40; i++) {
+        final t = i / 40 * 2 * math.pi;
+        c.continueStroke(
+            Offset(center.dx + r * math.cos(t), center.dy + r * math.sin(t)));
+      }
+      final didSnap = c.triggerHoldToSnap();
+      expect(didSnap, isTrue);
+      expect(c.activeStroke!.isPerfectShape, isTrue);
+      expect(c.activeStroke!.shapeType, RecognizedShape.oval);
+
+      // Drag outward to (250, 150) — should scale up, maintaining center
+      c.updateHoldSnappedStroke(const Offset(250, 150));
+      final pts = c.activeStroke!.points.map((p) => p.position).toList();
+      double sumX = 0, sumY = 0;
+      for (final p in pts) {
+        sumX += p.dx;
+        sumY += p.dy;
+      }
+      final newCenter = Offset(sumX / pts.length, sumY / pts.length);
+      expect((newCenter.dx - center.dx).abs(), lessThan(5.0));
+      expect((newCenter.dy - center.dy).abs(), lessThan(5.0));
       c.dispose();
     });
   });

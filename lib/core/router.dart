@@ -5,9 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../app.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/home/search_screen.dart';
+import '../../features/notebooks/notebooks_screen.dart';
+import '../../features/tags/tags_screen.dart';
 import '../../features/notebooks/notebook_detail_screen.dart';
 import '../../features/tags/tag_detail_screen.dart';
-import '../../features/collections/collections_screen.dart';
 import '../../features/editor/note_editor_screen.dart';
 import '../../features/editor/version_history_screen.dart';
 import '../../features/doodle/doodle_canvas_screen.dart';
@@ -33,106 +34,191 @@ import '../../features/exports/exports_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import 'widgets/app_shell.dart';
 import 'providers/navigation_preference.dart';
+import 'theme/app_motion.dart';
+
+/// Reusable Material 3 page transition helper for GoRouter routes.
+abstract class AppPageTransitions {
+  /// Material 3 Shared Axis transition (fade + subtle scale) for hierarchical
+  /// and detail page navigation.
+  static CustomTransitionPage<T> sharedAxis<T>({
+    required LocalKey key,
+    required Widget child,
+  }) {
+    return CustomTransitionPage<T>(
+      key: key,
+      child: child,
+      transitionDuration: AppMotion.page,
+      reverseTransitionDuration: AppMotion.medium2,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final enterCurve = CurvedAnimation(
+          parent: animation,
+          curve: AppMotion.emphasizedDecelerate,
+          reverseCurve: AppMotion.emphasizedAccelerate,
+        );
+
+        final exitCurve = CurvedAnimation(
+          parent: secondaryAnimation,
+          curve: AppMotion.emphasizedDecelerate,
+          reverseCurve: AppMotion.emphasizedAccelerate,
+        );
+
+        return FadeTransition(
+          opacity: enterCurve,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(enterCurve),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 1.0, end: 1.03).animate(exitCurve),
+              child: FadeTransition(
+                opacity:
+                    Tween<double>(begin: 1.0, end: 0.85).animate(exitCurve),
+                child: RepaintBoundary(child: child),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Material 3 Slide-Up transition builder for modals, full-screen editors, and canvases.
+  static Widget buildSlideUpTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final enterCurve = CurvedAnimation(
+      parent: animation,
+      curve: AppMotion.emphasizedDecelerate,
+      reverseCurve: AppMotion.emphasizedAccelerate,
+    );
+
+    final exitCurve = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: AppMotion.emphasizedDecelerate,
+      reverseCurve: AppMotion.emphasizedAccelerate,
+    );
+
+    return FadeTransition(
+      opacity: enterCurve,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.0, 0.06),
+          end: Offset.zero,
+        ).animate(enterCurve),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 1.0, end: 0.96).animate(exitCurve),
+          child: RepaintBoundary(child: child),
+        ),
+      ),
+    );
+  }
+
+  /// Material 3 Slide-Up transition for modals, full-screen editors, and canvases.
+  static CustomTransitionPage<T> slideUp<T>({
+    required LocalKey key,
+    required Widget child,
+  }) {
+    return CustomTransitionPage<T>(
+      key: key,
+      child: child,
+      transitionDuration: AppMotion.modal,
+      reverseTransitionDuration: AppMotion.medium2,
+      transitionsBuilder: buildSlideUpTransitions,
+    );
+  }
+
+  /// Material 3 Fade-Through transition for NavigationBar / Shell tab switches.
+  static CustomTransitionPage<T> fadeThrough<T>({
+    required LocalKey key,
+    required Widget child,
+  }) {
+    return CustomTransitionPage<T>(
+      key: key,
+      child: child,
+      transitionDuration: AppMotion.standard,
+      reverseTransitionDuration: AppMotion.short4,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final enterAnimation = CurvedAnimation(
+          parent: animation,
+          curve: const Interval(0.2, 1.0, curve: AppMotion.standardDecelerate),
+        );
+        final scaleAnimation = Tween<double>(begin: 0.96, end: 1.0).animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: AppMotion.emphasizedDecelerate,
+          ),
+        );
+
+        return FadeTransition(
+          opacity: enterAnimation,
+          child: ScaleTransition(
+            scale: scaleAnimation,
+            child: RepaintBoundary(child: child),
+          ),
+        );
+      },
+    );
+  }
+}
 
 /// Bespoke page transition for a luxury editorial feel.
-///
-/// Combines a subtle fade with an upward glide, using a snappy
-/// duration and cubic easing for fluid, responsive transitions.
 CustomTransitionPage<T> buildEditorialTransition<T>({
   required BuildContext context,
   required GoRouterState state,
   required Widget child,
 }) {
-  return CustomTransitionPage<T>(
+  return AppPageTransitions.slideUp<T>(
     key: state.pageKey,
     child: child,
-    transitionDuration: const Duration(milliseconds: 350),
-    reverseTransitionDuration: const Duration(milliseconds: 250),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curve = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
-      );
-
-      return FadeTransition(
-        opacity: curve,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.0, 0.03), // Subtle 3% drop
-            end: Offset.zero,
-          ).animate(curve),
-          // Rasterize the incoming page once so the fade/slide only composites
-          // layers — no per-frame repaint of the page subtree during the push.
-          child: RepaintBoundary(child: child),
-        ),
-      );
-    },
   );
 }
 
 /// Lightweight editorial page route for imperative [Navigator.push] calls.
-///
-/// Uses the same fade+slide as [buildEditorialTransition] but without the
-/// go_router dependency so it can be used anywhere in the app.
 class EditorialPageRoute<T> extends PageRouteBuilder<T> {
   EditorialPageRoute({required WidgetBuilder builder})
       : super(
           pageBuilder: (context, animation, secondaryAnimation) =>
               builder(context),
-          transitionDuration: const Duration(milliseconds: 350),
-          reverseTransitionDuration: const Duration(milliseconds: 250),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final curve = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            );
-            return FadeTransition(
-              opacity: curve,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0.0, 0.03),
-                  end: Offset.zero,
-                ).animate(curve),
-                child: RepaintBoundary(child: child),
-              ),
-            );
-          },
+          transitionDuration: AppMotion.modal,
+          reverseTransitionDuration: AppMotion.medium2,
+          transitionsBuilder: AppPageTransitions.buildSlideUpTransitions,
         );
 }
 
-/// Custom page transition: slow fade + slight slide up for forward pushes.
+/// Custom page transition: Material 3 shared axis for hierarchical sub-pages.
+CustomTransitionPage<void> _sharedAxisTransition(
+  BuildContext context,
+  GoRouterState state,
+  Widget child,
+) {
+  return AppPageTransitions.sharedAxis<void>(
+    key: state.pageKey,
+    child: child,
+  );
+}
+
+/// Custom page transition: Material 3 slide-up with secondary scale for pushes.
 CustomTransitionPage<void> _slideUpTransition(
   BuildContext context,
   GoRouterState state,
   Widget child,
 ) {
-  return buildEditorialTransition<void>(
-    context: context,
-    state: state,
+  return AppPageTransitions.slideUp<void>(
+    key: state.pageKey,
     child: child,
   );
 }
 
-/// Custom page transition: fade-through for shell tab switches.
+/// Custom page transition: Material 3 fade-through for shell tab switches.
 CustomTransitionPage<void> _fadeTransition(
   BuildContext context,
   GoRouterState state,
   Widget child,
 ) {
-  return CustomTransitionPage<void>(
+  return AppPageTransitions.fadeThrough<void>(
     key: state.pageKey,
     child: child,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(
-        opacity: CurvedAnimation(
-          parent: animation,
-          curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
-        ),
-        child: RepaintBoundary(child: child),
-      );
-    },
   );
 }
 
@@ -227,12 +313,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _fadeTransition(
               context,
               state,
-              const CollectionsScreen(initialTab: 0),
+              const NotebooksScreen(),
             ),
           ),
           GoRoute(
             path: '/notebooks/:notebookId',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               NotebookDetailScreen(
@@ -245,12 +331,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _fadeTransition(
               context,
               state,
-              const CollectionsScreen(initialTab: 1),
+              const TagsScreen(),
             ),
           ),
           GoRoute(
             path: '/tags/:tagId',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               TagDetailScreen(
@@ -284,7 +370,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/appearance',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const SettingsAppearanceScreen(),
@@ -292,7 +378,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/security',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const SettingsSecurityScreen(),
@@ -300,7 +386,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/storage',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const SettingsStorageScreen(),
@@ -308,7 +394,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/exports',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const ExportsScreen(),
@@ -316,7 +402,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/sync-devices',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const SettingsSyncDevicesScreen(),
@@ -324,7 +410,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/about',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const SettingsAboutScreen(),
@@ -332,7 +418,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/privacy',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const SettingsPrivacyScreen(),
@@ -340,7 +426,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/privacy/explainer',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const PrivacyExplainerScreen(),
@@ -348,7 +434,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/logs',
-            pageBuilder: (context, state) => _slideUpTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const SettingsLogsScreen(),

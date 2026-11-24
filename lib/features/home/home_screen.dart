@@ -9,14 +9,19 @@ import '../../core/adaptive_breakpoints.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/theme/app_motion.dart';
+import '../../core/theme/nook_tokens.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/floating_undo_snackbar.dart';
 import '../../core/widgets/parallax_card.dart';
+import '../../core/widgets/sync_status_indicator.dart';
 import '../../data/database.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/repositories/tag_repository.dart';
 import '../../data/tables/notes.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../templates/template_picker_sheet.dart';
+import 'models/home_view_mode.dart';
 import 'models/note_sort_order.dart';
 import 'providers/notes_list_provider.dart';
 import 'providers/note_card_metadata_provider.dart';
@@ -24,13 +29,16 @@ import 'widgets/batch_action_bar.dart';
 import 'widgets/batch_action_sheets.dart';
 import 'widgets/empty_home.dart';
 import 'widgets/filter_pill_bar.dart';
+import 'widgets/home_view_options_sheet.dart';
 import 'widgets/morphing_editorial_fab.dart';
 import 'widgets/note_banner_card.dart';
+import 'widgets/note_compact_tile.dart';
 import 'widgets/note_doodle_card.dart';
 import 'widgets/note_minimal_card.dart';
 import 'widgets/note_preview_pane.dart';
 import 'widgets/note_sort_sheet.dart';
 import 'widgets/pull_to_search.dart';
+import 'widgets/quick_capture_bar.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, this.animate = true});
@@ -44,7 +52,12 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with AutomaticKeepAliveClientMixin {
   NoteType? _selectedType;
+  bool _favoritesOnly = false;
   NoteSortOrder _sortOrder = NoteSortOrder.updatedDesc;
+  HomeViewMode _viewMode = HomeViewMode.masonry;
+  HomeGroupBy _groupBy = HomeGroupBy.none;
+  final Set<String> _animatedNoteIds = {};
+  bool _hasAnimatedHeader = false;
   bool _isSelectionMode = false;
   final Set<String> _selectedNoteIds = {};
 
@@ -145,8 +158,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   List<Note> _applyFilters(List<Note> notes) {
-    if (_selectedType == null) return notes;
-    return notes.where((n) => n.type == _selectedType).toList();
+    var result = notes;
+    if (_favoritesOnly) {
+      result = result.where((n) => n.pinned).toList();
+    }
+    if (_selectedType != null) {
+      result = result.where((n) => n.type == _selectedType).toList();
+    }
+    return result;
   }
 
   Map<NoteType?, int> _computeCounts(List<Note> notes) {
@@ -225,6 +244,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   filtered: filtered,
                   counts: counts,
                   isWide: isWide,
+                  width: width,
                   animate: animate,
                   safeBottom: safeBottom,
                 );
@@ -299,6 +319,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     required List<Note> filtered,
     required Map<NoteType?, int> counts,
     required bool isWide,
+    required double width,
     required bool animate,
     required double safeBottom,
   }) {
@@ -313,29 +334,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       error: (_, __) => <String, NoteCardMetadata>{},
     );
 
-    Widget greeting = Text(
-      _timeGreeting,
-      style: TextStyle(
-        fontFamily: 'Playfair Display',
-        fontSize: isWide ? 28 : 24,
-        fontWeight: FontWeight.w900,
-        letterSpacing: -1.2,
-        height: 1.1,
-        color: scheme.onSurface,
-      ),
-    );
-    Widget vaultLabel = Text(
-      'YOUR VAULT',
-      style: TextStyle(
-        fontSize: 9,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 2.0,
-        color: scheme.primary,
-      ),
-    );
-    if (animate) {
-      greeting = greeting.animate().fade(duration: 400.ms).slideY(begin: 0.2);
-      vaultLabel = vaultLabel.animate().fade(delay: 150.ms, duration: 400.ms);
+    final shouldAnimateHeader = animate && !_hasAnimatedHeader;
+    if (shouldAnimateHeader) {
+      _hasAnimatedHeader = true;
     }
 
     Widget searchPill = Padding(
@@ -355,13 +356,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             context.push('/home/search');
           },
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: context.tokens.borderRadiusXl,
             child: RepaintBoundary(
               child: Container(
                 height: 54,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: context.tokens.borderRadiusXl,
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -388,12 +389,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                       decoration: BoxDecoration(
                         color: scheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: context.tokens.borderRadiusXs,
                       ),
                       child: Text(
                         '${notes.length}',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: scheme.primary,
                         ),
@@ -407,8 +408,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
-    if (animate) {
-      searchPill = searchPill.animate().fade(delay: 200.ms, duration: 400.ms);
+    if (shouldAnimateHeader) {
+      searchPill = searchPill.animate().fade(
+            delay: AppMotion.short4,
+            duration: AppMotion.medium2,
+            curve: AppMotion.emphasizedDecelerate,
+          );
     }
 
     return PullToSearch(
@@ -439,6 +444,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 : null,
             actions: [
               if (!_isSelectionMode) ...[
+                const SyncStatusIndicator(),
+                IconButton(
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedDelete01,
+                    size: 22,
+                  ),
+                  tooltip: 'Bin / Trash',
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    context.push('/trash');
+                  },
+                ),
                 IconButton(
                   icon: const HugeIcon(
                     icon: HugeIcons.strokeRoundedSorting01,
@@ -453,6 +470,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       onSelected: (order) {
                         setState(() => _sortOrder = order);
                       },
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: HugeIcon(
+                    icon: _viewMode == HomeViewMode.masonry
+                        ? HugeIcons.strokeRoundedGridView
+                        : (_viewMode == HomeViewMode.list
+                            ? HugeIcons.strokeRoundedListView
+                            : HugeIcons.strokeRoundedMenu01),
+                    size: 22,
+                  ),
+                  tooltip: 'View options',
+                  onPressed: () {
+                    HomeViewOptionsSheet.show(
+                      context,
+                      currentViewMode: _viewMode,
+                      currentGroupBy: _groupBy,
+                      onViewModeChanged: (mode) =>
+                          setState(() => _viewMode = mode),
+                      onGroupByChanged: (group) =>
+                          setState(() => _groupBy = group),
                     );
                   },
                 ),
@@ -497,42 +536,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: EdgeInsets.symmetric(
                 horizontal: isWide ? 32 : 24,
-                vertical: 8,
+                vertical: 12,
               ),
-              title: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_isSelectionMode)
-                    Text(
-                      _selectedNoteIds.isEmpty
-                          ? 'Select notes'
-                          : '${_selectedNoteIds.length} selected',
-                      style: TextStyle(
-                        fontFamily: 'Playfair Display',
-                        fontSize: isWide ? 28 : 24,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1.2,
-                        height: 1.1,
-                        color: scheme.onSurface,
-                      ),
-                    )
-                  else
-                    greeting,
-                  const SizedBox(height: 2),
-                  if (_isSelectionMode)
-                    Text(
-                      'BATCH ACTIONS',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2.0,
-                        color: scheme.primary,
-                      ),
-                    )
-                  else
-                    vaultLabel,
-                ],
+              title: _CollapsingHeaderTitle(
+                isSelectionMode: _isSelectionMode,
+                selectedCount: _selectedNoteIds.length,
+                greeting: _timeGreeting,
+                isWide: isWide,
+                animate: shouldAnimateHeader,
               ),
             ),
           ),
@@ -543,13 +554,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: FilterPillBar(
               selectedType: _selectedType,
               counts: counts,
+              favoritesOnly: _favoritesOnly,
+              onFavoritesToggled: (val) {
+                HapticFeedback.selectionClick();
+                setState(() => _favoritesOnly = val);
+              },
+              favoritesCount: notes.where((n) => n.pinned).length,
               onTypeSelected: (type) {
                 HapticFeedback.selectionClick();
-                setState(() => _selectedType = type);
+                setState(() {
+                  _selectedType = type;
+                  if (type != null) _favoritesOnly = false;
+                });
               },
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          if (!_isSelectionMode)
+            SliverToBoxAdapter(
+              child: QuickCaptureBar(
+                margin: EdgeInsets.fromLTRB(
+                  isWide ? 32 : 16,
+                  4,
+                  isWide ? 32 : 16,
+                  8,
+                ),
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
           if (filtered.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
@@ -562,78 +593,177 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 child: EmptyHome(animate: widget.animate),
               ),
             )
-          else if (isWide)
-            _buildWideGrid(context, filtered, metadata)
           else
-            _buildNarrowStream(filtered, metadata),
+            ..._buildGroupedSlivers(
+              context,
+              filtered: filtered,
+              metadata: metadata,
+              isWide: isWide,
+              width: width,
+            ),
           SliverToBoxAdapter(child: SizedBox(height: safeBottom + 72)),
         ],
       ),
     );
   }
 
-  Widget _buildNarrowStream(
-      List<Note> filtered, Map<String, NoteCardMetadata> metadata) {
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      sliver: SliverList.builder(
-        itemCount: filtered.length,
-        itemBuilder: (context, index) {
-          return RepaintBoundary(
-            child:
-                _buildAnimatedCard(context, filtered[index], index, metadata),
-          );
-        },
-      ),
-    );
+  Map<String, List<Note>> _groupNotes(List<Note> notes, HomeGroupBy groupBy) {
+    if (groupBy == HomeGroupBy.none) {
+      return {'': notes};
+    }
+    if (groupBy == HomeGroupBy.pinned) {
+      final pinned = notes.where((n) => n.pinned).toList();
+      final others = notes.where((n) => !n.pinned).toList();
+      final groups = <String, List<Note>>{};
+      if (pinned.isNotEmpty) groups['Pinned'] = pinned;
+      if (others.isNotEmpty) {
+        groups[pinned.isNotEmpty ? 'Others' : 'All notes'] = others;
+      }
+      return groups;
+    }
+    if (groupBy == HomeGroupBy.date) {
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final yesterdayStart = todayStart.subtract(const Duration(days: 1));
+      final weekStart = todayStart.subtract(const Duration(days: 7));
+
+      final today = <Note>[];
+      final yesterday = <Note>[];
+      final thisWeek = <Note>[];
+      final older = <Note>[];
+
+      for (final note in notes) {
+        if (note.updatedAt.isAfter(todayStart)) {
+          today.add(note);
+        } else if (note.updatedAt.isAfter(yesterdayStart)) {
+          yesterday.add(note);
+        } else if (note.updatedAt.isAfter(weekStart)) {
+          thisWeek.add(note);
+        } else {
+          older.add(note);
+        }
+      }
+
+      final groups = <String, List<Note>>{};
+      if (today.isNotEmpty) groups['Today'] = today;
+      if (yesterday.isNotEmpty) groups['Yesterday'] = yesterday;
+      if (thisWeek.isNotEmpty) groups['This week'] = thisWeek;
+      if (older.isNotEmpty) groups['Older'] = older;
+      return groups;
+    }
+    return {'': notes};
   }
 
-  Widget _buildWideGrid(
-    BuildContext context,
-    List<Note> filtered,
-    Map<String, NoteCardMetadata> metadata,
-  ) {
-    // Interleave notes into columns for a masonry-like layout.
-    final width = MediaQuery.sizeOf(context).width;
-    // Use 3 columns only on extra-wide screens; 2 columns otherwise.
-    final columnCount = width >= 1400 ? 3 : 2;
-    final columns = <List<(Note, int)>>[];
-    for (var i = 0; i < columnCount; i++) {
-      columns.add([]);
-    }
-    for (var i = 0; i < filtered.length; i++) {
-      columns[i % columnCount].add((filtered[i], i));
+  List<Widget> _buildGroupedSlivers(
+    BuildContext context, {
+    required List<Note> filtered,
+    required Map<String, NoteCardMetadata> metadata,
+    required bool isWide,
+    required double width,
+  }) {
+    final groups = _groupNotes(filtered, _groupBy);
+    final slivers = <Widget>[];
+
+    for (final entry in groups.entries) {
+      if (entry.key.isNotEmpty) {
+        slivers.add(
+          SliverToBoxAdapter(
+            child: _SectionHeader(
+              title: entry.key,
+              count: entry.value.length,
+            ),
+          ),
+        );
+      }
+
+      slivers.add(
+        _buildSliverForNotes(
+          context,
+          notes: entry.value,
+          metadata: metadata,
+          isWide: isWide,
+          width: width,
+        ),
+      );
     }
 
-    final rowCount =
-        columns.map((c) => c.length).reduce((a, b) => a > b ? a : b);
+    return slivers;
+  }
 
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      sliver: SliverList.builder(
-        itemCount: rowCount,
-        itemBuilder: (context, rowIndex) {
-          return RepaintBoundary(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var c = 0; c < columnCount; c++) ...[
-                    if (c > 0) const SizedBox(width: 20),
-                    Expanded(
-                      child: rowIndex < columns[c].length
-                          ? _buildAnimatedCard(
-                              context,
-                              columns[c][rowIndex].$1,
-                              columns[c][rowIndex].$2,
-                              metadata,
-                            )
-                          : const Spacer(),
-                    ),
-                  ],
-                ],
+  Widget _buildSliverForNotes(
+    BuildContext context, {
+    required List<Note> notes,
+    required Map<String, NoteCardMetadata> metadata,
+    required bool isWide,
+    required double width,
+  }) {
+    if (_viewMode == HomeViewMode.compact) {
+      return SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: isWide ? 32 : 16),
+        sliver: SliverList.separated(
+          itemCount: notes.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final note = notes[index];
+            final isSelected = _selectedNoteIds.contains(note.id);
+            return RepaintBoundary(
+              child: _buildSwipeableCard(
+                context: context,
+                note: note,
+                child: NoteCompactTile(
+                  note: note,
+                  isSelected: isSelected,
+                  isSelectionMode: _isSelectionMode,
+                  onTap: _isSelectionMode
+                      ? () => _toggleSelection(note.id)
+                      : () => _openNote(note.id),
+                  onLongPress: _isSelectionMode
+                      ? () => _toggleSelection(note.id)
+                      : () => _enterSelectionMode(note.id),
+                ),
               ),
+            );
+          },
+        ),
+      );
+    }
+
+    if (_viewMode == HomeViewMode.list) {
+      return SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: isWide ? 32 : 16),
+        sliver: SliverList.separated(
+          itemCount: notes.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final note = notes[index];
+            return RepaintBoundary(
+              child: _buildSwipeableCard(
+                context: context,
+                note: note,
+                child: _buildAnimatedCard(context, note, index, metadata),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // Default: HomeViewMode.masonry
+    final crossAxisCount = isWide ? (width >= 1400 ? 3 : 2) : 2;
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: isWide ? 24 : 16),
+      sliver: SliverMasonryGrid.count(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: 14,
+        crossAxisSpacing: 14,
+        childCount: notes.length,
+        itemBuilder: (context, index) {
+          final note = notes[index];
+          return RepaintBoundary(
+            child: _buildSwipeableCard(
+              context: context,
+              note: note,
+              child: _buildAnimatedCard(context, note, index, metadata),
             ),
           );
         },
@@ -641,8 +771,116 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildAnimatedCard(BuildContext context, Note note, int index,
-      Map<String, NoteCardMetadata> metadata) {
+  Widget _buildSwipeableCard({
+    required BuildContext context,
+    required Note note,
+    required Widget child,
+  }) {
+    if (_isSelectionMode) {
+      return child;
+    }
+
+    final scheme = Theme.of(context).colorScheme;
+
+    return Dismissible(
+      key: ValueKey('swipe_${note.id}'),
+      direction: DismissDirection.horizontal,
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.85),
+          borderRadius: context.tokens.borderRadiusMd,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedPin,
+              color: scheme.onPrimaryContainer,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              note.pinned ? 'Unpin' : 'Pin',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: scheme.onPrimaryContainer,
+              ),
+            ),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: scheme.errorContainer,
+          borderRadius: context.tokens.borderRadiusMd,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Bin',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: scheme.onErrorContainer,
+              ),
+            ),
+            const SizedBox(width: 8),
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedDelete01,
+              color: scheme.onErrorContainer,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          try {
+            await HapticFeedback.mediumImpact();
+          } catch (_) {}
+          final db = ref.read(databaseProvider);
+          final repo = NoteRepository(db);
+          await repo.updateNote(note.id, pinned: !note.pinned);
+          return false;
+        } else if (direction == DismissDirection.endToStart) {
+          try {
+            await HapticFeedback.mediumImpact();
+          } catch (_) {}
+          final db = ref.read(databaseProvider);
+          final repo = NoteRepository(db);
+          await repo.softDelete(note.id);
+          if (context.mounted) {
+            showUndoSnackBar(
+              context,
+              message:
+                  'Moved "${note.title.trim().isEmpty ? 'Untitled note' : note.title.trim()}" to Bin',
+              onUndo: () async {
+                await repo.restore(note.id);
+              },
+            );
+          }
+          return true;
+        }
+        return false;
+      },
+      child: child,
+    );
+  }
+
+  Widget _buildAnimatedCard(
+    BuildContext context,
+    Note note,
+    int index,
+    Map<String, NoteCardMetadata> metadata,
+  ) {
     final noteMetadata = metadata[note.id];
     final isSelected = _selectedNoteIds.contains(note.id);
     Widget card;
@@ -684,8 +922,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         children: [
           AnimatedScale(
             scale: isSelected ? 0.98 : 1.0,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
+            duration: AppMotion.short3,
+            curve: AppMotion.emphasizedDecelerate,
             child: card,
           ),
           Positioned(
@@ -696,7 +934,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               checked: isSelected,
               child: IgnorePointer(
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
+                  duration: AppMotion.short4,
                   width: 30,
                   height: 30,
                   decoration: BoxDecoration(
@@ -736,21 +974,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
 
-    if (!_animationsAllowed(context)) return card;
-
-    return ParallaxCard(
-      child: card
+    final animAllowed = _animationsAllowed(context);
+    final shouldAnimate = animAllowed && !_animatedNoteIds.contains(note.id);
+    if (shouldAnimate) {
+      _animatedNoteIds.add(note.id);
+      card = card
           .animate()
           .fade(
-            duration: 350.ms,
-            delay: Duration(milliseconds: (index * 40).clamp(0, 400)),
+            duration: AppMotion.medium1,
+            delay: AppMotion.staggerDelay(index % 6),
+            curve: AppMotion.emphasizedDecelerate,
           )
           .slideY(
             begin: 0.08,
-            duration: 350.ms,
-            curve: Curves.easeOutCubic,
-          ),
-    );
+            duration: AppMotion.medium1,
+            curve: AppMotion.emphasizedDecelerate,
+          );
+    }
+
+    if (animAllowed && _viewMode == HomeViewMode.masonry) {
+      return ParallaxCard(child: card);
+    }
+
+    return card;
   }
 
   /// Material 3 window size class based on width.
@@ -759,5 +1005,183 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (width < 840) return WindowSizeClass.medium;
     if (width < 1200) return WindowSizeClass.expanded;
     return WindowSizeClass.large;
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.count});
+
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.1,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHigh,
+              borderRadius: context.tokens.borderRadiusXs,
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollapsingHeaderTitle extends StatefulWidget {
+  const _CollapsingHeaderTitle({
+    required this.isSelectionMode,
+    required this.selectedCount,
+    required this.greeting,
+    required this.isWide,
+    required this.animate,
+  });
+
+  final bool isSelectionMode;
+  final int selectedCount;
+  final String greeting;
+  final bool isWide;
+  final bool animate;
+
+  @override
+  State<_CollapsingHeaderTitle> createState() => _CollapsingHeaderTitleState();
+}
+
+class _CollapsingHeaderTitleState extends State<_CollapsingHeaderTitle> {
+  bool _hasRunEntrance = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final settings =
+        context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
+    final delta = (settings == null || settings.maxExtent <= settings.minExtent)
+        ? 1.0
+        : ((settings.currentExtent - settings.minExtent) /
+                (settings.maxExtent - settings.minExtent))
+            .clamp(0.0, 1.0);
+
+    final isCollapsed = delta < 0.35;
+
+    if (isCollapsed) {
+      return Text(
+        widget.isSelectionMode
+            ? (widget.selectedCount == 0
+                ? 'Select notes'
+                : '${widget.selectedCount} selected')
+            : 'Notes',
+        style: TextStyle(
+          fontFamily: 'Playfair Display',
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
+          color: scheme.onSurface,
+        ),
+      );
+    }
+
+    Widget greetingWidget = Text(
+      widget.greeting,
+      style: TextStyle(
+        fontFamily: 'Playfair Display',
+        fontSize: widget.isWide ? 26 : 22,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -1.0,
+        height: 1.1,
+        color: scheme.onSurface,
+      ),
+    );
+
+    Widget vaultLabelWidget = Text(
+      'Your vault',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.2,
+        color: scheme.primary,
+      ),
+    );
+
+    final shouldAnimate = widget.animate && !_hasRunEntrance;
+    if (shouldAnimate) {
+      _hasRunEntrance = true;
+      greetingWidget = greetingWidget
+          .animate()
+          .fade(
+            duration: AppMotion.medium2,
+            curve: AppMotion.emphasizedDecelerate,
+          )
+          .slideY(
+            begin: 0.15,
+            curve: AppMotion.emphasizedDecelerate,
+          );
+      vaultLabelWidget = vaultLabelWidget.animate().fade(
+            delay: AppMotion.short3,
+            duration: AppMotion.medium2,
+            curve: AppMotion.emphasizedDecelerate,
+          );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.isSelectionMode)
+          Text(
+            widget.selectedCount == 0
+                ? 'Select notes'
+                : '${widget.selectedCount} selected',
+            style: TextStyle(
+              fontFamily: 'Playfair Display',
+              fontSize: widget.isWide ? 26 : 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -1.0,
+              height: 1.1,
+              color: scheme.onSurface,
+            ),
+          )
+        else
+          greetingWidget,
+        const SizedBox(height: 2),
+        if (widget.isSelectionMode)
+          Text(
+            'Batch actions',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+              color: scheme.primary,
+            ),
+          )
+        else
+          vaultLabelWidget,
+      ],
+    );
   }
 }

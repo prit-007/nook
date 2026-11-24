@@ -2,6 +2,35 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'nook_tokens.dart';
+
+export 'nook_tokens.dart';
+
+/// Font fallbacks for Indic scripts (Gujarati, Devanagari/Hindi) ensuring
+/// seamless multilingual rendering without glyph clipping or mismatched metrics.
+const List<String> kIndicSansFallbacks = [
+  'Noto Sans Gujarati',
+  'Noto Sans Devanagari',
+  'sans-serif',
+];
+
+const List<String> kIndicSerifFallbacks = [
+  'Noto Serif Gujarati',
+  'Noto Serif Devanagari',
+  'serif',
+];
+
+/// Helper that ensures tracking does not break joined ligatures in Indic scripts.
+double localeAwareLetterSpacing(Locale? locale, double letterSpacing) {
+  if (locale != null) {
+    final lang = locale.languageCode.toLowerCase();
+    if (lang == 'gu' || lang == 'hi' || lang == 'mr' || lang == 'ne') {
+      return letterSpacing < 0 ? 0.0 : letterSpacing;
+    }
+  }
+  return letterSpacing;
+}
+
 /// Builds a ColorScheme from a seed color.
 ColorScheme buildSchemeForSeed(Color seed, Brightness brightness) {
   return ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
@@ -9,21 +38,21 @@ ColorScheme buildSchemeForSeed(Color seed, Brightness brightness) {
 
 /// Returns the app's light theme for a given seed color.
 /// This is the single source of truth for all light-mode styling.
-ThemeData buildLightTheme(Color seed) {
+ThemeData buildLightTheme(Color seed, {Locale? locale}) {
   final scheme = buildSchemeForSeed(seed, Brightness.light);
-  return _buildTheme(scheme, amoled: false);
+  return _buildTheme(scheme, amoled: false, locale: locale);
 }
 
 /// Returns the app's dark theme for a given seed color.
 /// This is the single source of truth for all dark-mode styling.
 /// When [amoled] is true, neutral surfaces are overridden to a true-black
 /// ramp so OLED pixels turn off instead of rendering dark gray.
-ThemeData buildDarkTheme(Color seed, {bool amoled = false}) {
+ThemeData buildDarkTheme(Color seed, {bool amoled = false, Locale? locale}) {
   var scheme = buildSchemeForSeed(seed, Brightness.dark);
   if (amoled) {
     scheme = applyAmoledSurfaces(scheme);
   }
-  return _buildTheme(scheme, amoled: amoled);
+  return _buildTheme(scheme, amoled: amoled, locale: locale);
 }
 
 /// AMOLED true-black surface ramp.
@@ -62,7 +91,8 @@ ColorScheme applyAmoledSurfaces(ColorScheme scheme) {
 /// inherits the same typography, shapes, and surface tints.
 /// When [amoled] is true, elevated components use solid near-black fills and
 /// transparent surface tints so the M3 elevation tint cannot wash out black.
-ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
+ThemeData _buildTheme(ColorScheme scheme,
+    {bool amoled = false, Locale? locale}) {
   final isLight = scheme.brightness == Brightness.light;
   final surfaceTint = amoled ? Colors.transparent : null;
 
@@ -87,84 +117,104 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
     // ── Text theme ──────────────────────────────────────────────
     // Playfair Display for editorial display/headline styles.
     // Inter for all body, title, and label styles.
-    textTheme: const TextTheme(
+    textTheme: TextTheme(
       // ── Serif: Display & Headlines ──────────────────────
       displayLarge: TextStyle(
         fontFamily: 'Playfair Display',
+        fontFamilyFallback: kIndicSerifFallbacks,
         fontWeight: FontWeight.w700,
-        letterSpacing: -1.0,
+        letterSpacing: localeAwareLetterSpacing(locale, -1.0),
         height: 1.1,
       ),
       displayMedium: TextStyle(
         fontFamily: 'Playfair Display',
+        fontFamilyFallback: kIndicSerifFallbacks,
         fontWeight: FontWeight.w700,
-        letterSpacing: -0.5,
+        letterSpacing: localeAwareLetterSpacing(locale, -0.5),
         height: 1.15,
       ),
       displaySmall: TextStyle(
         fontFamily: 'Playfair Display',
+        fontFamilyFallback: kIndicSerifFallbacks,
         fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
+        letterSpacing: localeAwareLetterSpacing(locale, -0.3),
       ),
       headlineLarge: TextStyle(
         fontFamily: 'Playfair Display',
+        fontFamilyFallback: kIndicSerifFallbacks,
         fontWeight: FontWeight.w700,
-        letterSpacing: -0.5,
+        letterSpacing: localeAwareLetterSpacing(locale, -0.5),
       ),
       headlineMedium: TextStyle(
         fontFamily: 'Playfair Display',
+        fontFamilyFallback: kIndicSerifFallbacks,
         fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
+        letterSpacing: localeAwareLetterSpacing(locale, -0.3),
       ),
-      headlineSmall: TextStyle(
+      headlineSmall: const TextStyle(
         fontFamily: 'Playfair Display',
+        fontFamilyFallback: kIndicSerifFallbacks,
         fontWeight: FontWeight.w600,
       ),
 
       // ── Sans-Serif: Titles, Body, Labels ────────────────
       titleLarge: TextStyle(
         fontFamily: 'Inter',
+        fontFamilyFallback: kIndicSansFallbacks,
         fontWeight: FontWeight.w700,
-        letterSpacing: -0.2,
+        letterSpacing: localeAwareLetterSpacing(locale, -0.2),
       ),
       titleMedium: TextStyle(
         fontFamily: 'Inter',
+        fontFamilyFallback: kIndicSansFallbacks,
         fontWeight: FontWeight.w600,
-        letterSpacing: -0.1,
+        letterSpacing: localeAwareLetterSpacing(locale, -0.1),
       ),
-      titleSmall: TextStyle(
+      titleSmall: const TextStyle(
         fontFamily: 'Inter',
+        fontFamilyFallback: kIndicSansFallbacks,
         fontWeight: FontWeight.w600,
       ),
-      bodyLarge: TextStyle(
+      bodyLarge: const TextStyle(
         fontFamily: 'Inter',
+        fontFamilyFallback: kIndicSansFallbacks,
         fontWeight: FontWeight.w400,
         height: 1.6,
       ),
-      bodyMedium: TextStyle(
+      bodyMedium: const TextStyle(
         fontFamily: 'Inter',
+        fontFamilyFallback: kIndicSansFallbacks,
         fontWeight: FontWeight.w400,
         height: 1.5,
       ),
-      bodySmall: TextStyle(
+      bodySmall: const TextStyle(
         fontFamily: 'Inter',
+        fontFamilyFallback: kIndicSansFallbacks,
         fontWeight: FontWeight.w400,
         height: 1.4,
       ),
-      labelLarge: TextStyle(
+      labelLarge: const TextStyle(
         fontFamily: 'Inter',
+        fontFamilyFallback: kIndicSansFallbacks,
         fontWeight: FontWeight.w600,
       ),
-      labelMedium: TextStyle(
+      labelMedium: const TextStyle(
         fontFamily: 'Inter',
+        fontFamilyFallback: kIndicSansFallbacks,
         fontWeight: FontWeight.w500,
       ),
-      labelSmall: TextStyle(
+      labelSmall: const TextStyle(
         fontFamily: 'Inter',
+        fontFamilyFallback: kIndicSansFallbacks,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.5,
       ),
     ),
+
+    // ── Design Tokens ───────────────────────────────────────────
+    extensions: [
+      NookTokens.fromScheme(scheme, amoled: amoled),
+    ],
 
     // ── Scaffold ────────────────────────────────────────────────
     scaffoldBackgroundColor: scheme.surface,
@@ -202,7 +252,7 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
               : scheme.surfaceContainerHighest.withValues(alpha: 0.15),
       surfaceTintColor: surfaceTint,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(NookTokens.kRadiusXl),
         side: BorderSide(
           color: scheme.outlineVariant.withValues(alpha: 0.2),
           width: 0.5,
@@ -233,15 +283,104 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
       backgroundColor: scheme.primaryContainer,
       foregroundColor: scheme.onPrimaryContainer,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(NookTokens.kRadiusMd),
+      ),
     ),
+
+    // ── Buttons (Material 3 Shapes & Padding) ───────────────────
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(NookTokens.kRadiusMd),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        textStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+    ),
+
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(NookTokens.kRadiusMd),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        textStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+    ),
+
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(NookTokens.kRadiusMd),
+        ),
+        side: BorderSide(color: scheme.outlineVariant, width: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        textStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+    ),
+
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(NookTokens.kRadiusMd),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        textStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+    ),
+
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: SegmentedButton.styleFrom(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(NookTokens.kRadiusMd),
+        ),
+        selectedBackgroundColor: scheme.secondaryContainer,
+        selectedForegroundColor: scheme.onSecondaryContainer,
+      ),
+    ),
+
+    searchBarTheme: SearchBarThemeData(
+      elevation: const WidgetStatePropertyAll(0),
+      backgroundColor: WidgetStatePropertyAll(
+        amoled
+            ? scheme.surfaceContainer
+            : scheme.surfaceContainerHigh.withValues(alpha: 0.6),
+      ),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(NookTokens.kRadiusXl),
+        ),
+      ),
+    ),
+
+    splashFactory: InkSparkle.splashFactory,
 
     // ── Bottom Sheet ────────────────────────────────────────────
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surfaceContainerLow,
       surfaceTintColor: surfaceTint,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(NookTokens.kRadiusXl),
+        ),
       ),
       showDragHandle: true,
     ),
@@ -250,7 +389,9 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
     dialogTheme: DialogThemeData(
       backgroundColor: scheme.surfaceContainerHigh,
       surfaceTintColor: surfaceTint,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(NookTokens.kRadiusXl),
+      ),
     ),
 
     // ── Chips ───────────────────────────────────────────────────
@@ -265,7 +406,9 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
         color: scheme.onSurface,
       ),
       side: BorderSide.none,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(NookTokens.kRadiusSm),
+      ),
     ),
 
     // ── Input Decoration ────────────────────────────────────────
@@ -275,11 +418,11 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
           ? scheme.surfaceContainer
           : scheme.surfaceContainerHighest.withValues(alpha: 0.3),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(NookTokens.kRadiusSm),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(NookTokens.kRadiusSm),
         borderSide: BorderSide(color: scheme.primary, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -288,7 +431,9 @@ ThemeData _buildTheme(ColorScheme scheme, {bool amoled = false}) {
     // ── ListTile ────────────────────────────────────────────────
     listTileTheme: ListTileThemeData(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(NookTokens.kRadiusSm),
+      ),
     ),
 
     // ── Switch ──────────────────────────────────────────────────

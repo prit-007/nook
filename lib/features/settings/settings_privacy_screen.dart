@@ -79,6 +79,27 @@ class SettingsPrivacyScreen extends StatelessWidget {
                       'you explicitly choose to save or share; importing reads '
                       'a file you explicitly pick.',
                 ),
+                Divider(height: 1),
+                _PermissionTile(
+                  icon: HugeIcons.strokeRoundedAlarmClock,
+                  title: 'Reminders & Notifications',
+                  subtitle:
+                      'Used strictly to deliver local reminder notifications you '
+                      'explicitly set on your notes. Alarms fire entirely offline '
+                      'via the local device alarm scheduler without communicating '
+                      'with any external service. Permissions: POST_NOTIFICATIONS, '
+                      'SCHEDULE_EXACT_ALARM.',
+                ),
+                Divider(height: 1),
+                _PermissionTile(
+                  icon: HugeIcons.strokeRoundedCamera01,
+                  title: 'Camera',
+                  subtitle:
+                      'Used solely for scanning device-to-device QR codes during '
+                      'sync pairing. Camera frames are processed strictly in '
+                      'memory in real time and are never recorded, stored, or '
+                      'transmitted.',
+                ),
               ],
             ),
           ),
@@ -273,12 +294,12 @@ class _SectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(left: 16),
       child: Text(
-        title.toUpperCase(),
+        title,
         style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
-          color: scheme.primary.withValues(alpha: 0.8),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+          color: scheme.primary,
         ),
       ),
     );

@@ -75,8 +75,10 @@ class RectFit extends ShapeFit {
     final xs = corners.map((p) => p.dx).toList();
     final ys = corners.map((p) => p.dy).toList();
     final bounds = Rect.fromLTRB(
-      xs.reduce(math.min), ys.reduce(math.min),
-      xs.reduce(math.max), ys.reduce(math.max),
+      xs.reduce(math.min),
+      ys.reduce(math.min),
+      xs.reduce(math.max),
+      ys.reduce(math.max),
     );
     final w = bounds.width;
     final h = bounds.height;
@@ -84,9 +86,7 @@ class RectFit extends ShapeFit {
     final scaleY = h > 0 && h < minRenderSize ? minRenderSize / h : 1.0;
     final scale = math.max(scaleX, scaleY);
     if (scale == 1.0) return [...corners, corners.first];
-    return corners
-        .map((p) => center + (p - center) * scale)
-        .toList()
+    return corners.map((p) => center + (p - center) * scale).toList()
       ..add(center + (corners.first - center) * scale);
   }
 }
@@ -131,8 +131,10 @@ class TriangleFit extends ShapeFit {
     final xs = pts.map((p) => p.dx).toList();
     final ys = pts.map((p) => p.dy).toList();
     final bounds = Rect.fromLTRB(
-      xs.reduce(math.min), ys.reduce(math.min),
-      xs.reduce(math.max), ys.reduce(math.max),
+      xs.reduce(math.min),
+      ys.reduce(math.min),
+      xs.reduce(math.max),
+      ys.reduce(math.max),
     );
     final w = bounds.width;
     final h = bounds.height;
@@ -208,10 +210,13 @@ ShapeFit? shapeFitFromMatch(ShapeMatch match) {
         // Estimate the dominant edge direction from the first two corners.
         final u = Offset((pts[1].dx - pts[0].dx), (pts[1].dy - pts[0].dy));
         final uLen = u.distance;
-        final uAxis = uLen > 0 ? Offset(u.dx / uLen, u.dy / uLen) : const Offset(1, 0);
+        final uAxis =
+            uLen > 0 ? Offset(u.dx / uLen, u.dy / uLen) : const Offset(1, 0);
         final vAxis = Offset(-uAxis.dy, uAxis.dx);
-        final halfW = ((pts[1].dx - pts[0].dx).abs() + (pts[2].dx - pts[1].dx).abs()) / 4;
-        final halfH = ((pts[2].dy - pts[1].dy).abs() + (pts[3].dy - pts[2].dy).abs()) / 4;
+        final halfW =
+            ((pts[1].dx - pts[0].dx).abs() + (pts[2].dx - pts[1].dx).abs()) / 4;
+        final halfH =
+            ((pts[2].dy - pts[1].dy).abs() + (pts[3].dy - pts[2].dy).abs()) / 4;
         return RectFit(
           center: center,
           uAxis: uAxis,

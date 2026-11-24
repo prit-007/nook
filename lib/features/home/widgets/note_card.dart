@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/providers/database_provider.dart';
+import 'package:nook/core/theme/app_motion.dart';
+import 'package:nook/core/theme/nook_tokens.dart';
 import 'package:nook/core/theme/note_theme.dart';
 import 'package:nook/data/database.dart';
 import 'package:nook/data/repositories/checklist_item_repository.dart';
@@ -127,8 +129,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
       },
       child: AnimatedScale(
         scale: _isPressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
+        duration: AppMotion.short2,
+        curve: AppMotion.emphasizedDecelerate,
         child: Hero(
           tag: widget.heroTag ?? 'note-${widget.note.id}',
           child: Material(
@@ -136,7 +138,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
             child: Container(
               decoration: BoxDecoration(
                 color: cardScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: context.tokens.borderRadiusLg,
               ),
               clipBehavior: Clip.hardEdge,
               child: Stack(
@@ -339,7 +341,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
             Text(
               '$checkedCount/$totalCount',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: scheme.primary,
               ),
@@ -376,7 +378,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                           child: Text(
                             item.itemText,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               color: item.checked
                                   ? scheme.onSurface.withValues(alpha: 0.35)
                                   : scheme.onSurface.withValues(alpha: 0.7),
@@ -397,7 +399,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                     child: Text(
                       '+${totalCount - 4} more',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: scheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
@@ -424,7 +426,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
             child: Text(
               _notebookName!,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: scheme.onSurfaceVariant,
               ),
               maxLines: 1,

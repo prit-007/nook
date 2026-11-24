@@ -40,13 +40,13 @@ void main() {
   testWidgets('renders app bar title', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
-    expect(find.text('Collections'), findsOneWidget);
+    expect(find.text('Notebooks'), findsOneWidget);
   });
 
   testWidgets('shows empty state when no notebooks', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
-    expect(find.textContaining('No collections'), findsOneWidget);
+    expect(find.textContaining('No notebooks'), findsOneWidget);
   });
 
   testWidgets('displays notebooks in a grid', (tester) async {
@@ -67,8 +67,53 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
-    expect(find.text('New Collection'), findsOneWidget);
+    expect(find.text('New Notebook'), findsOneWidget);
     expect(find.byType(TextField), findsWidgets);
+  });
+
+  testWidgets('toggles between grid and list view mode', (tester) async {
+    await insertNotebook(name: 'Work');
+    await insertNotebook(name: 'Personal');
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    // Defaults to GridView
+    expect(find.byType(GridView), findsOneWidget);
+    expect(find.byType(ListView), findsNothing);
+
+    // Tap view toggle
+    await tester.tap(find.byTooltip('Switch to list view'));
+    await tester.pumpAndSettle();
+
+    // Now in ListView
+    expect(find.byType(ListView), findsOneWidget);
+    expect(find.text('Work'), findsOneWidget);
+    expect(find.text('Personal'), findsOneWidget);
+
+    // Tap toggle again to return to GridView
+    await tester.tap(find.byTooltip('Switch to grid view'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GridView), findsOneWidget);
+  });
+
+  testWidgets('renders breadcrumbs in list view for nested notebooks',
+      (tester) async {
+    await insertNotebook(name: 'Work / Architecture / UI');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(
+          home: NotebooksScreen(viewMode: NotebookViewMode.list),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Work › Architecture'), findsOneWidget);
+    expect(find.text('UI'), findsOneWidget);
   });
 
   testWidgets('create notebook via form sheet', (tester) async {

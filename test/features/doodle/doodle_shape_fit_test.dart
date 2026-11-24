@@ -14,13 +14,14 @@ void main() {
       final fit = const LineFit(start: Offset(10, 10), end: Offset(100, 10));
       final points = fit.generatePoints(const Size(200, 200));
       expect(points.length, 2);
-      expect(points.first, Offset(10, 10));
-      expect(points.last, Offset(100, 10));
+      expect(points.first, const Offset(10, 10));
+      expect(points.last, const Offset(100, 10));
     });
 
     test('LineFit clamps to minRenderSize when drawn too small', () {
       final fit = const LineFit(start: Offset(10, 10), end: Offset(30, 10));
-      final points = fit.generatePoints(const Size(200, 200), minRenderSize: 40);
+      final points =
+          fit.generatePoints(const Size(200, 200), minRenderSize: 40);
       expect(points.length, 2);
       final diag = (points.last - points.first).distance;
       expect(diag, greaterThanOrEqualTo(40 - 0.01));
@@ -31,7 +32,7 @@ void main() {
     });
 
     test('RectFit generates closed loop (5 points)', () {
-      final fit = RectFit(
+      final fit = const RectFit(
         center: Offset(100, 100),
         uAxis: Offset(1, 0),
         vAxis: Offset(0, 1),
@@ -44,14 +45,15 @@ void main() {
     });
 
     test('RectFit clamps to minRenderSize', () {
-      final fit = RectFit(
+      final fit = const RectFit(
         center: Offset(100, 100),
         uAxis: Offset(1, 0),
         vAxis: Offset(0, 1),
         halfWidth: 10,
         halfHeight: 5,
       );
-      final points = fit.generatePoints(const Size(200, 200), minRenderSize: 40);
+      final points =
+          fit.generatePoints(const Size(200, 200), minRenderSize: 40);
       final xs = points.map((p) => p.dx).toList();
       final ys = points.map((p) => p.dy).toList();
       final w = xs.reduce(math.max) - xs.reduce(math.min);
@@ -68,8 +70,11 @@ void main() {
 
     test('OvalFit clamps radius to minRenderSize/2', () {
       final fit = const OvalFit(center: Offset(100, 100), rx: 5, ry: 5);
-      final points = fit.generatePoints(const Size(200, 200), minRenderSize: 40);
-      final maxDist = points.map((p) => (p - Offset(100, 100)).distance).reduce(math.max);
+      final points =
+          fit.generatePoints(const Size(200, 200), minRenderSize: 40);
+      final maxDist = points
+          .map((p) => (p - const Offset(100, 100)).distance)
+          .reduce(math.max);
       expect(maxDist, greaterThanOrEqualTo(19.9));
     });
 
@@ -79,7 +84,7 @@ void main() {
     });
 
     test('TriangleFit generates closed loop (4 points)', () {
-      final fit = TriangleFit(
+      final fit = const TriangleFit(
         a: Offset(100, 10),
         b: Offset(150, 100),
         c: Offset(50, 100),
@@ -98,7 +103,7 @@ void main() {
   });
 
   group('minRenderSize clamp — shape never too small to verify', () {
-    List<Offset> _applyMinRenderSize(List<Offset> points, double minRenderSize) {
+    List<Offset> applyMinRenderSize(List<Offset> points, double minRenderSize) {
       if (points.isEmpty) return points;
       double minX = points.first.dx, maxX = points.first.dx;
       double minY = points.first.dy, maxY = points.first.dy;
@@ -120,25 +125,26 @@ void main() {
     }
 
     test('tiny line is scaled up to minRenderSize', () {
-      final points = [Offset(10, 10), Offset(20, 10)];
-      final scaled = _applyMinRenderSize(points, 40);
+      final points = [const Offset(10, 10), const Offset(20, 10)];
+      final scaled = applyMinRenderSize(points, 40);
       final diag = (scaled.last - scaled.first).distance;
       expect(diag, greaterThanOrEqualTo(39.9));
     });
 
     test('normal-size line is unchanged', () {
-      final points = [Offset(10, 10), Offset(100, 10)];
-      final scaled = _applyMinRenderSize(points, 40);
+      final points = [const Offset(10, 10), const Offset(100, 10)];
+      final scaled = applyMinRenderSize(points, 40);
       expect(scaled, equals(points));
     });
 
     test('tiny oval is scaled up from center', () {
       final points = [
         for (int i = 0; i <= 60; i++)
-          Offset(100 + 5 * math.cos((i / 60) * math.pi * 2), 100 + 5 * math.sin((i / 60) * math.pi * 2)),
+          Offset(100 + 5 * math.cos((i / 60) * math.pi * 2),
+              100 + 5 * math.sin((i / 60) * math.pi * 2)),
       ];
-      final scaled = _applyMinRenderSize(points, 40);
-      final center = Offset(100, 100);
+      final scaled = applyMinRenderSize(points, 40);
+      final center = const Offset(100, 100);
       final maxDist = scaled.map((p) => (p - center).distance).reduce(math.max);
       expect(maxDist, greaterThanOrEqualTo(19.9));
     });
@@ -158,8 +164,8 @@ void main() {
       expect(stroke.recognitionConfidence, 0.85);
       expect(stroke.shapeType, RecognizedShape.line);
       expect(stroke.fit, isA<LineFit>());
-      expect((stroke.fit as LineFit).start, Offset(0, 0));
-      expect((stroke.fit as LineFit).end, Offset(100, 0));
+      expect((stroke.fit as LineFit).start, const Offset(0, 0));
+      expect((stroke.fit as LineFit).end, const Offset(100, 0));
       expect(stroke.originalPoints, hasLength(3));
     });
   });

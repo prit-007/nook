@@ -11,6 +11,7 @@ import 'doodle_shape_recognizer.dart';
 /// Minimum rendered size (logical pixels) for any perfect shape, so a shape
 /// is never too small for the user to verify it was recognized correctly.
 const double _minRenderSize = 40.0;
+
 /// Drawing tools for the doodle canvas.
 enum DoodleTool { pen, eraser, highlighter, shapeAssist }
 
@@ -94,6 +95,16 @@ class DoodleController extends ChangeNotifier {
   Stroke? _activeStroke;
 
   DoodleTool _currentTool = DoodleTool.pen;
+  DoodleTool _previousNonEraserTool = DoodleTool.pen;
+  bool _stylusOnlyMode = false;
+  bool _rulerEnabled = false;
+  Offset _rulerOrigin = Offset.zero;
+  double _rulerAngle = 0;
+
+  /// Lasso select state.
+  bool _lassoActive = false;
+  List<Offset> _lassoPoints = [];
+  Set<int> _selectedStrokeIndices = {};
   late Color _currentColor;
   double _currentWidth = 4.0;
   DoodleBackground _background = DoodleBackground.dotted;
@@ -117,6 +128,9 @@ class DoodleController extends ChangeNotifier {
   bool _isHoldSnapped = false;
   Offset? _holdAnchor;
   RecognizedShape? _holdShapeType;
+  Offset? _holdCenter;
+  double _holdInitialDistance = 1.0;
+  List<Offset> _holdBasePoints = const [];
 
   // Shape selection state for post-snap resize / restore.
   int? _selectedStrokeIndex;
@@ -241,17 +255,13 @@ class DoodleController extends ChangeNotifier {
 
     return [
       ResizeHandle(position: Offset(minX, minY), type: ResizeHandleType.nw),
-      ResizeHandle(
-          position: Offset(center.dx, minY), type: ResizeHandleType.n),
+      ResizeHandle(position: Offset(center.dx, minY), type: ResizeHandleType.n),
       ResizeHandle(position: Offset(maxX, minY), type: ResizeHandleType.ne),
-      ResizeHandle(
-          position: Offset(minX, center.dy), type: ResizeHandleType.w),
+      ResizeHandle(position: Offset(minX, center.dy), type: ResizeHandleType.w),
       ResizeHandle(position: center, type: ResizeHandleType.center),
-      ResizeHandle(
-          position: Offset(maxX, center.dy), type: ResizeHandleType.e),
+      ResizeHandle(position: Offset(maxX, center.dy), type: ResizeHandleType.e),
       ResizeHandle(position: Offset(minX, maxY), type: ResizeHandleType.sw),
-      ResizeHandle(
-          position: Offset(center.dx, maxY), type: ResizeHandleType.s),
+      ResizeHandle(position: Offset(center.dx, maxY), type: ResizeHandleType.s),
       ResizeHandle(position: Offset(maxX, maxY), type: ResizeHandleType.se),
     ];
   }
@@ -306,38 +316,38 @@ class DoodleController extends ChangeNotifier {
       case ResizeHandleType.nw:
         // Drag top-left corner: minX/minY move with cursor; maxX/maxY fixed.
         if (fit is RectFit) {
-          _applyCornerResize(stroke, fit, newPosition.dx, maxX,
-              newPosition.dy, maxY);
+          _applyCornerResize(
+              stroke, fit, newPosition.dx, maxX, newPosition.dy, maxY);
         } else if (fit is OvalFit) {
-          _applyCornerResizeOval(stroke, fit, newPosition.dx, maxX,
-              newPosition.dy, maxY);
+          _applyCornerResizeOval(
+              stroke, fit, newPosition.dx, maxX, newPosition.dy, maxY);
         }
         break;
       case ResizeHandleType.ne:
         if (fit is RectFit) {
-          _applyCornerResize(stroke, fit, minX, newPosition.dx,
-              newPosition.dy, maxY);
+          _applyCornerResize(
+              stroke, fit, minX, newPosition.dx, newPosition.dy, maxY);
         } else if (fit is OvalFit) {
-          _applyCornerResizeOval(stroke, fit, minX, newPosition.dx,
-              newPosition.dy, maxY);
+          _applyCornerResizeOval(
+              stroke, fit, minX, newPosition.dx, newPosition.dy, maxY);
         }
         break;
       case ResizeHandleType.sw:
         if (fit is RectFit) {
-          _applyCornerResize(stroke, fit, newPosition.dx, maxX, minY,
-              newPosition.dy);
+          _applyCornerResize(
+              stroke, fit, newPosition.dx, maxX, minY, newPosition.dy);
         } else if (fit is OvalFit) {
-          _applyCornerResizeOval(stroke, fit, newPosition.dx, maxX, minY,
-              newPosition.dy);
+          _applyCornerResizeOval(
+              stroke, fit, newPosition.dx, maxX, minY, newPosition.dy);
         }
         break;
       case ResizeHandleType.se:
         if (fit is RectFit) {
-          _applyCornerResize(stroke, fit, minX, newPosition.dx, minY,
-              newPosition.dy);
+          _applyCornerResize(
+              stroke, fit, minX, newPosition.dx, minY, newPosition.dy);
         } else if (fit is OvalFit) {
-          _applyCornerResizeOval(stroke, fit, minX, newPosition.dx, minY,
-              newPosition.dy);
+          _applyCornerResizeOval(
+              stroke, fit, minX, newPosition.dx, minY, newPosition.dy);
         }
         break;
       case ResizeHandleType.n:
@@ -411,8 +421,7 @@ class DoodleController extends ChangeNotifier {
       double newMaxX, double newMinY, double newMaxY) {
     final newW = (newMaxX - newMinX).clamp(_minRenderSize, double.infinity);
     final newH = (newMaxY - newMinY).clamp(_minRenderSize, double.infinity);
-    final newCenter =
-        Offset((newMinX + newMaxX) / 2, (newMinY + newMaxY) / 2);
+    final newCenter = Offset((newMinX + newMaxX) / 2, (newMinY + newMaxY) / 2);
     stroke.fit = RectFit(
       center: newCenter,
       uAxis: const Offset(1, 0),
@@ -426,8 +435,7 @@ class DoodleController extends ChangeNotifier {
       double newMaxX, double newMinY, double newMaxY) {
     final newW = (newMaxX - newMinX).clamp(_minRenderSize, double.infinity);
     final newH = (newMaxY - newMinY).clamp(_minRenderSize, double.infinity);
-    final newCenter =
-        Offset((newMinX + newMaxX) / 2, (newMinY + newMaxY) / 2);
+    final newCenter = Offset((newMinX + newMaxX) / 2, (newMinY + newMaxY) / 2);
     stroke.fit = OvalFit(
       center: newCenter,
       rx: newW / 2,
@@ -439,8 +447,7 @@ class DoodleController extends ChangeNotifier {
       double newMaxX, double newMinY, double newMaxY) {
     final newW = (newMaxX - newMinX).clamp(_minRenderSize, double.infinity);
     final newH = (newMaxY - newMinY).clamp(_minRenderSize, double.infinity);
-    final newCenter =
-        Offset((newMinX + newMaxX) / 2, (newMinY + newMaxY) / 2);
+    final newCenter = Offset((newMinX + newMaxX) / 2, (newMinY + newMaxY) / 2);
 
     if (fit is RectFit) {
       stroke.fit = RectFit(
@@ -460,7 +467,153 @@ class DoodleController extends ChangeNotifier {
   }
 
   void setCurrentTool(DoodleTool tool) {
+    if (_currentTool != DoodleTool.eraser) {
+      _previousNonEraserTool = _currentTool;
+    }
     _currentTool = tool;
+    notifyListeners();
+  }
+
+  /// Toggle between the eraser and the previous non-eraser tool (pen by
+  /// default), invoked by the stylus barrel button or a double-tap.
+  void swapTool() {
+    _currentTool = _currentTool == DoodleTool.eraser
+        ? _previousNonEraserTool
+        : DoodleTool.eraser;
+    notifyListeners();
+  }
+
+  /// Whether the canvas rejects touch input and draws only with the stylus.
+  bool get stylusOnlyMode => _stylusOnlyMode;
+
+  /// Toggle between stylus-only and finger-friendly input.
+  void toggleStylusOnlyMode() {
+    _stylusOnlyMode = !_stylusOnlyMode;
+    notifyListeners();
+  }
+
+  /// Whether the ruler/straightedge is active.
+  bool get rulerEnabled => _rulerEnabled;
+
+  /// Origin point of the ruler line.
+  Offset get rulerOrigin => _rulerOrigin;
+  set rulerOrigin(Offset value) {
+    _rulerOrigin = value;
+    notifyListeners();
+  }
+
+  /// Angle of the ruler line in radians.
+  double get rulerAngle => _rulerAngle;
+  set rulerAngle(double value) {
+    _rulerAngle = value;
+    notifyListeners();
+  }
+
+  void toggleRuler() {
+    _rulerEnabled = !_rulerEnabled;
+    notifyListeners();
+  }
+
+  /// Toggle lasso select mode on/off.
+  void toggleLasso() {
+    _lassoActive = !_lassoActive;
+    if (!_lassoActive) {
+      _lassoPoints = [];
+      _selectedStrokeIndices.clear();
+    }
+    notifyListeners();
+  }
+
+  /// Project [point] onto the ruler line defined by [_rulerOrigin] and
+  /// [_rulerAngle]. When ruler mode is off, returns [point] unchanged.
+  Offset projectPointOntoRuler(Offset point) {
+    if (!_rulerEnabled) return point;
+    final u = Offset(math.cos(_rulerAngle), math.sin(_rulerAngle));
+    final v = point - _rulerOrigin;
+    final t = v.dx * u.dx + v.dy * u.dy;
+    return _rulerOrigin + u * t;
+  }
+
+  /// Ray-casting point-in-polygon test for [point] against [_lassoPoints].
+  bool pointInPolygon(Offset point) {
+    final poly = _lassoPoints;
+    final n = poly.length;
+    if (n < 3) return false;
+    bool inside = false;
+    for (int i = 0, j = n - 1; i < n; j = i++) {
+      final pi = poly[i];
+      final pj = poly[j];
+      if ((pi.dy > point.dy) != (pj.dy > point.dy) &&
+          point.dx <
+              (pj.dx - pi.dx) * (point.dy - pi.dy) / (pj.dy - pi.dy) + pi.dx) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  /// Whether lasso selection mode is active.
+  bool get lassoActive => _lassoActive;
+
+  /// Current lasso polygon points.
+  List<Offset> get lassoPoints => List.unmodifiable(_lassoPoints);
+  set lassoPoints(List<Offset> value) {
+    _lassoPoints = List<Offset>.from(value);
+    notifyListeners();
+  }
+
+  /// Currently selected stroke indices.
+  Set<int> get selectedStrokeIndices =>
+      Set.unmodifiable(_selectedStrokeIndices);
+  set selectedStrokeIndices(Set<int> value) {
+    _selectedStrokeIndices = Set<int>.from(value);
+    notifyListeners();
+  }
+
+  /// Begin a lasso selection at [point].
+  void beginLasso(Offset point) {
+    _lassoActive = true;
+    _lassoPoints = [point];
+    notifyListeners();
+  }
+
+  /// Extend the lasso polygon with [point].
+  void extendLasso(Offset point) {
+    if (!_lassoActive) return;
+    _lassoPoints = [..._lassoPoints, point];
+    notifyListeners();
+  }
+
+  /// End the lasso gesture and compute which strokes are inside the polygon.
+  void endLasso() {
+    if (!_lassoActive) return;
+    _selectedStrokeIndices = {};
+    for (var i = 0; i < _strokes.length; i++) {
+      final stroke = _strokes[i];
+      if (stroke.points.any((p) => pointInPolygon(p.position))) {
+        _selectedStrokeIndices.add(i);
+      }
+    }
+    _lassoActive = false;
+    _lassoPoints = [];
+    notifyListeners();
+  }
+
+  /// Translate all selected strokes by [delta].
+  void translateSelection(Offset delta) {
+    for (final i in _selectedStrokeIndices) {
+      final stroke = _strokes[i];
+      stroke.points = stroke.points
+          .map((p) => StrokePoint(p.position + delta, pressure: p.pressure))
+          .toList();
+    }
+    _activeStrokeVersion++;
+    notifyListeners();
+  }
+
+  /// Clear the current lasso selection.
+  void clearLassoSelection() {
+    _selectedStrokeIndices.clear();
     notifyListeners();
   }
 
@@ -489,6 +642,9 @@ class DoodleController extends ChangeNotifier {
     _isHoldSnapped = false;
     _holdAnchor = null;
     _holdShapeType = null;
+    _holdCenter = null;
+    _holdInitialDistance = 1.0;
+    _holdBasePoints = const [];
     double opacity = 1.0;
     double actualWidth = _currentWidth;
 
@@ -500,7 +656,12 @@ class DoodleController extends ChangeNotifier {
     }
 
     _activeStroke = Stroke(
-      points: [StrokePoint(point, pressure: pressure)],
+      points: [
+        StrokePoint(
+          _rulerEnabled ? projectPointOntoRuler(point) : point,
+          pressure: pressure,
+        ),
+      ],
       color: _currentTool == DoodleTool.eraser
           ? Colors.transparent
           : _currentColor,
@@ -517,7 +678,8 @@ class DoodleController extends ChangeNotifier {
 
   void continueStroke(Offset point, {double pressure = 1.0}) {
     if (_activeStroke == null) return;
-    _activeStroke!.points.add(StrokePoint(point, pressure: pressure));
+    final projected = _rulerEnabled ? projectPointOntoRuler(point) : point;
+    _activeStroke!.points.add(StrokePoint(projected, pressure: pressure));
     _activeStrokeVersion++;
     notifyListeners();
   }
@@ -541,6 +703,23 @@ class DoodleController extends ChangeNotifier {
     _preSnapPoints = List.of(active.points);
     _holdAnchor = active.points.first.position;
     _holdShapeType = match.shape;
+    _holdBasePoints = List.of(match.points);
+
+    // Compute canonical center of the recognized shape
+    double sumX = 0, sumY = 0;
+    for (final p in match.points) {
+      sumX += p.dx;
+      sumY += p.dy;
+    }
+    final center = match.points.isNotEmpty
+        ? Offset(sumX / match.points.length, sumY / match.points.length)
+        : active.points.last.position;
+    _holdCenter = center;
+
+    // Compute distance from center to where user paused their touch
+    final lastTouch = active.points.last.position;
+    _holdInitialDistance = math.max(16.0, (lastTouch - center).distance);
+
     _isHoldSnapped = true;
 
     active.points = match.points.map((p) => StrokePoint(p)).toList();
@@ -555,83 +734,51 @@ class DoodleController extends ChangeNotifier {
   }
 
   /// While holding down after a snap, moving the finger/stylus interactively
-  /// resizes/transforms the snapped shape in real time. Recognition runs
-  /// continuously during the hold so the preview stays accurate as the user
-  /// reshapes the stroke.
+  /// resizes/transforms the snapped shape in real time.
   void updateHoldSnappedStroke(Offset currentPoint) {
     final active = _activeStroke;
-    if (active == null || !_isHoldSnapped || _holdAnchor == null) return;
+    if (active == null || !_isHoldSnapped) return;
 
-    final anchor = _holdAnchor!;
     final shape = _holdShapeType;
 
     switch (shape) {
       case RecognizedShape.line:
       case RecognizedShape.arrow:
-        active.points = [StrokePoint(anchor), StrokePoint(currentPoint)];
+        final anchor = _holdAnchor ?? active.points.first.position;
+        final snappedEnd = snapLineAngle(anchor, currentPoint);
+        active.points = [StrokePoint(anchor), StrokePoint(snappedEnd)];
       case RecognizedShape.rectangle:
-        final rect = Rect.fromPoints(anchor, currentPoint);
-        active.points = [
-          StrokePoint(rect.topLeft),
-          StrokePoint(rect.topRight),
-          StrokePoint(rect.bottomRight),
-          StrokePoint(rect.bottomLeft),
-          StrokePoint(rect.topLeft),
-        ];
       case RecognizedShape.oval:
-        final rect = Rect.fromPoints(anchor, currentPoint);
-        final center = rect.center;
-        final rx = rect.width.abs() / 2;
-        final ry = rect.height.abs() / 2;
-        active.points = [
-          for (int i = 0; i <= 60; i++)
-            StrokePoint(Offset(
-              center.dx + rx * math.cos((i / 60) * math.pi * 2),
-              center.dy + ry * math.sin((i / 60) * math.pi * 2),
-            )),
-        ];
       case RecognizedShape.triangle:
-        final minX = math.min(anchor.dx, currentPoint.dx);
-        final maxX = math.max(anchor.dx, currentPoint.dx);
-        final topY = math.min(anchor.dy, currentPoint.dy);
-        final botY = math.max(anchor.dy, currentPoint.dy);
-        final top = Offset((minX + maxX) / 2, topY);
-        final bLeft = Offset(minX, botY);
-        final bRight = Offset(maxX, botY);
-        active.points = [
-          StrokePoint(top),
-          StrokePoint(bRight),
-          StrokePoint(bLeft),
-          StrokePoint(top),
-        ];
       case RecognizedShape.star:
-        final rect = Rect.fromPoints(anchor, currentPoint);
-        final center = rect.center;
-        final outerR = math.min(rect.width.abs(), rect.height.abs()) / 2;
-        final innerR = outerR * 0.40;
-        const startAngle = -math.pi / 2;
-        active.points = [
-          for (int i = 0; i < 10; i++)
-            StrokePoint(center +
-                Offset(
-                  math.cos(startAngle + i * math.pi / 5) *
-                      ((i % 2 == 0) ? outerR : innerR),
-                  math.sin(startAngle + i * math.pi / 5) *
-                      ((i % 2 == 0) ? outerR : innerR),
-                )),
-          StrokePoint(center + Offset(0, -outerR)),
-        ];
+        if (_holdCenter != null && _holdBasePoints.isNotEmpty) {
+          final center = _holdCenter!;
+          final currentDist = (currentPoint - center).distance;
+          final scale = (currentDist / _holdInitialDistance).clamp(0.15, 6.0);
+          active.points = _holdBasePoints
+              .map((p) => StrokePoint(center + (p - center) * scale))
+              .toList();
+        } else if (_holdAnchor != null) {
+          final rect = Rect.fromPoints(_holdAnchor!, currentPoint);
+          active.points = [
+            StrokePoint(rect.topLeft),
+            StrokePoint(rect.topRight),
+            StrokePoint(rect.bottomRight),
+            StrokePoint(rect.bottomLeft),
+            StrokePoint(rect.topLeft),
+          ];
+        }
       default:
         break;
     }
 
     // Re-recognize the resized stroke so confidence stays current.
     final raw = active.points.map((p) => p.position).toList();
-    if (raw.length >= 8) {
+    if (raw.length >= 2) {
       final match = recognizeShape(raw);
       if (match.isRecognized) {
         active.recognitionConfidence = match.confidence;
-    active.fit = shapeFitFromMatch(match);
+        active.fit = shapeFitFromMatch(match);
         active.shapeType = match.shape;
       }
     }
@@ -651,6 +798,9 @@ class DoodleController extends ChangeNotifier {
     _isHoldSnapped = false;
     _holdAnchor = null;
     _holdShapeType = null;
+    _holdCenter = null;
+    _holdInitialDistance = 1.0;
+    _holdBasePoints = const [];
     _activeStroke = null;
     _isDrawing = false;
     _rebake();
@@ -664,6 +814,9 @@ class DoodleController extends ChangeNotifier {
     _isHoldSnapped = false;
     _holdAnchor = null;
     _holdShapeType = null;
+    _holdCenter = null;
+    _holdInitialDistance = 1.0;
+    _holdBasePoints = const [];
     _activeStroke = null;
     _isDrawing = false;
     notifyListeners();
@@ -786,6 +939,13 @@ class DoodleController extends ChangeNotifier {
       ..addAll(strokes);
     _redoStack.clear();
     _activeStroke = null;
+    _rebake();
+    notifyListeners();
+  }
+
+  /// Adds a single stroke to the document.
+  void addStroke(Stroke stroke) {
+    _strokes.add(stroke);
     _rebake();
     notifyListeners();
   }

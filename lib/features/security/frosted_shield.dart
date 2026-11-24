@@ -7,12 +7,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/router.dart';
+import '../../core/theme/app_motion.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
 import '../../core/providers/vault_password_provider.dart';
 import 'pin_entry_screen.dart';
+import 'widgets/lock_illustration.dart';
 
 /// "Frosted Shield" — maximum-strength blur veil over the live vault.
 ///
@@ -43,10 +45,11 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
     super.initState();
     _focusController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: AppMotion.long2,
     );
     _blur = Tween<double>(begin: 40, end: 0).animate(
-      CurvedAnimation(parent: _focusController, curve: Curves.easeOutCubic),
+      CurvedAnimation(
+          parent: _focusController, curve: AppMotion.emphasizedDecelerate),
     );
 
     // Auto-trigger biometric prompt on load, identical to WhatsApp.
@@ -112,12 +115,12 @@ class _FrostedShieldState extends ConsumerState<FrostedShield>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      HugeIcon(
-                        icon: HugeIcons.strokeRoundedLock,
-                        size: 64,
-                        color: scheme.primary,
+                      const LockIllustration(
+                        primaryIcon: HugeIcons.strokeRoundedLock,
+                        badgeIcon: HugeIcons.strokeRoundedFingerPrint,
+                        size: 112,
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
                       const Text(
                         'nook. is locked',
                         style: TextStyle(

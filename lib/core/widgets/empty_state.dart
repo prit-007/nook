@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../theme/app_motion.dart';
+
 /// A reusable empty-state widget following the pattern from EmptyHome.
 class EmptyState extends StatelessWidget {
   const EmptyState({
@@ -37,14 +39,17 @@ class EmptyState extends StatelessWidget {
 
     if (animationsAllowed) {
       iconWidget = iconWidget
-          .animate(onPlay: (c) => c.repeat(reverse: true))
-          .moveY(
-            begin: -8,
-            end: 8,
-            duration: 2500.ms,
-            curve: Curves.easeInOut,
+          .animate()
+          .fadeIn(
+            duration: AppMotion.medium2,
+            curve: AppMotion.emphasizedDecelerate,
           )
-          .scaleXY(begin: 0.95, end: 1.05, duration: 2500.ms);
+          .scale(
+            begin: const Offset(0.92, 0.92),
+            end: const Offset(1.0, 1.0),
+            duration: AppMotion.medium2,
+            curve: AppMotion.emphasizedDecelerate,
+          );
     }
 
     return Center(

@@ -126,7 +126,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
     NookCommand(
       id: 'notebooks',
       title: 'Open notebooks',
-      keywords: 'collections folders',
+      keywords: 'notebooks folders',
       icon: HugeIcons.strokeRoundedFolder01,
       onRun: (context) => context.go('/notebooks'),
     ),

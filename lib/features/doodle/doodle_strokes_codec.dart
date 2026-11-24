@@ -84,19 +84,17 @@ class DoodleStrokesCodec {
         );
       case 'RectFit':
         return RectFit(
-          center: Offset(
-              map['center'][0].toDouble(), map['center'][1].toDouble()),
-          uAxis: Offset(
-              map['uAxis'][0].toDouble(), map['uAxis'][1].toDouble()),
-          vAxis: Offset(
-              map['vAxis'][0].toDouble(), map['vAxis'][1].toDouble()),
+          center:
+              Offset(map['center'][0].toDouble(), map['center'][1].toDouble()),
+          uAxis: Offset(map['uAxis'][0].toDouble(), map['uAxis'][1].toDouble()),
+          vAxis: Offset(map['vAxis'][0].toDouble(), map['vAxis'][1].toDouble()),
           halfWidth: (map['halfWidth'] as num).toDouble(),
           halfHeight: (map['halfHeight'] as num).toDouble(),
         );
       case 'OvalFit':
         return OvalFit(
-          center: Offset(
-              map['center'][0].toDouble(), map['center'][1].toDouble()),
+          center:
+              Offset(map['center'][0].toDouble(), map['center'][1].toDouble()),
           rx: (map['rx'] as num).toDouble(),
           ry: (map['ry'] as num).toDouble(),
         );
@@ -108,8 +106,8 @@ class DoodleStrokesCodec {
         );
       case 'StarFit':
         return StarFit(
-          center: Offset(
-              map['center'][0].toDouble(), map['center'][1].toDouble()),
+          center:
+              Offset(map['center'][0].toDouble(), map['center'][1].toDouble()),
           outerRadius: (map['outerRadius'] as num).toDouble(),
         );
       case 'NoneFit':
@@ -148,8 +146,7 @@ class DoodleStrokesCodec {
               'recognitionConfidence': stroke.recognitionConfidence,
             if (stroke.originalPoints != null)
               'originalPoints': [
-                for (final p in stroke.originalPoints!)
-                  [p.dx, p.dy],
+                for (final p in stroke.originalPoints!) [p.dx, p.dy],
               ],
             if (stroke.isPerfectShape && stroke.fit != null)
               'fit': _encodeFit(stroke.fit),
@@ -191,8 +188,7 @@ class DoodleStrokesCodec {
           shapeType = RecognizedShape.values.asNameMap()[shapeName];
         }
 
-        final recognitionConfidence =
-            map['recognitionConfidence'] as num?;
+        final recognitionConfidence = map['recognitionConfidence'] as num?;
 
         final originalPoints = _decodeOriginalPoints(map['originalPoints']);
 

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
 
 import '../../core/providers/database_provider.dart';
+import '../../core/theme/app_motion.dart';
 import '../../core/theme/note_theme_scope.dart';
 import '../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/repositories/checklist_item_repository.dart';
@@ -332,8 +333,8 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
+              duration: AppMotion.medium2,
+              curve: AppMotion.emphasizedDecelerate,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: isAllCompleted
@@ -592,11 +593,10 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                       begin: _initialLoadDone ? 1.0 : 0.0,
                                       end: 1.0,
                                     ),
-                                    duration: Duration(
-                                      milliseconds:
-                                          80 + (index * 40).clamp(0, 400),
-                                    ),
-                                    curve: Curves.easeOutCubic,
+                                    duration: AppMotion.staggerDelay(index,
+                                        step: const Duration(milliseconds: 40),
+                                        max: const Duration(milliseconds: 400)),
+                                    curve: AppMotion.emphasizedDecelerate,
                                     builder: (context, value, child) => Opacity(
                                       opacity: value,
                                       child: Transform.translate(
@@ -640,8 +640,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                     children: [
                                       AnimatedRotation(
                                         turns: _completedExpanded ? 0.25 : 0,
-                                        duration:
-                                            const Duration(milliseconds: 200),
+                                        duration: AppMotion.short4,
                                         child: HugeIcon(
                                           icon: HugeIcons
                                               .strokeRoundedArrowRight01,
@@ -652,12 +651,12 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor> {
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        'COMPLETED \u00b7 ${_archivedItems.length}',
+                                        'Completed \u00b7 ${_archivedItems.length}',
                                         style: TextStyle(
                                           fontFamily: 'Inter',
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 1.5,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.2,
                                           color: scheme.onSurfaceVariant
                                               .withValues(alpha: 0.5),
                                         ),
@@ -737,11 +736,11 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: AppMotion.medium3,
     );
     _expandAnim = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutBack,
+      curve: AppMotion.emphasizedDecelerate,
     );
 
     widget.addFocusNode.addListener(_onFocusChange);
@@ -806,7 +805,7 @@ class _MorphingInputPillState extends State<_MorphingInputPill>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(isCircle ? 28 : 32),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: AppMotion.short4,
               width: pillWidth,
               height: pillHeight,
               padding: EdgeInsets.symmetric(horizontal: 8 + 12 * t),
@@ -884,8 +883,8 @@ class AnimatedProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: value),
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOutCubic,
+      duration: AppMotion.medium2,
+      curve: AppMotion.emphasizedDecelerate,
       builder: (context, val, _) => LinearProgressIndicator(
         value: val,
         minHeight: 8,
@@ -1001,8 +1000,8 @@ class _ChecklistTileState extends State<_ChecklistTile> {
           GestureDetector(
             onTap: widget.onToggle,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutBack,
+              duration: AppMotion.short4,
+              curve: AppMotion.emphasizedDecelerate,
               width: 24,
               height: 24,
               decoration: BoxDecoration(
@@ -1046,7 +1045,7 @@ class _ChecklistTileState extends State<_ChecklistTile> {
                       alignment: Alignment.centerLeft,
                       children: [
                         AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 250),
+                          duration: AppMotion.short4,
                           style: (textTheme.bodyLarge ?? const TextStyle())
                               .copyWith(
                             fontWeight: FontWeight.w600,
@@ -1062,8 +1061,8 @@ class _ChecklistTileState extends State<_ChecklistTile> {
                             child: TweenAnimationBuilder<double>(
                               tween: Tween(
                                   begin: 0, end: widget.checked ? 1.0 : 0.0),
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeOutCubic,
+                              duration: AppMotion.short4,
+                              curve: AppMotion.emphasizedDecelerate,
                               builder: (context, value, _) =>
                                   FractionallySizedBox(
                                 widthFactor: value,
@@ -1137,7 +1136,7 @@ class _SwipeableTileState extends State<_SwipeableTile>
     super.initState();
     _snapController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 450),
+      duration: AppMotion.long1,
     );
     _snapAnimation = const AlwaysStoppedAnimation(0);
     _snapController.addListener(() {
@@ -1192,7 +1191,9 @@ class _SwipeableTileState extends State<_SwipeableTile>
               ).animate(
                 CurvedAnimation(
                   parent: _snapController,
-                  curve: thresholdMet ? Curves.easeOutExpo : Curves.easeOutBack,
+                  curve: thresholdMet
+                      ? AppMotion.emphasizedDecelerate
+                      : AppMotion.emphasizedAccelerate,
                 ),
               );
               _snapController.forward(from: 0);

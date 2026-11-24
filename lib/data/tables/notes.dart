@@ -23,6 +23,10 @@ class Notes extends Table {
   TextColumn get deviceOriginId => text()();
   IntColumn get syncVersion => integer().withDefault(const Constant(0))();
 
+  /// Per-note typography: auto/sans/serif/mono, stored as the enum name.
+  TextColumn get fontStyle =>
+      text().nullable().withDefault(const Constant('auto'))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
