@@ -110,8 +110,8 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet> {
       setState(() {
         _initializing = false;
         _listening = false;
-        _error = _error ??
-            'Speech recognition is not available on this device.';
+        _error =
+            _error ?? 'Speech recognition is not available on this device.';
       });
       return;
     }
