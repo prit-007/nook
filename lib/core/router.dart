@@ -261,7 +261,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/sync',
-            pageBuilder: (context, state) => _fadeTransition(
+            pageBuilder: (context, state) => _sharedAxisTransition(
               context,
               state,
               const SyncScreen(),

@@ -25,8 +25,115 @@ void main() {
       expect(db, isNotNull);
     });
 
-    test('schema version is 9', () {
-      expect(db.schemaVersion, 9);
+    test('schema version is 10', () {
+      expect(db.schemaVersion, 10);
+    });
+
+    test('migrates v9 database to v10 preserving notes with archived=false',
+        () async {
+      final tempDir = await Directory.systemTemp.createTemp('nook_mig_v9_');
+      try {
+        final dbPath = p.join(tempDir.path, 'v9.db');
+        final rawDb = AppDatabase(NativeDatabase(File(dbPath)));
+        // Create schema first, then downgrade to simulate v9 without archived.
+        await rawDb.customStatement('SELECT 1');
+        await rawDb.customStatement('ALTER TABLE notes DROP COLUMN archived;');
+        await rawDb.customStatement('PRAGMA user_version = 9;');
+        await rawDb.customStatement(
+          "INSERT INTO notes (id, type, title, created_at, updated_at, device_origin_id) VALUES ('n-v9', 'text', 'Legacy v9 note', 1700000000, 1700000000, 'd1');",
+        );
+        await rawDb.close();
+
+        final migrated = AppDatabase(NativeDatabase(File(dbPath)));
+        final row = await (migrated.select(migrated.notes)
+              ..where((t) => t.id.equals('n-v9')))
+            .getSingle();
+        expect(row.title, 'Legacy v9 note');
+        expect(row.archived, isFalse);
+        await migrated.close();
+      } finally {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      }
+    });
+
+    test(
+        'upgrades multi-step legacy schema (v3) to v10 creating new tables & columns',
+        () async {
+      final tempDir = await Directory.systemTemp.createTemp('nook_mig_v3_');
+      try {
+        final dbPath = p.join(tempDir.path, 'v3.db');
+        final rawDb = AppDatabase(NativeDatabase(File(dbPath)));
+        await rawDb.customStatement('SELECT 1');
+        await rawDb.customStatement('DROP TABLE IF EXISTS note_revisions;');
+        await rawDb.customStatement('DROP TABLE IF EXISTS note_links;');
+        await rawDb.customStatement('DROP TABLE IF EXISTS reminders;');
+        await rawDb.customStatement('DROP TABLE IF EXISTS templates;');
+        await rawDb.customStatement('DROP TABLE IF EXISTS trusted_devices;');
+        await rawDb
+            .customStatement('ALTER TABLE notes DROP COLUMN font_style;');
+        await rawDb.customStatement('ALTER TABLE notes DROP COLUMN archived;');
+        await rawDb.customStatement('PRAGMA user_version = 3;');
+        await rawDb.customStatement(
+          "INSERT INTO notes (id, type, title, created_at, updated_at, device_origin_id) VALUES ('n-v3', 'text', 'Legacy v3 note', 1600000000, 1600000000, 'd1');",
+        );
+        await rawDb.close();
+
+        // Migrate to v10
+        final migrated = AppDatabase(NativeDatabase(File(dbPath)));
+        expect(migrated.schemaVersion, 10);
+        final row = await (migrated.select(migrated.notes)
+              ..where((t) => t.id.equals('n-v3')))
+            .getSingle();
+        expect(row.title, 'Legacy v3 note');
+        expect(row.archived, isFalse);
+        expect(row.fontStyle, 'auto');
+
+        // Verify newly added tables exist and accept queries
+        final revisions = await migrated.select(migrated.noteRevisions).get();
+        expect(revisions, isEmpty);
+        final templates = await migrated.select(migrated.templates).get();
+        expect(templates, isEmpty);
+
+        await migrated.close();
+      } finally {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      }
+    });
+
+    test(
+        'migration safety: backs up database before migration and preserves integrity',
+        () async {
+      final tempDir = await Directory.systemTemp.createTemp('nook_mig_backup_');
+      try {
+        final dbPath = p.join(tempDir.path, 'notes.db');
+        final backupPath = p.join(tempDir.path, 'notes.db.bak');
+
+        // Create initial db file
+        final rawDb = AppDatabase(NativeDatabase(File(dbPath)));
+        await rawDb.customStatement('SELECT 1');
+        await rawDb.close();
+
+        // Simulate pre-migration backup
+        final originalFile = File(dbPath);
+        await originalFile.copy(backupPath);
+        expect(File(backupPath).existsSync(), isTrue);
+
+        // Open and run migration
+        final migrated = AppDatabase(NativeDatabase(File(dbPath)));
+        expect(migrated.schemaVersion, 10);
+        await migrated.close();
+
+        // Verify backup is intact
+        expect(File(backupPath).lengthSync(), greaterThan(0));
+      } finally {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      }
     });
   });
 

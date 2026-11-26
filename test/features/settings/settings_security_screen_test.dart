@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nook/core/providers/vault_password_provider.dart';
 import 'package:nook/features/security/recovery_key_dialog.dart';
+import 'package:nook/features/security/vault_password_dialog.dart';
 import 'package:nook/features/settings/settings_security_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,13 +36,36 @@ void main() {
       await tester.scrollUntilVisible(find.text('Recovery Key'), 100);
       expect(find.text('Recovery Key'), findsOneWidget);
       expect(
-        find.textContaining('24-word phrase'),
+        find.textContaining('Enable a vault password first'),
         findsOneWidget,
       );
     });
 
-    testWidgets('tapping Recovery Key opens RecoveryKeyDialog', (tester) async {
+    testWidgets(
+        'tapping Recovery Key prompts vault password setup when disabled',
+        (tester) async {
       await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Recovery Key'), 100);
+      await tester.tap(find.text('Recovery Key'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(VaultPasswordSetDialog), findsOneWidget);
+    });
+
+    testWidgets('tapping Recovery Key opens RecoveryKeyDialog when unlocked',
+        (tester) async {
+      final unlockedVault = VaultPasswordProvider(enabled: true)
+        ..markUnlockedWithDek('test-dek');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            vaultPasswordProvider.overrideWith((ref) => unlockedVault),
+          ],
+          child: const MaterialApp(home: SettingsSecurityScreen()),
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(find.text('Recovery Key'), 100);

@@ -10,9 +10,11 @@ import '../../core/app_info.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
 import '../../core/providers/talker_provider.dart';
+import '../../core/providers/voice_preference_provider.dart';
 import '../../core/theme/nook_tokens.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../sync/sync_orchestrator.dart';
+import '../archive/archive_screen.dart';
 import 'providers/vault_stats_provider.dart';
 
 /// Settings root screen.
@@ -124,6 +126,22 @@ class SettingsScreen extends ConsumerWidget {
                   },
                 ),
               ),
+              if (ref.watch(voicePreferenceProvider).isSupported)
+                _SettingsTile(
+                  icon: HugeIcons.strokeRoundedMic01,
+                  title: 'Voice Dictation',
+                  value: ref.watch(voicePreferenceProvider).enabled
+                      ? 'On · uses device speech service'
+                      : 'Off by default',
+                  trailing: Switch.adaptive(
+                    value: ref.watch(voicePreferenceProvider).enabled,
+                    activeThumbColor: scheme.primary,
+                    onChanged: (value) {
+                      HapticFeedback.lightImpact();
+                      ref.read(voicePreferenceProvider).setEnabled(value);
+                    },
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 24),
@@ -149,6 +167,19 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.push('/settings/storage');
+                },
+              ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedArchive,
+                title: 'Archive',
+                value: 'Long-term inactive notes',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ArchiveScreen(),
+                    ),
+                  );
                 },
               ),
               _SettingsTile(

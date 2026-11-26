@@ -1,18 +1,22 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/platform/window_manager.dart';
 import '../../core/security/recovery_key_provider.dart';
 
 /// Shows a dialog presenting the 24-word recovery key to the user.
 ///
-/// Returns `true` if the user confirmed saving the key, or `false`/`null` if cancelled.
+/// Returns `true` if the user confirmed saving the key (passing 3-word
+/// verification), or `false`/`null` if cancelled.
 Future<bool?> showRecoveryKeyDialog(
   BuildContext context, {
   List<String>? words,
+  List<int>? verifyIndices,
   VoidCallback? onConfirmed,
 }) {
   return showDialog<bool>(
@@ -20,6 +24,7 @@ Future<bool?> showRecoveryKeyDialog(
     barrierDismissible: false,
     builder: (ctx) => RecoveryKeyDialog(
       words: words,
+      verifyIndices: verifyIndices,
       onConfirmed: onConfirmed,
     ),
   );
@@ -28,16 +33,17 @@ Future<bool?> showRecoveryKeyDialog(
 /// A Material 3 dialog presenting the 24-word recovery key.
 ///
 /// Features:
-/// - Frosted glass backdrop blur.
+/// - Frosted glass backdrop blur + temporary `FLAG_SECURE` while open.
 /// - 24-word numbered grid chips.
 /// - Prominent warning card ("Keys cannot be recovered if lost").
-/// - "Copy to clipboard" affordance with haptic feedback.
-/// - Mandatory safety confirmation checkbox before the confirm button is enabled.
+/// - "Copy to clipboard" affordance with 60-second automatic clipboard clear.
+/// - 3-word verification challenge before the confirm button is enabled.
 /// - HugeIcons only, font size ≥12sp, min touch targets ≥48×48dp.
 class RecoveryKeyDialog extends StatefulWidget {
   const RecoveryKeyDialog({
     super.key,
     this.words,
+    this.verifyIndices,
     this.onConfirmed,
   });
 
@@ -45,7 +51,12 @@ class RecoveryKeyDialog extends StatefulWidget {
   /// mnemonic is generated automatically.
   final List<String>? words;
 
-  /// Optional callback invoked when the user confirms having saved the phrase safely.
+  /// Optional 0-based indices (3 distinct values in 0..23) for the 3-word
+  /// verification challenge. When omitted, 3 distinct indices are chosen
+  /// randomly.
+  final List<int>? verifyIndices;
+
+  /// Optional callback invoked when the user passes verification.
   final VoidCallback? onConfirmed;
 
   @override
@@ -54,20 +65,58 @@ class RecoveryKeyDialog extends StatefulWidget {
 
 class _RecoveryKeyDialogState extends State<RecoveryKeyDialog> {
   late final List<String> _words;
-  bool _hasSaved = false;
+  late final List<int> _verifyIndices;
+  late final List<TextEditingController> _verifyControllers;
+  bool _allVerified = false;
   bool _copied = false;
   Timer? _copyTimer;
+  Timer? _clipboardClearTimer;
 
   @override
   void initState() {
     super.initState();
     _words = widget.words ?? generateRecoveryKey();
+    _verifyIndices = widget.verifyIndices ?? _pickThreeIndices();
+    _verifyControllers = List.generate(
+      _verifyIndices.length,
+      (_) => TextEditingController(),
+    );
+    unawaited(WindowManager.addFlags(WindowManager.flagSecure));
+  }
+
+  static List<int> _pickThreeIndices() {
+    final rng = Random.secure();
+    final set = <int>{};
+    while (set.length < 3) {
+      set.add(rng.nextInt(24));
+    }
+    return set.toList()..sort();
   }
 
   @override
   void dispose() {
     _copyTimer?.cancel();
+    _clipboardClearTimer?.cancel();
+    for (final c in _verifyControllers) {
+      c.dispose();
+    }
+    unawaited(WindowManager.clearFlags(WindowManager.flagSecure));
     super.dispose();
+  }
+
+  void _checkVerification() {
+    var ok = true;
+    for (var i = 0; i < _verifyIndices.length; i++) {
+      final expected = _words[_verifyIndices[i]].trim().toLowerCase();
+      final actual = _verifyControllers[i].text.trim().toLowerCase();
+      if (actual != expected) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok != _allVerified) {
+      setState(() => _allVerified = ok);
+    }
   }
 
   Future<void> _copyToClipboard() async {
@@ -84,6 +133,10 @@ class _RecoveryKeyDialogState extends State<RecoveryKeyDialog> {
           _copied = false;
         });
       }
+    });
+    _clipboardClearTimer?.cancel();
+    _clipboardClearTimer = Timer(const Duration(seconds: 60), () {
+      unawaited(Clipboard.setData(const ClipboardData(text: '')));
     });
   }
 
@@ -271,45 +324,35 @@ class _RecoveryKeyDialogState extends State<RecoveryKeyDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // Safety confirmation checkbox with min 48px height target
-                InkWell(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _hasSaved = !_hasSaved;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          value: _hasSaved,
-                          activeColor: scheme.primary,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          onChanged: (val) {
-                            HapticFeedback.selectionClick();
-                            setState(() {
-                              _hasSaved = val ?? false;
-                            });
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'I have saved my recovery key safely',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: scheme.onSurface,
-                            ),
+                // 3-word verification step
+                Text(
+                  'Verify 3 words to confirm you saved it:',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    for (var i = 0; i < _verifyIndices.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _verifyControllers[i],
+                          onChanged: (_) => _checkVerification(),
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          decoration: InputDecoration(
+                            labelText: 'Word #${_verifyIndices[i] + 1}',
+                            isDense: true,
+                            border: const OutlineInputBorder(),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 12),
 
@@ -340,7 +383,7 @@ class _RecoveryKeyDialogState extends State<RecoveryKeyDialog> {
                         backgroundColor: scheme.primary,
                         foregroundColor: scheme.onPrimary,
                       ),
-                      onPressed: _hasSaved
+                      onPressed: _allVerified
                           ? () {
                               widget.onConfirmed?.call();
                               Navigator.of(context).pop(true);

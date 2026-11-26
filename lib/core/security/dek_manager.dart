@@ -50,6 +50,62 @@ class DekManager {
   final Random _random;
   final AesGcm _aesGcm = AesGcm.with256bits();
 
+  /// Recovers from an interrupted wrap if the app was killed mid-operation.
+  ///
+  /// - If both [dbEncryptionKeyStorageKey] and [wrappedDekStorageKey] exist:
+  ///   - When [wrappedDekStorageKey] is structurally valid, finishes the wrap
+  ///     by deleting the plaintext key.
+  ///   - When [wrappedDekStorageKey] is corrupt/partial, deletes the partial
+  ///     wrapped blobs so [dbEncryptionKeyStorageKey] remains intact.
+  Future<void> recoverInterruptedWrap() async {
+    final plain = await _store.read(dbEncryptionKeyStorageKey);
+    final wrappedRaw = await _store.read(wrappedDekStorageKey);
+    if (plain == null || plain.isEmpty || wrappedRaw == null) {
+      return;
+    }
+
+    if (_isValidEnvelopeJson(wrappedRaw)) {
+      await _store.delete(dbEncryptionKeyStorageKey);
+      nookLog(
+        NookLogKey.security,
+        'Completed interrupted C2 DEK wrap cleanup',
+        LogLevel.info,
+      );
+    } else {
+      await _store.delete(wrappedDekStorageKey);
+      await _store.delete(recoveryWrappedDekStorageKey);
+      nookLog(
+        NookLogKey.security,
+        'Rolled back corrupt partial C2 DEK wrap; plaintext key preserved',
+        LogLevel.warning,
+      );
+    }
+  }
+
+  bool _isValidEnvelopeJson(String raw) {
+    try {
+      final map = jsonDecode(raw);
+      if (map is! Map<String, dynamic>) return false;
+      final salt = map['salt'];
+      final iterations = map['iterations'];
+      final nonce = map['nonce'];
+      final ciphertext = map['ciphertext'];
+      final mac = map['mac'];
+      return salt is String &&
+          salt.isNotEmpty &&
+          iterations is int &&
+          iterations > 0 &&
+          nonce is String &&
+          nonce.isNotEmpty &&
+          ciphertext is String &&
+          ciphertext.isNotEmpty &&
+          mac is String &&
+          mac.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Returns `true` when the SQLCipher DEK is wrapped by a vault password.
   Future<bool> isWrapped() async {
     final blob = await _store.read(wrappedDekStorageKey);
@@ -103,6 +159,15 @@ class DekManager {
 
     if (recoveryWords != null) {
       await _writeRecoveryWrappedDek(dek, recoveryWords);
+    }
+
+    // Verify the written wrapped envelope decrypts to the exact DEK before
+    // deleting the plaintext key from secure storage.
+    final verified = await unwrapDekWithPassword(password);
+    if (verified != dek) {
+      await _store.delete(wrappedDekStorageKey);
+      await _store.delete(recoveryWrappedDekStorageKey);
+      throw StateError('DEK wrap verification failed; plaintext key preserved');
     }
 
     await _store.delete(dbEncryptionKeyStorageKey);

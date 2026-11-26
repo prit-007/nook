@@ -113,7 +113,7 @@ class _MobileShell extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh.withValues(alpha: 0.85),
-                borderRadius: context.tokens.borderRadiusDock,
+                borderRadius: context.tokens.borderRadiusPill,
                 border: Border.all(
                   color: context.tokens.dockBorder,
                   width: 1,
@@ -211,7 +211,7 @@ class _DockItemState extends State<_DockItem> {
             onTapCancel: () => setState(() => _isPressed = false),
             radius: 36,
             highlightShape: BoxShape.rectangle,
-            borderRadius: context.tokens.borderRadiusLg,
+            borderRadius: context.tokens.borderRadiusPill,
             splashColor: scheme.primary.withValues(alpha: 0.12),
             highlightColor: scheme.primary.withValues(alpha: 0.08),
             focusColor: scheme.primary.withValues(alpha: 0.15),
@@ -235,7 +235,7 @@ class _DockItemState extends State<_DockItem> {
                         color: widget.isSelected
                             ? scheme.primary.withValues(alpha: 0.15)
                             : Colors.transparent,
-                        borderRadius: context.tokens.borderRadiusLg,
+                        borderRadius: context.tokens.borderRadiusPill,
                       ),
                       child: AnimatedSwitcher(
                         duration: _iconSwapDuration,
@@ -381,7 +381,7 @@ class _WideShell extends StatelessWidget {
                           indicatorColor:
                               scheme.primary.withValues(alpha: 0.12),
                           indicatorShape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: context.tokens.borderRadiusMd,
                           ),
                           selectedIconTheme:
                               IconThemeData(color: scheme.primary),
@@ -404,8 +404,7 @@ class _WideShell extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: scheme.primaryContainer
-                                    .withValues(alpha: 0.6),
+                                color: scheme.primaryContainer,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: scheme.primary.withValues(alpha: 0.2),

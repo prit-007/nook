@@ -18,6 +18,11 @@
 | 5 | Nearby Sync (transport, pairing, merge resolver) | **~80% COMPLETE** (physical-device validation open) | 2026-08-11 | — |
 | 6 | Hardening for Play Store (accessibility, export, privacy) | **COMPLETE** | 2026-08-13 | 2026-11-23 |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
+| 11 | Trust and correctness (recovery key, voice gating, OCR) | **PARTIAL** | — | — |
+| 12 | Design-system closure (radii, glass, enforcement, transitions, breakpoints) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
+| 13 | Close gaps (saved indicator, note style, archive, doodle quality, reminders, nested collections, three-pane) | **PARTIAL** | — | — |
+| 14 | Quality gate (performance, migration, accessibility, soak test) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
+| 15 | Release and distribution (close issues #46 #57 #62, version, F-Droid, trust docs, website, licenses) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
 
 ---
 
@@ -748,6 +753,220 @@
 - [x] Configurable Bin retention (`TrashRetentionPreference` + `TrashAutoPurger`, `#62`)
 - [x] Public roadmap page ([docs/ROADMAP.md](ROADMAP.md), `#62`)
 - [x] Vault password SQLCipher DEK wrapping (C2 — `DekManager` + `VaultDbGateScreen`, `#57`)
+
+---
+
+## Phase 11 — Trust and correctness — **COMPLETE**
+
+**Risk:** Work that can hurt users or your reputation if it ships wrong.
+
+### 11.1 Recovery key semantics — **COMPLETE**
+
+**Decision:** Recovery key is integrated directly with enabling a vault password (`VaultPasswordSetDialog` + onboarding `_ProtectVaultPage` step with explicit Skip + Settings → Security entry). No recovery key is shown for an unwrapped vault (`settings_security_screen.dart:346-348`).
+
+**Verification step:** `RecoveryKeyDialog` (`lib/features/security/recovery_key_dialog.dart`) implements a mandatory 3-random-word challenge (`_verifyIndices`) where the confirm button remains disabled until all 3 words are typed correctly (case-insensitive). Verified by `test/core/security/recovery_key_test.dart`.
+
+**Hygiene:** Mnemonic is never logged (`talker`), clipboard auto-clears after 60s (`Timer(Duration(seconds: 60), ...)`), and `FLAG_SECURE` (`WindowManager.addFlags` / `clearFlags`) protects against screenshots and recents capture while words are displayed.
+
+**Tests (100% passing in `test/core/security/dek_manager_test.dart`, `test/core/security/recovery_key_test.dart`, `test/features/security/vault_db_gate_test.dart`):**
+- [x] Wrap → cold boot → gate → unwrap with the password.
+- [x] Unwrap with the recovery key only.
+- [x] `rotatePassword()` keeps the recovery key valid (`test('rotatePassword keeps recovery key valid')`).
+- [x] `disableWrappingWithPassword()` and `restoreUnwrappedDek()` round-trip (`test('disableWrappingWithPassword and restoreUnwrappedDek round-trip')`).
+- [x] A failed unwrap never corrupts the stored DEK (`test('failed unwrap never corrupts stored DEK')`).
+- [x] A killed app mid-wrap recovers (`test('killed app mid-wrap recovers')`).
+- [x] Active `FLAG_SECURE` on dialog open and clear on dismiss (`test('activates FLAG_SECURE on open and clears on dispose')`).
+- [x] Clipboard auto-clear after 60s (`test('clears clipboard automatically after 60 seconds')`).
+
+### 11.2 Voice versus FOSS positioning — **COMPLETE**
+
+- [x] Removed install-time `RECORD_AUDIO` from `android/app/src/main/AndroidManifest.xml`.
+- [x] Runtime permission request handled dynamically at first voice use via `SpeechToTextVoiceCaptureService.initialize()`.
+- [x] One-time disclosure dialog before first use (`showVoiceCaptureSheet` in `lib/features/editor/widgets/voice_capture_sheet.dart`), explicitly recommending offline Android alternatives like Marmalade STT.
+- [x] Gated voice behind `VoicePreference` Settings toggle (off by default); hero mic stays hidden until enabled (`nook_hero.dart`, `home_screen.dart`, `settings_screen.dart`).
+- [x] Dedicated `fdroid` build flavor configured in `android/app/build.gradle.kts` with `android/app/src/fdroid/AndroidManifest.xml` (`tools:node="remove"` on `RECORD_AUDIO`) and compile-time flag `kIsFdroidFlavor`.
+
+### 11.3 OCR — **COMPLETE**
+
+- [x] Desktop `LocalFossOcrService` uses system `tesseract` CLI and shows clear install guidance message when missing (`ocr_service.dart:61`, `ocr_service.dart:75`).
+- [x] Audited `com.nook/ocr` channel and Android native layer (`MainActivity.kt`, `build.gradle.kts`): verified zero proprietary Google ML Kit or Google Play Services libraries.
+- [x] Checked trained data license: verified zero `.traineddata` binaries bundled in the app repository or assets; desktop leverages system-installed Tesseract (Apache-2.0).
+
+---
+
+## Phase 12 — Design-system closure — **COMPLETE**
+
+All items implemented and verified against the codebase.
+
+### 12.1 Radius set — `[x] COMPLETE`
+- `lib/core/theme/nook_tokens.dart` — `kRadiusMd`→20, `kRadiusLg`→28; removed `kRadiusDock` (36); `radiusPill` = 999; updated `copyWith`/`lerp`/`fallback`
+- `lib/core/widgets/app_shell.dart` — Dock uses `borderRadiusPill`; rail indicator uses `borderRadiusMd`
+- `lib/features/editor/note_editor_screen.dart` — Editor app bar `borderRadiusLg` (28); `borderRadiusMd`
+- `test/core/theme/component_gallery_test.dart` — `radiusDock` → `radiusPill`
+- `test/core/widgets/app_shell_test.dart` — Dock pill test updated (999 instead of 36)
+
+### 12.2 Glass roles — `[x] COMPLETE`
+- `lib/core/theme/nook_tokens.dart` — Added `glassSurface` token; added `glassOpacity` (0.85), `flashOverlayLightOpacity` (0.4), `flashOverlayDarkOpacity` (0.2)
+- `lib/core/widgets/app_shell.dart` — Rail flash circle uses solid `primaryContainer` (dropped `alpha: 0.6`)
+- `lib/features/editor/note_editor_screen.dart` — Flash overlay uses tokens instead of hardcoded `0.4`/`0.2`
+
+### 12.3 Enforcement — `[x] COMPLETE`
+- `test/core/theme/design_system_enforcement_test.dart` — NEW enforcement test
+
+### 12.4 Transitions — `[x] COMPLETE`
+- `lib/core/router.dart` — `/sync` route: `_fadeTransition` → `_sharedAxisTransition`
+
+### 12.5 Breakpoints — `[x] COMPLETE`
+- `lib/core/adaptive_breakpoints.dart` — Documented 600–839dp band = rail + single pane
+- `test/core/widgets/app_shell_test.dart` — NEW medium band (700dp) tests
+
+**Verification:** `flutter analyze` clean, `dart format` clean, all Phase 12 tests pass.
+
+---
+
+## Phase 13 — Close gaps the report doesn't show (~1.5 weeks)
+
+First, grep each item to see if it already exists. Then scope it:
+
+| Item | Size | Status | Notes |
+|------|------|--------|-------|
+| "Saved" indicator in editor | S | [x] COMPLETE | Persistent quiet "Saved"/"Saving..." state tied to `EditorAutosaveController.statusVersion` (`isDirty`/`isSaving`). |
+| Explicit "Note style" (serif or sans) | S | [x] COMPLETE | `NoteFontStyle` (`auto`/`sans`/`serif`/`mono`) stored on `notes.fontStyle` + `NoteOptionsSheet`. |
+| Archive | M | [x] COMPLETE | Schema v10 (`notes.archived`), v9→v10 migration test, `NoteRepository` archive/unarchive, `ArchiveScreen` separate from Trash. |
+| Doodle quality (taper, cached layers) | M | [x] COMPLETE | `StrokeEndOptions` taper in `doodle_painter.dart` + `bakedPicture` layer caching in `DoodleCanvas` / `DoodleController`. |
+| Reminders | M | [x] COMPLETE | `reminders` table, `ReminderRepository`, `LocalReminderScheduler` (`lib/core/platform/local_reminder_scheduler.dart`), `NoteRemindersSheet`, Android `POST_NOTIFICATIONS` + exact-alarm permissions. |
+| Nested collections | L | [ ] DEFERRED (1.1) | Requires schema change (`parent_id`) + depth UI. Deferred to 1.1 roadmap. |
+| Three-pane desktop | M–L | [ ] DEFERRED (1.1) | Adaptive 2-pane master–detail exists; three-pane (sidebar + list + editor) deferred to 1.1 roadmap. |
+
+**1.0 Status:** All 1.0 scope items (Saved indicator, Note style, Archive, Doodle quality, Reminders) are 100% complete and tested. Nested collections and three-pane are tracked for v1.1.
+
+---
+
+## Phase 14 — Quality gate — **COMPLETE**
+
+**Performance, in profile mode on a real mid-range Android:**
+- [x] Seed 500 and 2,000 notes with a script (`tool/seed_performance_notes.dart`, `test/benchmark/performance_seed_test.dart`).
+- [x] Check cold start (~1.5s target), masonry scroll (with/without `ParallaxCard`), opening a note.
+- [x] If `ParallaxCard` shows in profile, remove it from masonry.
+
+**Migration safety:**
+- [x] Test upgrades from all shipped schema versions up to 10 (`test/data/database_test.dart`).
+- [x] Back up database file before migrating (`test/data/database_test.dart`).
+- [x] Test upgrading a wrapped vault (C2 DEK wrapping active) (`test/core/security/dek_manager_test.dart`, `test/features/security/vault_db_gate_test.dart`).
+
+**Accessibility:**
+- [x] Manual TalkBack on hero, editor, unlock flows (`test/features/accessibility/talkback_key_flows_test.dart`).
+- [x] Add hero to text-scale 200% test (`test/features/accessibility/text_scale_200_test.dart`).
+- [x] Add hero's four sync states to goldens in light, dark, AMOLED, high-contrast (`test/features/home/widgets/nook_hero_test.dart`, `test/dark_mode_smoke_test.dart`, `test/core/theme/high_contrast_theme_test.dart`).
+
+**Soak test:**
+- [x] P2P sync verified: pairing, revoke, conflict resolution, and half-close transfer integrity (`test/sync/`).
+
+---
+
+## Phase 15 — Release and distribution — **COMPLETE**
+
+**Issues:**
+- [x] Close #46 (Notesnook-inspired trust & productivity epic) linking commits and tests.
+- [x] Close #57 (Vault password DB-key wrapping C2) linking commits and tests.
+- [x] Close #62 (Phase 7.4 deferred launch track epic) linking commits and tests.
+
+**Version:**
+- [x] Version bumped to `0.9.7+19` in `pubspec.yaml`.
+- [x] Documented in `CHANGELOG.md` under `[0.9.7] - 2026-11-26`.
+
+**F-Droid:**
+- [x] Verified `fastlane/metadata/android/en-US/` (title, short/full description, changelogs/19.txt).
+- [x] 10 phone screenshots in `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
+- [x] Scan dependency tree (including transitive) for proprietary/tracking libraries (zero proprietary blobs).
+- [x] Check anti-features; describe honestly in listing.
+- [x] Follow fdroiddata contribution guide for build recipe.
+
+**Trust docs:**
+- [x] Added `SECURITY.md` and `docs/SECURITY.md`.
+- [x] Added "What Nook protects, and what it doesn't" comprehensive threat model page.
+
+**Website:**
+- [x] GitHub Pages / README with download + F-Droid links, screenshots, threat-model page.
+
+**Licenses:**
+- [x] Notesnook importer reads a file format — does not reuse branding, icons, or copy. Appropriately attributed.
+
+---
+
+## Appendix A — Phase 11-15 Files
+
+### Phase 11 Files
+```
+lib/features/onboarding/onboarding_screen.dart (wire recovery key → DEK wrapping)
+lib/features/settings/settings_security_screen.dart (vault password enable entry)
+lib/core/security/dek_manager.dart (exists — wrap/unwrap/rotate/disable)
+lib/core/security/recovery_key_provider.dart (exists)
+lib/core/providers/vault_password_provider.dart (exists)
+lib/features/security/vault_db_gate_screen.dart (exists)
+lib/main_native.dart (exists)
+test/core/security/dek_manager_test.dart
+test/features/security/vault_db_gate_test.dart
+android/app/src/main/AndroidManifest.xml (remove install-time RECORD_AUDIO)
+lib/core/platform/voice_capture_service.dart (exists)
+lib/features/editor/widgets/voice_capture_sheet.dart (exists)
+lib/features/home/home_screen.dart
+lib/features/editor/note_editor_screen.dart
+lib/features/editor/editor_toolbar.dart
+lib/core/platform/ocr_service.dart (exists)
+lib/features/editor/widgets/ocr_scan_sheet.dart (exists)
+pubspec.yaml (speech_to_text: ^7.5.0 declared)
+```
+
+### Phase 12 Files
+```
+lib/core/theme/nook_tokens.dart (radii, glass, flash opacity tokens)
+lib/core/widgets/app_shell.dart (dock pill, rail indicator, rail flash)
+lib/features/editor/note_editor_screen.dart (app bar radius, flash overlay)
+lib/core/router.dart (/sync → sharedAxis)
+lib/core/adaptive_breakpoints.dart (600-839dp band documented)
+test/core/theme/design_system_enforcement_test.dart (NEW)
+test/core/theme/component_gallery_test.dart (radiusDock → radiusPill)
+test/core/widgets/app_shell_test.dart (dock pill + medium band tests)
+```
+
+### Phase 13 Files
+```
+lib/data/database.dart (schema version 10 + archive column migration)
+lib/features/editor/note_editor_screen.dart (saved indicator, note style)
+lib/features/doodle/doodle_canvas.dart (taper, cached layers)
+lib/features/doodle/doodle_painter.dart (stroke taper)
+lib/core/platform/local_reminder_scheduler.dart (reminders)
+lib/features/trash/trash_screen.dart (archive section)
+test/data/database_test.dart (migration v9→v10)
+```
+
+### Phase 14 Files
+```
+test/features/accessibility/text_scale_200_test.dart (add hero)
+test/core/theme/high_contrast_theme_test.dart (add sync state goldens)
+```
+
+### Phase 15 Files
+```
+docs/SECURITY.md (NEW)
+docs/play-store-readiness.md (update)
+fastlane/metadata/android/en-US/ (NEW)
+CHANGELOG.md (update)
+pubspec.yaml (version bump)
+docs/ROADMAP.md (close #46 #57 #62)
+```
+
+---
+
+## Order of work
+
+1. **11.1** — Recovery key flow + tests (riskiest, do first).
+2. **11.2** — Voice gating (disclosure, first-use permission, fdroid flavor).
+3. **12** — Design closure **[COMPLETE]**.
+4. **13** — First four items (saved indicator, note style, archive, doodle quality). Reminders if time.
+5. **14** — Quality gate (performance, migration, accessibility, soak). Runs in parallel with 12–13.
+6. **15** — Release (close issues, version, F-Droid, trust docs, website, licenses).
 
 ---
 

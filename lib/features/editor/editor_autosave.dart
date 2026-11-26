@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../data/database.dart';
 import '../../data/repositories/note_repository.dart';
@@ -31,15 +32,27 @@ class EditorAutosaveController {
   bool _saveQueued = false;
   bool _dirty = false;
 
+  /// Incremented whenever [isDirty] or [isSaving] changes so the editor app
+  /// bar can display a persistent quiet "Saved" / "Saving..." indicator.
+  final ValueNotifier<int> statusVersion = ValueNotifier<int>(0);
+
   bool get isSaving => _saving;
   bool get isDirty => _dirty;
 
+  void _notifyStatus() {
+    statusVersion.value++;
+  }
+
   void markDirty() {
+    if (_dirty) return;
     _dirty = true;
+    _notifyStatus();
   }
 
   void markClean() {
+    if (!_dirty) return;
     _dirty = false;
+    _notifyStatus();
   }
 
   /// Cancels any scheduled autosave timer.
@@ -194,6 +207,7 @@ class EditorAutosaveController {
       );
     } finally {
       _saving = false;
+      _notifyStatus();
       if (!isDisposed && _saveQueued) {
         _saveQueued = false;
         unawaited(

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/core/platform/voice_capture_service.dart';
+import 'package:nook/core/providers/voice_preference_provider.dart';
 import 'package:nook/features/editor/widgets/voice_capture_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeVoiceService implements VoiceCaptureService {
   _FakeVoiceService({this.available = true, this.simulatedWords = ''});
@@ -11,6 +13,7 @@ class _FakeVoiceService implements VoiceCaptureService {
   final String simulatedWords;
   bool listening = false;
   bool cancelled = false;
+  bool initialized = false;
 
   @override
   bool get isListening => listening;
@@ -26,6 +29,7 @@ class _FakeVoiceService implements VoiceCaptureService {
     void Function(String status)? onStatus,
     void Function(String error)? onError,
   }) async {
+    initialized = true;
     return available;
   }
 
@@ -47,15 +51,29 @@ class _FakeVoiceService implements VoiceCaptureService {
 }
 
 void main() {
-  testWidgets('VoiceCaptureSheet displays transcript and returns text',
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  test('VoicePreference defaults to disabled and disclosure unaccepted',
+      () async {
+    final pref = await VoicePreference.load();
+    expect(pref.enabled, isFalse);
+    expect(pref.disclosureAccepted, isFalse);
+  });
+
+  testWidgets(
+      'VoiceCaptureSheet shows one-time disclosure before requesting mic',
       (tester) async {
     final fake = _FakeVoiceService(simulatedWords: 'Buy oat milk tomorrow');
+    final pref = VoicePreference(enabled: true, disclosureAccepted: false);
     String? result;
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           voiceCaptureServiceProvider.overrideWithValue(fake),
+          voicePreferenceProvider.overrideWith((ref) => pref),
         ],
         child: MaterialApp(
           home: Builder(
@@ -75,7 +93,17 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Voice speech service'), findsOneWidget);
+    expect(find.textContaining('Marmalade STT'), findsOneWidget);
+    expect(fake.initialized, isFalse);
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(pref.disclosureAccepted, isTrue);
+    expect(fake.initialized, isTrue);
     expect(find.text('Buy oat milk tomorrow'), findsOneWidget);
+
     await tester.tap(find.text('Use Text'));
     await tester.pumpAndSettle();
 
@@ -85,11 +113,13 @@ void main() {
   testWidgets('VoiceCaptureSheet handles unavailable recognizer gracefully',
       (tester) async {
     final fake = _FakeVoiceService(available: false);
+    final pref = VoicePreference(enabled: true, disclosureAccepted: true);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           voiceCaptureServiceProvider.overrideWithValue(fake),
+          voicePreferenceProvider.overrideWith((ref) => pref),
         ],
         child: MaterialApp(
           home: Builder(

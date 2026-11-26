@@ -5,44 +5,48 @@ All notable changes to Nook are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.7] - 2026-11-26
 
-### Security
+### Trust & Correctness (Phase 11, Issues #46 & #57)
 - **Vault password DB-key wrapping (C2)** (issue #57): Enabling a vault password
   now wraps the SQLCipher database encryption key (DEK) with an AES-256-GCM
   key derived via PBKDF2-HMAC-SHA256 (`DekManager`) and deletes the unwrapped
   key from platform secure storage. Cold-start launches gate DB opening behind
   `VaultDbGateScreen` with optional 24-word BIP-39 recovery key fallback.
+- **24-word recovery key verification**: Replaced simple checkbox with a 3-random-word
+  verification challenge before confirming key backup, automated 60-second clipboard
+  clearing, and active `FLAG_SECURE` protection preventing screenshot snooping while
+  mnemonic words are visible.
+- **Voice FOSS positioning**: Removed install-time `RECORD_AUDIO` permission from the
+  main manifest; added a one-time privacy disclosure dialog mentioning offline speech
+  engines like Marmalade STT; voice feature is disabled by default behind Settings toggle;
+  and added dedicated `fdroid` build flavor.
 
-### Productivity & Exports
+### Productivity & Features (Phase 13 & 14, Issue #62)
+- **Archive feature**: Drift schema bumped to v10 adding `archived` column to notes,
+  multi-step migration, `ArchiveScreen` for indefinitely preserved notes, completely
+  disentangled from the 30-day auto-purged Bin/Trash.
+- **Editor "Saved" indicator**: Added persistent, quiet "Saved" and "Saving..." indicator
+  tied to `EditorAutosaveController.statusVersion` without displacing the note date header.
+- **Note typography styles**: Added explicit `NoteFontStyle` (`auto`, `sans`, `serif`,
+  `mono`) selectable per note in `NoteOptionsSheet`.
+- **Doodle enhancements**: Tapered stroke ends via `StrokeEndOptions` and cached
+  canvas layer rendering via `bakedPicture`.
 - **PDF export** (issue #62): Added `renderNotePdf` (`pdf` package) supporting
   rich text, checklists, images, and doodle thumbnails. Available via single-note
   **Share as PDF** and **Settings → Storage → Export all notes → PDF** (`.zip`).
-- **`[[wiki]]` link autocomplete** (issue #62): Typing `[[` in the editor now
-  surfaces a live inline `WikiLinkAutocomplete` suggestion bar that filters notes
-  as you type and inserts `nook://note/<id>` links without interrupting flow.
+- **`[[wiki]]` link autocomplete** (issue #62): Typing `[[` in the editor surfaces
+  a live inline `WikiLinkAutocomplete` suggestion bar inserting `nook://note/<id>` links.
 - **Configurable Bin retention** (issue #62): Added **Bin auto-purge retention**
-  in **Settings → Storage** (`7`, `14`, `30` default, `60`, `90` days, or `Never`)
-  wired to `TrashAutoPurger` and the Bin retention banner/countdowns.
-- **Public roadmap** (issue #62): Added [docs/ROADMAP.md](docs/ROADMAP.md).
+  in **Settings → Storage** (`7`, `14`, `30` default, `60`, `90` days, or `Never`).
 - **Home screen widgets** (issue #62): Added `HomeWidgetService` (`home_widget`)
-  and Android `NookWidgetProvider` syncing up to 5 pinned non-locked notes and
-  `nook://capture` quick-capture deep links.
-- **Voice-to-text capture** (issue #62): Added `VoiceCaptureService`
-  (`speech_to_text`) and `VoiceCaptureSheet` wired to the Home hero mic button
-  and editor slash menu.
+  and Android `NookWidgetProvider` syncing pinned notes and `nook://capture` quick capture.
 - **FOSS OCR scan-to-note** (issue #62): Added `LocalFossOcrService` and
-  `OcrScanSheet` in the editor slash menu using desktop `tesseract` / optional
-  `com.nook/ocr` platform channel (zero proprietary Google Play Services).
-- **Flutter Web companion** (issue #62): Added `WebCompanionApp` via
-  conditional entrypoint (`main_web.dart` / `main_native.dart`) for local
-  read-only browsing and PDF/Markdown export of `.zip`, `.nook`, and `.md` files.
-
-### UI & UX
-- **Collapsing Home hero (`NookHeroSliver`)**: Replaced the Home `SliverAppBar.large`
-  and standalone `QuickCaptureBar` with a pinned collapsing hero header featuring
-  sentence-case vault counts, Playfair time-of-day greeting, inline quick-capture bar,
-  4-state sync status pill, and pinned action buttons in `FilterPillBar`.
+  `OcrScanSheet` in editor slash menu via system `tesseract` CLI (zero proprietary Play Services).
+- **Flutter Web companion** (issue #62): Added `WebCompanionApp` for local read-only
+  browsing and PDF/Markdown export.
+- **Performance benchmarks & quality gate**: Benchmarked 500 and 2,000 note insertions
+  and FTS searches; added 200% text scale accessibility tests for `NookHeroSliver` and cards.
 
 ## [0.9.6] - 2026-11-03
 

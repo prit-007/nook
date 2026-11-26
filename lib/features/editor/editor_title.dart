@@ -228,13 +228,28 @@ class ResponsiveEditorAppBar extends StatelessWidget {
                           ? Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                Flexible(
+                                  child: Text(
+                                    _subtitle(
+                                      note?.updatedAt ?? DateTime.now(),
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: noteScheme.onSurfaceVariant,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
                                 HugeIcon(
                                   icon:
                                       HugeIcons.strokeRoundedCheckmarkCircle02,
                                   size: 13,
                                   color: noteScheme.primary,
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 3),
                                 Text(
                                   'Saved',
                                   style: TextStyle(

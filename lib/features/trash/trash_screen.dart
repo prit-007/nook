@@ -17,7 +17,7 @@ import '../../data/repositories/notebook_repository.dart';
 import '../../data/repositories/tag_repository.dart';
 import '../../data/tables/attachments.dart';
 
-/// Bin screen — archived notes, notebooks, tags and attachments with four
+/// Bin screen — soft-deleted notes, notebooks, tags and attachments with four
 /// categorized tabs.
 class TrashScreen extends ConsumerStatefulWidget {
   const TrashScreen({super.key});
@@ -604,10 +604,10 @@ class _BinTab extends StatelessWidget {
 
   String _formatRetentionSubtitle(DateTime? deletedAt) {
     final age = _formatAge(deletedAt);
-    if (deletedAt == null) return 'Archived recently';
-    if (retentionDays <= 0) return 'Archived $age';
+    if (deletedAt == null) return 'Deleted recently';
+    if (retentionDays <= 0) return 'Deleted $age';
     final passedDays = DateTime.now().difference(deletedAt).inDays;
     final remainingDays = (retentionDays - passedDays).clamp(1, retentionDays);
-    return 'Archived $age \u00b7 $remainingDays days left';
+    return 'Deleted $age \u00b7 $remainingDays days left';
   }
 }

@@ -13,6 +13,8 @@ import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/pin_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
 import '../../core/providers/vault_password_provider.dart';
+import '../../core/security/dek_manager.dart';
+import '../../core/security/recovery_key_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../features/security/pin_entry_screen.dart';
 import '../../features/security/recovery_key_dialog.dart';
@@ -341,7 +343,9 @@ class SettingsSecurityScreen extends ConsumerWidget {
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               subtitle: Text(
-                '24-word phrase to restore vault if PIN or password is lost',
+                vaultProv.enabled
+                    ? '24-word phrase to restore vault if password is lost'
+                    : 'Enable a vault password first to protect & recover your vault',
                 style: TextStyle(
                   color: scheme.onSurfaceVariant,
                   fontSize: 13,
@@ -351,9 +355,33 @@ class SettingsSecurityScreen extends ConsumerWidget {
                 icon: HugeIcons.strokeRoundedArrowRight01,
                 size: 18,
               ),
-              onTap: () {
+              onTap: () async {
                 unawaited(AppHaptics.medium());
-                unawaited(showRecoveryKeyDialog(context));
+                if (!vaultProv.enabled) {
+                  await showSetVaultPasswordDialog(context);
+                  return;
+                }
+                final dek = vaultProv.sessionDek;
+                if (dek == null) {
+                  final unlocked = await ensureVaultUnlocked(context, ref);
+                  if (!unlocked || !context.mounted) return;
+                }
+                final activeDek = ref.read(vaultPasswordProvider).sessionDek;
+                if (activeDek == null || !context.mounted) return;
+                final words = generateRecoveryKey();
+                final confirmed =
+                    await showRecoveryKeyDialog(context, words: words);
+                if (confirmed == true) {
+                  await DekManager().wrapDekWithRecoveryKey(activeDek, words);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content:
+                            Text('Recovery key verified and linked to vault.'),
+                      ),
+                    );
+                  }
+                }
               },
             ),
           ),

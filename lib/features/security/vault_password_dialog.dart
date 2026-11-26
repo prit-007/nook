@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/vault_password_provider.dart';
+import '../../core/security/recovery_key_provider.dart';
+import 'recovery_key_dialog.dart';
 
 /// Prompts for the vault password when locked notes require it.
 ///
@@ -168,7 +170,20 @@ class _VaultPasswordSetDialogState
     });
     unawaited(HapticFeedback.lightImpact());
     try {
-      await ref.read(vaultPasswordProvider).setPassword(password);
+      final recoveryWords = generateRecoveryKey();
+      final confirmed = await showRecoveryKeyDialog(
+        context,
+        words: recoveryWords,
+      );
+      if (!mounted) return;
+      if (confirmed != true) {
+        setState(() => _saving = false);
+        return;
+      }
+      await ref.read(vaultPasswordProvider).setPassword(
+            password,
+            recoveryWords: recoveryWords,
+          );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {

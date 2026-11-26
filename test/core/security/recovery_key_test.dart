@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:nook/core/platform/window_manager.dart';
 import 'package:nook/core/security/bip39_wordlist.dart';
 import 'package:nook/core/security/kdf.dart';
 import 'package:nook/core/security/recovery_key_provider.dart';
@@ -166,23 +167,39 @@ void main() {
 
   group('RecoveryKeyDialog widget', () {
     late List<MethodCall> platformCalls;
+    late List<MethodCall> windowChannelCalls;
 
     setUp(() {
       platformCalls = <MethodCall>[];
+      windowChannelCalls = <MethodCall>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, (call) async {
         platformCalls.add(call);
         return null;
       });
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('com.nook/window_manager'),
+        (call) async {
+          windowChannelCalls.add(call);
+          return null;
+        },
+      );
     });
 
     tearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('com.nook/window_manager'),
+        null,
+      );
     });
 
     Widget buildTestDialog({
       List<String>? words,
+      List<int>? verifyIndices,
       VoidCallback? onConfirmed,
     }) {
       return MaterialApp(
@@ -195,6 +212,7 @@ void main() {
                   context: context,
                   builder: (_) => RecoveryKeyDialog(
                     words: words,
+                    verifyIndices: verifyIndices,
                     onConfirmed: onConfirmed,
                   ),
                 );
@@ -292,50 +310,118 @@ void main() {
           reason: 'Clipboard must contain the 24 words');
     });
 
-    testWidgets(
-        'requires user to check "I have saved my recovery key safely" before dismiss/confirm is enabled',
+    testWidgets('requires user to verify 3 random words before Done is enabled',
         (tester) async {
       var confirmed = false;
       await tester.pumpWidget(buildTestDialog(
         words: allZerosWords,
+        verifyIndices: const [0, 1, 23],
         onConfirmed: () => confirmed = true,
       ));
       await tester.tap(find.text('Open Dialog'));
       await tester.pumpAndSettle();
 
-      // Find safety confirmation checkbox text
-      final checkboxTextFinder =
-          find.textContaining('I have saved my recovery key safely');
-      expect(checkboxTextFinder, findsOneWidget);
+      expect(
+        find.text('Verify 3 words to confirm you saved it:'),
+        findsOneWidget,
+      );
 
-      // Find confirm/dismiss button
       final confirmBtnFinder = find.widgetWithText(FilledButton, 'Done');
       expect(confirmBtnFinder, findsOneWidget);
 
       // Initially disabled
-      final FilledButton buttonBefore = tester.widget(confirmBtnFinder);
-      expect(buttonBefore.onPressed, isNull);
+      expect(tester.widget<FilledButton>(confirmBtnFinder).onPressed, isNull);
 
-      // Tap confirm button while disabled -> should do nothing
-      await tester.tap(confirmBtnFinder);
-      await tester.pumpAndSettle();
+      // Enter wrong words -> stays disabled
+      final fields = find.byType(TextField);
+      expect(fields, findsNWidgets(3));
+      await tester.enterText(fields.at(0), 'wrong');
+      await tester.enterText(fields.at(1), allZerosWords[1]);
+      await tester.enterText(fields.at(2), allZerosWords[23]);
+      await tester.pump();
+      expect(tester.widget<FilledButton>(confirmBtnFinder).onPressed, isNull);
       expect(confirmed, isFalse);
 
-      // Tap checkbox to enable
-      await tester.tap(checkboxTextFinder);
-      await tester.pumpAndSettle();
+      // Enter all 3 matching words (case-insensitive) -> enabled
+      await tester.enterText(fields.at(0), allZerosWords[0].toUpperCase());
+      await tester.pump();
+      expect(
+          tester.widget<FilledButton>(confirmBtnFinder).onPressed, isNotNull);
 
-      // Button should now be enabled
-      final FilledButton buttonAfter = tester.widget(confirmBtnFinder);
-      expect(buttonAfter.onPressed, isNotNull);
-
-      // Tap confirm button -> should trigger onConfirmed and dismiss dialog
       await tester.tap(confirmBtnFinder);
       await tester.pumpAndSettle();
 
       expect(confirmed, isTrue);
-      // Dialog is dismissed
       expect(find.byType(RecoveryKeyDialog), findsNothing);
+    });
+
+    testWidgets('activates FLAG_SECURE on open and clears on dispose',
+        (tester) async {
+      await tester.pumpWidget(buildTestDialog(words: allZerosWords));
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      expect(
+        windowChannelCalls.any(
+          (call) =>
+              call.method == 'addFlags' &&
+              call.arguments['flags'] == WindowManager.flagSecure,
+        ),
+        isTrue,
+        reason: 'FLAG_SECURE must be applied when recovery key dialog opens',
+      );
+
+      // Close dialog via Cancel button
+      final cancelFinder = find.widgetWithText(TextButton, 'Cancel');
+      expect(cancelFinder, findsOneWidget);
+      await tester.tap(cancelFinder);
+      await tester.pumpAndSettle();
+
+      expect(
+        windowChannelCalls.any(
+          (call) =>
+              call.method == 'clearFlags' &&
+              call.arguments['flags'] == WindowManager.flagSecure,
+        ),
+        isTrue,
+        reason:
+            'FLAG_SECURE must be cleared when recovery key dialog is dismissed',
+      );
+    });
+
+    testWidgets('clears clipboard automatically after 60 seconds',
+        (tester) async {
+      await tester.pumpWidget(buildTestDialog(words: allZerosWords));
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      final copyFinder = find.byWidgetPredicate(
+        (w) =>
+            (w is HugeIcon && w.icon == HugeIcons.strokeRoundedCopy01) ||
+            (w is Text &&
+                w.data != null &&
+                w.data!.toLowerCase().contains('copy')),
+      );
+      await tester.tap(copyFinder.first);
+      await tester.pumpAndSettle();
+
+      expect(
+        platformCalls.any((call) =>
+            call.method == 'Clipboard.setData' &&
+            call.arguments['text'] == allZerosWords.join(' ')),
+        isTrue,
+      );
+
+      // Advance clock by 61 seconds
+      await tester.pump(const Duration(seconds: 61));
+
+      // Assert clipboard was cleared
+      expect(
+        platformCalls.any((call) =>
+            call.method == 'Clipboard.setData' && call.arguments['text'] == ''),
+        isTrue,
+        reason: 'Clipboard must be cleared after 60s for security',
+      );
     });
   });
 }

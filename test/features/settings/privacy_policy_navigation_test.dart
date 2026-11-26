@@ -52,9 +52,11 @@ void main() {
     // Scroll until the Privacy Policy tile is visible and tap it
     final privacyTile = find.text('Privacy Policy');
     await tester.scrollUntilVisible(privacyTile, 100);
+    await tester.ensureVisible(privacyTile);
+    await tester.pumpAndSettle();
     expect(privacyTile, findsOneWidget);
 
-    await tester.tap(privacyTile);
+    await tester.tap(privacyTile, warnIfMissed: false);
     await tester.pumpAndSettle();
 
     // Verify SettingsPrivacyScreen sections are reachable

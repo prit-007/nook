@@ -13,6 +13,7 @@ import '../../core/platform/home_widget_service.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/providers/voice_preference_provider.dart';
 import '../../core/theme/app_motion.dart';
 import '../../core/theme/nook_tokens.dart';
 import '../../core/widgets/dock_safe_area.dart';
@@ -442,40 +443,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 HapticFeedback.selectionClick();
                 context.push('/note/new?type=${NoteType.doodle.name}');
               },
-              onCaptureVoice: () async {
-                unawaited(HapticFeedback.selectionClick());
-                final text = await showVoiceCaptureSheet(context);
-                if (text == null || text.isEmpty || !context.mounted) return;
-                final db = ref.read(databaseProvider);
-                final repo = NoteRepository(db);
-                final note = await repo.createNote(
-                  title: text.split('\n').first,
-                  type: NoteType.text,
-                  deviceOriginId: 'local',
-                );
-                await repo.updateContent(
-                  note.id,
-                  deltaContent: jsonEncode({
-                    'document': {
-                      'type': 'page',
-                      'children': [
-                        {
-                          'type': 'paragraph',
-                          'data': {
-                            'delta': [
-                              {'insert': text},
+              onCaptureVoice: ref.watch(voicePreferenceProvider).enabled
+                  ? () async {
+                      unawaited(HapticFeedback.selectionClick());
+                      final text = await showVoiceCaptureSheet(context);
+                      if (text == null || text.isEmpty || !context.mounted) {
+                        return;
+                      }
+                      final db = ref.read(databaseProvider);
+                      final repo = NoteRepository(db);
+                      final note = await repo.createNote(
+                        title: text.split('\n').first,
+                        type: NoteType.text,
+                        deviceOriginId: 'local',
+                      );
+                      await repo.updateContent(
+                        note.id,
+                        deltaContent: jsonEncode({
+                          'document': {
+                            'type': 'page',
+                            'children': [
+                              {
+                                'type': 'paragraph',
+                                'data': {
+                                  'delta': [
+                                    {'insert': text},
+                                  ],
+                                },
+                              },
                             ],
                           },
-                        },
-                      ],
-                    },
-                  }),
-                  plainText: text,
-                );
-                if (context.mounted) {
-                  await context.push('/note/${note.id}');
-                }
-              },
+                        }),
+                        plainText: text,
+                      );
+                      if (context.mounted) {
+                        await context.push('/note/${note.id}');
+                      }
+                    }
+                  : null,
             ),
           SliverToBoxAdapter(
             child: FilterPillBar(

@@ -47,6 +47,7 @@ Note _note(
     plainText: 'Body of $title',
     pinned: pinned,
     locked: locked,
+    archived: false,
     deleted: deleted,
     createdAt: now,
     updatedAt: now,

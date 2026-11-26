@@ -33,6 +33,7 @@ import 'core/providers/talker_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/trash_retention_provider.dart';
 import 'core/providers/vault_password_provider.dart';
+import 'core/providers/voice_preference_provider.dart';
 import 'core/security/dek_manager.dart';
 import 'data/database.dart';
 import 'data/repositories/trash_auto_purger.dart';
@@ -64,6 +65,7 @@ Future<void> main() async {
     NavigationPreference.load(),
     NavigationPreference.isOnboardingCompleted(),
     TrashRetentionPreference.load(),
+    VoicePreference.load(),
   ]);
 
   final themePref = results[0] as ThemePreference;
@@ -74,6 +76,7 @@ Future<void> main() async {
   final navigationPreference = results[5] as NavigationPreference;
   final onboardingCompleted = results[6] as bool;
   final trashRetentionPref = results[7] as TrashRetentionPreference;
+  final voicePref = results[8] as VoicePreference;
 
   // If onboarding hasn't been completed, force the initial route to onboarding.
   if (!onboardingCompleted) {
@@ -88,6 +91,7 @@ Future<void> main() async {
   // Open the encrypted on-disk database. When C2 DEK wrapping is enabled,
   // gate opening behind VaultDbGateScreen until the user unwraps the DEK.
   final dekManager = DekManager();
+  await dekManager.recoverInterruptedWrap();
   final isDekWrapped = await dekManager.isWrapped();
   if (isDekWrapped) {
     final hasRecovery = await dekManager.hasRecoveryWrappedDek();
@@ -102,6 +106,7 @@ Future<void> main() async {
         vaultProv: vaultProv,
         navigationPreference: navigationPreference,
         trashRetentionPref: trashRetentionPref,
+        voicePref: voicePref,
       ),
     );
     return;
@@ -125,6 +130,7 @@ Future<void> main() async {
     vaultProv: vaultProv,
     navigationPreference: navigationPreference,
     trashRetentionPref: trashRetentionPref,
+    voicePref: voicePref,
   );
 }
 
@@ -137,6 +143,7 @@ void _launchMainApp({
   required VaultPasswordProvider vaultProv,
   required NavigationPreference navigationPreference,
   required TrashRetentionPreference trashRetentionPref,
+  required VoicePreference voicePref,
 }) {
   // Soft-deleted items older than the retention window are purged on cold
   // start so the Bin matches the "auto-deletes after N days" promise.
@@ -159,6 +166,7 @@ void _launchMainApp({
         pinProvider.overrideWith((ref) => pinProv),
         vaultPasswordProvider.overrideWith((ref) => vaultProv),
         trashRetentionProvider.overrideWith((ref) => trashRetentionPref),
+        voicePreferenceProvider.overrideWith((ref) => voicePref),
         navigationPreferenceProvider
             .overrideWith((ref) => navigationPreference),
         databaseProvider.overrideWith((ref) => db),
@@ -219,6 +227,7 @@ class _VaultGateBootApp extends StatelessWidget {
     required this.vaultProv,
     required this.navigationPreference,
     required this.trashRetentionPref,
+    required this.voicePref,
   });
 
   final DekManager dekManager;
@@ -230,6 +239,7 @@ class _VaultGateBootApp extends StatelessWidget {
   final VaultPasswordProvider vaultProv;
   final NavigationPreference navigationPreference;
   final TrashRetentionPreference trashRetentionPref;
+  final VoicePreference voicePref;
 
   @override
   Widget build(BuildContext context) {
@@ -266,6 +276,7 @@ class _VaultGateBootApp extends StatelessWidget {
             vaultProv: vaultProv,
             navigationPreference: navigationPreference,
             trashRetentionPref: trashRetentionPref,
+            voicePref: voicePref,
           );
         },
       ),

@@ -17,16 +17,18 @@ class NookTokens extends ThemeExtension<NookTokens> {
 
   static const double kRadiusXs = 8.0;
   static const double kRadiusSm = 12.0;
-  static const double kRadiusMd = 16.0;
-  static const double kRadiusLg = 20.0;
+  static const double kRadiusMd = 20.0;
+  static const double kRadiusLg = 28.0;
   static const double kRadiusXl = 24.0;
   static const double kRadiusXxl = 32.0;
-  static const double kRadiusDock = 36.0;
   static const double kRadiusPill = 999.0;
 
   static const double kMinTapTarget = 48.0;
   static const double kFontFloor = 12.0;
   static const double kEyebrowSize = 12.0;
+  static const double kGlassOpacity = 0.85;
+  static const double kFlashOverlayLightOpacity = 0.4;
+  static const double kFlashOverlayDarkOpacity = 0.2;
 
   const NookTokens({
     // Spacing
@@ -44,13 +46,15 @@ class NookTokens extends ThemeExtension<NookTokens> {
     this.radiusLg = kRadiusLg,
     this.radiusXl = kRadiusXl,
     this.radiusXxl = kRadiusXxl,
-    this.radiusDock = kRadiusDock,
     this.radiusPill = kRadiusPill,
 
     // Accessibility floors
     this.minTapTarget = kMinTapTarget,
     this.fontFloor = kFontFloor,
     this.eyebrowSize = kEyebrowSize,
+    this.glassOpacity = kGlassOpacity,
+    this.flashOverlayLightOpacity = kFlashOverlayLightOpacity,
+    this.flashOverlayDarkOpacity = kFlashOverlayDarkOpacity,
 
     // Semantic colors / opacity roles
     required this.hairline,
@@ -60,6 +64,7 @@ class NookTokens extends ThemeExtension<NookTokens> {
     required this.dockSurface,
     required this.dockBorder,
     required this.dockShadow,
+    required this.glassSurface,
   });
 
   // ── Spacing Tokens ──────────────────────────────────────────
@@ -77,7 +82,6 @@ class NookTokens extends ThemeExtension<NookTokens> {
   final double radiusLg;
   final double radiusXl;
   final double radiusXxl;
-  final double radiusDock;
   final double radiusPill;
 
   BorderRadius get borderRadiusXs => BorderRadius.circular(radiusXs);
@@ -86,13 +90,15 @@ class NookTokens extends ThemeExtension<NookTokens> {
   BorderRadius get borderRadiusLg => BorderRadius.circular(radiusLg);
   BorderRadius get borderRadiusXl => BorderRadius.circular(radiusXl);
   BorderRadius get borderRadiusXxl => BorderRadius.circular(radiusXxl);
-  BorderRadius get borderRadiusDock => BorderRadius.circular(radiusDock);
   BorderRadius get borderRadiusPill => BorderRadius.circular(radiusPill);
 
   // ── Accessibility Floors ────────────────────────────────────
   final double minTapTarget;
   final double fontFloor;
   final double eyebrowSize;
+  final double glassOpacity;
+  final double flashOverlayLightOpacity;
+  final double flashOverlayDarkOpacity;
 
   // ── Semantic Opacity & Tint Roles ───────────────────────────
   final Color hairline;
@@ -102,6 +108,7 @@ class NookTokens extends ThemeExtension<NookTokens> {
   final Color dockSurface;
   final Color dockBorder;
   final Color dockShadow;
+  final Color glassSurface;
 
   /// Builds tokens derived from a [ColorScheme].
   factory NookTokens.fromScheme(ColorScheme scheme, {bool amoled = false}) {
@@ -118,6 +125,12 @@ class NookTokens extends ThemeExtension<NookTokens> {
       dockBorder:
           scheme.outlineVariant.withValues(alpha: isLight ? 0.25 : 0.18),
       dockShadow: scheme.shadow.withValues(alpha: isLight ? 0.08 : 0.2),
+      glassSurface: Color.alphaBlend(
+        isLight
+            ? Colors.white.withValues(alpha: 0.10)
+            : Colors.black.withValues(alpha: 0.10),
+        scheme.surface,
+      ),
     );
   }
 
@@ -131,6 +144,10 @@ class NookTokens extends ThemeExtension<NookTokens> {
       dockSurface: Color(0xDE2B2930),
       dockBorder: Color(0x2679747E),
       dockShadow: Color(0x14000000),
+      glassSurface: Color(0x1AFFFFFF),
+      glassOpacity: kGlassOpacity,
+      flashOverlayLightOpacity: kFlashOverlayLightOpacity,
+      flashOverlayDarkOpacity: kFlashOverlayDarkOpacity,
     );
   }
 
@@ -148,11 +165,13 @@ class NookTokens extends ThemeExtension<NookTokens> {
     double? radiusLg,
     double? radiusXl,
     double? radiusXxl,
-    double? radiusDock,
     double? radiusPill,
     double? minTapTarget,
     double? fontFloor,
     double? eyebrowSize,
+    double? glassOpacity,
+    double? flashOverlayLightOpacity,
+    double? flashOverlayDarkOpacity,
     Color? hairline,
     Color? borderSubtle,
     Color? surfaceTintSubtle,
@@ -160,6 +179,7 @@ class NookTokens extends ThemeExtension<NookTokens> {
     Color? dockSurface,
     Color? dockBorder,
     Color? dockShadow,
+    Color? glassSurface,
   }) {
     return NookTokens(
       spacingXs: spacingXs ?? this.spacingXs,
@@ -174,11 +194,15 @@ class NookTokens extends ThemeExtension<NookTokens> {
       radiusLg: radiusLg ?? this.radiusLg,
       radiusXl: radiusXl ?? this.radiusXl,
       radiusXxl: radiusXxl ?? this.radiusXxl,
-      radiusDock: radiusDock ?? this.radiusDock,
       radiusPill: radiusPill ?? this.radiusPill,
       minTapTarget: minTapTarget ?? this.minTapTarget,
       fontFloor: fontFloor ?? this.fontFloor,
       eyebrowSize: eyebrowSize ?? this.eyebrowSize,
+      glassOpacity: glassOpacity ?? this.glassOpacity,
+      flashOverlayLightOpacity:
+          flashOverlayLightOpacity ?? this.flashOverlayLightOpacity,
+      flashOverlayDarkOpacity:
+          flashOverlayDarkOpacity ?? this.flashOverlayDarkOpacity,
       hairline: hairline ?? this.hairline,
       borderSubtle: borderSubtle ?? this.borderSubtle,
       surfaceTintSubtle: surfaceTintSubtle ?? this.surfaceTintSubtle,
@@ -186,6 +210,7 @@ class NookTokens extends ThemeExtension<NookTokens> {
       dockSurface: dockSurface ?? this.dockSurface,
       dockBorder: dockBorder ?? this.dockBorder,
       dockShadow: dockShadow ?? this.dockShadow,
+      glassSurface: glassSurface ?? this.glassSurface,
     );
   }
 
@@ -208,11 +233,15 @@ class NookTokens extends ThemeExtension<NookTokens> {
       radiusLg: _lerpDouble(radiusLg, other.radiusLg, t),
       radiusXl: _lerpDouble(radiusXl, other.radiusXl, t),
       radiusXxl: _lerpDouble(radiusXxl, other.radiusXxl, t),
-      radiusDock: _lerpDouble(radiusDock, other.radiusDock, t),
       radiusPill: _lerpDouble(radiusPill, other.radiusPill, t),
       minTapTarget: _lerpDouble(minTapTarget, other.minTapTarget, t),
       fontFloor: _lerpDouble(fontFloor, other.fontFloor, t),
       eyebrowSize: _lerpDouble(eyebrowSize, other.eyebrowSize, t),
+      glassOpacity: _lerpDouble(glassOpacity, other.glassOpacity, t),
+      flashOverlayLightOpacity: _lerpDouble(
+          flashOverlayLightOpacity, other.flashOverlayLightOpacity, t),
+      flashOverlayDarkOpacity: _lerpDouble(
+          flashOverlayDarkOpacity, other.flashOverlayDarkOpacity, t),
       hairline: Color.lerp(hairline, other.hairline, t) ?? hairline,
       borderSubtle:
           Color.lerp(borderSubtle, other.borderSubtle, t) ?? borderSubtle,
@@ -223,6 +252,8 @@ class NookTokens extends ThemeExtension<NookTokens> {
       dockSurface: Color.lerp(dockSurface, other.dockSurface, t) ?? dockSurface,
       dockBorder: Color.lerp(dockBorder, other.dockBorder, t) ?? dockBorder,
       dockShadow: Color.lerp(dockShadow, other.dockShadow, t) ?? dockShadow,
+      glassSurface:
+          Color.lerp(glassSurface, other.glassSurface, t) ?? glassSurface,
     );
   }
 

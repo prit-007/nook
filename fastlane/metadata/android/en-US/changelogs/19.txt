@@ -1,0 +1,8 @@
+Nook 0.9.7 — Release Hardening & Trust Epic (#46, #57, #62)
+
+- Vault Key Wrapping (C2): SQLCipher DB encryption key wrapped with AES-256-GCM derived via PBKDF2 (100,000 rounds) + 24-word recovery key verification.
+- Archive Feature: Schema v10 note archiving separate from 30-day auto-purged Bin.
+- Editor Polish: Persistent quiet "Saved" status indicator, note font styling (sans, serif, mono).
+- Doodle Engine: Tapered strokes via StrokeEndOptions and cached rendering layers.
+- FOSS & Privacy: Voice gating toggle with offline recognizer guidance, FLAG_SECURE on recovery keys, zero proprietary dependencies.
+- Quality Gate: Multi-step migration tests, 200% text-scale accessibility, and 2,000-note performance validation.

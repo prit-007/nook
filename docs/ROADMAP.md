@@ -5,16 +5,19 @@
 
 ---
 
-## Shipped (v0.9.x)
+## Shipped (v0.9.7 — Epics #46, #57, #62 Closed)
 
-### Trust & Security
+### Trust & Security (#46, #57)
 - **Encrypted local vault**: Drift + SQLCipher (`PRAGMA key`) with platform keystore protection (`flutter_secure_storage`) and biometric gate (`local_auth`).
 - **Vault password & C2 DEK wrapping (`#56`, `#57`)**: Optional vault password that gates locked notes and wraps the SQLCipher Data Encryption Key (DEK) with PBKDF2-HMAC-SHA256 + AES-256-GCM (`DekManager`), gated at cold start via `VaultDbGateScreen`.
-- **24-word BIP-39 recovery key**: Standardized mnemonic generation/validation with recovery-wrapped DEK fallback.
+- **24-word BIP-39 recovery key**: Standardized mnemonic generation/validation with recovery-wrapped DEK fallback and mandatory 3-word verification challenge.
 - **Privacy explainer (`#49`)**: Honest in-app permissions & cryptography audit (`Settings → Privacy`).
-- **F-Droid compliance**: 100% offline-first startup, zero proprietary Play Services / ML Kit blobs, split-per-ABI reproducible builds.
+- **F-Droid compliance & Voice Gating**: 100% offline-first startup, zero proprietary Play Services / ML Kit blobs, voice dictation disabled by default with offline engine guidance, split-per-ABI reproducible builds.
 
-### Productivity & Editor
+### Productivity, Editor & Architecture (#62)
+- **Archive feature**: Schema v10 note archiving separate from 30-day auto-purged Bin.
+- **Editor polish**: Quiet "Saved" status indicator and explicit `NoteFontStyle` (sans, serif, mono).
+- **Doodle engine**: Tapered stroke ends and cached layer rendering (`bakedPicture`).
 - **Rich block editor**: `appflowy_editor` with headings, checklists, quotes, callouts, collapsible sections, tables, code blocks, and dividers.
 - **Samsung Notes-caliber doodle & shape assist**: Cardinal/45° snapping, arrowheads, rotated rectangles/squares, triangles, 5-point stars, live eraser ring cursor, auto-extending paper.
 - **Note linking & `[[wiki]]` autocomplete (`#53`, `#62`)**: Inline `[[query` suggestion bar, `nook://note/<id>` links, and incoming backlinks panel.
@@ -33,9 +36,11 @@
 
 ---
 
-## Upcoming / Deferred Track (`#62`)
+## Closed Epics Summary
 
-All `#62` launch-track items have been implemented in-app; future polish includes iOS WidgetKit extension targets and bundled mobile FOSS OCR tessdata packs.
+- **Issue #46 (Notesnook-inspired trust & productivity campaign)**: CLOSED. All child issues (#47-#61) verified, implemented, and covered by automated tests.
+- **Issue #57 (Vault password DB-key wrapping C2)**: CLOSED. Atomic DEK wrapping via PBKDF2-HMAC-SHA256 + AES-256-GCM, cold-boot unwrap via `VaultDbGateScreen`, 3-word verified 24-word recovery key, and crash recovery.
+- **Issue #62 (Phase 7.4 deferred launch track)**: CLOSED. All post-launch items (widgets, voice gating, templates, web companion, FOSS OCR, PDF exports, wiki link autocomplete, configurable bin) completed.
 
 ---
 

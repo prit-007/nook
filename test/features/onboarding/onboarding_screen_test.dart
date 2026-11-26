@@ -66,10 +66,10 @@ void main() {
     expect(find.text('Pick your vibe'), findsOneWidget);
   });
 
-  testWidgets('shows recovery key page with 24 words and confirmation',
+  testWidgets('shows protect vault page with setup and skip options',
       (tester) async {
     await tester.pumpWidget(buildScreen());
-    // Page 1 → Page 2 → Page 3 → Page 4 (Recovery Key)
+    // Page 1 → Page 2 → Page 3 → Page 4 (Protect Vault)
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
@@ -77,13 +77,12 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Master Vault Key'), findsOneWidget);
-    expect(
-        find.text('I have backed up my recovery key safely'), findsOneWidget);
-    expect(find.text('Copy Phrase'), findsOneWidget);
+    expect(find.text('Protect your vault'), findsOneWidget);
+    expect(find.text('Set vault password & recovery key'), findsOneWidget);
+    expect(find.text('Skip for now'), findsOneWidget);
   });
 
-  testWidgets('fifth page shows Get Started after confirming recovery key',
+  testWidgets('fifth page shows Get Started after advancing past vault page',
       (tester) async {
     await tester.pumpWidget(buildScreen());
     // 0: Welcome -> 1: Note Types
@@ -92,16 +91,12 @@ void main() {
     // 1 -> 2: Vibe
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    // 2 -> 3: Recovery Key
+    // 2 -> 3: Protect Vault
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
-    // On recovery key page, tap confirmation checkbox
-    await tester.tap(find.text('I have backed up my recovery key safely'));
-    await tester.pumpAndSettle();
-
-    // Continue to final page
-    await tester.tap(find.text('Continue'));
+    // Skip vault setup to final page
+    await tester.tap(find.text('Skip for now'));
     await tester.pumpAndSettle();
 
     expect(find.text("You're all set!"), findsOneWidget);

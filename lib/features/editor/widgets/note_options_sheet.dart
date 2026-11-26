@@ -755,6 +755,39 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArchive,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      title: const Text('Archive note'),
+                      subtitle: Text(
+                        'Hide from Home without deleting',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      onTap: () async {
+                        final db = ref.read(databaseProvider);
+                        final repo = NoteRepository(db);
+                        final note = await repo.getNoteById(widget.noteId);
+                        if (note?.archived == true) {
+                          await repo.unarchiveNote(widget.noteId);
+                        } else {
+                          await repo.archiveNote(widget.noteId);
+                        }
+                        if (!mounted) return;
+                        Navigator.of(this.context).pop();
+                      },
+                    ),
+
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: HugeIcon(
                         icon: HugeIcons.strokeRoundedBook01,
                         color: scheme.onSurfaceVariant,
                       ),

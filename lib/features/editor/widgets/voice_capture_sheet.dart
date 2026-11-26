@@ -6,12 +6,44 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/platform/voice_capture_service.dart';
+import '../../../core/providers/voice_preference_provider.dart';
 
 /// Opens a modal bottom sheet for live voice-to-text dictation.
 ///
-/// Returns the finalized transcript string if the user confirms, or `null` if
-/// cancelled.
-Future<String?> showVoiceCaptureSheet(BuildContext context) {
+/// Before first use, shows a one-time disclosure explaining that voice uses
+/// the device's speech service (and recommending offline providers like
+/// Marmalade STT on Android). Returns `null` if the user declines or cancels.
+Future<String?> showVoiceCaptureSheet(BuildContext context) async {
+  final container = ProviderScope.containerOf(context, listen: false);
+  final voicePref = container.read(voicePreferenceProvider);
+  if (!voicePref.disclosureAccepted) {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Voice speech service'),
+        content: const Text(
+          "Voice uses your phone's speech service. It may send audio to "
+          'that service, depending on your phone.\n\n'
+          'For offline speech recognition on Android, you can install an '
+          'offline speech provider such as Marmalade STT.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !context.mounted) return null;
+    await voicePref.acceptDisclosure();
+  }
+
+  if (!context.mounted) return null;
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,

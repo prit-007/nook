@@ -279,6 +279,7 @@ class HighContrastTheme {
           dockSurface: scheme.surface,
           dockBorder: scheme.outline,
           dockShadow: Colors.transparent,
+          glassSurface: scheme.surfaceContainerHigh,
           minTapTarget: NookTokens.kMinTapTarget,
           fontFloor: NookTokens.kFontFloor,
           eyebrowSize: NookTokens.kEyebrowSize,

@@ -21,6 +21,7 @@ void main() {
       syncVersion: 1,
       pinned: pinned,
       locked: false,
+      archived: false,
       deleted: false,
       createdAt: createdAt ?? now,
       updatedAt: updatedAt ?? now,

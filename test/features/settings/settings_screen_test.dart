@@ -112,10 +112,10 @@ void main() {
     expect(find.text('Replay Onboarding'), findsOneWidget);
   });
 
-  testWidgets('renders two switches', (tester) async {
+  testWidgets('renders three switches', (tester) async {
     await tester.pumpWidget(buildScreen());
     // biometric lock on, screenshot blocking off
-    expect(find.byType(Switch), findsNWidgets(2));
+    expect(find.byType(Switch), findsNWidgets(3));
   });
 
   testWidgets('renders chevron icons for tappable tiles', (tester) async {

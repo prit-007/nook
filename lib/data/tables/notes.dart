@@ -16,6 +16,7 @@ class Notes extends Table {
   TextColumn get coverImagePath => text().nullable()();
   BoolColumn get pinned => boolean().withDefault(const Constant(false))();
   BoolColumn get locked => boolean().withDefault(const Constant(false))();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().clientDefault(DateTime.now)();

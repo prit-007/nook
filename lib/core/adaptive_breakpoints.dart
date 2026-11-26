@@ -8,6 +8,10 @@ class AdaptiveBreakpoints {
   static const double compact = 600;
 
   /// 600–839dp: foldables, phones in landscape, small tablets.
+  ///
+  /// In this band the wide shell (`_WideShell`) is used with the left
+  /// `NavigationRail` and a **single content pane**. Dual-pane (rail + list +
+  /// editor) only begins at `expanded` (>= 840dp).
   static const double medium = 840;
 
   /// >= 840dp: large tablets, landscape foldables, desktop.

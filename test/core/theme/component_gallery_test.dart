@@ -63,6 +63,7 @@ void main() {
         colorSeed: '#6750A4',
         pinned: false,
         locked: false,
+        archived: false,
         deleted: false,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -178,7 +179,7 @@ void main() {
 
       expect(capturedTokens.fontFloor, greaterThanOrEqualTo(12.0));
       expect(capturedTokens.minTapTarget, greaterThanOrEqualTo(48.0));
-      expect(capturedTokens.radiusDock, equals(36.0));
+      expect(capturedTokens.radiusPill, equals(999.0));
     });
   });
 }
