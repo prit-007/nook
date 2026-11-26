@@ -30,6 +30,7 @@ class NotebookDetailScreen extends ConsumerStatefulWidget {
 
 class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
   String _notebookName = '';
+  String? _parentName;
   String _notebookColor = '#FF5722';
   List<Note> _notes = [];
   bool _loading = true;
@@ -48,6 +49,12 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
     if (nb != null) {
       _notebookName = nb.name;
       _notebookColor = nb.colorSeed;
+      if (nb.parentId != null) {
+        final parent = await nbRepo.getNotebookById(nb.parentId!);
+        if (parent != null) {
+          _parentName = parent.name;
+        }
+      }
     }
 
     final results = await (db.select(db.notes)
@@ -91,7 +98,18 @@ class _NotebookDetailScreenState extends ConsumerState<NotebookDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_notebookName.contains('/'))
+            if (_parentName != null)
+              Text(
+                '$_parentName ›',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                  letterSpacing: 0.2,
+                ),
+              )
+            else if (_notebookName.contains('/'))
               Text(
                 _notebookName
                     .split('/')

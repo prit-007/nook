@@ -762,36 +762,33 @@
 
 ### 11.1 Recovery key semantics — **COMPLETE**
 
-**Decision:** Recovery key is integrated directly with enabling a vault password (`VaultPasswordSetDialog` + onboarding `_ProtectVaultPage` step with explicit Skip + Settings → Security entry). `OnboardingScreen` explicitly wires `wrapDekWithPassword` and `recoveryWords` to SQLCipher DEK wrapping (`onboarding_screen.dart`, tested in `onboarding_screen_test.dart`). No recovery key is shown for an unwrapped vault (`settings_security_screen.dart:346-348`).
-
-**Verification step:** `RecoveryKeyDialog` (`lib/features/security/recovery_key_dialog.dart`) implements a mandatory 3-random-word challenge (`_verifyIndices`) where the confirm button remains disabled until all 3 words are typed correctly (case-insensitive). Verified by `test/core/security/recovery_key_test.dart`.
-
-**Hygiene:** Mnemonic is never logged (`talker`), clipboard auto-clears after 60s (`Timer(Duration(seconds: 60), ...)`), and `FLAG_SECURE` (`WindowManager.addFlags` / `clearFlags`) protects against screenshots and recents capture while words are displayed.
-
-**Tests (100% passing in `test/core/security/dek_manager_test.dart`, `test/core/security/recovery_key_test.dart`, `test/features/security/vault_db_gate_test.dart`, `test/features/onboarding/onboarding_screen_test.dart`):**
-- [x] Wrap → cold boot → gate → unwrap with the password.
-- [x] Unwrap with the recovery key only.
+- [x] "Protect your vault" step in onboarding (`onboarding_screen.dart: _ProtectVaultPage`) wires recovery key directly into DEK wrapping via `VaultPasswordProvider.setPassword` calling `DekManager.wrapDekWithPassword`.
+- [x] Settings → Security entry for vault password enable/disable (`settings_security_screen.dart`).
+- [x] Recovery key dialog asks for 3 random words back instead of only a checkbox (`recovery_key_dialog.dart: _verifyIndices`, `_verifyControllers`, `_pickThreeIndices()`).
+- [x] Never log mnemonic via talker; clipboard clears after 60s (`_clipboardClearTimer`, `Duration(seconds: 60)`); `FLAG_SECURE` enabled on recovery key dialog while displayed.
+- [x] Wrap → cold boot → gate → unwrap with the password (`test/core/security/dek_manager_test.dart`).
+- [x] Unwrap with the recovery key only (`test/core/security/dek_manager_test.dart`).
 - [x] `rotatePassword()` keeps the recovery key valid (`test('rotatePassword keeps recovery key valid')`).
 - [x] `disableWrappingWithPassword()` and `restoreUnwrappedDek()` round-trip (`test('disableWrappingWithPassword and restoreUnwrappedDek round-trip')`).
 - [x] A failed unwrap never corrupts the stored DEK (`test('failed unwrap never corrupts stored DEK')`).
-- [x] A killed app mid-wrap recovers (half-written `vault_wrapped_dek`).
-- [x] Active `FLAG_SECURE` on dialog open and clear on dismiss (`test('activates FLAG_SECURE on open and clears on dispose')`).
-- [x] Clipboard auto-clear after 60s (`test('clears clipboard automatically after 60 seconds')`).
-- [x] Onboarding wires recovery key into DEK wrapping (`test('onboarding wires recovery key into DEK wrapping')`).
+- [x] A killed app mid-wrap recovers (`test('killed app mid-wrap recovers')`).
+- [x] Onboarding wires recovery key into DEK wrapping via `wrapDekWithPassword` (`test('onboarding wires recovery key into DEK wrapping')`).
 
 ### 11.2 Voice versus FOSS positioning — **COMPLETE**
 
 - [x] Removed install-time `RECORD_AUDIO` from `android/app/src/main/AndroidManifest.xml`.
-- [x] Dynamic runtime microphone permission check at first voice use via `VoiceCaptureService.hasPermission()` and `requestMicrophonePermission()` (`voice_capture_sheet.dart`, tested in `voice_capture_test.dart`).
+- [x] Explicit runtime microphone permission check (`hasPermission()`, `requestMicrophonePermission()`) in `voice_capture_sheet.dart` before first voice use (`test/features/editor/voice_capture_test.dart`).
 - [x] Added one-time disclosure dialog before first use (`showVoiceCaptureSheet`), mentioning offline Android alternatives like Marmalade STT.
-- [x] Gated voice behind `VoicePreference` Settings toggle (off by default); hero mic stays hidden until enabled.
+- [x] Gated voice behind `VoicePreference` Settings toggle (off by default); hero mic stays hidden until enabled (`nook_hero.dart`, `home_screen.dart`).
 - [x] Dedicated `fdroid` build flavor configured in `android/app/build.gradle.kts` with `android/app/src/fdroid/AndroidManifest.xml` (`tools:node="remove"` on `RECORD_AUDIO`).
+
+**BUILD ISSUE:** `home_widget: ^0.10.0` requires iOS deployment target 14.0+, but `ios/Runner.xcodeproj/project.pbxproj` sets `IPHONEOS_DEPLOYMENT_TARGET = 13.0`. iOS build FAILS with: "The package product 'home-widget' requires minimum platform version 14.0 for the iOS platform, but this target supports 13.0". Fix: raise `IPHONEOS_DEPLOYMENT_TARGET` to 14.0 in `ios/Runner.xcodeproj/project.pbxproj` (lines 363, 489, 540).
 
 ### 11.3 OCR — **COMPLETE**
 
 - [x] Desktop `LocalFossOcrService` uses system `tesseract` CLI and shows clear install guidance message when missing (`ocr_service.dart:61`, `ocr_service.dart:75`).
-- [x] Automated audit test verifying 0 proprietary Google ML Kit / Play Services dependencies in `build.gradle.kts`, `AndroidManifest.xml`, and `MainActivity.kt` (`test/core/platform/ocr_audit_test.dart`, [docs/OCR-AUDIT.md](OCR-AUDIT.md)).
-- [x] Automated trained data license check verifying 0 bundled binary blobs in repo assets and confirming system Tesseract models Apache-2.0 (`test/core/platform/ocr_audit_test.dart`, [docs/OCR-AUDIT.md](OCR-AUDIT.md)).
+- [x] Programmatic audit test verifying `com.nook/ocr` channel has zero proprietary Google ML Kit or Play Services dependencies (`test/core/platform/ocr_audit_test.dart`).
+- [x] Programmatic license & assets check verifying zero `.traineddata` binary files bundled in repo or assets (`test/core/platform/ocr_audit_test.dart`, `docs/OCR-AUDIT.md`).
 
 ---
 
@@ -833,13 +830,11 @@ First, grep each item to see if it already exists. Then scope it:
 |------|------|--------|-------|
 | "Saved" indicator in editor | S | [x] COMPLETE | Persistent quiet "Saved"/"Saving..." state tied to `EditorAutosaveController.statusVersion` (`isDirty`/`isSaving`). |
 | Explicit "Note style" (serif or sans) | S | [x] COMPLETE | `NoteFontStyle` (`auto`/`sans`/`serif`/`mono`) stored on `notes.fontStyle` + `NoteOptionsSheet`. |
-| Archive | M | [x] COMPLETE | Schema v10 (`notes.archived`), v9→v10 migration test, `NoteRepository` archive/unarchive, `ArchiveScreen` separate from Trash. |
-| Doodle quality (taper, cached layers) | M | [x] COMPLETE | `StrokeEndOptions` taper in `doodle_painter.dart` + `bakedPicture` layer caching in `DoodleCanvas` / `DoodleController`. |
-| Reminders | M | [x] COMPLETE | `reminders` table, `ReminderRepository`, `LocalReminderScheduler` (`lib/core/platform/local_reminder_scheduler.dart`), `NoteRemindersSheet`, Android `POST_NOTIFICATIONS` + exact-alarm permissions. |
-| Nested collections | L | [x] COMPLETE | Schema v11 (`notebooks.parentId`), `NotebookRepository.getRootNotebooks()` / `getSubNotebooks()`, hierarchical tree rendering with 28dp indentation and branch connectors in `NotebooksScreen` and `DesktopNavigationSidebar`. Tested in `notebooks_screen_test.dart` and `notebook_repository_test.dart`. |
-| Three-pane desktop | M–L | [x] COMPLETE | True 3-pane layout for wide/desktop displays (`AdaptiveBreakpoints.supportsThreePane`, width >= 1200dp): `DesktopNavigationSidebar` (Sidebar) + middle notes list (List) + `NotePreviewPane(isDesktopEditor: true)` (Desktop Editor Pane). Tested in `master_detail_test.dart`. |
-
-**1.0 Status:** All Phase 13 items (Saved indicator, Note style, Archive, Doodle quality, Reminders, Nested collections, Three-pane desktop) are 100% complete and tested.
+| Archive | M | [x] COMPLETE | Schema v11 (`notes.archived`), `NoteRepository` archive/unarchive, Archive separate from Trash. |
+| Doodle quality (taper, cached layers) | M | [x] COMPLETE | `StrokeEndOptions` taper in `doodle_painter.dart` + width presets in `doodle_preset_store.dart` + variable width in `doodle_painter.dart`. |
+| Reminders | M | [x] COMPLETE | `reminders` table, `ReminderRepository`, `LocalReminderScheduler` (`lib/core/platform/local_reminder_scheduler.dart` with `requestPermissions()`), `note_reminders_sheet.dart` UI with add/delete/list. |
+| Nested collections | L | [x] COMPLETE | Schema v11 `parentId` column, `NotebookRepository` hierarchy queries, 28dp visual indentation with connector icons in list view (`notebooks_screen.dart`), parent dropdown in create sheet, and breadcrumbs in detail view (`notebook_detail_screen.dart`). |
+| Three-pane desktop | M–L | [x] COMPLETE | True 3-pane layout on widescreen (`width >= 1200`): Pane 1 (`DesktopNavigationSidebar`), Pane 2 (Notes list/grid), Pane 3 (`NotePreviewPane(isDesktopEditor: true)` with live debounced editing). |
 
 ---
 

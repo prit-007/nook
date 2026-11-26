@@ -89,6 +89,26 @@ void main() {
       );
     });
 
+    testWidgets('renders breadcrumbs when notebook has parentId',
+        (tester) async {
+      final repo = NotebookRepository(db);
+      final parent = await repo.createNotebook(
+        name: 'Parent Category',
+        colorSeed: '#FF0000',
+      );
+      final child = await repo.createNotebook(
+        name: 'Child Project',
+        colorSeed: '#00FF00',
+        parentId: parent.id,
+      );
+
+      await tester.pumpWidget(buildScreen(child.id));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Parent Category ›'), findsOneWidget);
+      expect(find.text('Child Project'), findsOneWidget);
+    });
+
     testWidgets('existing notes in notebook are displayed', (tester) async {
       final nbId = await createNotebook('With Notes');
       await insertNote('n1', notebookId: nbId);
