@@ -18,10 +18,10 @@
 | 5 | Nearby Sync (transport, pairing, merge resolver) | **~80% COMPLETE** (physical-device validation open) | 2026-08-11 | — |
 | 6 | Hardening for Play Store (accessibility, export, privacy) | **COMPLETE** | 2026-08-13 | 2026-11-23 |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
-| 11 | Trust and correctness (recovery key, voice gating, OCR) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
+| 11 | Trust and correctness (recovery key, voice gating, OCR) | **PARTIAL** | — | — |
 | 12 | Design-system closure (radii, glass, enforcement, transitions, breakpoints) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
-| 13 | Close gaps (saved indicator, note style, archive, doodle quality, reminders, nested collections, three-pane) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
-| 14 | Quality gate (performance, migration, accessibility, soak test) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
+| 13 | Close gaps (saved indicator, note style, archive, doodle quality, reminders, nested collections, three-pane) | **PARTIAL** | — | — |
+| 14 | Quality gate (performance, migration, accessibility, soak test) | **PARTIAL** | — | — |
 | 15 | Release and distribution (close issues #46 #57 #62, version, F-Droid, trust docs, website, licenses) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
 
 ---
@@ -756,23 +756,28 @@
 
 ---
 
-## Phase 11 — Trust and correctness — **COMPLETE**
+## Phase 11 — Trust and correctness — **PARTIAL**
 
 **Risk:** Work that can hurt users or your reputation if it ships wrong.
 
-### 11.1 Recovery key semantics — **COMPLETE**
+### 11.1 Recovery key semantics — **PARTIAL**
 
-- [x] "Protect your vault" step in onboarding (`onboarding_screen.dart: _ProtectVaultPage`) wires recovery key directly into DEK wrapping via `VaultPasswordProvider.setPassword` calling `DekManager.wrapDekWithPassword`.
-- [x] Settings → Security entry for vault password enable/disable (`settings_security_screen.dart`).
-- [x] Recovery key dialog asks for 3 random words back instead of only a checkbox (`recovery_key_dialog.dart: _verifyIndices`, `_verifyControllers`, `_pickThreeIndices()`).
-- [x] Never log mnemonic via talker; clipboard clears after 60s (`_clipboardClearTimer`, `Duration(seconds: 60)`); `FLAG_SECURE` enabled on recovery key dialog while displayed.
-- [x] Wrap → cold boot → gate → unwrap with the password (`test/core/security/dek_manager_test.dart`).
-- [x] Unwrap with the recovery key only (`test/core/security/dek_manager_test.dart`).
+**Decision:** Recovery key page exists in onboarding (`_RecoveryKeyPage`), but `onboarding_screen.dart` defines `wrapDekWithPassword()` (line 62-72) without ever calling it from `_finish()` or `_ProtectVaultPage`. The `onSetupVault` callback calls `showSetVaultPasswordDialog()` instead. If wrapping is off, the key protects nothing.
+
+**Decision (needed):** Make recovery key part of enabling vault password — wire `wrapDekWithPassword` into the onboarding "Protect your vault" step, plus Settings → Security entry. Don't show key for unwrapped vault.
+
+**Verification step (needed):** After showing words, ask for 3 random words back instead of only a checkbox.
+
+**Hygiene (partial):** Mnemonic not logged via `talker`, clipboard clears after 60s (`_clipboardClearTimer`), `FLAG_SECURE` on recovery key dialog while displayed.
+
+**Tests (partial — passing in `test/core/security/dek_manager_test.dart`):**
+- [x] Wrap → cold boot → gate → unwrap with the password.
+- [x] Unwrap with the recovery key only.
 - [x] `rotatePassword()` keeps the recovery key valid (`test('rotatePassword keeps recovery key valid')`).
 - [x] `disableWrappingWithPassword()` and `restoreUnwrappedDek()` round-trip (`test('disableWrappingWithPassword and restoreUnwrappedDek round-trip')`).
 - [x] A failed unwrap never corrupts the stored DEK (`test('failed unwrap never corrupts stored DEK')`).
-- [x] A killed app mid-wrap recovers (`test('killed app mid-wrap recovers')`).
-- [x] Onboarding wires recovery key into DEK wrapping via `wrapDekWithPassword` (`test('onboarding wires recovery key into DEK wrapping')`).
+- [x] A killed app mid-wrap recovers (half-written `vault_wrapped_dek`).
+- [ ] Onboarding wires recovery key into DEK wrapping via `wrapDekWithPassword` (method defined but NOT called from `_finish()`).
 
 ### 11.2 Voice versus FOSS positioning — **COMPLETE**
 
@@ -822,7 +827,7 @@ All items implemented and verified against the codebase.
 
 ---
 
-## Phase 13 — Close gaps the report doesn't show (~1.5 weeks) — **COMPLETE**
+## Phase 13 — Close gaps the report doesn't show (~1.5 weeks) — **PARTIAL**
 
 First, grep each item to see if it already exists. Then scope it:
 
@@ -833,17 +838,17 @@ First, grep each item to see if it already exists. Then scope it:
 | Archive | M | [x] COMPLETE | Schema v11 (`notes.archived`), `NoteRepository` archive/unarchive, Archive separate from Trash. |
 | Doodle quality (taper, cached layers) | M | [x] COMPLETE | `StrokeEndOptions` taper in `doodle_painter.dart` + width presets in `doodle_preset_store.dart` + variable width in `doodle_painter.dart`. |
 | Reminders | M | [x] COMPLETE | `reminders` table, `ReminderRepository`, `LocalReminderScheduler` (`lib/core/platform/local_reminder_scheduler.dart` with `requestPermissions()`), `note_reminders_sheet.dart` UI with add/delete/list. |
-| Nested collections | L | [x] COMPLETE | Schema v11 `parentId` column, `NotebookRepository` hierarchy queries, 28dp visual indentation with connector icons in list view (`notebooks_screen.dart`), parent dropdown in create sheet, and breadcrumbs in detail view (`notebook_detail_screen.dart`). |
-| Three-pane desktop | M–L | [x] COMPLETE | True 3-pane layout on widescreen (`width >= 1200`): Pane 1 (`DesktopNavigationSidebar`), Pane 2 (Notes list/grid), Pane 3 (`NotePreviewPane(isDesktopEditor: true)` with live debounced editing). |
+| Nested collections | L | [ ] PARTIAL | `parentId` column EXISTS in `notebooks.dart:13`. `NotebookRepository.getRootNotebooks()`/`getSubNotebooks(parentId)` EXISTS. `notebooks_screen.dart` has parentId logic at lines 74-75, 79, 303-305, 316. But no full nested collection UI tree rendering found in screens. |
+| Three-pane desktop | M–L | [ ] PARTIAL | `ResizableSplitView` exists; `DesktopNavigationSidebar` imported at `home_screen.dart:37`; `supportsThreePane` at `adaptive_breakpoints.dart:42`; `NotePreviewPane(isDesktopEditor: true)` at `home_screen.dart:328`. But no confirmed sidebar + list + editor three-pane wire-up found. Home screen uses 2-pane (list + preview) via `ResizableSplitView`. |
 
 ---
 
-## Phase 14 — Quality gate — **COMPLETE**
+## Phase 14 — Quality gate — **PARTIAL**
 
 **Performance, in profile mode on a real mid-range Android:**
 - [x] Seed 500 and 2,000 notes with a script (`tool/seed_performance_notes.dart`, `test/benchmark/performance_seed_test.dart`).
-- [x] Check cold start (~1.5s target), masonry scroll (with/without `ParallaxCard`), opening a note.
-- [x] If `ParallaxCard` shows in profile, remove it from masonry.
+- [ ] Check cold start (~1.5s target), masonry scroll (with/without `ParallaxCard`), opening a note — NOT VERIFIED in tests.
+- [ ] If `ParallaxCard` shows in profile, remove it from masonry — NOT VERIFIED.
 
 **Migration safety:**
 - [x] Test upgrades from all shipped schema versions up to 10 (`test/data/database_test.dart`).
@@ -853,7 +858,7 @@ First, grep each item to see if it already exists. Then scope it:
 **Accessibility:**
 - [x] Manual TalkBack on hero, editor, unlock flows (`test/features/accessibility/talkback_key_flows_test.dart`).
 - [x] Add hero to text-scale 200% test (`test/features/accessibility/text_scale_200_test.dart`).
-- [x] Add hero's four sync states to goldens in light, dark, AMOLED, high-contrast (`test/features/home/widgets/nook_hero_test.dart`, `test/dark_mode_smoke_test.dart`, `test/core/theme/high_contrast_theme_test.dart`).
+- [ ] Add hero's four sync states to goldens in light, dark, AMOLED, high-contrast — Only 2 matches found in `test/core/theme/high_contrast_theme_test.dart`, not 4 states.
 
 **Soak test:**
 - [x] P2P sync verified: pairing, revoke, conflict resolution, and half-close transfer integrity (`test/sync/`).
