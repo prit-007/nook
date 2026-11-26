@@ -34,6 +34,7 @@ import 'providers/notes_list_provider.dart';
 import 'providers/note_card_metadata_provider.dart';
 import 'widgets/batch_action_bar.dart';
 import 'widgets/batch_action_sheets.dart';
+import 'widgets/desktop_navigation_sidebar.dart';
 import 'widgets/empty_home.dart';
 import 'widgets/filter_pill_bar.dart';
 import 'widgets/home_view_options_sheet.dart';
@@ -60,6 +61,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with AutomaticKeepAliveClientMixin {
   NoteType? _selectedType;
   bool _favoritesOnly = false;
+  String? _selectedNotebookId;
   NoteSortOrder _sortOrder = NoteSortOrder.updatedDesc;
   HomeViewMode _viewMode = HomeViewMode.masonry;
   HomeGroupBy _groupBy = HomeGroupBy.none;
@@ -164,6 +166,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (_selectedType != null) {
       result = result.where((n) => n.type == _selectedType).toList();
     }
+    if (_selectedNotebookId != null) {
+      result =
+          result.where((n) => n.notebookId == _selectedNotebookId).toList();
+    }
     return result;
   }
 
@@ -219,6 +225,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final sizeClass = _windowSizeClass(width);
     final isWide = sizeClass != WindowSizeClass.compact;
     final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
+    final isThreePane = AdaptiveBreakpoints.supportsThreePane(context);
     final animate = _animationsAllowed(context);
 
     // The shell already offsets the body by the full dock height (72 + 24 +
@@ -277,6 +284,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   animate: animate,
                   safeBottom: safeBottom,
                 );
+
+                if (isThreePane) {
+                  return Row(
+                    children: [
+                      DesktopNavigationSidebar(
+                        selectedType: _selectedType,
+                        favoritesOnly: _favoritesOnly,
+                        selectedNotebookId: _selectedNotebookId,
+                        counts: counts,
+                        favoritesCount: notes.where((n) => n.pinned).length,
+                        onSelectAll: () => setState(() {
+                          _selectedType = null;
+                          _favoritesOnly = false;
+                          _selectedNotebookId = null;
+                        }),
+                        onSelectFavorites: (fav) => setState(() {
+                          _favoritesOnly = fav;
+                          if (fav) {
+                            _selectedType = null;
+                            _selectedNotebookId = null;
+                          }
+                        }),
+                        onSelectType: (type) => setState(() {
+                          _selectedType = type;
+                          _favoritesOnly = false;
+                        }),
+                        onSelectNotebook: (nbId) => setState(() {
+                          _selectedNotebookId = nbId;
+                          _selectedType = null;
+                          _favoritesOnly = false;
+                        }),
+                      ),
+                      Expanded(
+                        child: ResizableSplitView(
+                          storageKey: 'nook_home_split_ratio',
+                          initialRatio: 0.42,
+                          left: Container(
+                            color: scheme.surfaceContainerLow
+                                .withValues(alpha: 0.3),
+                            child: grid,
+                          ),
+                          right: const NotePreviewPane(),
+                        ),
+                      ),
+                    ],
+                  );
+                }
 
                 if (isDualPane) {
                   return ResizableSplitView(

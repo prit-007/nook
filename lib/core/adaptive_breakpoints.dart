@@ -17,6 +17,9 @@ class AdaptiveBreakpoints {
   /// >= 840dp: large tablets, landscape foldables, desktop.
   static const double expanded = 840;
 
+  /// >= 1200dp: desktop monitors, widescreen tablets.
+  static const double large = 1200;
+
   static bool isCompact(BuildContext context) =>
       MediaQuery.sizeOf(context).width < compact;
 
@@ -28,8 +31,15 @@ class AdaptiveBreakpoints {
   static bool isExpanded(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= expanded;
 
+  static bool isLarge(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= large;
+
   /// Whether the current width is wide enough for a master-detail layout.
   static bool supportsDualPane(BuildContext context) => isExpanded(context);
+
+  /// Whether the screen is wide enough for a 3-pane desktop layout
+  /// (Sidebar + Notes List + Note Preview/Editor).
+  static bool supportsThreePane(BuildContext context) => isLarge(context);
 }
 
 /// Material 3 window size class based on width.

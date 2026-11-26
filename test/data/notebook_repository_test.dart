@@ -361,5 +361,40 @@ void main() {
       final deleted = await repo.getDeletedNotebooks();
       expect(deleted, isEmpty);
     });
+
+    test('nested notebooks: create, getRootNotebooks, getSubNotebooks',
+        () async {
+      final rootA =
+          await repo.createNotebook(name: 'Engineering', colorSeed: '#111');
+      final rootB =
+          await repo.createNotebook(name: 'Personal', colorSeed: '#222');
+      final subA1 = await repo.createNotebook(
+        name: 'Backend',
+        colorSeed: '#333',
+        parentId: rootA.id,
+      );
+      final subA2 = await repo.createNotebook(
+        name: 'Frontend',
+        colorSeed: '#444',
+        parentId: rootA.id,
+      );
+
+      final roots = await repo.getRootNotebooks();
+      expect(roots.map((n) => n.id), containsAll([rootA.id, rootB.id]));
+      expect(roots.map((n) => n.id), isNot(contains(subA1.id)));
+      expect(roots.map((n) => n.id), isNot(contains(subA2.id)));
+
+      final subsA = await repo.getSubNotebooks(rootA.id);
+      expect(subsA.map((n) => n.id), containsAll([subA1.id, subA2.id]));
+      expect(subsA.length, 2);
+
+      final subsB = await repo.getSubNotebooks(rootB.id);
+      expect(subsB, isEmpty);
+
+      // Reparent subA1 to rootB
+      await repo.updateNotebook(subA1.id, parentId: Value(rootB.id));
+      final updatedSubsB = await repo.getSubNotebooks(rootB.id);
+      expect(updatedSubsB.map((n) => n.id), contains(subA1.id));
+    });
   });
 }

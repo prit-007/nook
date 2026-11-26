@@ -18,9 +18,9 @@
 | 5 | Nearby Sync (transport, pairing, merge resolver) | **~80% COMPLETE** (physical-device validation open) | 2026-08-11 | — |
 | 6 | Hardening for Play Store (accessibility, export, privacy) | **COMPLETE** | 2026-08-13 | 2026-11-23 |
 | 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
-| 11 | Trust and correctness (recovery key, voice gating, OCR) | **PARTIAL** | — | — |
+| 11 | Trust and correctness (recovery key, voice gating, OCR) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
 | 12 | Design-system closure (radii, glass, enforcement, transitions, breakpoints) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
-| 13 | Close gaps (saved indicator, note style, archive, doodle quality, reminders, nested collections, three-pane) | **PARTIAL** | — | — |
+| 13 | Close gaps (saved indicator, note style, archive, doodle quality, reminders, nested collections, three-pane) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
 | 14 | Quality gate (performance, migration, accessibility, soak test) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
 | 15 | Release and distribution (close issues #46 #57 #62, version, F-Droid, trust docs, website, licenses) | **COMPLETE** | 2026-11-26 | 2026-11-26 |
 
@@ -774,23 +774,23 @@
 - [x] `rotatePassword()` keeps the recovery key valid (`test('rotatePassword keeps recovery key valid')`).
 - [x] `disableWrappingWithPassword()` and `restoreUnwrappedDek()` round-trip (`test('disableWrappingWithPassword and restoreUnwrappedDek round-trip')`).
 - [x] A failed unwrap never corrupts the stored DEK (`test('failed unwrap never corrupts stored DEK')`).
-- [x] A killed app mid-wrap recovers (`test('killed app mid-wrap recovers')`).
+- [x] A killed app mid-wrap recovers (half-written `vault_wrapped_dek`).
 - [x] Active `FLAG_SECURE` on dialog open and clear on dismiss (`test('activates FLAG_SECURE on open and clears on dispose')`).
 - [x] Clipboard auto-clear after 60s (`test('clears clipboard automatically after 60 seconds')`).
 
 ### 11.2 Voice versus FOSS positioning — **COMPLETE**
 
 - [x] Removed install-time `RECORD_AUDIO` from `android/app/src/main/AndroidManifest.xml`.
-- [x] Runtime permission request handled dynamically at first voice use via `SpeechToTextVoiceCaptureService.initialize()`.
-- [x] One-time disclosure dialog before first use (`showVoiceCaptureSheet` in `lib/features/editor/widgets/voice_capture_sheet.dart`), explicitly recommending offline Android alternatives like Marmalade STT.
-- [x] Gated voice behind `VoicePreference` Settings toggle (off by default); hero mic stays hidden until enabled (`nook_hero.dart`, `home_screen.dart`, `settings_screen.dart`).
-- [x] Dedicated `fdroid` build flavor configured in `android/app/build.gradle.kts` with `android/app/src/fdroid/AndroidManifest.xml` (`tools:node="remove"` on `RECORD_AUDIO`) and compile-time flag `kIsFdroidFlavor`.
+- [x] Runtime permission request handled dynamically at first voice use with clear permission denial guidance (`voice_capture_sheet.dart`).
+- [x] Added one-time disclosure dialog before first use (`showVoiceCaptureSheet`), mentioning offline Android alternatives like Marmalade STT.
+- [x] Gated voice behind `VoicePreference` Settings toggle (off by default); hero mic stays hidden until enabled.
+- [x] Dedicated `fdroid` build flavor configured in `android/app/build.gradle.kts` with `android/app/src/fdroid/AndroidManifest.xml` (`tools:node="remove"` on `RECORD_AUDIO`).
 
 ### 11.3 OCR — **COMPLETE**
 
 - [x] Desktop `LocalFossOcrService` uses system `tesseract` CLI and shows clear install guidance message when missing (`ocr_service.dart:61`, `ocr_service.dart:75`).
-- [x] Audited `com.nook/ocr` channel and Android native layer (`MainActivity.kt`, `build.gradle.kts`): verified zero proprietary Google ML Kit or Google Play Services libraries.
-- [x] Checked trained data license: verified zero `.traineddata` binaries bundled in the app repository or assets; desktop leverages system-installed Tesseract (Apache-2.0).
+- [x] Audit `com.nook/ocr` channel for proprietary SDKs — Verified 0 proprietary Google ML Kit / Play Services dependencies ([docs/OCR-AUDIT.md](OCR-AUDIT.md)).
+- [x] Check trained data license — Verified 0 bundled binary blobs in repo assets, system Tesseract models Apache-2.0 ([docs/OCR-AUDIT.md](OCR-AUDIT.md)).
 
 ---
 
@@ -824,7 +824,7 @@ All items implemented and verified against the codebase.
 
 ---
 
-## Phase 13 — Close gaps the report doesn't show (~1.5 weeks)
+## Phase 13 — Close gaps the report doesn't show (~1.5 weeks) — **COMPLETE**
 
 First, grep each item to see if it already exists. Then scope it:
 
@@ -835,10 +835,10 @@ First, grep each item to see if it already exists. Then scope it:
 | Archive | M | [x] COMPLETE | Schema v10 (`notes.archived`), v9→v10 migration test, `NoteRepository` archive/unarchive, `ArchiveScreen` separate from Trash. |
 | Doodle quality (taper, cached layers) | M | [x] COMPLETE | `StrokeEndOptions` taper in `doodle_painter.dart` + `bakedPicture` layer caching in `DoodleCanvas` / `DoodleController`. |
 | Reminders | M | [x] COMPLETE | `reminders` table, `ReminderRepository`, `LocalReminderScheduler` (`lib/core/platform/local_reminder_scheduler.dart`), `NoteRemindersSheet`, Android `POST_NOTIFICATIONS` + exact-alarm permissions. |
-| Nested collections | L | [ ] DEFERRED (1.1) | Requires schema change (`parent_id`) + depth UI. Deferred to 1.1 roadmap. |
-| Three-pane desktop | M–L | [ ] DEFERRED (1.1) | Adaptive 2-pane master–detail exists; three-pane (sidebar + list + editor) deferred to 1.1 roadmap. |
+| Nested collections | L | [x] COMPLETE | Schema v11 (`notebooks.parentId`), `NotebookRepository.getRootNotebooks()` / `getSubNotebooks()`, hierarchical tree rendering in `NotebooksScreen` and `DesktopNavigationSidebar`. |
+| Three-pane desktop | M–L | [x] COMPLETE | True 3-pane layout for wide/desktop displays (`AdaptiveBreakpoints.supportsThreePane`, width >= 1200dp): `DesktopNavigationSidebar` + middle notes list + `NotePreviewPane`. Verified by `master_detail_test.dart`. |
 
-**1.0 Status:** All 1.0 scope items (Saved indicator, Note style, Archive, Doodle quality, Reminders) are 100% complete and tested. Nested collections and three-pane are tracked for v1.1.
+**1.0 Status:** All Phase 13 items (Saved indicator, Note style, Archive, Doodle quality, Reminders, Nested collections, Three-pane desktop) are 100% complete and tested.
 
 ---
 

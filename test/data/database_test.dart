@@ -25,8 +25,38 @@ void main() {
       expect(db, isNotNull);
     });
 
-    test('schema version is 10', () {
-      expect(db.schemaVersion, 10);
+    test('schema version is 11', () {
+      expect(db.schemaVersion, 11);
+    });
+
+    test('migrates v10 database to v11 preserving notebooks with parentId=null',
+        () async {
+      final tempDir = await Directory.systemTemp.createTemp('nook_mig_v10_');
+      try {
+        final dbPath = p.join(tempDir.path, 'v10.db');
+        final rawDb = AppDatabase(NativeDatabase(File(dbPath)));
+        await rawDb.customStatement('SELECT 1');
+        await rawDb
+            .customStatement('ALTER TABLE notebooks DROP COLUMN parent_id;');
+        await rawDb.customStatement('PRAGMA user_version = 10;');
+        await rawDb.customStatement(
+          "INSERT INTO notebooks (id, name, color_seed, created_at) VALUES ('nb-v10', 'Root Collection', '#336699', 1700000000);",
+        );
+        await rawDb.close();
+
+        final migrated = AppDatabase(NativeDatabase(File(dbPath)));
+        expect(migrated.schemaVersion, 11);
+        final row = await (migrated.select(migrated.notebooks)
+              ..where((t) => t.id.equals('nb-v10')))
+            .getSingle();
+        expect(row.name, 'Root Collection');
+        expect(row.parentId, isNull);
+        await migrated.close();
+      } finally {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      }
     });
 
     test('migrates v9 database to v10 preserving notes with archived=false',
@@ -38,6 +68,8 @@ void main() {
         // Create schema first, then downgrade to simulate v9 without archived.
         await rawDb.customStatement('SELECT 1');
         await rawDb.customStatement('ALTER TABLE notes DROP COLUMN archived;');
+        await rawDb
+            .customStatement('ALTER TABLE notebooks DROP COLUMN parent_id;');
         await rawDb.customStatement('PRAGMA user_version = 9;');
         await rawDb.customStatement(
           "INSERT INTO notes (id, type, title, created_at, updated_at, device_origin_id) VALUES ('n-v9', 'text', 'Legacy v9 note', 1700000000, 1700000000, 'd1');",
@@ -74,15 +106,17 @@ void main() {
         await rawDb
             .customStatement('ALTER TABLE notes DROP COLUMN font_style;');
         await rawDb.customStatement('ALTER TABLE notes DROP COLUMN archived;');
+        await rawDb
+            .customStatement('ALTER TABLE notebooks DROP COLUMN parent_id;');
         await rawDb.customStatement('PRAGMA user_version = 3;');
         await rawDb.customStatement(
           "INSERT INTO notes (id, type, title, created_at, updated_at, device_origin_id) VALUES ('n-v3', 'text', 'Legacy v3 note', 1600000000, 1600000000, 'd1');",
         );
         await rawDb.close();
 
-        // Migrate to v10
+        // Migrate to v11
         final migrated = AppDatabase(NativeDatabase(File(dbPath)));
-        expect(migrated.schemaVersion, 10);
+        expect(migrated.schemaVersion, 11);
         final row = await (migrated.select(migrated.notes)
               ..where((t) => t.id.equals('n-v3')))
             .getSingle();
@@ -124,7 +158,7 @@ void main() {
 
         // Open and run migration
         final migrated = AppDatabase(NativeDatabase(File(dbPath)));
-        expect(migrated.schemaVersion, 10);
+        expect(migrated.schemaVersion, 11);
         await migrated.close();
 
         // Verify backup is intact

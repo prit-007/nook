@@ -285,16 +285,19 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
           final nb = _notebooks[index];
           final noteCount = _counts[nb.id] ?? 0;
           final seed = NookColors.parseHex(nb.colorSeed);
-          final hasParent = nb.name.contains('/');
-          final parent = hasParent
-              ? nb.name
-                  .split('/')
-                  .sublist(0, nb.name.split('/').length - 1)
-                  .map((s) => s.trim())
-                  .join(' › ')
-              : null;
-          final displayName =
-              hasParent ? nb.name.split('/').last.trim() : nb.name;
+          final hasParent = nb.parentId != null || nb.name.contains('/');
+          final parent = nb.parentId != null
+              ? _notebooks.where((p) => p.id == nb.parentId).firstOrNull?.name
+              : (nb.name.contains('/')
+                  ? nb.name
+                      .split('/')
+                      .sublist(0, nb.name.split('/').length - 1)
+                      .map((s) => s.trim())
+                      .join(' › ')
+                  : null);
+          final displayName = hasParent && nb.name.contains('/')
+              ? nb.name.split('/').last.trim()
+              : nb.name;
 
           return Material(
             color: scheme.surfaceContainerLow,
@@ -547,6 +550,7 @@ class _CreateNotebookSheetState extends ConsumerState<_CreateNotebookSheet> {
     await repo.createNotebook(
       name: fullName,
       colorSeed: _hexFromColor(_selectedColor),
+      parentId: _selectedParent?.id,
     );
     if (mounted) Navigator.pop(context);
     widget.onCreated();

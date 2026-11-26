@@ -95,9 +95,13 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet> {
       },
       onError: (err) {
         if (!mounted) return;
+        final isPermissionError = err.toLowerCase().contains('permission') ||
+            err.toLowerCase().contains('denied');
         setState(() {
           _listening = false;
-          _error = err;
+          _error = isPermissionError
+              ? 'Microphone permission is required for voice capture. Please grant access in device settings.'
+              : err;
         });
       },
     );
@@ -106,7 +110,8 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet> {
       setState(() {
         _initializing = false;
         _listening = false;
-        _error = 'Speech recognition is not available on this device.';
+        _error = _error ??
+            'Speech recognition is not available on this device.';
       });
       return;
     }

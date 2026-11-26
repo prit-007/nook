@@ -13,6 +13,7 @@ import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/home/home_screen.dart';
 import 'package:nook/features/home/providers/note_card_metadata_provider.dart';
 import 'package:nook/features/home/providers/notes_list_provider.dart';
+import 'package:nook/features/home/widgets/desktop_navigation_sidebar.dart';
 import 'package:nook/features/home/widgets/note_preview_pane.dart';
 import 'package:nook/features/notebooks/notebooks_screen.dart';
 import 'package:nook/features/notebooks/widgets/notebook_card.dart';
@@ -126,6 +127,26 @@ void main() {
       expect(find.byType(NotePreviewPane), findsOneWidget);
       expect(find.text('Select a note'), findsOneWidget);
       expect(find.text('Open'), findsNothing);
+    });
+
+    testWidgets(
+        'renders three-pane desktop layout with sidebar on large screens',
+        (tester) async {
+      setViewSize(tester, const Size(1400, 900));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            notesListProvider.overrideWith((ref) => Stream.value(<Note>[])),
+          ],
+          child: const MaterialApp(home: HomeScreen(animate: false)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DesktopNavigationSidebar), findsOneWidget);
+      expect(find.text('Workspace'), findsOneWidget);
+      expect(find.byType(NotePreviewPane), findsOneWidget);
     });
 
     testWidgets('tapping a note fills the pane without navigating',

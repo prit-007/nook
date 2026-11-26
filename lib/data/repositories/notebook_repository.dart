@@ -19,6 +19,7 @@ class NotebookRepository {
     required String colorSeed,
     String icon = 'notebook',
     int sortOrder = 0,
+    String? parentId,
   }) async {
     final id = _uuid.v4();
     await _db.into(_db.notebooks).insert(
@@ -28,6 +29,7 @@ class NotebookRepository {
             colorSeed: colorSeed,
             icon: Value(icon),
             sortOrder: Value(sortOrder),
+            parentId: Value(parentId),
           ),
         );
 
@@ -45,6 +47,7 @@ class NotebookRepository {
     required String colorSeed,
     String icon = 'notebook',
     int sortOrder = 0,
+    String? parentId,
   }) async {
     await _db.into(_db.notebooks).insert(
           NotebooksCompanion.insert(
@@ -53,6 +56,7 @@ class NotebookRepository {
             colorSeed: colorSeed,
             icon: Value(icon),
             sortOrder: Value(sortOrder),
+            parentId: Value(parentId),
           ),
         );
 
@@ -67,6 +71,22 @@ class NotebookRepository {
   Future<List<Notebook>> getAllNotebooks() async {
     return (_db.select(_db.notebooks)
           ..where((t) => t.deleted.equals(false))
+          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+        .get();
+  }
+
+  /// Returns all non-deleted root notebooks (with parentId == null).
+  Future<List<Notebook>> getRootNotebooks() async {
+    return (_db.select(_db.notebooks)
+          ..where((t) => t.deleted.equals(false) & t.parentId.isNull())
+          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+        .get();
+  }
+
+  /// Returns sub-notebooks belonging to a parent notebook.
+  Future<List<Notebook>> getSubNotebooks(String parentId) async {
+    return (_db.select(_db.notebooks)
+          ..where((t) => t.deleted.equals(false) & t.parentId.equals(parentId))
           ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
         .get();
   }
@@ -93,6 +113,7 @@ class NotebookRepository {
     String? colorSeed,
     String? icon,
     int? sortOrder,
+    Value<String?> parentId = const Value.absent(),
   }) async {
     await (_db.update(_db.notebooks)..where((t) => t.id.equals(id))).write(
       NotebooksCompanion(
@@ -100,6 +121,7 @@ class NotebookRepository {
         colorSeed: colorSeed != null ? Value(colorSeed) : const Value.absent(),
         icon: icon != null ? Value(icon) : const Value.absent(),
         sortOrder: sortOrder != null ? Value(sortOrder) : const Value.absent(),
+        parentId: parentId,
       ),
     );
   }
