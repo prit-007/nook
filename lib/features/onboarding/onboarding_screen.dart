@@ -7,6 +7,8 @@ import '../../core/providers/navigation_preference.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/providers/vault_password_provider.dart';
+import '../../core/security/dek_manager.dart';
+import '../../core/security/recovery_key_provider.dart';
 import '../../core/theme/app_motion.dart';
 import '../../core/theme/design_tokens.dart';
 import '../importers/import_dialog.dart';
@@ -53,6 +55,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await NavigationPreference.completeOnboarding();
     talker.info('Onboarding completed (seed $_selectedSeedIndex)');
     if (mounted) context.go('/home');
+  }
+
+  /// Sets a vault password and wraps the SQLCipher database encryption key (DEK)
+  /// using [DekManager.wrapDekWithPassword] and the user's verified [recoveryWords].
+  Future<bool> wrapDekWithPassword({
+    required String password,
+    List<String>? recoveryWords,
+  }) async {
+    final words = recoveryWords ?? generateRecoveryKey();
+    await ref.read(vaultPasswordProvider).setPassword(
+          password,
+          recoveryWords: words,
+        );
+    return true;
   }
 
   @override
@@ -841,7 +857,14 @@ class _ReadyPage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: () => showRecoveryKeyDialog(context),
+                onPressed: () async {
+                  final vault = ref.read(vaultPasswordProvider);
+                  if (!vault.enabled) {
+                    await showSetVaultPasswordDialog(context);
+                  } else {
+                    await showRecoveryKeyDialog(context);
+                  }
+                },
               ),
               OutlinedButton.icon(
                 icon: const HugeIcon(

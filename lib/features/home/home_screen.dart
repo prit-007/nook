@@ -325,7 +325,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 .withValues(alpha: 0.3),
                             child: grid,
                           ),
-                          right: const NotePreviewPane(),
+                          right: const NotePreviewPane(isDesktopEditor: true),
                         ),
                       ),
                     ],

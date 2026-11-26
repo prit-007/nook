@@ -2,9 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:nook/core/providers/vault_password_provider.dart';
+import 'package:nook/core/security/dek_manager.dart';
+import 'package:nook/core/security/recovery_key_provider.dart';
+import 'package:nook/core/security/secure_kv_store.dart';
 import 'package:nook/features/onboarding/onboarding_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _InMemoryKvStore implements SecureKeyValueStore {
+  final Map<String, String> data = {};
+
+  @override
+  Future<void> delete(String key) async => data.remove(key);
+
+  @override
+  Future<String?> read(String key) async => data[key];
+
+  @override
+  Future<void> write(String key, String value) async => data[key] = value;
+}
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   Widget buildScreen() {
     return const ProviderScope(
       child: MaterialApp(
@@ -113,5 +135,43 @@ void main() {
     await tester.pumpWidget(buildScreen());
     // 5 dot indicators via AnimatedContainer (one per page)
     expect(find.byType(AnimatedContainer), findsAtLeastNWidgets(5));
+  });
+
+  testWidgets('onboarding wires recovery key into DEK wrapping',
+      (tester) async {
+    final store = _InMemoryKvStore();
+    await store.write(DekManager.dbEncryptionKeyStorageKey, 'onboarding-dek');
+    final dekManager = DekManager(store: store, iterations: 100);
+    final vaultProvider = VaultPasswordProvider(
+      store: store,
+      dekManager: dekManager,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          vaultPasswordProvider.overrideWith((ref) => vaultProvider),
+        ],
+        child: const MaterialApp(
+          home: OnboardingScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dynamic state = tester.state(find.byType(OnboardingScreen));
+    final words = generateRecoveryKey();
+    await state.wrapDekWithPassword(
+      password: 'test-vault-password',
+      recoveryWords: words,
+    );
+
+    expect(vaultProvider.enabled, isTrue);
+    expect(await dekManager.isWrapped(), isTrue);
+    expect(
+      await dekManager.unwrapDekWithPassword('test-vault-password'),
+      'onboarding-dek',
+    );
+    expect(await dekManager.unwrapDekWithRecoveryKey(words), 'onboarding-dek');
   });
 }

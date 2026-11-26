@@ -130,23 +130,37 @@ void main() {
     });
 
     testWidgets(
-        'renders three-pane desktop layout with sidebar on large screens',
+        'renders three-pane desktop layout with sidebar and editor on large screens',
         (tester) async {
       setViewSize(tester, const Size(1400, 900));
+      final note = await insertNote('Desktop Thought');
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             databaseProvider.overrideWithValue(db),
-            notesListProvider.overrideWith((ref) => Stream.value(<Note>[])),
+            notesListProvider.overrideWith((ref) => Stream.value([note])),
+            checklistItemsRevisionProvider
+                .overrideWith((ref) => const Stream<void>.empty()),
           ],
           child: const MaterialApp(home: HomeScreen(animate: false)),
         ),
       );
       await tester.pumpAndSettle();
 
+      // Pane 1: Sidebar
       expect(find.byType(DesktopNavigationSidebar), findsOneWidget);
       expect(find.text('Workspace'), findsOneWidget);
+
+      // Pane 2: List
+      expect(find.text('Desktop Thought').first, findsOneWidget);
+
+      // Select note -> Pane 3 renders editor
+      await tester.tap(find.text('Desktop Thought').first);
+      await tester.pumpAndSettle();
+
+      // Pane 3: Desktop editor pane with inline text field
       expect(find.byType(NotePreviewPane), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
     });
 
     testWidgets('tapping a note fills the pane without navigating',

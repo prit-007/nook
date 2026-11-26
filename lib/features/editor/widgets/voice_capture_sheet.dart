@@ -86,6 +86,12 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet> {
       _initializing = true;
       _error = null;
     });
+
+    // Explicit runtime microphone permission check at first use
+    final hasPerm = await service.hasPermission();
+    if (!hasPerm) {
+      await service.requestMicrophonePermission();
+    }
     final available = await service.initialize(
       onStatus: (status) {
         if (!mounted) return;

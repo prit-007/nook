@@ -14,9 +14,23 @@ class _FakeVoiceService implements VoiceCaptureService {
   bool listening = false;
   bool cancelled = false;
   bool initialized = false;
+  bool permissionChecked = false;
+  bool permissionRequested = false;
 
   @override
   bool get isListening => listening;
+
+  @override
+  Future<bool> hasPermission() async {
+    permissionChecked = true;
+    return false;
+  }
+
+  @override
+  Future<bool> requestMicrophonePermission() async {
+    permissionRequested = true;
+    return true;
+  }
 
   @override
   Future<void> cancel() async {
@@ -101,6 +115,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(pref.disclosureAccepted, isTrue);
+    expect(fake.permissionChecked, isTrue);
+    expect(fake.permissionRequested, isTrue);
     expect(fake.initialized, isTrue);
     expect(find.text('Buy oat milk tomorrow'), findsOneWidget);
 

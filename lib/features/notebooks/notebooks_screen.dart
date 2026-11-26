@@ -69,8 +69,23 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
     final results = await repo.getAllNotebooks();
     final counts = await repo.countNotesForAllNotebooks();
     if (!mounted) return;
+
+    // Order hierarchically: root collections first, followed by their subcollections
+    final roots = results.where((n) => n.parentId == null).toList();
+    final children = results.where((n) => n.parentId != null).toList();
+    final ordered = <Notebook>[];
+    for (final root in roots) {
+      ordered.add(root);
+      ordered.addAll(children.where((c) => c.parentId == root.id));
+    }
+    for (final child in children) {
+      if (!ordered.contains(child)) {
+        ordered.add(child);
+      }
+    }
+
     setState(() {
-      _notebooks = results;
+      _notebooks = ordered;
       _counts = counts;
       _loading = false;
     });
@@ -298,97 +313,109 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
           final displayName = hasParent && nb.name.contains('/')
               ? nb.name.split('/').last.trim()
               : nb.name;
+          final isChild = nb.parentId != null;
 
-          return Material(
-            color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
+          return Padding(
+            padding: EdgeInsets.only(left: isChild ? 28.0 : 0.0),
+            child: Material(
+              color: scheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(16),
-              onTap: () {
-                if (isDualPane) {
-                  ref.read(selectedNotebookIdProvider.notifier).state = nb.id;
-                  return;
-                }
-                context.push('/notebooks/${nb.id}');
-              },
-              onLongPress: () => _showDeleteDialog(nb),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: seed,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: seed.withValues(alpha: 0.35),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (parent != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 2),
-                              child: Text(
-                                parent,
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: scheme.onSurfaceVariant,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  if (isDualPane) {
+                    ref.read(selectedNotebookIdProvider.notifier).state = nb.id;
+                    return;
+                  }
+                  context.push('/notebooks/${nb.id}');
+                },
+                onLongPress: () => _showDeleteDialog(nb),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      if (isChild) ...[
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedArrowRight01,
+                          size: 16,
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: seed,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: seed.withValues(alpha: 0.35),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
                             ),
-                          Text(
-                            displayName,
-                            style: TextStyle(
-                              fontFamily: 'Playfair Display',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '$noteCount ${noteCount == 1 ? 'entry' : 'entries'}',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onSurfaceVariant,
+                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    HugeIcon(
-                      icon: HugeIcons.strokeRoundedArrowRight01,
-                      size: 16,
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
-                    ),
-                  ],
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (parent != null)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Text(
+                                  parent,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: scheme.onSurfaceVariant,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ),
+                            Text(
+                              displayName,
+                              style: TextStyle(
+                                fontFamily: 'Playfair Display',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '$noteCount ${noteCount == 1 ? 'entry' : 'entries'}',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 16,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

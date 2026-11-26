@@ -5,6 +5,12 @@ import 'package:speech_to_text/speech_to_text.dart';
 abstract class VoiceCaptureService {
   bool get isListening;
 
+  /// Checks whether microphone permission is granted at runtime.
+  Future<bool> hasPermission();
+
+  /// Prompts the user for runtime microphone permission.
+  Future<bool> requestMicrophonePermission();
+
   Future<bool> initialize({
     void Function(String status)? onStatus,
     void Function(String error)? onError,
@@ -29,6 +35,24 @@ class SpeechToTextVoiceCaptureService implements VoiceCaptureService {
 
   @override
   bool get isListening => _speech.isListening;
+
+  @override
+  Future<bool> hasPermission() async {
+    try {
+      return await _speech.hasPermission;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> requestMicrophonePermission() async {
+    try {
+      return await _speech.hasPermission;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Future<bool> initialize({
