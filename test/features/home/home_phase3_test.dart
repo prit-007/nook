@@ -17,7 +17,7 @@ import 'package:nook/features/home/providers/notes_list_provider.dart';
 import 'package:nook/features/home/widgets/home_view_options_sheet.dart';
 import 'package:nook/features/home/widgets/note_compact_tile.dart';
 import 'package:nook/features/home/widgets/note_minimal_card.dart';
-import 'package:nook/features/home/widgets/quick_capture_bar.dart';
+import 'package:nook/features/home/widgets/nook_hero.dart';
 
 AppDatabase createTestDb() => AppDatabase(NativeDatabase.memory());
 
@@ -93,7 +93,7 @@ void main() {
   }
 
   group('Phase 3 — QuickCaptureBar', () {
-    testWidgets('renders QuickCaptureBar when notes are displayed',
+    testWidgets('renders capture bar in NookHero when notes are displayed',
         (tester) async {
       final notes = await insertNotes([
         (
@@ -107,14 +107,14 @@ void main() {
       await tester.pumpWidget(buildHome(notes: notes));
       await tester.pumpAndSettle();
 
-      expect(find.byType(QuickCaptureBar), findsOneWidget);
-      expect(find.text('Capture a thought...'), findsOneWidget);
+      expect(find.byType(NookHeroSliver), findsOneWidget);
+      expect(find.text('Capture a thought'), findsOneWidget);
       expect(find.byTooltip('New checklist'), findsOneWidget);
       expect(find.byTooltip('New doodle'), findsOneWidget);
-      expect(find.byTooltip('From template'), findsOneWidget);
     });
 
-    testWidgets('hides QuickCaptureBar in selection mode', (tester) async {
+    testWidgets('hides NookHero and capture bar in selection mode',
+        (tester) async {
       final notes = await insertNotes([
         (
           title: 'Thought 1',
@@ -127,13 +127,15 @@ void main() {
       await tester.pumpWidget(buildHome(notes: notes));
       await tester.pumpAndSettle();
 
-      expect(find.byType(QuickCaptureBar), findsOneWidget);
+      expect(find.byType(NookHeroSliver), findsOneWidget);
+      expect(find.text('Capture a thought'), findsOneWidget);
 
       // Enter selection mode
       await tester.tap(find.byTooltip('Select notes'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(QuickCaptureBar), findsNothing);
+      expect(find.byType(NookHeroSliver), findsNothing);
+      expect(find.text('Capture a thought'), findsNothing);
     });
   });
 

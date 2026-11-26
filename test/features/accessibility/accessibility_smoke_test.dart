@@ -142,9 +142,7 @@ void main() {
     expect(find.byType(Scaffold), findsOneWidget);
     expect(
       find.byWidgetPredicate(
-        (w) =>
-            w is Semantics &&
-            w.properties.label == 'Search thoughts, doodles, checklists...',
+        (w) => w is Semantics && w.properties.label == 'Capture a thought',
       ),
       findsOneWidget,
     );
