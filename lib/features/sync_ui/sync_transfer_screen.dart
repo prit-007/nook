@@ -1,23 +1,38 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/haptics/haptics.dart';
 import '../../core/theme/app_motion.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../../sync/transport/sync_transport.dart';
 import 'widgets/conflict_card.dart';
 
-class SyncTransferScreen extends ConsumerWidget {
+class SyncTransferScreen extends ConsumerStatefulWidget {
   const SyncTransferScreen({super.key, required this.sessionId});
 
   final String sessionId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
+  ConsumerState<SyncTransferScreen> createState() => _SyncTransferScreenState();
+}
+
+class _SyncTransferScreenState extends ConsumerState<SyncTransferScreen> {
+  SyncPhase? _lastPhase;
+
+  @override
+  Widget build(BuildContext context) {
     final syncState = ref.watch(syncOrchestratorProvider);
+
+    if (_lastPhase != null && _lastPhase != syncState.phase) {
+      _hapticForPhase(syncState);
+    }
+    _lastPhase = syncState.phase;
+
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -57,6 +72,38 @@ class SyncTransferScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _hapticForPhase(SyncOrchestratorState state) {
+    switch (state.phase) {
+      case SyncPhase.complete:
+        unawaited(AppHaptics.success());
+        break;
+      case SyncPhase.error:
+        switch (state.outcome) {
+          case SyncOutcomeCategory.timedOut:
+          case SyncOutcomeCategory.connectionLost:
+          case SyncOutcomeCategory.rejected:
+          case SyncOutcomeCategory.cancelled:
+            unawaited(AppHaptics.warning());
+            break;
+          case SyncOutcomeCategory.protocol:
+          case SyncOutcomeCategory.internal:
+          case null:
+            unawaited(AppHaptics.error());
+            break;
+        }
+        break;
+      case SyncPhase.resolving:
+        unawaited(AppHaptics.warning());
+        break;
+      case SyncPhase.idle:
+      case SyncPhase.discovering:
+      case SyncPhase.connecting:
+      case SyncPhase.sending:
+      case SyncPhase.receiving:
+        break;
+    }
   }
 
   Widget _buildStateContent(

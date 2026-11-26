@@ -179,9 +179,8 @@ void main() {
           ),
         ),
       );
-      // EmptyState (animate: true) loops forever; use a fixed pump.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+      // EmptyState entrance animation runs once; pump and settle.
+      await tester.pumpAndSettle();
 
       expect(find.byTooltip('Go back'), findsOneWidget);
     });

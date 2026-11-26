@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'nook_tokens.dart';
 
 export 'nook_tokens.dart';
+export 'high_contrast_theme.dart';
 
 /// Font fallbacks for Indic scripts (Gujarati, Devanagari/Hindi) ensuring
 /// seamless multilingual rendering without glyph clipping or mismatched metrics.

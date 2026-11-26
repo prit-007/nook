@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:hugeicons/hugeicons.dart';
+import '../../core/haptics/haptics.dart';
 import '../../core/providers/navigation_preference.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/security/recovery_key_provider.dart';
 import '../../core/theme/app_motion.dart';
 import '../../core/theme/design_tokens.dart';
+import '../importers/import_dialog.dart';
+import '../security/recovery_key_dialog.dart';
 
 /// Multi-page onboarding flow.
 /// Page 1: Welcome (prompt #1)
 /// Page 2: Three Ways to Capture (screen mockups)
 /// Page 3: Pick Your Vibe (theme preview)
-/// Page 4: Ready (offline & sync ready)
+/// Page 4: Master Vault Key (24-word recovery phrase)
+/// Page 5: Ready (offline & sync ready)
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -25,6 +31,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
   int _selectedSeedIndex = 0;
+  bool _hasSavedRecoveryKey = false;
+  late final List<String> _recoveryWords;
+
+  @override
+  void initState() {
+    super.initState();
+    _recoveryWords = generateRecoveryKey();
+  }
 
   @override
   void dispose() {
@@ -33,7 +47,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _nextPage() {
-    if (_currentPage < 3) {
+    if (_currentPage < 4) {
+      if (_currentPage == 3 && !_hasSavedRecoveryKey) {
+        AppHaptics.warning();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Please confirm that you have saved your recovery key.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
       _pageController.nextPage(
         duration: AppMotion.medium2,
         curve: AppMotion.emphasizedDecelerate,
@@ -64,9 +89,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               alignment: Alignment.topRight,
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
-                opacity: _currentPage == 3 ? 0.0 : 1.0,
+                opacity: _currentPage == 4 ? 0.0 : 1.0,
                 child: IgnorePointer(
-                  ignoring: _currentPage == 3,
+                  ignoring: _currentPage == 4,
                   child: TextButton(
                     onPressed: _finish,
                     child: Text(
@@ -93,6 +118,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     onSeedChanged: (i) =>
                         setState(() => _selectedSeedIndex = i),
                   ),
+                  _RecoveryKeyPage(
+                    scheme: scheme,
+                    words: _recoveryWords,
+                    hasSaved: _hasSavedRecoveryKey,
+                    onSavedChanged: (v) =>
+                        setState(() => _hasSavedRecoveryKey = v),
+                  ),
                   _ReadyPage(scheme: scheme),
                 ],
               ),
@@ -103,7 +135,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(4, (i) {
+                children: List.generate(5, (i) {
                   final isActive = i == _currentPage;
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
@@ -135,7 +167,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                   ),
                   child: Text(
-                    _currentPage == 3 ? 'Get Started' : 'Continue',
+                    _currentPage == 4 ? 'Get Started' : 'Continue',
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
@@ -634,16 +666,252 @@ class _VibePage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Page 4: Ready
+// Page 4: Master Vault Key
 // ---------------------------------------------------------------------------
 
-class _ReadyPage extends StatelessWidget {
+class _RecoveryKeyPage extends StatefulWidget {
+  const _RecoveryKeyPage({
+    required this.scheme,
+    required this.words,
+    required this.hasSaved,
+    required this.onSavedChanged,
+  });
+
+  final ColorScheme scheme;
+  final List<String> words;
+  final bool hasSaved;
+  final ValueChanged<bool> onSavedChanged;
+
+  @override
+  State<_RecoveryKeyPage> createState() => _RecoveryKeyPageState();
+}
+
+class _RecoveryKeyPageState extends State<_RecoveryKeyPage> {
+  bool _copied = false;
+
+  Future<void> _copyPhrase() async {
+    await Clipboard.setData(ClipboardData(text: widget.words.join(' ')));
+    await AppHaptics.success();
+    if (mounted) {
+      setState(() => _copied = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Recovery phrase copied to clipboard! Keep it safe.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _copied = false);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = widget.scheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 12),
+          Text(
+            'Master Vault Key',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Nook encrypts your notes on this device. Save your 24-word recovery phrase to ensure you can always recover your notes.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: scheme.onSurface.withValues(alpha: 0.8),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Warning banner
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: scheme.errorContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: scheme.error.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedAlertCircle,
+                  color: scheme.error,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Keep this phrase safe. Nook has no cloud servers and cannot restore lost keys.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onErrorContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Words grid
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.25),
+                ),
+              ),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Table(
+                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                  children: [
+                    for (var r = 0; r < 12; r++)
+                      TableRow(
+                        children: [
+                          _buildWordChip(scheme, r + 1, widget.words[r]),
+                          const SizedBox(width: 8),
+                          _buildWordChip(scheme, r + 13, widget.words[r + 12]),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Copy phrase button
+          Center(
+            child: OutlinedButton.icon(
+              onPressed: _copyPhrase,
+              icon: HugeIcon(
+                icon: _copied
+                    ? HugeIcons.strokeRoundedCheckmarkCircle01
+                    : HugeIcons.strokeRoundedCopy01,
+                size: 18,
+                color: _copied ? scheme.primary : scheme.onSurface,
+              ),
+              label: Text(
+                _copied ? 'Copied to Clipboard' : 'Copy Phrase',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(180, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Confirmation checkbox
+          InkWell(
+            onTap: () {
+              AppHaptics.toggle();
+              widget.onSavedChanged(!widget.hasSaved);
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: widget.hasSaved,
+                    activeColor: scheme.primary,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onChanged: (val) {
+                      AppHaptics.toggle();
+                      widget.onSavedChanged(val ?? false);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'I have backed up my recovery key safely',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWordChip(ColorScheme scheme, int index, String word) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              child: Text(
+                '$index.',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.primary,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                word,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Page 5: Ready
+// ---------------------------------------------------------------------------
+
+class _ReadyPage extends ConsumerWidget {
   const _ReadyPage({required this.scheme});
 
   final ColorScheme scheme;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -707,7 +975,7 @@ class _ReadyPage extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Encrypted Local Storage • Peer Sync Ready',
+                  'Encrypted on this device • Peer Sync Ready',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -716,6 +984,48 @@ class _ReadyPage extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                icon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedKey01,
+                  size: 18,
+                ),
+                label: const Text(
+                  'Backup Recovery Key',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(180, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: () => showRecoveryKeyDialog(context),
+              ),
+              OutlinedButton.icon(
+                icon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedDownload01,
+                  size: 18,
+                ),
+                label: const Text(
+                  'Import Notes',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(150, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: () => showImportNotesSheet(context, ref),
+              ),
+            ],
           ),
           const Spacer(flex: 2),
         ],

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/cache/thumbnail_cache.dart';
 import '../../../core/providers/database_provider.dart';
 import '../../../core/providers/selection_providers.dart';
 import '../../../core/theme/design_tokens.dart';
@@ -63,6 +64,33 @@ class NotePreviewPane extends ConsumerWidget {
                 brightness: scheme.brightness,
               )
             : scheme;
+
+        if (note.locked) {
+          return ColoredBox(
+            color: noteScheme.surfaceContainerLowest,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _PreviewHeader(
+                  noteId: note.id,
+                  title: note.title.isEmpty ? 'Untitled note' : note.title,
+                  updatedAt: note.updatedAt,
+                  scheme: noteScheme,
+                ),
+                const Expanded(
+                  child: Center(
+                    child: _PreviewPlaceholder(
+                      icon: HugeIcons.strokeRoundedLock,
+                      title: 'Note is locked',
+                      subtitle:
+                          'Open note in editor to authenticate and view contents.',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
         return ColoredBox(
           color: noteScheme.surfaceContainerLowest,
@@ -318,13 +346,12 @@ class _AttachmentThumb extends StatelessWidget {
     if (thumbnail != null || file.existsSync()) {
       child = ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.file(
-          File(thumbnail ?? file.path),
+        child: ThumbnailCache.instance.buildThumbnail(
+          filePath: thumbnail ?? file.path,
           width: 96,
           height: 96,
           fit: BoxFit.cover,
-          gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => _fallback(),
+          errorWidget: _fallback(),
         ),
       );
     } else {

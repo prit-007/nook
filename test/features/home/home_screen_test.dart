@@ -97,17 +97,16 @@ void main() {
     }
 
     expect(find.text(expectedGreeting), findsOneWidget);
-    expect(find.text('Your vault'), findsOneWidget);
+    expect(find.textContaining('Your vault'), findsOneWidget);
   });
 
-  testWidgets('shows a tappable search bar', (tester) async {
+  testWidgets('shows quick-capture and search affordances in hero',
+      (tester) async {
     await tester.pumpWidget(buildHome(notes: []));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Search thoughts, doodles, checklists...'),
-      findsOneWidget,
-    );
+    expect(find.text('Capture a thought'), findsOneWidget);
+    expect(find.byTooltip('Search notes'), findsOneWidget);
     expect(
         find.byWidgetPredicate(
             (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedSearch01),
@@ -346,7 +345,7 @@ void main() {
       await tester.pumpWidget(buildHome(notes: [], screenWidth: 800));
       await tester.pumpAndSettle();
 
-      expect(find.text('Your vault'), findsOneWidget);
+      expect(find.textContaining('Your vault'), findsOneWidget);
     });
   });
 
@@ -443,7 +442,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Your vault'), findsOneWidget);
+    expect(find.textContaining('Your vault'), findsOneWidget);
     expect(find.text('Pinned Thought'), findsOneWidget);
     expect(find.text('Sketch'), findsOneWidget);
     await tester.scrollUntilVisible(

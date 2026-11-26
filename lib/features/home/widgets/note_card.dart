@@ -118,7 +118,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
   Widget build(BuildContext context) {
     final cardScheme = noteSchemeFor(context, widget.note.colorSeed);
 
-    return GestureDetector(
+    final cardWidget = GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
@@ -234,6 +234,21 @@ class _NoteCardState extends ConsumerState<NoteCard> {
           ),
         ),
       ),
+    );
+
+    return LongPressDraggable<Note>(
+      data: widget.note,
+      delay: const Duration(milliseconds: 350),
+      feedback: Material(
+        elevation: 8,
+        borderRadius: context.tokens.borderRadiusLg,
+        child: SizedBox(
+          width: 220,
+          child: Opacity(opacity: 0.9, child: cardWidget),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.35, child: cardWidget),
+      child: cardWidget,
     );
   }
 

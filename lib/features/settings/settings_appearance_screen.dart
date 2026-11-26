@@ -172,6 +172,50 @@ class SettingsAppearanceScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.25),
+                    width: 1,
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile.adaptive(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    title: const Text(
+                      'High Contrast',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                    ),
+                    subtitle: Text(
+                      'Maximizes text and border contrast ratios (WCAG AAA \u2265 7:1) for optimal legibility.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    secondary: HugeIcon(
+                      icon: HugeIcons.strokeRoundedView,
+                      color: scheme.primary,
+                      size: 24,
+                    ),
+                    value: pref.highContrast,
+                    activeThumbColor: scheme.primary,
+                    onChanged: (value) {
+                      HapticFeedback.selectionClick();
+                      pref.setHighContrast(value);
+                    },
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 28),
           ],
         ),

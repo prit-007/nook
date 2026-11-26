@@ -127,5 +127,44 @@ void main() {
 
       expect(searches, 1);
     });
+
+    testWidgets('fires toggle-pin on Ctrl+P', (tester) async {
+      var pins = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NookKeyboardShortcuts(
+            onTogglePin: () => pins++,
+            child: const Scaffold(body: Center(child: Text('app content'))),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await sendCtrl(tester, LogicalKeyboardKey.keyP);
+      expect(pins, 1);
+    });
+
+    testWidgets('fires arrowDown and arrowUp navigation', (tester) async {
+      var next = 0;
+      var prev = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NookKeyboardShortcuts(
+            onSelectNext: () => next++,
+            onSelectPrevious: () => prev++,
+            child: const Scaffold(body: Center(child: Text('app content'))),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(next, 1);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(prev, 1);
+    });
   });
 }

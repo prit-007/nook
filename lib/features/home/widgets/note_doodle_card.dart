@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/cache/thumbnail_cache.dart';
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/nook_tokens.dart';
@@ -234,13 +235,10 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
         borderRadius: const BorderRadius.horizontal(
           right: Radius.circular(24),
         ),
-        child: Image.file(
-          File(_thumbnailPath!),
+        child: ThumbnailCache.instance.buildThumbnail(
+          filePath: _thumbnailPath!,
           fit: BoxFit.cover,
-          cacheWidth: 240,
-          cacheHeight: 180,
-          gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => _fallbackIcon(cardScheme),
+          errorWidget: _fallbackIcon(cardScheme),
         ),
       );
     }

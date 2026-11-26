@@ -82,7 +82,7 @@ class NoteCompactTile extends StatelessWidget {
                 const SizedBox(width: 12),
               ] else ...[
                 HugeIcon(
-                  icon: _typeIcon,
+                  icon: note.locked ? HugeIcons.strokeRoundedLock : _typeIcon,
                   size: 18,
                   color: note.pinned
                       ? scheme.primary

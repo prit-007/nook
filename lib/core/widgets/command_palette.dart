@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../commands/command_registry.dart';
@@ -84,66 +85,112 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                decoration: InputDecoration(
-                  hintText: 'Type a command…',
-                  prefixIcon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedSearch01,
-                    size: 20,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onChanged: (_) => setState(() => _index = 0),
-                onSubmitted: (_) => _runSelected(),
-              ),
-            ),
-            Flexible(
-              child: list.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'No matching commands',
-                        style: TextStyle(color: scheme.onSurfaceVariant),
-                      ),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.only(bottom: 12),
-                      itemCount: list.length,
-                      itemBuilder: (context, index) {
-                        final cmd = list[index];
-                        final selected = index == _index;
-                        return ListTile(
-                          dense: true,
-                          selected: selected,
-                          selectedTileColor:
-                              scheme.primaryContainer.withValues(alpha: 0.35),
-                          leading: HugeIcon(
-                            icon: cmd.icon,
-                            size: 20,
-                            color: selected
-                                ? scheme.primary
-                                : scheme.onSurfaceVariant,
-                          ),
-                          title: Text(cmd.title),
-                          onTap: () => _run(cmd),
-                        );
-                      },
+      child: Focus(
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              setState(() {
+                if (list.isNotEmpty) {
+                  _index = (_index + 1) % list.length;
+                }
+              });
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              setState(() {
+                if (list.isNotEmpty) {
+                  _index = (_index - 1 + list.length) % list.length;
+                }
+              });
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  decoration: InputDecoration(
+                    hintText: 'Type a command…',
+                    prefixIcon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedSearch01,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
                     ),
-            ),
-          ],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onChanged: (_) => setState(() => _index = 0),
+                  onSubmitted: (_) => _runSelected(),
+                ),
+              ),
+              Flexible(
+                child: list.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'No matching commands',
+                          style: TextStyle(color: scheme.onSurfaceVariant),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.only(bottom: 12),
+                        itemCount: list.length,
+                        itemBuilder: (context, index) {
+                          final cmd = list[index];
+                          final selected = index == _index;
+                          return ListTile(
+                            dense: true,
+                            selected: selected,
+                            selectedTileColor:
+                                scheme.primaryContainer.withValues(alpha: 0.35),
+                            leading: HugeIcon(
+                              icon: cmd.icon,
+                              size: 20,
+                              color: selected
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant,
+                            ),
+                            title: Text(cmd.title),
+                            trailing: cmd.shortcutHint != null
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: scheme.surfaceContainerHighest
+                                          .withValues(alpha: 0.5),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: scheme.outlineVariant
+                                            .withValues(alpha: 0.3),
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      cmd.shortcutHint!,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            onTap: () => _run(cmd),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );

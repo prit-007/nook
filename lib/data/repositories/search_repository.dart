@@ -52,7 +52,11 @@ class SearchRepository {
 
   /// Searches notes by title and plainText using FTS5.
   /// Optional [type] filter restricts results to a specific NoteType.
-  Future<List<Note>> searchNotes(String query, {NoteType? type}) async {
+  Future<List<Note>> searchNotes(
+    String query, {
+    NoteType? type,
+    bool includeLocked = false,
+  }) async {
     if (query.trim().isEmpty) return [];
 
     final sanitized = _sanitizeFts5Query(query);
@@ -82,7 +86,10 @@ class SearchRepository {
         .toList();
 
     final queryBuilder = _db.select(_db.notes)
-      ..where((t) => t.id.isIn(ids) & t.deleted.equals(false))
+      ..where((t) =>
+          t.id.isIn(ids) &
+          t.deleted.equals(false) &
+          (includeLocked ? const Constant(true) : t.locked.equals(false)))
       ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]);
 
     if (type != null) {
@@ -106,12 +113,15 @@ class SearchRepository {
   Future<GroupedSearchResults> searchGrouped(
     String query, {
     NoteType? type,
+    bool includeLocked = false,
   }) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return const GroupedSearchResults();
 
-    final notes = await searchNotes(trimmed, type: type);
-    final checklistItems = await _searchChecklistItems(trimmed, type: type);
+    final notes =
+        await searchNotes(trimmed, type: type, includeLocked: includeLocked);
+    final checklistItems = await _searchChecklistItems(trimmed,
+        type: type, includeLocked: includeLocked);
 
     nookLog(
       NookLogKey.database,
@@ -125,6 +135,7 @@ class SearchRepository {
   Future<List<SearchHit>> _searchChecklistItems(
     String query, {
     NoteType? type,
+    bool includeLocked = false,
   }) async {
     // Escape LIKE wildcards in user input; match case-insensitively.
     final escaped = query
@@ -154,7 +165,10 @@ class SearchRepository {
         .toList();
 
     final notesQuery = _db.select(_db.notes)
-      ..where((t) => t.id.isIn(noteIds) & t.deleted.equals(false))
+      ..where((t) =>
+          t.id.isIn(noteIds) &
+          t.deleted.equals(false) &
+          (includeLocked ? const Constant(true) : t.locked.equals(false)))
       ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]);
     if (type != null) {
       notesQuery.where((t) => t.type.equalsValue(type));

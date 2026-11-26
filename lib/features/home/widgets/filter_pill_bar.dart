@@ -14,6 +14,7 @@ class FilterPillBar extends StatelessWidget {
     this.favoritesOnly = false,
     this.onFavoritesToggled,
     this.favoritesCount,
+    this.trailing,
   });
 
   final NoteType? selectedType;
@@ -22,67 +23,82 @@ class FilterPillBar extends StatelessWidget {
   final bool favoritesOnly;
   final ValueChanged<bool>? onFavoritesToggled;
   final int? favoritesCount;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 50,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
         children: [
-          _FilterPill(
-            label: 'All notes',
-            count: counts?[null],
-            isActive: !favoritesOnly && selectedType == null,
-            onTap: () {
-              if (favoritesOnly) onFavoritesToggled?.call(false);
-              onTypeSelected(null);
-            },
+          Expanded(
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                _FilterPill(
+                  label: 'All notes',
+                  count: counts?[null],
+                  isActive: !favoritesOnly && selectedType == null,
+                  onTap: () {
+                    if (favoritesOnly) onFavoritesToggled?.call(false);
+                    onTypeSelected(null);
+                  },
+                ),
+                _FilterPill(
+                  label: 'Favorites',
+                  icon: HugeIcons.strokeRoundedPin,
+                  count: favoritesCount,
+                  isActive: favoritesOnly,
+                  onTap: () => onFavoritesToggled?.call(!favoritesOnly),
+                ),
+                _FilterPill(
+                  label: 'Text',
+                  count: counts?[NoteType.text],
+                  isActive: !favoritesOnly && selectedType == NoteType.text,
+                  onTap: () {
+                    if (favoritesOnly) onFavoritesToggled?.call(false);
+                    onTypeSelected(NoteType.text);
+                  },
+                ),
+                _FilterPill(
+                  label: 'Checklists',
+                  count: counts?[NoteType.checklist],
+                  isActive:
+                      !favoritesOnly && selectedType == NoteType.checklist,
+                  onTap: () {
+                    if (favoritesOnly) onFavoritesToggled?.call(false);
+                    onTypeSelected(NoteType.checklist);
+                  },
+                ),
+                _FilterPill(
+                  label: 'Doodles',
+                  count: counts?[NoteType.doodle],
+                  isActive: !favoritesOnly && selectedType == NoteType.doodle,
+                  onTap: () {
+                    if (favoritesOnly) onFavoritesToggled?.call(false);
+                    onTypeSelected(NoteType.doodle);
+                  },
+                ),
+                _FilterPill(
+                  label: 'Mixed',
+                  count: counts?[NoteType.mixed],
+                  isActive: !favoritesOnly && selectedType == NoteType.mixed,
+                  onTap: () {
+                    if (favoritesOnly) onFavoritesToggled?.call(false);
+                    onTypeSelected(NoteType.mixed);
+                  },
+                ),
+              ],
+            ),
           ),
-          _FilterPill(
-            label: 'Favorites',
-            icon: HugeIcons.strokeRoundedPin,
-            count: favoritesCount,
-            isActive: favoritesOnly,
-            onTap: () => onFavoritesToggled?.call(!favoritesOnly),
-          ),
-          _FilterPill(
-            label: 'Text',
-            count: counts?[NoteType.text],
-            isActive: !favoritesOnly && selectedType == NoteType.text,
-            onTap: () {
-              if (favoritesOnly) onFavoritesToggled?.call(false);
-              onTypeSelected(NoteType.text);
-            },
-          ),
-          _FilterPill(
-            label: 'Checklists',
-            count: counts?[NoteType.checklist],
-            isActive: !favoritesOnly && selectedType == NoteType.checklist,
-            onTap: () {
-              if (favoritesOnly) onFavoritesToggled?.call(false);
-              onTypeSelected(NoteType.checklist);
-            },
-          ),
-          _FilterPill(
-            label: 'Doodles',
-            count: counts?[NoteType.doodle],
-            isActive: !favoritesOnly && selectedType == NoteType.doodle,
-            onTap: () {
-              if (favoritesOnly) onFavoritesToggled?.call(false);
-              onTypeSelected(NoteType.doodle);
-            },
-          ),
-          _FilterPill(
-            label: 'Mixed',
-            count: counts?[NoteType.mixed],
-            isActive: !favoritesOnly && selectedType == NoteType.mixed,
-            onTap: () {
-              if (favoritesOnly) onFavoritesToggled?.call(false);
-              onTypeSelected(NoteType.mixed);
-            },
-          ),
+          if (trailing != null) ...[
+            const VerticalDivider(indent: 10, endIndent: 10, width: 1),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: trailing!,
+            ),
+          ],
         ],
       ),
     );

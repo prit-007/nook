@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:ui';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,6 +119,37 @@ class SyncScreen extends ConsumerWidget {
                   height: 1.5,
                   fontWeight: FontWeight.w500,
                   color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedShield01,
+                      size: 16,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Encrypted on this device',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 32),
@@ -327,9 +360,21 @@ class SyncScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    device.autoSyncEnabled
-                                        ? 'Auto-sync enabled'
-                                        : 'Auto-sync disabled',
+                                    'Fingerprint: ${_formatFingerprint(device.publicKey, device.peerId)}',
+                                    style: TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11,
+                                      color: scheme.onSurfaceVariant
+                                          .withValues(alpha: 0.8),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    device.lastSyncedAt != null
+                                        ? 'Last synced ${_formatRelativeTime(device.lastSyncedAt!)}'
+                                        : (device.autoSyncEnabled
+                                            ? 'Auto-sync enabled'
+                                            : 'Auto-sync disabled'),
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: scheme.onSurfaceVariant,
@@ -511,4 +556,22 @@ class _GlassModeCardState extends State<_GlassModeCard> {
       ),
     );
   }
+}
+
+String _formatFingerprint(String? publicKey, String peerId) {
+  final raw = (publicKey != null && publicKey.isNotEmpty) ? publicKey : peerId;
+  final bytes = sha256.convert(utf8.encode(raw)).bytes;
+  return bytes
+      .take(8)
+      .map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase())
+      .join(':');
+}
+
+String _formatRelativeTime(DateTime dt) {
+  final diff = DateTime.now().difference(dt);
+  if (diff.inMinutes < 1) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  if (diff.inDays < 7) return '${diff.inDays}d ago';
+  return '${dt.day}/${dt.month}/${dt.year}';
 }

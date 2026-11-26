@@ -26,6 +26,7 @@ class NookCommand {
     required this.title,
     required this.keywords,
     required this.icon,
+    this.shortcutHint,
     this.onCreateNoteType,
     this.onRun,
   });
@@ -34,6 +35,7 @@ class NookCommand {
   final String title;
   final String keywords;
   final List<List<dynamic>> icon;
+  final String? shortcutHint;
   final NoteType? onCreateNoteType;
   final void Function(BuildContext context)? onRun;
 
@@ -93,6 +95,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       title: 'New note',
       keywords: 'create compose blank text',
       icon: HugeIcons.strokeRoundedPencil,
+      shortcutHint: 'Ctrl+N',
       onCreateNoteType: NoteType.text,
     ),
     const NookCommand(
@@ -114,6 +117,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       title: 'New note from template',
       keywords: 'template start reuse',
       icon: HugeIcons.strokeRoundedBook01,
+      shortcutHint: 'Ctrl+T',
       onRun: (_) => actions.onFromTemplate(),
     ),
     NookCommand(
@@ -121,6 +125,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       title: 'Search notes',
       keywords: 'find lookup fts',
       icon: HugeIcons.strokeRoundedSearch01,
+      shortcutHint: 'Ctrl+F',
       onRun: (context) => context.go('/home/search'),
     ),
     NookCommand(
@@ -128,6 +133,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       title: 'Open notebooks',
       keywords: 'notebooks folders',
       icon: HugeIcons.strokeRoundedFolder01,
+      shortcutHint: 'Ctrl+1',
       onRun: (context) => context.go('/notebooks'),
     ),
     NookCommand(
@@ -135,6 +141,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       title: 'Open tags',
       keywords: 'labels',
       icon: HugeIcons.strokeRoundedTag01,
+      shortcutHint: 'Ctrl+2',
       onRun: (context) => context.go('/tags'),
     ),
     NookCommand(
@@ -149,6 +156,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       title: 'Open settings',
       keywords: 'preferences config',
       icon: HugeIcons.strokeRoundedConfiguration01,
+      shortcutHint: 'Ctrl+,',
       onRun: (context) => context.go('/settings'),
     ),
     NookCommand(
@@ -163,6 +171,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       title: 'Open sync',
       keywords: 'pair transfer nearby',
       icon: HugeIcons.strokeRoundedWifi01,
+      shortcutHint: 'Ctrl+3',
       onRun: (context) => context.go('/sync'),
     ),
     NookCommand(
@@ -177,6 +186,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       title: 'Lock app now',
       keywords: 'biometric secure freeze',
       icon: HugeIcons.strokeRoundedFingerPrint,
+      shortcutHint: 'Ctrl+L',
       onRun: (_) => actions.onLockNow?.call(),
     ),
     NookCommand(
@@ -184,6 +194,7 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       title: 'Toggle light / dark theme',
       keywords: 'appearance dark light mode',
       icon: HugeIcons.strokeRoundedMoon01,
+      shortcutHint: 'Ctrl+Shift+D',
       onRun: (_) => actions.onToggleTheme?.call(),
     ),
   ];

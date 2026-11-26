@@ -19,6 +19,12 @@ class NookKeyboardShortcuts extends StatefulWidget {
     this.onOpenPalette,
     this.onNewNote,
     this.onQuickNote,
+    this.onLockNow,
+    this.onTogglePin,
+    this.onToggleViewMode,
+    this.onSelectNext,
+    this.onSelectPrevious,
+    this.onFindInNote,
   });
 
   final Widget child;
@@ -28,6 +34,12 @@ class NookKeyboardShortcuts extends StatefulWidget {
   final VoidCallback? onOpenPalette;
   final VoidCallback? onNewNote;
   final VoidCallback? onQuickNote;
+  final VoidCallback? onLockNow;
+  final VoidCallback? onTogglePin;
+  final VoidCallback? onToggleViewMode;
+  final VoidCallback? onSelectNext;
+  final VoidCallback? onSelectPrevious;
+  final VoidCallback? onFindInNote;
 
   @override
   State<NookKeyboardShortcuts> createState() => _NookKeyboardShortcutsState();
@@ -67,6 +79,13 @@ class _NookKeyboardShortcutsState extends State<NookKeyboardShortcuts> {
 
   void _openSearch() {
     if (!_canUseShortcuts) return;
+    try {
+      final location = GoRouterState.of(context).matchedLocation;
+      if (location.startsWith('/note/') && widget.onFindInNote != null) {
+        widget.onFindInNote!();
+        return;
+      }
+    } catch (_) {}
     final onOpenSearch = widget.onOpenSearch;
     if (onOpenSearch != null) {
       onOpenSearch();
@@ -75,6 +94,26 @@ class _NookKeyboardShortcutsState extends State<NookKeyboardShortcuts> {
     if (!context.mounted) return;
     HapticFeedback.lightImpact();
     context.push('/home/search');
+  }
+
+  void _togglePin() {
+    if (!_canUseShortcuts) return;
+    widget.onTogglePin?.call();
+  }
+
+  void _toggleViewMode() {
+    if (!_canUseShortcuts) return;
+    widget.onToggleViewMode?.call();
+  }
+
+  void _selectNext() {
+    if (!_canUseShortcuts) return;
+    widget.onSelectNext?.call();
+  }
+
+  void _selectPrevious() {
+    if (!_canUseShortcuts) return;
+    widget.onSelectPrevious?.call();
   }
 
   void _openPalette() {
@@ -100,6 +139,11 @@ class _NookKeyboardShortcutsState extends State<NookKeyboardShortcuts> {
     context.push('/note/new');
   }
 
+  void _lockNow() {
+    if (!_canUseShortcuts) return;
+    widget.onLockNow?.call();
+  }
+
   void _quickNote() {
     if (!_canUseShortcuts) return;
     final onQuickNote = widget.onQuickNote;
@@ -118,16 +162,30 @@ class _NookKeyboardShortcutsState extends State<NookKeyboardShortcuts> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.slash): _openSearch,
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            _openSearch,
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _openSearch,
         const SingleActivator(LogicalKeyboardKey.keyK, control: true):
             _openPalette,
         const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
             _openPalette,
         const SingleActivator(LogicalKeyboardKey.keyN, control: true): _newNote,
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true): _newNote,
+        const SingleActivator(LogicalKeyboardKey.keyL, control: true): _lockNow,
+        const SingleActivator(LogicalKeyboardKey.keyL, meta: true): _lockNow,
         const SingleActivator(LogicalKeyboardKey.keyN,
             control: true, shift: true): _quickNote,
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true):
             _quickNote,
+        const SingleActivator(LogicalKeyboardKey.keyP, control: true):
+            _togglePin,
+        const SingleActivator(LogicalKeyboardKey.keyP, meta: true): _togglePin,
+        const SingleActivator(LogicalKeyboardKey.keyV,
+            control: true, shift: true): _toggleViewMode,
+        const SingleActivator(LogicalKeyboardKey.keyV, meta: true, shift: true):
+            _toggleViewMode,
+        const SingleActivator(LogicalKeyboardKey.arrowDown): _selectNext,
+        const SingleActivator(LogicalKeyboardKey.arrowUp): _selectPrevious,
       },
       // The root focusable guarantees a primary focus exists so key events are
       // routed through the Shortcuts system from the very first frame.

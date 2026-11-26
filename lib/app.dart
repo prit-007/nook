@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
+
+import 'l10n/generated/app_localizations.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_motion.dart';
@@ -82,6 +85,9 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final themePref = ref.watch(themePreferenceProvider);
+    Animate.defaultDuration = themePref.reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 300);
     final router = ref.watch(routerProvider);
     final seed = themePref.seedColor;
     final locale = Localizations.maybeLocaleOf(context) ??
@@ -90,10 +96,22 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Nook',
-      theme: buildLightTheme(seed, locale: locale),
-      darkTheme: buildDarkTheme(
-        seed,
-        amoled: themePref.amoledDark,
+      theme: themePref.highContrast
+          ? HighContrastTheme.build(Brightness.light, locale: locale)
+          : buildLightTheme(seed, locale: locale),
+      darkTheme: themePref.highContrast
+          ? HighContrastTheme.build(Brightness.dark, locale: locale)
+          : buildDarkTheme(
+              seed,
+              amoled: themePref.amoledDark,
+              locale: locale,
+            ),
+      highContrastTheme: HighContrastTheme.build(
+        Brightness.light,
+        locale: locale,
+      ),
+      highContrastDarkTheme: HighContrastTheme.build(
+        Brightness.dark,
         locale: locale,
       ),
       themeMode: themePref.themeMode,
@@ -102,12 +120,13 @@ class _NookAppState extends ConsumerState<NookApp> with WidgetsBindingObserver {
       themeAnimationCurve: AppMotion.standardEasing,
       routerConfig: router,
       localizationsDelegates: const [
+        AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         AppFlowyEditorLocalizations.delegate,
       ],
-      supportedLocales: const [Locale('en')],
+      supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => NookKeyboardShortcuts(
         onOpenPalette: () {
           final commands = buildDefaultCommands(

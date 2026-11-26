@@ -66,14 +66,44 @@ void main() {
     expect(find.text('Pick your vibe'), findsOneWidget);
   });
 
-  testWidgets('fourth page shows Get Started', (tester) async {
+  testWidgets('shows recovery key page with 24 words and confirmation',
+      (tester) async {
     await tester.pumpWidget(buildScreen());
+    // Page 1 → Page 2 → Page 3 → Page 4 (Recovery Key)
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
+
+    expect(find.text('Master Vault Key'), findsOneWidget);
+    expect(
+        find.text('I have backed up my recovery key safely'), findsOneWidget);
+    expect(find.text('Copy Phrase'), findsOneWidget);
+  });
+
+  testWidgets('fifth page shows Get Started after confirming recovery key',
+      (tester) async {
+    await tester.pumpWidget(buildScreen());
+    // 0: Welcome -> 1: Note Types
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    // 1 -> 2: Vibe
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    // 2 -> 3: Recovery Key
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    // On recovery key page, tap confirmation checkbox
+    await tester.tap(find.text('I have backed up my recovery key safely'));
+    await tester.pumpAndSettle();
+
+    // Continue to final page
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
     expect(find.text("You're all set!"), findsOneWidget);
     expect(find.text('Get Started'), findsOneWidget);
     // Skip button should be invisible on the final page
@@ -86,7 +116,7 @@ void main() {
 
   testWidgets('dot indicators exist', (tester) async {
     await tester.pumpWidget(buildScreen());
-    // 4 dot indicators via AnimatedContainer (one per page)
-    expect(find.byType(AnimatedContainer), findsAtLeastNWidgets(4));
+    // 5 dot indicators via AnimatedContainer (one per page)
+    expect(find.byType(AnimatedContainer), findsAtLeastNWidgets(5));
   });
 }

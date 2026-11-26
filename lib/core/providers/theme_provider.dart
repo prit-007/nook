@@ -13,12 +13,14 @@ class ThemePreference extends ChangeNotifier {
     this.themeMode = ThemeMode.system,
     this.reduceMotion = false,
     this.amoledDark = false,
+    this.highContrast = false,
   });
 
   int seedIndex;
   ThemeMode themeMode;
   bool reduceMotion;
   bool amoledDark;
+  bool highContrast;
 
   Color get seedColor => NookColors.seeds[seedIndex];
 
@@ -48,12 +50,19 @@ class ThemePreference extends ChangeNotifier {
     _save();
   }
 
+  void setHighContrast(bool value) {
+    highContrast = value;
+    notifyListeners();
+    _save();
+  }
+
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('seed_index', seedIndex);
     await prefs.setInt('theme_mode', themeMode.index);
     await prefs.setBool('reduce_motion', reduceMotion);
     await prefs.setBool('amoled_dark', amoledDark);
+    await prefs.setBool('high_contrast', highContrast);
   }
 
   static Future<ThemePreference> load() async {
@@ -65,6 +74,7 @@ class ThemePreference extends ChangeNotifier {
           ThemeMode.values[modeIndex.clamp(0, ThemeMode.values.length - 1)],
       reduceMotion: prefs.getBool('reduce_motion') ?? false,
       amoledDark: prefs.getBool('amoled_dark') ?? false,
+      highContrast: prefs.getBool('high_contrast') ?? false,
     );
   }
 }

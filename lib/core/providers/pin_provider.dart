@@ -18,19 +18,58 @@ class PinProvider extends ChangeNotifier {
 
   bool enabled;
   bool _authenticated = false;
+  int _failedAttempts = 0;
+  DateTime? _lockoutUntil;
 
   bool get isAuthenticated => _authenticated;
+  int get failedAttempts => _failedAttempts;
+  DateTime? get lockoutUntil => _lockoutUntil;
+
+  /// Whether the user is currently locked out from entering PIN.
+  bool get isLockedOut =>
+      _lockoutUntil != null && DateTime.now().isBefore(_lockoutUntil!);
+
+  /// Remaining seconds in the current lockout window.
+  int get remainingLockoutSeconds {
+    if (!isLockedOut) return 0;
+    return _lockoutUntil!.difference(DateTime.now()).inSeconds.clamp(0, 86400);
+  }
+
+  /// Records a failed PIN entry and applies exponential lockout thresholds.
+  void recordFailedAttempt() {
+    _failedAttempts++;
+    if (_failedAttempts >= 7) {
+      _lockoutUntil = DateTime.now().add(const Duration(seconds: 300));
+    } else if (_failedAttempts >= 5) {
+      _lockoutUntil = DateTime.now().add(const Duration(seconds: 60));
+    } else if (_failedAttempts >= 3) {
+      _lockoutUntil = DateTime.now().add(const Duration(seconds: 30));
+    }
+    notifyListeners();
+  }
+
+  /// Resets failed attempt counter and clears active lockout.
+  void resetAttempts() {
+    _failedAttempts = 0;
+    _lockoutUntil = null;
+    notifyListeners();
+  }
 
   /// Verifies [pin] against the stored hash. Returns true on match.
   Future<bool> verify(String pin) async {
+    if (isLockedOut) return false;
+
     final stored = await _readHash();
     if (stored == null) return false;
     final match = pbkdf2Verify(password: pin, storedHash: stored);
     if (match) {
       _authenticated = true;
+      _failedAttempts = 0;
+      _lockoutUntil = null;
       nookLog(NookLogKey.security, 'PIN verified', LogLevel.info);
       notifyListeners();
     } else {
+      recordFailedAttempt();
       nookLog(NookLogKey.security, 'PIN verification failed', LogLevel.warning);
     }
     return match;
