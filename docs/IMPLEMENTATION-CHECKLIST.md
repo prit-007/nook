@@ -11,7 +11,7 @@
 | Phase | Description | Status | Started | Completed |
 |-------|-------------|--------|---------|-----------|
 | 0 | Foundation (scaffold, DB, routing, theme) | **COMPLETE** | 2026-08-05 | 2026-08-10 |
-| 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** (search grouping open — #48) | 2026-08-05 | 2026-08-07 |
+| 1 | Core Notes (home grid, editor, notebooks, tags, search) | **100% COMPLETE** (search grouping `#48` + `[[wiki]]` autocomplete `#62` shipped) | 2026-08-05 | 2026-11-26 |
 | 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 3 | Theming & Polish (seed-based themes, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
 | 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
@@ -735,15 +735,19 @@
 
 ### 7.4 Post-Launch (v1.1+)
 
-- [ ] Home screen widgets (`home_widget` package)
-  - Quick capture widget
-  - Pinned notes widget
-- [ ] Voice-to-text note capture (`speech_to_text`)
-- [ ] Note templates
-- [ ] Flutter Web build polish (read/export-only companion)
-- [ ] OCR via `google_mlkit_text_recognition` (scan handwritten text into notes)
-- [ ] Local reminders via `flutter_local_notifications`
-- [ ] PDF export via `printing` package
+- [x] Home screen widgets (`home_widget` package + Android `NookWidgetProvider`, `#62`)
+  - Quick capture widget (`nook://capture`)
+  - Pinned notes widget (excludes locked notes)
+- [x] Voice-to-text note capture (`speech_to_text` + `VoiceCaptureSheet`, `#62`)
+- [x] Note templates (`#58`)
+- [x] Flutter Web build polish (read/export-only companion `WebCompanionApp` + `main_web.dart`, `#62`)
+- [x] OCR via FOSS on-device engine (`LocalFossOcrService` + `OcrScanSheet` without proprietary Play Services, `#62`)
+- [x] Local reminders via `flutter_local_notifications` (`#54`)
+- [x] PDF export (`pdf` package — single-note Share as PDF + bulk PDF zip, `#62`)
+- [x] `[[wiki]]` link autocomplete (`WikiLinkAutocomplete`, `#62`)
+- [x] Configurable Bin retention (`TrashRetentionPreference` + `TrashAutoPurger`, `#62`)
+- [x] Public roadmap page ([docs/ROADMAP.md](ROADMAP.md), `#62`)
+- [x] Vault password SQLCipher DEK wrapping (C2 — `DekManager` + `VaultDbGateScreen`, `#57`)
 
 ---
 

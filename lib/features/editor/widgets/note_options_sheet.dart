@@ -208,6 +208,42 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
     );
   }
 
+  Future<void> _shareSingleNote(BulkExportFormat format) async {
+    final db = ref.read(databaseProvider);
+    final note = await NoteRepository(db).getNoteById(widget.noteId);
+    if (!mounted || note == null) return;
+    if (note.locked) {
+      final ok = await ensureVaultUnlocked(
+        context,
+        ref,
+        reason: 'This note is locked — enter your vault password to share',
+      );
+      if (!ok || !mounted) return;
+    }
+    try {
+      final exporter = BulkExporter(
+        noteRepository: NoteRepository(db),
+        checklistItemRepository: ChecklistItemRepository(db),
+        attachmentRepository: AttachmentRepository(db),
+      );
+      final path = format == BulkExportFormat.pdf
+          ? await exporter.exportNotePdf(note)
+          : await exporter.exportNoteHtml(note);
+      if (!mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          subject: note.title.isEmpty ? 'Nook note' : note.title,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Share failed: $e')),
+      );
+    }
+  }
+
   Future<void> _createTag() async {
     final name = _tagNameController.text.trim();
     if (name.isEmpty) return;
@@ -691,42 +727,29 @@ class _NoteOptionsSheetState extends ConsumerState<NoteOptionsSheet> {
                         size: 18,
                         color: scheme.onSurfaceVariant,
                       ),
-                      onTap: () async {
-                        final db = ref.read(databaseProvider);
-                        final note =
-                            await NoteRepository(db).getNoteById(widget.noteId);
-                        if (!mounted || note == null) return;
-                        if (note.locked) {
-                          final ok = await ensureVaultUnlocked(
-                            this.context,
-                            ref,
-                            reason: 'This note is locked — enter your vault '
-                                'password to share',
-                          );
-                          if (!ok || !mounted) return;
-                        }
-                        try {
-                          final path = await BulkExporter(
-                            noteRepository: NoteRepository(db),
-                            checklistItemRepository:
-                                ChecklistItemRepository(db),
-                            attachmentRepository: AttachmentRepository(db),
-                          ).exportNoteHtml(note);
-                          if (!mounted) return;
-                          await SharePlus.instance.share(
-                            ShareParams(
-                              files: [XFile(path)],
-                              subject:
-                                  note.title.isEmpty ? 'Nook note' : note.title,
-                            ),
-                          );
-                        } catch (e) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(this.context).showSnackBar(
-                            SnackBar(content: Text('Share failed: $e')),
-                          );
-                        }
-                      },
+                      onTap: () => _shareSingleNote(BulkExportFormat.html),
+                    ),
+
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedPdf01,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      title: const Text('Share as PDF'),
+                      subtitle: Text(
+                        'Portable A4 document with embedded media',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      onTap: () => _shareSingleNote(BulkExportFormat.pdf),
                     ),
 
                     ListTile(

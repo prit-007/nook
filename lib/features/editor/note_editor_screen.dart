@@ -42,6 +42,8 @@ import 'editor_title.dart';
 import 'note_exporter.dart';
 import 'widgets/image_picker_handler.dart';
 import 'widgets/note_link_picker.dart';
+import 'widgets/ocr_scan_sheet.dart';
+import 'widgets/voice_capture_sheet.dart';
 import 'widgets/backlinks_panel.dart';
 import 'widgets/editor_outline.dart';
 
@@ -692,6 +694,33 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _autosaveController.scheduleAutosave(onSave: _save);
   }
 
+  Future<void> _insertPlainTextAtSelection(String text) async {
+    final editorState = _editorState;
+    if (editorState == null || text.isEmpty) return;
+    final pos =
+        editorState.selection?.start ?? Position(path: const [0], offset: 0);
+    final node = editorState.getNodeAtPath(pos.path);
+    if (node == null) return;
+    final transaction = editorState.transaction;
+    transaction.replaceText(node, pos.offset, 0, text);
+    await editorState.apply(transaction);
+    _autosaveController.scheduleAutosave(onSave: _save);
+  }
+
+  Future<void> _scanOcr() async {
+    if (_editorState == null || !mounted) return;
+    final text = await showOcrScanSheet(context);
+    if (text == null || text.isEmpty || !mounted) return;
+    await _insertPlainTextAtSelection(text);
+  }
+
+  Future<void> _dictateVoice() async {
+    if (_editorState == null || !mounted) return;
+    final text = await showVoiceCaptureSheet(context);
+    if (text == null || text.isEmpty || !mounted) return;
+    await _insertPlainTextAtSelection(text);
+  }
+
   void _undoEditor() {
     final state = _editorState;
     if (state == null || !state.undoManager.undoStack.isNonEmpty) return;
@@ -1025,6 +1054,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                 onInsertDoodle: _insertDoodle,
                                 onInsertImage: _insertImage,
                                 onInsertNoteLink: _insertNoteLink,
+                                onScanOcr: _scanOcr,
+                                onDictateVoice: _dictateVoice,
                                 onOpenDoodleCanvas: _openDoodleCanvas,
                                 onDeleteMediaBlock: _deleteMediaBlock,
                                 checklistAttachments: _checklistAttachments,

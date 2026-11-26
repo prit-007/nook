@@ -8,13 +8,13 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/talker_provider.dart';
+import '../../core/providers/trash_retention_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../core/widgets/masked_reveal_text.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/repositories/notebook_repository.dart';
 import '../../data/repositories/tag_repository.dart';
-import '../../data/repositories/trash_auto_purger.dart';
 import '../../data/tables/attachments.dart';
 
 /// Bin screen — archived notes, notebooks, tags and attachments with four
@@ -271,6 +271,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final retentionDays = ref.watch(trashRetentionProvider).days;
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -308,9 +309,9 @@ class _TrashScreenState extends ConsumerState<TrashScreen>
       ),
       body: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: _RetentionBanner(retentionDays: kTrashRetentionDays),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _RetentionBanner(retentionDays: retentionDays),
           ),
           Expanded(
             child: _loading
@@ -321,6 +322,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen>
                     children: [
                       _BinTab(
                         items: _notes,
+                        retentionDays: retentionDays,
                         onRestore: _restore,
                         onDestroy: _permanentDelete,
                         emptyTitle: 'No deleted notes',
@@ -328,6 +330,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen>
                       ),
                       _BinTab(
                         items: _notebooks,
+                        retentionDays: retentionDays,
                         onRestore: _restore,
                         onDestroy: _permanentDelete,
                         emptyTitle: 'No deleted notebooks',
@@ -335,6 +338,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen>
                       ),
                       _BinTab(
                         items: _tags,
+                        retentionDays: retentionDays,
                         onRestore: _restore,
                         onDestroy: _permanentDelete,
                         emptyTitle: 'No deleted tags',
@@ -342,6 +346,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen>
                       ),
                       _BinTab(
                         items: _attachments,
+                        retentionDays: retentionDays,
                         onRestore: _restore,
                         onDestroy: _permanentDelete,
                         emptyTitle: 'No deleted attachments',
@@ -411,8 +416,10 @@ class _RetentionBanner extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Deleted items auto-delete after $retentionDays days. '
-                'Restore anything you still need.',
+                retentionDays <= 0
+                    ? 'Items stay in the Bin until you delete them permanently.'
+                    : 'Deleted items auto-delete after $retentionDays days. '
+                        'Restore anything you still need.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSecondaryContainer,
                     ),
@@ -445,6 +452,7 @@ class DeletedItem {
 class _BinTab extends StatelessWidget {
   const _BinTab({
     required this.items,
+    required this.retentionDays,
     required this.onRestore,
     required this.onDestroy,
     required this.emptyTitle,
@@ -452,6 +460,7 @@ class _BinTab extends StatelessWidget {
   });
 
   final List<DeletedItem> items;
+  final int retentionDays;
   final Future<void> Function(DeletedItem) onRestore;
   final Future<void> Function(DeletedItem) onDestroy;
   final String emptyTitle;
@@ -596,9 +605,9 @@ class _BinTab extends StatelessWidget {
   String _formatRetentionSubtitle(DateTime? deletedAt) {
     final age = _formatAge(deletedAt);
     if (deletedAt == null) return 'Archived recently';
+    if (retentionDays <= 0) return 'Archived $age';
     final passedDays = DateTime.now().difference(deletedAt).inDays;
-    final remainingDays =
-        (kTrashRetentionDays - passedDays).clamp(1, kTrashRetentionDays);
+    final remainingDays = (retentionDays - passedDays).clamp(1, retentionDays);
     return 'Archived $age \u00b7 $remainingDays days left';
   }
 }

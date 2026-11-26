@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Vault password DB-key wrapping (C2)** (issue #57): Enabling a vault password
+  now wraps the SQLCipher database encryption key (DEK) with an AES-256-GCM
+  key derived via PBKDF2-HMAC-SHA256 (`DekManager`) and deletes the unwrapped
+  key from platform secure storage. Cold-start launches gate DB opening behind
+  `VaultDbGateScreen` with optional 24-word BIP-39 recovery key fallback.
+
+### Productivity & Exports
+- **PDF export** (issue #62): Added `renderNotePdf` (`pdf` package) supporting
+  rich text, checklists, images, and doodle thumbnails. Available via single-note
+  **Share as PDF** and **Settings → Storage → Export all notes → PDF** (`.zip`).
+- **`[[wiki]]` link autocomplete** (issue #62): Typing `[[` in the editor now
+  surfaces a live inline `WikiLinkAutocomplete` suggestion bar that filters notes
+  as you type and inserts `nook://note/<id>` links without interrupting flow.
+- **Configurable Bin retention** (issue #62): Added **Bin auto-purge retention**
+  in **Settings → Storage** (`7`, `14`, `30` default, `60`, `90` days, or `Never`)
+  wired to `TrashAutoPurger` and the Bin retention banner/countdowns.
+- **Public roadmap** (issue #62): Added [docs/ROADMAP.md](docs/ROADMAP.md).
+- **Home screen widgets** (issue #62): Added `HomeWidgetService` (`home_widget`)
+  and Android `NookWidgetProvider` syncing up to 5 pinned non-locked notes and
+  `nook://capture` quick-capture deep links.
+- **Voice-to-text capture** (issue #62): Added `VoiceCaptureService`
+  (`speech_to_text`) and `VoiceCaptureSheet` wired to the Home hero mic button
+  and editor slash menu.
+- **FOSS OCR scan-to-note** (issue #62): Added `LocalFossOcrService` and
+  `OcrScanSheet` in the editor slash menu using desktop `tesseract` / optional
+  `com.nook/ocr` platform channel (zero proprietary Google Play Services).
+- **Flutter Web companion** (issue #62): Added `WebCompanionApp` via
+  conditional entrypoint (`main_web.dart` / `main_native.dart`) for local
+  read-only browsing and PDF/Markdown export of `.zip`, `.nook`, and `.md` files.
+
+### UI & UX
+- **Collapsing Home hero (`NookHeroSliver`)**: Replaced the Home `SliverAppBar.large`
+  and standalone `QuickCaptureBar` with a pinned collapsing hero header featuring
+  sentence-case vault counts, Playfair time-of-day greeting, inline quick-capture bar,
+  4-state sync status pill, and pinned action buttons in `FilterPillBar`.
+
 ## [0.9.6] - 2026-11-03
 
 ### Doodle & Shape Assist (Samsung Notes-Caliber)

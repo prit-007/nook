@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/providers/talker_provider.dart';
+import '../core/security/dek_manager.dart';
+import '../core/security/secure_kv_store.dart';
 import 'tables/notebooks.dart';
 import 'tables/notes.dart';
 import 'tables/checklist_items.dart';
@@ -138,11 +140,18 @@ Future<String> _readOrCreateEncryptionKey() async {
 /// Requires the `sqlite3` build hook to bundle SQLCipher (see `pubspec.yaml`,
 /// `hooks.user_defines.sqlite3.source = sqlcipher`) so that `PRAGMA key` is
 /// understood by the underlying SQLite binary. `flutter_secure_storage`
-/// persists the encryption key in the platform keystore.
+/// persists the encryption key in the platform keystore (or wrapped under the
+/// vault password when C2 DEK wrapping is enabled via [DekManager]).
+///
+/// If [overrideKey] is omitted and C2 DEK wrapping is active, throws
+/// [VaultLockedException] so the database is never opened without unwrapping.
 ///
 /// The biometric gate (`local_auth`) should be checked by the app layer
 /// before calling this function, per ADR 0005.
-Future<AppDatabase> openEncryptedDatabase() async {
+Future<AppDatabase> openEncryptedDatabase({
+  String? overrideKey,
+  SecureKeyValueStore? store,
+}) async {
   final dir = await getApplicationDocumentsDirectory();
   final dbFile = File(p.join(dir.path, 'notes.db'));
   nookLog(
@@ -151,7 +160,16 @@ Future<AppDatabase> openEncryptedDatabase() async {
     LogLevel.info,
   );
 
-  final key = await _readOrCreateEncryptionKey();
+  final String key;
+  if (overrideKey != null && overrideKey.isNotEmpty) {
+    key = overrideKey;
+  } else {
+    final dekManager = DekManager(store: store);
+    if (await dekManager.isWrapped()) {
+      throw const VaultLockedException();
+    }
+    key = await _readOrCreateEncryptionKey();
+  }
 
   return AppDatabase(
     NativeDatabase.createInBackground(

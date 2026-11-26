@@ -13,6 +13,7 @@ import '../../../data/repositories/checklist_item_repository.dart';
 import '../../../data/repositories/note_repository.dart';
 import '../../../data/tables/attachments.dart';
 import '../../../data/tables/notes.dart';
+import 'pdf_renderer.dart';
 
 /// Result of a bulk export run.
 class BulkExportResult {
@@ -27,7 +28,7 @@ class BulkExportResult {
   final BulkExportFormat format;
 }
 
-enum BulkExportFormat { markdown, html }
+enum BulkExportFormat { markdown, html, pdf }
 
 /// Attachment bytes loaded for export (file + optional doodle thumbnail).
 class ExportAttachment {
@@ -282,46 +283,57 @@ class BulkExporter {
       attachmentCount += attachments.length;
       final safeName = _safeFileName(note.title.isEmpty ? note.id : note.title);
 
-      // Relative refs from notes/<safeName>.<ext> → notes/<safeName>/attachments/
-      final refs = <String, String>{
-        for (final att in attachments)
-          att.attachment.id: 'attachments/${att.archiveName}',
-      };
+      if (format == BulkExportFormat.pdf) {
+        final pdfBytes = await renderNotePdf(
+          note,
+          items,
+          attachments: attachments,
+        );
+        archive.addFile(
+          ArchiveFile('notes/$safeName.pdf', pdfBytes.length, pdfBytes),
+        );
+      } else {
+        // Relative refs from notes/<safeName>.<ext> → notes/<safeName>/attachments/
+        final refs = <String, String>{
+          for (final att in attachments)
+            att.attachment.id: 'attachments/${att.archiveName}',
+        };
 
-      final content = format == BulkExportFormat.markdown
-          ? renderNoteMarkdown(
-              note,
-              items,
-              attachmentRefs: refs,
-              attachments: attachments,
-            )
-          : renderNoteHtml(
-              note,
-              items,
-              attachmentRefs: refs,
-              attachments: attachments,
-              embedAttachments: false,
-            );
-      final ext = format == BulkExportFormat.markdown ? 'md' : 'html';
-      archive.addFile(ArchiveFile.string('notes/$safeName.$ext', content));
+        final content = format == BulkExportFormat.markdown
+            ? renderNoteMarkdown(
+                note,
+                items,
+                attachmentRefs: refs,
+                attachments: attachments,
+              )
+            : renderNoteHtml(
+                note,
+                items,
+                attachmentRefs: refs,
+                attachments: attachments,
+                embedAttachments: false,
+              );
+        final ext = format == BulkExportFormat.markdown ? 'md' : 'html';
+        archive.addFile(ArchiveFile.string('notes/$safeName.$ext', content));
 
-      for (final att in attachments) {
-        // Doodles export their rendered thumbnail (PNG) when available;
-        // otherwise skip the unreadable stroke JSON in the portable archive.
-        if (att.attachment.type == AttachmentType.doodleLayer) {
-          final thumb = att.thumbnailBytes;
-          if (thumb == null) continue;
-          archive.addFile(ArchiveFile(
-            'notes/$safeName/attachments/${att.archiveName}',
-            thumb.length,
-            thumb,
-          ));
-        } else {
-          archive.addFile(ArchiveFile(
-            'notes/$safeName/attachments/${att.archiveName}',
-            att.bytes.length,
-            att.bytes,
-          ));
+        for (final att in attachments) {
+          // Doodles export their rendered thumbnail (PNG) when available;
+          // otherwise skip the unreadable stroke JSON in the portable archive.
+          if (att.attachment.type == AttachmentType.doodleLayer) {
+            final thumb = att.thumbnailBytes;
+            if (thumb == null) continue;
+            archive.addFile(ArchiveFile(
+              'notes/$safeName/attachments/${att.archiveName}',
+              thumb.length,
+              thumb,
+            ));
+          } else {
+            archive.addFile(ArchiveFile(
+              'notes/$safeName/attachments/${att.archiveName}',
+              att.bytes.length,
+              att.bytes,
+            ));
+          }
         }
       }
     }
@@ -369,6 +381,22 @@ class BulkExporter {
     final safeName = _safeFileName(note.title.isEmpty ? note.id : note.title);
     final file = File(p.join(dir.path, '$safeName.html'));
     await file.writeAsString(html, flush: true);
+    return file.path;
+  }
+
+  /// Single-note standalone PDF with embedded image/doodle bytes.
+  Future<String> exportNotePdf(Note note) async {
+    final items = await _checklistItemRepository.getItems(note.id);
+    final attachments = await _loadAttachments(note.id);
+    final pdfBytes = await renderNotePdf(
+      note,
+      items,
+      attachments: attachments,
+    );
+    final dir = _outputDirectory ?? await getTemporaryDirectory();
+    final safeName = _safeFileName(note.title.isEmpty ? note.id : note.title);
+    final file = File(p.join(dir.path, '$safeName.pdf'));
+    await file.writeAsBytes(pdfBytes, flush: true);
     return file.path;
   }
 

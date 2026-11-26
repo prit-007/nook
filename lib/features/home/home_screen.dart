@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -6,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/adaptive_breakpoints.dart';
+import '../../core/platform/home_widget_service.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
 import '../../core/providers/theme_provider.dart';
@@ -21,6 +25,7 @@ import '../../data/repositories/tag_repository.dart';
 import '../../data/tables/notes.dart';
 import '../../sync/sync_orchestrator.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import '../editor/widgets/voice_capture_sheet.dart';
 import '../templates/template_picker_sheet.dart';
 import 'models/home_view_mode.dart';
 import 'models/note_sort_order.dart';
@@ -60,6 +65,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final Set<String> _animatedNoteIds = {};
   bool _isSelectionMode = false;
   final Set<String> _selectedNoteIds = {};
+  String _lastWidgetSyncSignature = '';
 
   void _toggleSelection(String noteId) {
     HapticFeedback.selectionClick();
@@ -244,6 +250,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
               data: (notes) {
+                final sig = notes
+                    .where((n) => n.pinned && !n.deleted && !n.locked)
+                    .map((n) =>
+                        '${n.id}:${n.title}:${n.updatedAt.millisecondsSinceEpoch}')
+                    .join('|');
+                if (sig != _lastWidgetSyncSignature) {
+                  _lastWidgetSyncSignature = sig;
+                  Future.microtask(
+                    () => ref
+                        .read(homeWidgetServiceProvider)
+                        .syncPinnedNotes(notes),
+                  );
+                }
                 final sortedNotes = _sortOrder.sort(notes);
                 final filtered = _applyFilters(sortedNotes);
                 final counts = _computeCounts(notes);
@@ -422,6 +441,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               onCaptureDoodle: () {
                 HapticFeedback.selectionClick();
                 context.push('/note/new?type=${NoteType.doodle.name}');
+              },
+              onCaptureVoice: () async {
+                unawaited(HapticFeedback.selectionClick());
+                final text = await showVoiceCaptureSheet(context);
+                if (text == null || text.isEmpty || !context.mounted) return;
+                final db = ref.read(databaseProvider);
+                final repo = NoteRepository(db);
+                final note = await repo.createNote(
+                  title: text.split('\n').first,
+                  type: NoteType.text,
+                  deviceOriginId: 'local',
+                );
+                await repo.updateContent(
+                  note.id,
+                  deltaContent: jsonEncode({
+                    'document': {
+                      'type': 'page',
+                      'children': [
+                        {
+                          'type': 'paragraph',
+                          'data': {
+                            'delta': [
+                              {'insert': text},
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  }),
+                  plainText: text,
+                );
+                if (context.mounted) {
+                  await context.push('/note/${note.id}');
+                }
               },
             ),
           SliverToBoxAdapter(

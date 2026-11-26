@@ -190,8 +190,9 @@ class _VaultPasswordSetDialogState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'A second password for locked notes. Exported vaults are not '
-            'password-wrapped — this gates the in-app session only.',
+            'Protects locked notes and wraps your local SQLCipher database '
+            'encryption key (DEK). Keep your password or 24-word recovery key '
+            'safe — it cannot be recovered if lost.',
           ),
           const SizedBox(height: 16),
           TextField(
