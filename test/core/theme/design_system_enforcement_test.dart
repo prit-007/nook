@@ -54,4 +54,36 @@ void main() {
       () {
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
+
+  test('design system: enforced files respect kFontFloor (12.0sp)', () {
+    final fontFloorFiles = <String>[
+      'lib/core/theme/nook_tokens.dart',
+      'lib/core/widgets/app_shell.dart',
+      'lib/features/home/home_screen.dart',
+      'lib/features/home/widgets/nook_hero.dart',
+      'lib/features/editor/note_editor_screen.dart',
+      'lib/core/router.dart',
+    ];
+    final fontSizeRegex = RegExp(r'fontSize:\s*(\d+(?:\.\d+)?)');
+    final fontViolations = <String>[];
+
+    for (final relative in fontFloorFiles) {
+      final file = File(relative);
+      if (!file.existsSync()) continue;
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        final match = fontSizeRegex.firstMatch(lines[i]);
+        if (match != null) {
+          final size = double.tryParse(match.group(1)!);
+          if (size != null && size < 12.0) {
+            fontViolations.add(
+              '$relative:${i + 1}: fontSize $size < 12.0 (NookTokens.kFontFloor)',
+            );
+          }
+        }
+      }
+    }
+
+    expect(fontViolations, isEmpty, reason: fontViolations.join('\n'));
+  });
 }

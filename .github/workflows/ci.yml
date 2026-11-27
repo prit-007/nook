@@ -33,12 +33,30 @@ jobs:
       - uses: ./.github/actions/flutter-prep
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
+      - name: Licence audit
+        run: dart run tool/licence_audit.dart
       - name: Analyze
         run: flutter analyze
       - name: Run tests
         # `-x network` skips the real-mDNS integration test (needs multicast
-        # on a LAN); UDX/libp2p sync is covered hermetically over loopback.
-        run: flutter test --coverage -x network
+        # on a LAN); `-x golden` splits golden tests into their own step.
+        run: flutter test --coverage -x network -x golden
+      - name: Run golden tests
+        run: flutter test --tags golden
+      - name: Check coverage floor (65% minimum)
+        run: |
+          awk -F: '
+            /^LF:/ { lf += $2 }
+            /^LH:/ { lh += $2 }
+            END {
+              pct = (lf > 0) ? (lh / lf) * 100 : 0;
+              printf "Line coverage: %d/%d (%.2f%%)\n", lh, lf, pct;
+              if (pct < 65.0) {
+                printf "Coverage %.2f%% is below the 65.0%% floor!\n", pct > "/dev/stderr";
+                exit 1;
+              }
+            }
+          ' coverage/lcov.info
 
   build-android:
     needs: analyze-and-test
