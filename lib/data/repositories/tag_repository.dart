@@ -127,6 +127,24 @@ class TagRepository {
         );
   }
 
+  /// Finds an existing tag by [name] (case-insensitive) or creates it, then
+  /// assigns it to [noteId].
+  Future<void> assignTagByName(
+    String noteId,
+    String name, {
+    String colorSeed = '#4CAF50',
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    final all = await getAllTags();
+    final existing = all
+        .where((t) => t.name.toLowerCase() == trimmed.toLowerCase())
+        .firstOrNull;
+    final tag =
+        existing ?? await createTag(name: trimmed, colorSeed: colorSeed);
+    await assignTagToNote(noteId, tag.id);
+  }
+
   /// Removes a tag assignment from a note.
   Future<void> removeTagFromNote(String noteId, String tagId) async {
     await (_db.delete(_db.noteTags)

@@ -11,10 +11,21 @@ abstract class SecureKeyValueStore {
 
 /// Production store backed by `flutter_secure_storage`.
 class FlutterSecureKeyValueStore implements SecureKeyValueStore {
-  const FlutterSecureKeyValueStore(
-      [this._storage = const FlutterSecureStorage()]);
+  const FlutterSecureKeyValueStore([
+    this._storage = const FlutterSecureStorage(
+      aOptions: AndroidOptions(),
+      iOptions: IOSOptions(
+        accessibility: KeychainAccessibility.unlocked_this_device,
+      ),
+      mOptions: MacOsOptions(
+        accessibility: KeychainAccessibility.unlocked_this_device,
+      ),
+    ),
+  ]);
 
   final FlutterSecureStorage _storage;
+
+  FlutterSecureStorage get storage => _storage;
 
   @override
   Future<String?> read(String key) => _storage.read(key: key);

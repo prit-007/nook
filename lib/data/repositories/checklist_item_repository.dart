@@ -15,6 +15,7 @@ class ChecklistItemRepository {
   Future<ChecklistItem> addItem({
     required String noteId,
     required String text,
+    bool checked = false,
     int? sortOrder,
     String? id,
   }) async {
@@ -26,6 +27,7 @@ class ChecklistItemRepository {
             id: Value(itemId),
             noteId: noteId,
             itemText: text,
+            checked: Value(checked),
             sortOrder: Value(order),
           ),
         );

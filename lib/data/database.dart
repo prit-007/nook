@@ -159,14 +159,6 @@ Future<AppDatabase> openEncryptedDatabase({
   String? overrideKey,
   SecureKeyValueStore? store,
 }) async {
-  final dir = await getApplicationDocumentsDirectory();
-  final dbFile = File(p.join(dir.path, 'notes.db'));
-  nookLog(
-    NookLogKey.database,
-    'Opening encrypted DB at ${dbFile.path}',
-    LogLevel.info,
-  );
-
   final String key;
   if (overrideKey != null && overrideKey.isNotEmpty) {
     key = overrideKey;
@@ -177,6 +169,14 @@ Future<AppDatabase> openEncryptedDatabase({
     }
     key = await _readOrCreateEncryptionKey();
   }
+
+  final dir = await getApplicationDocumentsDirectory();
+  final dbFile = File(p.join(dir.path, 'notes.db'));
+  nookLog(
+    NookLogKey.database,
+    'Opening encrypted DB at ${dbFile.path}',
+    LogLevel.info,
+  );
 
   return AppDatabase(
     NativeDatabase.createInBackground(

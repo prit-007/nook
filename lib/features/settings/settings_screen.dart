@@ -200,6 +200,15 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
+                icon: HugeIcons.strokeRoundedShieldKey,
+                title: 'Encrypted Backup',
+                value: '.nookbackup',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/backup');
+                },
+              ),
+              _SettingsTile(
                 icon: HugeIcons.strokeRoundedWifi01,
                 title: 'Peer Sync',
                 value: 'Send & receive',

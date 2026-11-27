@@ -23,6 +23,7 @@ import '../../features/sync_ui/sync_pairing_screen.dart';
 import '../../features/sync_ui/sync_transfer_screen.dart';
 import '../../features/sync_ui/sync_history_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/settings/widgets/backup_screen.dart';
 import '../../features/settings/settings_appearance_screen.dart';
 import '../../features/settings/settings_security_screen.dart';
 import '../../features/settings/settings_storage_screen.dart';
@@ -196,6 +197,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               state: state,
               type: EditorialTransitionType.slideUp,
               child: const SettingsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/settings/backup',
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const BackupScreen(),
             ),
           ),
           GoRoute(

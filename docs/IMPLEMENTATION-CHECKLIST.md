@@ -36,10 +36,10 @@
 | Phase | Description | Status | Started | Completed |
 |-------|-------------|--------|---------|-----------|
 | 0 | Truth and baseline | COMPLETE | 2026-11-27 | 2026-11-27 |
-| 1 | Security hardening | IN_PROGRESS | 2026-11-27 | — |
+| 1 | Security hardening | COMPLETE | 2026-11-27 | 2026-11-27 |
 | 2 | Sync correctness | IN_PROGRESS | 2026-11-27 | — |
 | 3 | UX consolidation | COMPLETE | 2026-11-27 | 2026-11-27 |
-| 4 | Portability and backup | NOT STARTED | — | — |
+| 4 | Portability and backup | COMPLETE | 2026-11-27 | 2026-11-27 |
 | 5 | Offline capture and search | NOT STARTED | — | — |
 | 6 | Editor depth | NOT STARTED | — | — |
 | 7 | Distribution | NOT STARTED | — | — |
@@ -156,11 +156,10 @@
 
 ### 1.3 Biometric-bound keystore key
 
-- [ ] Confirm keystore key is bound to authentication (not UI-only gate).
-  - Files: `lib/features/security/vault_db_gate_screen.dart`, `lib/core/security/secure_kv_store.dart`
-  - If UI-only, modify key creation to require `UserAuthenticationRequired` (Android) / `LAPolicy.deviceOwnerAuthentication` (iOS/macOS)
-- [ ] Test: app cannot decrypt DB without biometric even if UI is bypassed.
-  - File: `test/features/security/vault_db_gate_test.dart` (verify exists)
+- [x] Confirm keystore key is bound to authentication (not UI-only gate).
+  - Files: `lib/features/security/vault_db_gate_screen.dart`, `lib/core/security/secure_kv_store.dart`, `lib/data/database.dart`
+- [x] Test: app cannot decrypt DB without biometric/vault unlock even if UI is bypassed.
+  - File: `test/features/security/vault_db_gate_test.dart`, `test/core/security/secure_kv_store_test.dart`
 
 ### 1.4 Secure delete
 
@@ -314,25 +313,25 @@
 
 ### 4.1 Encrypted backup file (.nookbackup)
 
-- [ ] Build `.nookbackup` format using Phase 1 KDF (versioned Argon2id).
-  - File: `lib/features/settings/widgets/backup_handler.dart` (NEW)
-  - File: `lib/features/settings/widgets/backup_screen.dart` (NEW)
-- [ ] Restore tests: backup → wipe → restore → verify all notes intact.
-  - File: `test/features/settings/backup_test.dart` (NEW)
+- [x] Build `.nookbackup` format using Phase 1 KDF (versioned Argon2id).
+  - File: `lib/features/settings/widgets/backup_handler.dart`
+  - File: `lib/features/settings/widgets/backup_screen.dart`
+- [x] Restore tests: backup → wipe → restore → verify all notes intact.
+  - File: `test/features/settings/backup_test.dart`
 
 ### 4.2 Folder mirror via Storage Access Framework
 
-- [ ] Markdown plus assets, written continuously to user-selected folder.
-  - File: `lib/features/settings/widgets/folder_mirror.dart` (NEW)
-- [ ] Users can sync with Syncthing or similar without libp2p.
-  - Validation: docs explain Syncthing setup
+- [x] Markdown plus assets, written continuously to user-selected folder.
+  - File: `lib/features/settings/widgets/folder_mirror.dart`
+- [x] Users can sync with Syncthing or similar without libp2p.
+  - Validation: `docs/SYNCTHING-MIRROR.md` explains Syncthing setup; `test/features/settings/folder_mirror_test.dart` passes
 
 ### 4.3 Markdown round-trip tests
 
-- [ ] Export → import → diff; verify zero data loss.
-  - File: `test/features/settings/markdown_roundtrip_test.dart` (NEW)
-- [ ] More importers: Obsidian vault, Joplin JEX **(verify format)**.
-  - Files: `lib/features/importers/obsidian_importer.dart` (NEW), `lib/features/importers/joplin_importer.dart` (NEW)
+- [x] Export → import → diff; verify zero data loss.
+  - File: `test/features/settings/markdown_roundtrip_test.dart`
+- [x] More importers: Obsidian vault, Joplin JEX.
+  - Files: `lib/features/importers/obsidian_importer.dart`, `lib/features/importers/joplin_importer.dart`
 
 ---
 
