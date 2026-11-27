@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../app.dart';
 import '../../features/home/home_screen.dart';
@@ -32,110 +33,12 @@ import '../../features/settings/privacy_explainer_screen.dart';
 import '../../features/settings/settings_logs_screen.dart';
 import '../../features/exports/exports_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
+import '../../features/reminders/reminders_screen.dart';
 import 'widgets/app_shell.dart';
 import 'widgets/editorial_page_transition.dart';
 import 'providers/navigation_preference.dart';
 
 export 'widgets/editorial_page_transition.dart';
-
-/// Backward-compatible alias for [EditorialPageTransitions].
-abstract class AppPageTransitions {
-  /// Material 3 Shared Axis transition (fade + subtle scale) for hierarchical
-  /// and detail page navigation.
-  static CustomTransitionPage<T> sharedAxis<T>({
-    required LocalKey key,
-    required Widget child,
-  }) =>
-      EditorialPageTransitions.sharedAxis<T>(key: key, child: child);
-
-  /// Material 3 Slide-Up transition builder for modals, full-screen editors, and canvases.
-  static Widget buildSlideUpTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) =>
-      EditorialPageTransitions.buildSlideUp(
-        context,
-        animation,
-        secondaryAnimation,
-        child,
-      );
-
-  /// Material 3 Slide-Up transition for modals, full-screen editors, and canvases.
-  static CustomTransitionPage<T> slideUp<T>({
-    required LocalKey key,
-    required Widget child,
-  }) =>
-      EditorialPageTransitions.slideUp<T>(key: key, child: child);
-
-  /// Material 3 Fade-Through transition for NavigationBar / Shell tab switches.
-  static CustomTransitionPage<T> fadeThrough<T>({
-    required LocalKey key,
-    required Widget child,
-  }) =>
-      EditorialPageTransitions.fadeThrough<T>(key: key, child: child);
-}
-
-/// Bespoke page transition for a luxury editorial feel.
-CustomTransitionPage<T> buildEditorialTransition<T>({
-  required BuildContext context,
-  required GoRouterState state,
-  required Widget child,
-}) {
-  return EditorialPageTransitions.slideUp<T>(
-    key: state.pageKey,
-    child: child,
-  );
-}
-
-/// Custom page transition: Material 3 shared axis for hierarchical sub-pages.
-CustomTransitionPage<void> _sharedAxisTransition(
-  BuildContext context,
-  GoRouterState state,
-  Widget child,
-) {
-  return EditorialPageTransitions.sharedAxis<void>(
-    key: state.pageKey,
-    child: child,
-  );
-}
-
-/// Custom page transition: Material 3 slide-up with secondary scale for pushes.
-CustomTransitionPage<void> _slideUpTransition(
-  BuildContext context,
-  GoRouterState state,
-  Widget child,
-) {
-  return EditorialPageTransitions.slideUp<void>(
-    key: state.pageKey,
-    child: child,
-  );
-}
-
-/// Custom page transition: Material 3 fade-through for shell tab switches.
-CustomTransitionPage<void> _fadeTransition(
-  BuildContext context,
-  GoRouterState state,
-  Widget child,
-) {
-  return EditorialPageTransitions.fadeThrough<void>(
-    key: state.pageKey,
-    child: child,
-  );
-}
-
-/// Custom page transition: Container transform for card-to-editor transitions.
-CustomTransitionPage<void> _containerTransformTransition(
-  BuildContext context,
-  GoRouterState state,
-  Widget child,
-) {
-  return EditorialPageTransitions.containerTransform<void>(
-    key: state.pageKey,
-    child: child,
-  );
-}
 
 /// Error page shown for undefined routes.
 class _ErrorPage extends StatelessWidget {
@@ -151,7 +54,11 @@ class _ErrorPage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 48, color: scheme.error),
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedAlert02,
+              size: 48,
+              color: scheme.error,
+            ),
             const SizedBox(height: 16),
             Text(
               'Page not found',
@@ -217,168 +124,176 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/home',
-            pageBuilder: (context, state) => _fadeTransition(
-              context,
-              state,
-              const HomeScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.fadeThrough,
+              child: const HomeScreen(),
             ),
           ),
           GoRoute(
             path: '/notebooks',
-            pageBuilder: (context, state) => _fadeTransition(
-              context,
-              state,
-              const NotebooksScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.fadeThrough,
+              child: const NotebooksScreen(),
             ),
           ),
           GoRoute(
             path: '/notebooks/:notebookId',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              NotebookDetailScreen(
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: NotebookDetailScreen(
                 notebookId: state.pathParameters['notebookId']!,
               ),
             ),
           ),
           GoRoute(
             path: '/tags',
-            pageBuilder: (context, state) => _fadeTransition(
-              context,
-              state,
-              const TagsScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.fadeThrough,
+              child: const TagsScreen(),
             ),
           ),
           GoRoute(
             path: '/tags/:tagId',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              TagDetailScreen(
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: TagDetailScreen(
                 tagId: state.pathParameters['tagId']!,
               ),
             ),
           ),
           GoRoute(
             path: '/sync',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const SyncScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const SyncScreen(),
             ),
           ),
           GoRoute(
             path: '/trash',
-            pageBuilder: (context, state) => _fadeTransition(
-              context,
-              state,
-              const TrashScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.fadeThrough,
+              child: const TrashScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/reminders',
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const RemindersScreen(),
             ),
           ),
           GoRoute(
             path: '/settings',
-            pageBuilder: (context, state) => _slideUpTransition(
-              context,
-              state,
-              const SettingsScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.slideUp,
+              child: const SettingsScreen(),
             ),
           ),
           GoRoute(
             path: '/settings/appearance',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const SettingsAppearanceScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const SettingsAppearanceScreen(),
             ),
           ),
           GoRoute(
             path: '/settings/security',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const SettingsSecurityScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const SettingsSecurityScreen(),
             ),
           ),
           GoRoute(
             path: '/settings/storage',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const SettingsStorageScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const SettingsStorageScreen(),
             ),
           ),
           GoRoute(
             path: '/settings/exports',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const ExportsScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const ExportsScreen(),
             ),
           ),
           GoRoute(
             path: '/settings/sync-devices',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const SettingsSyncDevicesScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const SettingsSyncDevicesScreen(),
             ),
           ),
           GoRoute(
             path: '/settings/about',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const SettingsAboutScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const SettingsAboutScreen(),
             ),
           ),
           GoRoute(
             path: '/settings/privacy',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const SettingsPrivacyScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const SettingsPrivacyScreen(),
             ),
           ),
           GoRoute(
             path: '/settings/privacy/explainer',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const PrivacyExplainerScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const PrivacyExplainerScreen(),
             ),
           ),
           GoRoute(
             path: '/settings/logs',
-            pageBuilder: (context, state) => _sharedAxisTransition(
-              context,
-              state,
-              const SettingsLogsScreen(),
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const SettingsLogsScreen(),
             ),
           ),
         ],
       ),
       GoRoute(
         path: '/home/search',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          const SearchScreen(),
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.slideUp,
+          child: const SearchScreen(),
         ),
       ),
       GoRoute(
         path: '/locked',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          const LockedNotesScreen(),
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.slideUp,
+          child: const LockedNotesScreen(),
         ),
       ),
       GoRoute(
         path: '/note/new',
-        pageBuilder: (context, state) => _containerTransformTransition(
-          context,
-          state,
-          NoteEditorScreen(
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.containerTransform,
+          child: NoteEditorScreen(
             notebookId: state.uri.queryParameters['notebookId'],
             type: state.uri.queryParameters['type'],
           ),
@@ -386,20 +301,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/note/:noteId',
-        pageBuilder: (context, state) => _containerTransformTransition(
-          context,
-          state,
-          NoteEditorScreen(
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.containerTransform,
+          child: NoteEditorScreen(
             noteId: state.pathParameters['noteId']!,
           ),
         ),
       ),
       GoRoute(
         path: '/note/:noteId/doodle/:attachmentId',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          DoodleCanvasScreen(
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.slideUp,
+          child: DoodleCanvasScreen(
             noteId: state.pathParameters['noteId']!,
             attachmentId: state.pathParameters['attachmentId']!,
           ),
@@ -407,38 +322,38 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/note/:noteId/history',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          VersionHistoryScreen(
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.slideUp,
+          child: VersionHistoryScreen(
             noteId: state.pathParameters['noteId']!,
           ),
         ),
       ),
       GoRoute(
         path: '/sync/send',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          const SyncSendScreen(),
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.slideUp,
+          child: const SyncSendScreen(),
         ),
       ),
       GoRoute(
         path: '/sync/receive',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          const SyncReceiveScreen(),
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.slideUp,
+          child: const SyncReceiveScreen(),
         ),
       ),
       GoRoute(
         path: '/sync/pairing',
         pageBuilder: (context, state) {
           final extra = state.extra as Map<String, String>? ?? {};
-          return _slideUpTransition(
-            context,
-            state,
-            SyncPairingScreen(
+          return EditorialPageTransitions.buildPage(
+            state: state,
+            type: EditorialTransitionType.slideUp,
+            child: SyncPairingScreen(
               pairingCode: extra['pairingCode'] ?? '000000',
               deviceName: extra['deviceName'] ?? 'Unknown Device',
             ),
@@ -447,20 +362,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/sync/transfer/:sessionId',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          SyncTransferScreen(
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.slideUp,
+          child: SyncTransferScreen(
             sessionId: state.pathParameters['sessionId']!,
           ),
         ),
       ),
       GoRoute(
         path: '/sync/history',
-        pageBuilder: (context, state) => _slideUpTransition(
-          context,
-          state,
-          const SyncHistoryScreen(),
+        pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+          state: state,
+          type: EditorialTransitionType.slideUp,
+          child: const SyncHistoryScreen(),
         ),
       ),
     ],
