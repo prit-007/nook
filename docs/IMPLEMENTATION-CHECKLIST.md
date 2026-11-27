@@ -783,7 +783,7 @@
 - [x] Explicit runtime microphone permission check (`hasPermission()`, `requestMicrophonePermission()`) in `voice_capture_sheet.dart` before first voice use (`test/features/editor/voice_capture_test.dart`).
 - [x] Added one-time disclosure dialog before first use (`showVoiceCaptureSheet`), mentioning offline Android alternatives like Marmalade STT.
 - [x] Gated voice behind `VoicePreference` Settings toggle (off by default); hero mic stays hidden until enabled (`nook_hero.dart`, `home_screen.dart`).
-- [x] Dedicated `fdroid` build flavor configured in `android/app/build.gradle.kts` with `android/app/src/fdroid/AndroidManifest.xml` (`tools:node="remove"` on `RECORD_AUDIO`).
+- [x] Dedicated F-Droid build configuration (`--dart-define=NOOK_FDROID=true` compile-time exclusion and install-time removal of `RECORD_AUDIO` from `android/app/src/main/AndroidManifest.xml`).
 
 **BUILD ISSUE:** `home_widget: ^0.10.0` requires iOS deployment target 14.0+, but `ios/Runner.xcodeproj/project.pbxproj` sets `IPHONEOS_DEPLOYMENT_TARGET = 13.0`. iOS build FAILS with: "The package product 'home-widget' requires minimum platform version 14.0 for the iOS platform, but this target supports 13.0". Fix: raise `IPHONEOS_DEPLOYMENT_TARGET` to 14.0 in `ios/Runner.xcodeproj/project.pbxproj` (lines 363, 489, 540).
 

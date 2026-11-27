@@ -67,16 +67,6 @@ android {
         }
     }
 
-    flavorDimensions += "distribution"
-    productFlavors {
-        create("standard") {
-            dimension = "distribution"
-        }
-        create("fdroid") {
-            dimension = "distribution"
-        }
-    }
-
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false

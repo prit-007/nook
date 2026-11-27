@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Voice FOSS positioning**: Removed install-time `RECORD_AUDIO` permission from the
   main manifest; added a one-time privacy disclosure dialog mentioning offline speech
   engines like Marmalade STT; voice feature is disabled by default behind Settings toggle;
-  and added dedicated `fdroid` build flavor.
+  and added compile-time F-Droid flag (`NOOK_FDROID`).
 
 ### Productivity & Features (Phase 13 & 14, Issue #62)
 - **Archive feature**: Drift schema bumped to v10 adding `archived` column to notes,

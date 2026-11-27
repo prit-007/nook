@@ -1,7 +1,0 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-    <!-- F-Droid build flavor excludes microphone/speech recognizer permission -->
-    <uses-permission
-        android:name="android.permission.RECORD_AUDIO"
-        tools:node="remove" />
-</manifest>
