@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/nook_tokens.dart';
 
@@ -399,5 +400,33 @@ class _QuickFilterChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Persists user's saved search queries in [SharedPreferences].
+class SavedSearchStore {
+  static const String _key = 'nook_saved_searches';
+
+  static Future<List<String>> loadQueries() async {
+    final prefs = await SharedPreferences.getInstance();
+    return List<String>.from(prefs.getStringList(_key) ?? const []);
+  }
+
+  static Future<void> saveQuery(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final current = List<String>.from(prefs.getStringList(_key) ?? const []);
+    current.remove(trimmed);
+    current.insert(0, trimmed);
+    if (current.length > 20) current.removeRange(20, current.length);
+    await prefs.setStringList(_key, current);
+  }
+
+  static Future<void> removeQuery(String query) async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = List<String>.from(prefs.getStringList(_key) ?? const []);
+    current.remove(query);
+    await prefs.setStringList(_key, current);
   }
 }

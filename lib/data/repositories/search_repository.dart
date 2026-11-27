@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:drift/drift.dart';
 
 import '../../core/providers/talker_provider.dart';
@@ -201,5 +203,91 @@ class SearchRepository {
         .replaceAll(RegExp(r'\b(NOT|AND|OR|NEAR)\b', caseSensitive: false), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+}
+
+/// Ranked semantic search result.
+class SemanticSearchHit {
+  const SemanticSearchHit({required this.note, required this.score});
+  final Note note;
+  final double score;
+}
+
+/// Opt-in offline semantic search over unlocked notes (never indexes locked notes).
+class SemanticSearchIndex {
+  SemanticSearchIndex(this._db, {this.enabled = false});
+
+  final AppDatabase _db;
+  final bool enabled;
+  final Map<String, ({Note note, Map<String, double> vector})> _index = {};
+
+  Future<void> rebuildIndex() async {
+    _index.clear();
+    if (!enabled) return;
+
+    final notes = await (_db.select(_db.notes)
+          ..where((t) => t.deleted.equals(false) & t.locked.equals(false)))
+        .get();
+
+    for (final note in notes) {
+      final text = '${note.title} ${note.plainText ?? ''}';
+      _index[note.id] = (note: note, vector: _embed(text));
+    }
+  }
+
+  Future<List<SemanticSearchHit>> search(String query, {int limit = 20}) async {
+    if (!enabled || query.trim().isEmpty) return const [];
+    if (_index.isEmpty) {
+      await rebuildIndex();
+    }
+    final qVec = _embed(query);
+    if (qVec.isEmpty) return const [];
+
+    final hits = <SemanticSearchHit>[];
+    for (final entry in _index.values) {
+      if (entry.note.locked || entry.note.deleted) continue;
+      final score = _cosine(qVec, entry.vector);
+      if (score > 0.05) {
+        hits.add(SemanticSearchHit(note: entry.note, score: score));
+      }
+    }
+    hits.sort((a, b) => b.score.compareTo(a.score));
+    return hits.take(limit).toList();
+  }
+
+  static Map<String, double> _embed(String text) {
+    final tokens = text
+        .toLowerCase()
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((t) => t.length >= 2);
+    final counts = <String, double>{};
+    for (final token in tokens) {
+      counts[token] = (counts[token] ?? 0) + 1.0;
+      if (token.length >= 3) {
+        for (var i = 0; i <= token.length - 3; i++) {
+          final tri = '#${token.substring(i, i + 3)}';
+          counts[tri] = (counts[tri] ?? 0) + 0.5;
+        }
+      }
+    }
+    return counts;
+  }
+
+  static double _cosine(Map<String, double> a, Map<String, double> b) {
+    var dot = 0.0;
+    var normA = 0.0;
+    var normB = 0.0;
+    for (final v in a.values) {
+      normA += v * v;
+    }
+    for (final v in b.values) {
+      normB += v * v;
+    }
+    if (normA == 0 || normB == 0) return 0;
+    for (final entry in a.entries) {
+      final bv = b[entry.key];
+      if (bv != null) dot += entry.value * bv;
+    }
+    return dot / (math.sqrt(normA) * math.sqrt(normB));
   }
 }

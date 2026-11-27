@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/database.dart';
+import '../../data/repositories/note_repository.dart';
+
 /// Result of an on-device FOSS OCR extraction.
 class OcrResult {
   const OcrResult({
@@ -83,3 +86,45 @@ class LocalFossOcrService implements OcrService {
 final ocrServiceProvider = Provider<OcrService>(
   (ref) => LocalFossOcrService(),
 );
+
+/// Indexes OCR-extracted handwriting/doodle text into FTS5 for unlocked notes.
+class HandwritingSearchIndexer {
+  HandwritingSearchIndexer({
+    required AppDatabase db,
+    OcrService? ocrService,
+  })  : _db = db,
+        _ocrService = ocrService ?? LocalFossOcrService();
+
+  final AppDatabase _db;
+  final OcrService _ocrService;
+
+  Future<bool> indexDoodleThumbnail({
+    required String noteId,
+    required String thumbnailPath,
+  }) async {
+    final noteRepo = NoteRepository(_db);
+    final note = await noteRepo.getNoteById(noteId);
+    if (note == null || note.locked || note.deleted) {
+      return false;
+    }
+
+    final result = await _ocrService.extractText(thumbnailPath);
+    if (!result.isSuccess || result.text.trim().isEmpty) {
+      return false;
+    }
+
+    final combinedPlainText = [
+      if (note.plainText != null && note.plainText!.trim().isNotEmpty)
+        note.plainText!.trim(),
+      result.text.trim(),
+    ].join('\n');
+
+    await noteRepo.updateContent(
+      noteId,
+      deltaContent: note.deltaContent,
+      plainText: combinedPlainText,
+      updatedAt: note.updatedAt,
+    );
+    return true;
+  }
+}

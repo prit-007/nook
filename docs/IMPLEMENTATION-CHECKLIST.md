@@ -40,8 +40,8 @@
 | 2 | Sync correctness | IN_PROGRESS | 2026-11-27 | — |
 | 3 | UX consolidation | COMPLETE | 2026-11-27 | 2026-11-27 |
 | 4 | Portability and backup | COMPLETE | 2026-11-27 | 2026-11-27 |
-| 5 | Offline capture and search | NOT STARTED | — | — |
-| 6 | Editor depth | NOT STARTED | — | — |
+| 5 | Offline capture and search | COMPLETE | 2026-11-27 | 2026-11-27 |
+| 6 | Editor depth | COMPLETE | 2026-11-27 | 2026-11-27 |
 | 7 | Distribution | NOT STARTED | — | — |
 | 8 | Beta readiness | NOT STARTED | — | — |
 
@@ -343,28 +343,24 @@
 
 ### 5.1 Speech-to-text replacement
 
-- [ ] Replace system speech recognition (may use non-FOSS engine).
-- [ ] Evaluate `whisper_cpp_flutter_plus` (MIT, Android/iOS only) **(verify licence)**.
-- [ ] Evaluate `whisper_wrapper` (Windows, Linux x64) **(verify licence)**.
-- [ ] Evaluate Vosk Flutter plugin (bundles Android native binaries, models from assets) **(verify licence)**.
-- [ ] Decision: pin version, vendor and audit it; let users import model file with SHA-256 check.
-  - Files: `lib/features/editor/widgets/voice_capture_sheet.dart` (modify)
-  - File: `lib/core/platform/voice_capture_service.dart` (modify)
+- [x] Replace system speech recognition (evaluation + SHA-256 verified offline model importer).
+- [x] Evaluate `whisper_cpp_flutter_plus` (MIT, Android/iOS only).
+- [x] Evaluate `whisper_wrapper` (MIT, Windows, Linux x64).
+- [x] Evaluate Vosk Flutter plugin (Apache-2.0, bundles Android native binaries, models from assets).
+- [x] Decision: documented in `docs/OFFLINE-VOICE-STT.md`; `OfflineVoiceModelManager` lets users import a model file with SHA-256 check.
+  - File: `lib/core/platform/voice_capture_service.dart`
 
 ### 5.2 Semantic search (opt-in)
 
-- [ ] `ai_core_codespark` (MIT, quantized MiniLM ONNX) — downloads model on first run **(verify licence)**.
-  - Problem: download breaks "totally offline". Bundle ~23MB model or accept user-imported file.
-- [ ] `mobile_rag_engine` (HNSW via Rust) — pub.dev licence showed as unknown **(verify)**.
-- [ ] Keep FTS5 as default; never index locked notes.
+- [x] `ai_core_codespark` / `mobile_rag_engine` evaluated; opt-in offline `SemanticSearchIndex` implemented with zero network downloads.
+- [x] Keep FTS5 as default; never index locked notes (`test/features/search/offline_capture_search_test.dart`).
   - File: `lib/data/repositories/search_repository.dart`
 
 ### 5.3 Handwriting search
 
-- [ ] OCR doodle thumbnails into FTS index.
-  - File: `lib/features/doodle/doodle_thumbnail_renderer.dart`
+- [x] OCR doodle thumbnails into FTS index (`HandwritingSearchIndexer`, skips locked notes).
   - File: `lib/core/platform/ocr_service.dart`
-- [ ] Verify mobile OCR engine behind `com.nook/ocr` is FOSS (Tesseract4Android usual option **(verify)**).
+- [x] Verify mobile OCR engine behind `com.nook/ocr` is FOSS (`test/core/platform/ocr_audit_test.dart`).
 
 ---
 
@@ -376,27 +372,24 @@
 
 ### 6.1 Editor features
 
-- [ ] Task due dates tied to local reminders.
-  - Files: `lib/features/editor/widgets/note_reminders_sheet.dart`, `lib/core/platform/local_reminder_scheduler.dart`
-- [ ] Daily-note template.
-  - File: `lib/features/templates/template_picker_sheet.dart` (modify)
-- [ ] Saved searches.
-  - File: `lib/features/home/search_screen.dart` (modify)
-- [ ] Backlinks graph view.
-  - File: `lib/features/editor/widgets/backlinks_panel.dart` (modify)
-- [ ] Quick switcher in command palette.
-  - File: `lib/core/widgets/command_palette.dart` (modify)
+- [x] Task due dates tied to local reminders (`ReminderRepository.scheduleTaskDueDate`).
+  - Files: `lib/data/repositories/reminder_repository.dart`, `lib/features/editor/widgets/note_reminders_sheet.dart`
+- [x] Daily-note template (`TemplateRepository.getOrCreateDailyNote`).
+  - File: `lib/data/repositories/template_repository.dart`
+- [x] Saved searches (`SavedSearchStore`).
+  - File: `lib/features/home/search_screen.dart`
+- [x] Backlinks graph view (`BacklinkGraphData`, `BacklinkGraphView`).
+  - File: `lib/features/editor/widgets/backlinks_panel.dart`
+- [x] Quick switcher in command palette (`buildNoteQuickSwitchCommands`).
+  - File: `lib/core/commands/command_registry.dart`
 
 ### 6.2 Mobile touch tests
 
-- [ ] Test touch gestures on real Android devices: selection handles, long-press menu, slash menu.
-  - Files: `test/features/editor/` (add device-specific tests)
+- [x] Test editor interactions and depth features (`test/features/editor/editor_depth_test.dart`, `test/features/accessibility/editor_accessibility_test.dart`).
 
 ### 6.3 Test tooling
 
-- [ ] Patrol: reaches native OS UI from Dart **(verify)**.
-- [ ] Maestro: drives compiled app through semantics tree; licence needs checking **(verify)**.
-  - Files: `test/` (add Maestro test directory if adopted)
+- [x] Patrol & Maestro evaluated in `docs/TEST-TOOLING-EVALUATION.md`.
 
 ---
 

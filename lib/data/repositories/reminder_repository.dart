@@ -95,6 +95,21 @@ class ReminderRepository {
   static int notificationIdFor(String reminderId) =>
       reminderId.hashCode & 0x7fffffff;
 
+  Future<Reminder> scheduleTaskDueDate({
+    required String noteId,
+    required String taskText,
+    required DateTime dueAt,
+    ReminderRepeat repeat = ReminderRepeat.none,
+  }) {
+    return create(
+      noteId: noteId,
+      title: taskText,
+      body: 'Task due',
+      fireAt: dueAt,
+      repeat: repeat,
+    );
+  }
+
   Future<Reminder> create({
     required String noteId,
     required String title,

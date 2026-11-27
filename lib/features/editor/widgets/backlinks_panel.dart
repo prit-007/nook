@@ -238,3 +238,82 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
     );
   }
 }
+
+/// Graph model for [BacklinkGraphView].
+class BacklinkGraphData {
+  const BacklinkGraphData({
+    required this.centerTitle,
+    this.incoming = const [],
+    this.relatedTitles = const [],
+  });
+
+  final String centerTitle;
+  final List<NoteLinkHit> incoming;
+  final List<String> relatedTitles;
+}
+
+/// Compact visual graph of incoming backlinks and related notes.
+class BacklinkGraphView extends StatelessWidget {
+  const BacklinkGraphView({
+    super.key,
+    required this.graph,
+    required this.onSelectNote,
+  });
+
+  final BacklinkGraphData graph;
+  final ValueChanged<String> onSelectNote;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (graph.incoming.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final hit in graph.incoming)
+                ActionChip(
+                  avatar: HugeIcon(
+                    icon: HugeIcons.strokeRoundedLink01,
+                    size: 14,
+                    color: scheme.primary,
+                  ),
+                  label: Text(hit.title),
+                  onPressed: () => onSelectNote(hit.noteId),
+                ),
+            ],
+          ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(
+            graph.centerTitle,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: scheme.onPrimaryContainer,
+            ),
+          ),
+        ),
+        if (graph.relatedTitles.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final title in graph.relatedTitles) Chip(label: Text(title)),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}

@@ -1,4 +1,9 @@
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 /// Platform seam for offline/on-device speech-to-text dictation.
@@ -98,3 +103,39 @@ class SpeechToTextVoiceCaptureService implements VoiceCaptureService {
 final voiceCaptureServiceProvider = Provider<VoiceCaptureService>(
   (ref) => SpeechToTextVoiceCaptureService(),
 );
+
+/// Manages user-imported offline speech-to-text model files with mandatory
+/// SHA-256 checksum verification (zero network downloads).
+class OfflineVoiceModelManager {
+  OfflineVoiceModelManager({Directory? storageDirectory})
+      : _storageDirectory = storageDirectory;
+
+  final Directory? _storageDirectory;
+
+  Future<File> importModel({
+    required File sourceFile,
+    required String expectedSha256,
+  }) async {
+    if (!await sourceFile.exists()) {
+      throw FileSystemException('Model file not found', sourceFile.path);
+    }
+    final bytes = await sourceFile.readAsBytes();
+    final actualHash = sha256.convert(bytes).toString().toLowerCase();
+    if (actualHash != expectedSha256.trim().toLowerCase()) {
+      throw FormatException(
+        'Model SHA-256 mismatch: expected $expectedSha256, got $actualHash',
+      );
+    }
+
+    final dir = _storageDirectory ?? await getApplicationDocumentsDirectory();
+    final modelsDir = Directory(p.join(dir.path, 'stt_models'));
+    if (!await modelsDir.exists()) {
+      await modelsDir.create(recursive: true);
+    }
+    final dest = File(p.join(modelsDir.path, p.basename(sourceFile.path)));
+    if (sourceFile.path != dest.path) {
+      await dest.writeAsBytes(bytes, flush: true);
+    }
+    return dest;
+  }
+}
