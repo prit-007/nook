@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart';
 
 import '../providers/talker_provider.dart';
 import 'kdf.dart';
@@ -36,6 +37,9 @@ class DekManager {
   DekManager({
     SecureKeyValueStore? store,
     this.iterations = defaultPbkdf2Iterations,
+    this.argon2Memory = defaultArgon2Memory,
+    this.argon2Iterations = defaultArgon2Iterations,
+    this.argon2Parallelism = defaultArgon2Parallelism,
     Random? random,
   })  : _store = store ?? const FlutterSecureKeyValueStore(),
         _random = random ?? Random.secure();
@@ -47,6 +51,9 @@ class DekManager {
 
   final SecureKeyValueStore _store;
   final int iterations;
+  final int argon2Memory;
+  final int argon2Iterations;
+  final int argon2Parallelism;
   final Random _random;
   final AesGcm _aesGcm = AesGcm.with256bits();
 
@@ -87,20 +94,26 @@ class DekManager {
       final map = jsonDecode(raw);
       if (map is! Map<String, dynamic>) return false;
       final salt = map['salt'];
-      final iterations = map['iterations'];
       final nonce = map['nonce'];
       final ciphertext = map['ciphertext'];
       final mac = map['mac'];
-      return salt is String &&
-          salt.isNotEmpty &&
-          iterations is int &&
-          iterations > 0 &&
-          nonce is String &&
-          nonce.isNotEmpty &&
-          ciphertext is String &&
-          ciphertext.isNotEmpty &&
-          mac is String &&
-          mac.isNotEmpty;
+      if (salt is! String ||
+          salt.isEmpty ||
+          nonce is! String ||
+          nonce.isEmpty ||
+          ciphertext is! String ||
+          ciphertext.isEmpty ||
+          mac is! String ||
+          mac.isEmpty) {
+        return false;
+      }
+      final version = map['v'];
+      if (version == 2) {
+        final kdf = map['kdf'];
+        return kdf is String && kdf.startsWith(argon2idPrefix);
+      }
+      final iters = map['iterations'];
+      return iters is int && iters > 0;
     } catch (_) {
       return false;
     }
@@ -141,19 +154,9 @@ class DekManager {
       dek = _generateRandomBase64Key(32);
     }
 
-    final salt = generateSalt();
-    final kek = pbkdf2DeriveBytes(
-      password: password,
-      salt: utf8.encode(salt),
-      iterations: iterations,
-      keyLength: 32,
-    );
-
-    final wrappedJson = await _encryptDekWithKek(
+    final wrappedJson = await _encryptDekV2WithPassword(
       dek: dek,
-      kekBytes: kek,
-      salt: salt,
-      iterations: iterations,
+      password: password,
     );
     await _store.write(wrappedDekStorageKey, wrappedJson);
 
@@ -205,11 +208,21 @@ class DekManager {
 
   /// Unwraps the DEK using [password]. Returns `null` on wrong password or
   /// missing/corrupt envelope.
+  ///
+  /// When a legacy `v1` PBKDF2 envelope is unwrapped successfully, it is
+  /// atomically migrated to `v2` Argon2id; a failed unwrap or failed write
+  /// never corrupts the stored DEK.
   Future<String?> unwrapDekWithPassword(String password) async {
     final raw = await _store.read(wrappedDekStorageKey);
     if (raw == null || raw.isEmpty) return null;
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
+      final version = map['v'];
+      if (version == 2) {
+        return await _unwrapV2Envelope(map: map, password: password);
+      }
+
+      // Legacy v1 PBKDF2 envelope.
       final salt = map['salt'] as String;
       final iters = map['iterations'] as int;
       final kek = pbkdf2DeriveBytes(
@@ -218,9 +231,70 @@ class DekManager {
         iterations: iters,
         keyLength: 32,
       );
-      return await _decryptDekWithKek(map: map, kekBytes: kek);
+      final dek = await _decryptDekWithKek(map: map, kekBytes: kek);
+      if (dek != null) {
+        await _migrateLegacyEnvelopeToV2(dek: dek, password: password);
+      }
+      return dek;
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<String?> _unwrapV2Envelope({
+    required Map<String, dynamic> map,
+    required String password,
+  }) async {
+    final kdf = map['kdf'];
+    if (kdf is! String || !kdf.startsWith(argon2idPrefix)) return null;
+    final parts = kdf.split('\$');
+    if (parts.length < 4) return null;
+    final params = parseArgon2idParams(parts[2]);
+    if (params == null) return null;
+    final salt = map['salt'] as String;
+    final kek = await argon2idDeriveBytes(
+      password: password,
+      salt: utf8.encode(salt),
+      memory: params.memory,
+      iterations: params.iterations,
+      parallelism: params.parallelism,
+      keyLength: 32,
+    );
+    return _decryptDekWithKek(map: map, kekBytes: kek);
+  }
+
+  Future<void> _migrateLegacyEnvelopeToV2({
+    required String dek,
+    required String password,
+  }) async {
+    try {
+      final v2Json = await _encryptDekV2WithPassword(
+        dek: dek,
+        password: password,
+      );
+      final v2Map = jsonDecode(v2Json) as Map<String, dynamic>;
+      final verified = await _unwrapV2Envelope(map: v2Map, password: password);
+      if (verified != dek) {
+        nookLog(
+          NookLogKey.security,
+          'Argon2id KDF migration verification failed; keeping legacy envelope',
+          LogLevel.warning,
+        );
+        return;
+      }
+      await _store.write(wrappedDekStorageKey, v2Json);
+      nookLog(
+        NookLogKey.security,
+        'Migrated wrapped DEK KDF from PBKDF2 to v2 Argon2id',
+        LogLevel.info,
+      );
+    } catch (e) {
+      // Never fail or corrupt the stored DEK if migration write is interrupted.
+      nookLog(
+        NookLogKey.security,
+        'Interrupted Argon2id KDF migration rolled back ($e)',
+        LogLevel.warning,
+      );
     }
   }
 
@@ -254,18 +328,9 @@ class DekManager {
     final dek = await unwrapDekWithPassword(oldPassword);
     if (dek == null) return false;
 
-    final salt = generateSalt();
-    final kek = pbkdf2DeriveBytes(
-      password: newPassword,
-      salt: utf8.encode(salt),
-      iterations: iterations,
-      keyLength: 32,
-    );
-    final wrappedJson = await _encryptDekWithKek(
+    final wrappedJson = await _encryptDekV2WithPassword(
       dek: dek,
-      kekBytes: kek,
-      salt: salt,
-      iterations: iterations,
+      password: newPassword,
     );
     await _store.write(wrappedDekStorageKey, wrappedJson);
     return true;
@@ -290,6 +355,59 @@ class DekManager {
       NookLogKey.security,
       'SQLCipher DEK wrapping disabled; key restored to keystore',
       LogLevel.info,
+    );
+  }
+
+  Future<String> _encryptDekV2WithPassword({
+    required String dek,
+    required String password,
+  }) async {
+    final salt = generateSalt();
+    final kek = await argon2idDeriveBytes(
+      password: password,
+      salt: utf8.encode(salt),
+      memory: argon2Memory,
+      iterations: argon2Iterations,
+      parallelism: argon2Parallelism,
+      keyLength: 32,
+    );
+    final nonce = List<int>.generate(12, (_) => _random.nextInt(256));
+    final box = await _aesGcm.encrypt(
+      utf8.encode(dek),
+      secretKey: SecretKey(kek),
+      nonce: nonce,
+    );
+    return jsonEncode({
+      'v': 2,
+      'kdf':
+          '${argon2idPrefix}m=$argon2Memory,t=$argon2Iterations,p=$argon2Parallelism\$$salt',
+      'salt': salt,
+      'nonce': base64Url.encode(box.nonce),
+      'ciphertext': base64Url.encode(box.cipherText),
+      'mac': base64Url.encode(box.mac.bytes),
+    });
+  }
+
+  /// Creates a legacy v1 PBKDF2-wrapped envelope for migration testing.
+  @visibleForTesting
+  Future<String> encryptLegacyV1ForTest({
+    required String dek,
+    required String password,
+    int? iterations,
+  }) async {
+    final salt = generateSalt();
+    final iters = iterations ?? this.iterations;
+    final kek = pbkdf2DeriveBytes(
+      password: password,
+      salt: utf8.encode(salt),
+      iterations: iters,
+      keyLength: 32,
+    );
+    return _encryptDekWithKek(
+      dek: dek,
+      kekBytes: kek,
+      salt: salt,
+      iterations: iters,
     );
   }
 

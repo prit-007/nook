@@ -110,6 +110,9 @@ class TrashAutoPurger {
       await attachmentRepo.permanentlyDeleteWithFiles(att);
     }
 
+    // Reclaim freed SQLite pages so purged note data does not linger on disk.
+    await _db.customStatement('VACUUM;');
+
     final result = TrashPurgeResult(
       notes: expiredNotes.length,
       notebooks: expiredNotebooks.length,

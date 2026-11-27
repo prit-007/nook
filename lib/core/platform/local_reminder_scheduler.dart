@@ -22,6 +22,7 @@ class LocalReminderScheduler implements ReminderScheduler {
     channelDescription: 'Local reminders for your notes',
     importance: Importance.high,
     priority: Priority.high,
+    visibility: NotificationVisibility.private,
   );
 
   Future<void> _ensureInitialized() async {

@@ -488,5 +488,57 @@ void main() {
         expect(updatedX!.parentId, isNull);
       });
     });
+
+    group('Block-level 3-way merge using NoteRevisions (Phase 2.2)', () {
+      Map<String, dynamic> docWithParagraphs(List<String> texts) => {
+            'document': {
+              'type': 'page',
+              'children': [
+                for (final t in texts)
+                  {
+                    'type': 'paragraph',
+                    'data': {
+                      'delta': [
+                        {'insert': t}
+                      ]
+                    }
+                  },
+              ],
+            },
+          };
+
+      test('merges non-overlapping block edits cleanly without prompting',
+          () async {
+        final base = docWithParagraphs(['Line 1', 'Line 2']);
+        final local = docWithParagraphs(['Line 1 (local)', 'Line 2']);
+        final remote = docWithParagraphs(['Line 1', 'Line 2 (remote)']);
+
+        final merged = MergeResolver.threeWayMergeDocument(
+          base: base,
+          local: local,
+          remote: remote,
+        );
+        expect(merged.hasConflict, isFalse);
+
+        final children =
+            (merged.mergedDocument['document']['children'] as List);
+        expect(children, hasLength(2));
+        expect(children[0]['data']['delta'][0]['insert'], 'Line 1 (local)');
+        expect(children[1]['data']['delta'][0]['insert'], 'Line 2 (remote)');
+      });
+
+      test('flags conflict when both devices edit the same block', () {
+        final base = docWithParagraphs(['Shared line']);
+        final local = docWithParagraphs(['Local edit']);
+        final remote = docWithParagraphs(['Remote edit']);
+
+        final merged = MergeResolver.threeWayMergeDocument(
+          base: base,
+          local: local,
+          remote: remote,
+        );
+        expect(merged.hasConflict, isTrue);
+      });
+    });
   });
 }

@@ -23,8 +23,15 @@ void main() {
       (tester) async {
     final store = _MemStore();
     await store.write(DekManager.dbEncryptionKeyStorageKey, 'test-dek');
-    final dekManager = DekManager(store: store, iterations: 100);
-    await dekManager.wrapDekWithPassword('vault-secret');
+    final dekManager = DekManager(
+      store: store,
+      iterations: 100,
+      argon2Memory: 1024,
+      argon2Iterations: 1,
+    );
+    await tester.runAsync(() async {
+      await dekManager.wrapDekWithPassword('vault-secret');
+    });
 
     String? unlockedDek;
 
@@ -44,14 +51,26 @@ void main() {
     await tester.enterText(find.byType(TextField), 'wrong');
     await tester.tap(find.text('Unlock Vault'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    for (var i = 0; i < 15; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find.text('Incorrect vault password').evaluate().isNotEmpty) break;
+    }
     expect(find.text('Incorrect vault password'), findsOneWidget);
     expect(unlockedDek, isNull);
 
     await tester.enterText(find.byType(TextField), 'vault-secret');
     await tester.tap(find.text('Unlock Vault'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    for (var i = 0; i < 15; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      if (unlockedDek != null) break;
+    }
     expect(unlockedDek, 'test-dek');
   });
 
@@ -59,9 +78,16 @@ void main() {
       (tester) async {
     final store = _MemStore();
     await store.write(DekManager.dbEncryptionKeyStorageKey, 'recovered-dek');
-    final dekManager = DekManager(store: store, iterations: 100);
+    final dekManager = DekManager(
+      store: store,
+      iterations: 100,
+      argon2Memory: 1024,
+      argon2Iterations: 1,
+    );
     final words = generateRecoveryKey();
-    await dekManager.wrapDekWithPassword('pw', recoveryWords: words);
+    await tester.runAsync(() async {
+      await dekManager.wrapDekWithPassword('pw', recoveryWords: words);
+    });
 
     String? unlockedDek;
 

@@ -36,9 +36,9 @@
 | Phase | Description | Status | Started | Completed |
 |-------|-------------|--------|---------|-----------|
 | 0 | Truth and baseline | COMPLETE | 2026-11-27 | 2026-11-27 |
-| 1 | Security hardening | NOT STARTED | — | — |
-| 2 | Sync correctness | NOT STARTED | — | — |
-| 3 | UX consolidation | NOT STARTED | — | — |
+| 1 | Security hardening | IN_PROGRESS | 2026-11-27 | — |
+| 2 | Sync correctness | IN_PROGRESS | 2026-11-27 | — |
+| 3 | UX consolidation | IN_PROGRESS | 2026-11-27 | — |
 | 4 | Portability and backup | NOT STARTED | — | — |
 | 5 | Offline capture and search | NOT STARTED | — | — |
 | 6 | Editor depth | NOT STARTED | — | — |
@@ -128,14 +128,14 @@
 
 ### 1.1 KDF migration (PBKDF2 → Argon2id)
 
-- [ ] Research current OWASP guidance for PBKDF2-HMAC-SHA256 iterations **(verify)** — current is 100k; guidance suggests ~600k.
-- [ ] Add versioned KDF format: `v2$argon2id$...` with migration path.
+- [x] Research current OWASP guidance for PBKDF2-HMAC-SHA256 iterations **(verify)** — Argon2id OWASP interactive profile (`m=19456, t=2, p=1`) adopted as primary v2 KDF with PBKDF2-HMAC-SHA256 legacy fallback.
+- [x] Add versioned KDF format: `v2$argon2id$...` with migration path.
   - File: `lib/core/security/kdf.dart` (modify)
   - File: `lib/core/security/dek_manager.dart` (modify: `wrapDekWithPassword`, `unwrapDekWithPassword`)
-- [ ] Add migration test: old-to-new format, wrong password, kill mid-migration.
+- [x] Add migration test: old-to-new format, wrong password, kill mid-migration.
   - File: `test/core/security/kdf_migration_test.dart` (NEW)
   - Validation: `flutter test test/core/security/kdf_migration_test.dart` → passes
-- [ ] Test: failed unwrap never corrupts stored DEK.
+- [x] Test: failed unwrap never corrupts stored DEK.
   - File: `test/core/security/dek_manager_test.dart` (already exists — verify)
 
 ### 1.2 Locked-note leak sweep
@@ -164,23 +164,25 @@
 
 ### 1.4 Secure delete
 
-- [ ] Enable `secure_delete` pragma on SQLCipher DB.
+- [x] Enable `secure_delete` pragma on SQLCipher DB.
   - File: `lib/data/database.dart`
-- [ ] Vacuum after trash purge (30-day auto-purge).
+- [x] Vacuum after trash purge (30-day auto-purge).
   - File: `lib/data/repositories/trash_auto_purger.dart`
-- [ ] Keep sensitive notification text off lock screen (reminders).
+- [x] Keep sensitive notification text off lock screen (reminders).
   - File: `lib/core/platform/local_reminder_scheduler.dart`
-- [ ] Test: secure_delete pragma active, vacuum runs after purge.
+- [x] Test: secure_delete pragma active, vacuum runs after purge.
+  - File: `test/core/security/secure_delete_test.dart` (NEW)
 
 ### 1.5 App-wide FLAG_SECURE toggle + clipboard hygiene
 
-- [ ] App-wide `FLAG_SECURE` toggle (already per-dialog; extend to whole app).
+- [x] App-wide `FLAG_SECURE` toggle (already per-dialog; extend to whole app).
   - Files: `lib/core/providers/screenshot_blocker_provider.dart`, `lib/app.dart`
-- [ ] Auto-lock on background (app lifecycle).
+- [x] Auto-lock on background (app lifecycle).
   - Files: `lib/core/providers/biometric_provider.dart`, `lib/app.dart`
-- [ ] Clipboard hygiene: clear clipboard after copy operations (recovery key, notes, passwords).
-  - Files: `lib/features/security/recovery_key_dialog.dart`, `lib/features/editor/note_editor_screen.dart`
-- [ ] Test: FLAG_SECURE applied globally; clipboard cleared after 60s.
+- [x] Clipboard hygiene: clear clipboard after copy operations (recovery key, notes, passwords).
+  - Files: `lib/features/security/recovery_key_dialog.dart`, `lib/core/security/clipboard_hygiene.dart`
+- [x] Test: FLAG_SECURE applied globally; clipboard cleared after 60s.
+  - File: `test/core/security/clipboard_hygiene_test.dart` (NEW)
 
 ---
 
@@ -192,21 +194,21 @@
 
 ### 2.1 Protocol version and capability negotiation
 
-- [ ] Add protocol version field to sync envelope (`SyncMessage`).
+- [x] Add protocol version field to sync envelope (`SyncMessage`).
   - File: `lib/sync/protocol/sync_message.dart`
-- [ ] Add capability negotiation: peers detect schema version mismatch and refuse or degrade.
+- [x] Add capability negotiation: peers detect schema version mismatch and refuse or degrade.
   - File: `lib/sync/sync_orchestrator.dart` (verify), `lib/sync/protocol/merge_resolver.dart`
-- [ ] Test: mismatched schema versions → sync refused or degraded cleanly.
+- [x] Test: mismatched schema versions → sync refused or degraded cleanly.
   - File: `test/sync/protocol_version_test.dart` (NEW)
 
 ### 2.2 Smarter merge using NoteRevisions (block-level 3-way merge)
 
-- [ ] Use `NoteRevisions` last common revision as base for 3-way merge on AppFlowy node tree.
+- [x] Use `NoteRevisions` last common revision as base for 3-way merge on AppFlowy node tree.
   - File: `lib/sync/protocol/merge_resolver.dart`
   - File: `lib/data/repositories/revision_repository.dart`
-- [ ] Prompt only on true conflicts (not on same-lineage newer).
+- [x] Prompt only on true conflicts (not on same-lineage newer).
   - File: `lib/sync/protocol/merge_resolver.dart`
-- [ ] Test: same-lineage newer → auto-accept; true conflict → promptUser card.
+- [x] Test: same-lineage newer → auto-accept; true conflict → promptUser card.
   - File: `test/sync/merge_resolver_test.dart` (already exists — add cases)
 
 ### 2.3 CRDT spike (do not migrate yet)
@@ -220,16 +222,16 @@
 
 ### 2.4 Property-based convergence tests
 
-- [ ] Simulate N peers applying random operations in random order; assert convergence.
+- [x] Simulate N peers applying random operations in random order; assert convergence.
   - File: `test/sync/convergence_test.dart` (NEW)
   - Library: `glados` may help **(verify)** — check licence and API stability
 
 ### 2.5 Attachments and tombstones
 
-- [ ] Chunk and resume large transfers (attachments, doodles).
+- [x] Chunk and resume large transfers (attachments, doodles).
   - File: `lib/sync/pipeline/sync_bundle_packer.dart`
   - File: `lib/sync/transport/libp2p_sync_transport.dart` (verify exists)
-- [ ] Test: deletes propagate (tombstones).
+- [x] Test: deletes propagate (tombstones).
   - File: `test/sync/tombstone_test.dart` (NEW)
 
 ### 2.6 Open items — physical device validation
@@ -250,37 +252,37 @@
 
 ### 3.1 Merge duplicated page transitions
 
-- [ ] Consolidate `buildEditorialTransition`, `EditorialPageRoute`, `_fadeTransition` in `router.dart` into single source.
+- [x] Consolidate `buildEditorialTransition`, `EditorialPageRoute`, `_fadeTransition` in `router.dart` into single source.
   - File: `lib/core/router.dart`
   - File: `lib/core/widgets/editorial_page_transition.dart` (verify exists)
-- [ ] Validation: `flutter analyze` → 0 issues; all route tests pass
+- [x] Validation: `flutter analyze` → 0 issues; all route tests pass
 
 ### 3.2 Decide Sync placement
 
-- [ ] Decide: Sync as dock tab vs. status pill plus Settings. Write down why.
+- [x] Decide: Sync as dock tab vs. status pill plus Settings. Write down why.
   - File: `docs/SYNC-PLACEMENT-DECISION.md` (NEW)
   - Files to modify: `lib/core/widgets/app_shell.dart`, `lib/features/home/home_screen.dart`
 
 ### 3.3 Mobile drill-down for nested collections
 
-- [ ] MobileCollectionDrillDown: breadcrumb navigation bar (‹ Parent / Current) with subcollection count chips.
+- [x] MobileCollectionDrillDown: breadcrumb navigation bar (‹ Parent / Current) with subcollection count chips.
   - File: `lib/features/notebooks/widgets/mobile_collection_drill_down.dart` (verify exists)
   - File: `lib/features/notebooks/notebooks_screen.dart` (wire into mobile view)
-- [ ] Test: 3-level hierarchy creation, note placement, child promotion, note preservation.
+- [x] Test: 3-level hierarchy creation, note placement, child promotion, note preservation.
   - File: `test/features/notebooks/nested_collections_integration_test.dart` (already exists — verify)
 
 ### 3.4 Reminders management screen
 
-- [ ] Full reminder management screen (currently per-note sheet only).
+- [x] Full reminder management screen (currently per-note sheet only).
   - File: `lib/features/editor/widgets/note_reminders_sheet.dart` (verify exists)
   - New screen: `lib/features/reminders/reminders_screen.dart` (NEW)
-- [ ] Test: add/delete/list reminders.
+- [x] Test: add/delete/list reminders.
 
 ### 3.5 Fix onboarding page count
 
-- [ ] Reconcile onboarding PageView: 5 pages (Welcome, Three Ways to Capture, Pick Your Vibe, Protect Vault, Ready).
+- [x] Reconcile onboarding PageView: 5 pages (Welcome, Three Ways to Capture, Pick Your Vibe, Protect Vault, Ready).
   - File: `lib/features/onboarding/onboarding_screen.dart`
-- [ ] Update report docs to say 5 pages, not 4.
+- [x] Update report docs to say 5 pages, not 4.
 
 ### 3.6 Internationalisation (gen-l10n)
 

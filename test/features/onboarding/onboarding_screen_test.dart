@@ -142,7 +142,12 @@ void main() {
       (tester) async {
     final store = _InMemoryKvStore();
     await store.write(DekManager.dbEncryptionKeyStorageKey, 'onboarding-dek');
-    final dekManager = DekManager(store: store, iterations: 100);
+    final dekManager = DekManager(
+      store: store,
+      iterations: 100,
+      argon2Memory: 1024,
+      argon2Iterations: 1,
+    );
     final vaultProvider = VaultPasswordProvider(
       store: store,
       dekManager: dekManager,
@@ -162,17 +167,19 @@ void main() {
 
     final dynamic state = tester.state(find.byType(OnboardingScreen));
     final words = generateRecoveryKey();
-    await state.wrapDekWithPassword(
-      'test-vault-password',
-      recoveryWords: words,
-    );
+    await tester.runAsync(() async {
+      await state.wrapDekWithPassword(
+        'test-vault-password',
+        recoveryWords: words,
+      );
+    });
 
     expect(vaultProvider.enabled, isTrue);
     expect(await dekManager.isWrapped(), isTrue);
-    expect(
-      await dekManager.unwrapDekWithPassword('test-vault-password'),
-      'onboarding-dek',
+    final unwrapped = await tester.runAsync(
+      () => dekManager.unwrapDekWithPassword('test-vault-password'),
     );
+    expect(unwrapped, 'onboarding-dek');
     expect(await dekManager.unwrapDekWithRecoveryKey(words), 'onboarding-dek');
   });
 
@@ -181,7 +188,12 @@ void main() {
       (tester) async {
     final store = _InMemoryKvStore();
     await store.write(DekManager.dbEncryptionKeyStorageKey, 'ui-dek-wrap');
-    final dekManager = DekManager(store: store, iterations: 100);
+    final dekManager = DekManager(
+      store: store,
+      iterations: 100,
+      argon2Memory: 1024,
+      argon2Iterations: 1,
+    );
     final vaultProvider = VaultPasswordProvider(
       store: store,
       dekManager: dekManager,

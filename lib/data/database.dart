@@ -93,6 +93,7 @@ class AppDatabase extends _$AppDatabase {
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON;');
+          await customStatement('PRAGMA secure_delete = ON;');
         },
       );
 }
