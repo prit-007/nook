@@ -48,8 +48,19 @@ class AppShell extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final sizeClass = _windowSizeClass(width);
     final isWide = sizeClass != WindowSizeClass.compact;
+    final isThreePane = AdaptiveBreakpoints.supportsThreePane(context);
+    final location = GoRouterState.of(context).matchedLocation;
+    final isHomeThreePane = isThreePane && location.startsWith('/home');
     final selectedIndex = _currentIndex(context);
     final displayFeatures = MediaQuery.displayFeaturesOf(context);
+
+    if (isHomeThreePane) {
+      // Three-pane desktop layout: DesktopNavigationSidebar in HomeScreen replaces NavigationRail
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: SafeArea(child: child),
+      );
+    }
 
     if (isWide) {
       return _WideShell(

@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' hide isNotNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
@@ -408,6 +408,85 @@ void main() {
       final remoteNote = allNotes.firstWhere((n) => n.id != 'shared-id');
       expect(remoteNote.title, 'Remote Version');
       expect(remoteNote.deviceOriginId, 'device-b');
+    });
+
+    group('Phase 13a Nested Collections Sync Merge', () {
+      test('applies notebookParentId to placeholder and resolves hierarchy',
+          () async {
+        final notebookRepo = NotebookRepository(db);
+        final parentNb = await notebookRepo.createNotebook(
+          name: 'Parent Collection',
+          colorSeed: '#111',
+        );
+
+        final incoming = SyncNoteEntry(
+          noteId: 'child-note-1',
+          syncVersion: 1,
+          updatedAt: DateTime.utc(2026, 8, 12),
+          deviceOriginId: 'device-b',
+          noteFields: {
+            'title': 'Child Note',
+            'type': 'text',
+            'notebookId': 'remote-nb-child',
+            'notebookName': 'Remote Sub-Collection',
+            'notebookColorSeed': '#333',
+            'notebookParentId': parentNb.id,
+          },
+          checklistItems: null,
+          attachments: null,
+        );
+
+        await resolver.insertAsNew(incoming);
+
+        final childNb = await notebookRepo.getNotebookById('remote-nb-child');
+        expect(childNb, isNotNull);
+        expect(childNb!.parentId, parentNb.id);
+        expect(childNb.name, 'Remote Sub-Collection');
+      });
+
+      test('breaks concurrent reparenting cycle deterministically to root',
+          () async {
+        final notebookRepo = NotebookRepository(db);
+
+        // Local state: nbX is parent of nbY (nbY.parentId == nbX.id)
+        final nbX = await notebookRepo.createNotebookWithId(
+          'nb-X',
+          name: 'X',
+          colorSeed: '#111',
+        );
+        final nbY = await notebookRepo.createNotebookWithId(
+          'nb-Y',
+          name: 'Y',
+          colorSeed: '#222',
+          parentId: nbX.id,
+        );
+        expect(nbY.parentId, nbX.id);
+
+        // Remote device concurrently moved X under Y (nbX.parentId = nbY.id)
+        // If accepted directly, this would create X -> Y -> X cycle!
+        final incoming = SyncNoteEntry(
+          noteId: 'remote-note-cycle',
+          syncVersion: 2,
+          updatedAt: DateTime.utc(2026, 8, 15),
+          deviceOriginId: 'device-b',
+          noteFields: {
+            'title': 'Cycle trigger note',
+            'type': 'text',
+            'notebookId': nbX.id,
+            'notebookName': 'X',
+            'notebookColorSeed': '#111',
+            'notebookParentId': nbY.id,
+          },
+          checklistItems: null,
+          attachments: null,
+        );
+
+        await resolver.insertAsNew(incoming);
+
+        // Must break cycle by detaching to root
+        final updatedX = await notebookRepo.getNotebookById(nbX.id);
+        expect(updatedX!.parentId, isNull);
+      });
     });
   });
 }

@@ -5,11 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
-import '../../../core/theme/design_tokens.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/notebook_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
 import '../../../data/tables/notes.dart';
+import '../../notebooks/controllers/collection_tree_controller.dart';
+import '../../notebooks/widgets/collection_tree_view.dart';
 
 /// Desktop 3-pane navigation sidebar for widescreen monitors (>= 1200dp).
 ///
@@ -48,10 +49,12 @@ class _DesktopNavigationSidebarState
   List<Notebook> _notebooks = [];
   List<Tag> _tags = [];
   bool _loading = true;
+  late final CollectionTreeController _treeController;
 
   @override
   void initState() {
     super.initState();
+    _treeController = CollectionTreeController();
     _loadCollections();
   }
 
@@ -60,8 +63,16 @@ class _DesktopNavigationSidebarState
     final nbRepo = NotebookRepository(db);
     final tagRepo = TagRepository(db);
     final nbs = await nbRepo.getAllNotebooks();
+    final counts = await nbRepo.countAggregateNotesForAllNotebooks();
     final tags = await tagRepo.getAllTags();
     if (!mounted) return;
+
+    final treeNodes = CollectionTreeController.buildTree(nbs, counts);
+    _treeController.setNodes(treeNodes);
+    if (widget.selectedNotebookId != null) {
+      _treeController.selectId(widget.selectedNotebookId);
+    }
+
     setState(() {
       _notebooks = nbs;
       _tags = tags;
@@ -193,7 +204,22 @@ class _DesktopNavigationSidebarState
                     ),
                   )
                 else
-                  ..._buildNestedNotebookItems(scheme),
+                  CollectionTreeView(
+                    controller: _treeController,
+                    onSelect: (id) {
+                      HapticFeedback.selectionClick();
+                      widget.onSelectNotebook(
+                          widget.selectedNotebookId == id ? null : id);
+                    },
+                    onReparent: (childId, newParentId) async {
+                      final nbRepo =
+                          NotebookRepository(ref.read(databaseProvider));
+                      try {
+                        await nbRepo.reparentNotebook(childId, newParentId);
+                        await _loadCollections();
+                      } catch (_) {}
+                    },
+                  ),
                 const SizedBox(height: 16),
                 if (_tags.isNotEmpty) ...[
                   _SectionHeader(title: 'TAGS', scheme: scheme),
@@ -226,81 +252,6 @@ class _DesktopNavigationSidebarState
         ],
       ),
     );
-  }
-
-  List<Widget> _buildNestedNotebookItems(ColorScheme scheme) {
-    final widgets = <Widget>[];
-    // Separate root notebooks and sub-notebooks
-    final roots = _notebooks.where((nb) => nb.parentId == null).toList();
-    final subMap = <String, List<Notebook>>{};
-    for (final nb in _notebooks.where((nb) => nb.parentId != null)) {
-      subMap.putIfAbsent(nb.parentId!, () => []).add(nb);
-    }
-
-    for (final root in roots) {
-      final isSelected = widget.selectedNotebookId == root.id;
-      final seed = NookColors.parseHex(root.colorSeed);
-      widgets.add(
-        _SidebarItem(
-          customLeading: Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: seed,
-              shape: BoxShape.circle,
-            ),
-          ),
-          label: root.name,
-          isSelected: isSelected,
-          onTap: () {
-            HapticFeedback.selectionClick();
-            widget.onSelectNotebook(isSelected ? null : root.id);
-          },
-        ),
-      );
-
-      // Render children if present
-      final children = subMap[root.id] ?? [];
-      for (final child in children) {
-        final isChildSelected = widget.selectedNotebookId == child.id;
-        final childSeed = NookColors.parseHex(child.colorSeed);
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: _SidebarItem(
-              customLeading: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  HugeIcon(
-                    icon: HugeIcons.strokeRoundedArrowRight01,
-                    size: 14,
-                    color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(width: 4),
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: childSeed,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ),
-              label: child.name.contains('/')
-                  ? child.name.split('/').last.trim()
-                  : child.name,
-              isSelected: isChildSelected,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                widget.onSelectNotebook(isChildSelected ? null : child.id);
-              },
-            ),
-          ),
-        );
-      }
-    }
-    return widgets;
   }
 }
 
@@ -341,7 +292,6 @@ class _SectionHeader extends StatelessWidget {
 class _SidebarItem extends StatelessWidget {
   const _SidebarItem({
     this.icon,
-    this.customLeading,
     required this.label,
     this.count,
     required this.isSelected,
@@ -349,7 +299,6 @@ class _SidebarItem extends StatelessWidget {
   });
 
   final dynamic icon;
-  final Widget? customLeading;
   final String label;
   final int? count;
   final bool isSelected;
@@ -370,9 +319,7 @@ class _SidebarItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           child: Row(
             children: [
-              if (customLeading != null)
-                customLeading!
-              else if (icon != null)
+              if (icon != null)
                 HugeIcon(
                   icon: icon,
                   size: 18,

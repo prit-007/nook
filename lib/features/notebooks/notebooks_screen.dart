@@ -67,7 +67,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
   Future<void> _load() async {
     final repo = NotebookRepository(ref.read(databaseProvider));
     final results = await repo.getAllNotebooks();
-    final counts = await repo.countNotesForAllNotebooks();
+    final counts = await repo.countAggregateNotesForAllNotebooks();
     if (!mounted) return;
 
     // Order hierarchically: root collections first, followed by their subcollections
@@ -138,7 +138,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
             ),
             onPressed: () async {
               final repo = NotebookRepository(ref.read(databaseProvider));
-              await repo.softDelete(notebook.id);
+              await repo.softDeletePromotingChildren(notebook.id);
               if (ctx.mounted) Navigator.pop(ctx);
               await _load();
             },
@@ -151,7 +151,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
             ),
             onPressed: () async {
               final repo = NotebookRepository(ref.read(databaseProvider));
-              await repo.softDeleteNotebookAndNotes(notebook.id);
+              await repo.softDeleteSubtree(notebook.id);
               if (ctx.mounted) Navigator.pop(ctx);
               await _load();
             },
@@ -565,7 +565,9 @@ class _SeedColorDot extends StatelessWidget {
 /// lifetime matches the sheet's route — it is neither leaked nor disposed
 /// while the sheet's exit transition is still animating.
 class _CreateNotebookSheet extends ConsumerStatefulWidget {
-  const _CreateNotebookSheet({required this.onCreated});
+  const _CreateNotebookSheet({
+    required this.onCreated,
+  });
 
   final VoidCallback onCreated;
 
@@ -589,9 +591,11 @@ class _CreateNotebookSheetState extends ConsumerState<_CreateNotebookSheet> {
   Future<void> _loadExistingNotebooks() async {
     final repo = NotebookRepository(ref.read(databaseProvider));
     final notebooks = await repo.getAllNotebooks();
-    if (mounted) {
-      setState(() => _existingNotebooks = notebooks);
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _existingNotebooks = notebooks;
+    });
   }
 
   @override

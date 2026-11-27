@@ -112,12 +112,14 @@ class SyncBundlePacker {
       String? notebookName;
       String? notebookColorSeed;
       String? notebookIcon;
+      String? notebookParentId;
       if (note.notebookId != null) {
         final notebook = await notebookRepo.getNotebookById(note.notebookId!);
         if (notebook != null) {
           notebookName = notebook.name;
           notebookColorSeed = notebook.colorSeed;
           notebookIcon = notebook.icon;
+          notebookParentId = notebook.parentId;
         }
       }
 
@@ -142,6 +144,7 @@ class SyncBundlePacker {
           if (notebookName != null) 'notebookName': notebookName,
           if (notebookColorSeed != null) 'notebookColorSeed': notebookColorSeed,
           if (notebookIcon != null) 'notebookIcon': notebookIcon,
+          if (notebookParentId != null) 'notebookParentId': notebookParentId,
         },
         checklistItems: checklistItems != null && checklistItems.isNotEmpty
             ? checklistItems

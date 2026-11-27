@@ -12,6 +12,104 @@ class NotebookRepository {
 
   final AppDatabase _db;
   static const _uuid = Uuid();
+  static const int maxCollectionDepth = 4;
+
+  /// Returns the depth of [notebookId] in the collection hierarchy (0 for root).
+  Future<int> getNotebookDepth(String notebookId) async {
+    int depth = 0;
+    String? currentId = notebookId;
+    final visited = <String>{};
+
+    while (currentId != null) {
+      if (visited.contains(currentId)) break;
+      visited.add(currentId);
+
+      final row = await (_db.select(_db.notebooks)
+            ..where((t) => t.id.equals(currentId!)))
+          .getSingleOrNull();
+      if (row == null || row.parentId == null) {
+        break;
+      }
+      depth++;
+      currentId = row.parentId;
+      if (depth >= 100) break;
+    }
+    return depth;
+  }
+
+  /// Calculates the maximum depth of descendants beneath [notebookId].
+  Future<int> getSubtreeHeight(String notebookId) async {
+    final children = await (_db.select(_db.notebooks)
+          ..where(
+              (t) => t.parentId.equals(notebookId) & t.deleted.equals(false)))
+        .get();
+    if (children.isEmpty) return 0;
+
+    int maxHeight = 0;
+    for (final child in children) {
+      final h = await getSubtreeHeight(child.id);
+      if (h + 1 > maxHeight) {
+        maxHeight = h + 1;
+      }
+    }
+    return maxHeight;
+  }
+
+  /// Returns `true` if setting [newParentId] as the parent of [id] would create
+  /// a directed cycle (i.e. [newParentId] is [id] or a descendant of [id]).
+  Future<bool> wouldCreateCycle(String id, String newParentId) async {
+    if (id == newParentId) return true;
+    final descendants = await getDescendantNotebookIds(id);
+    return descendants.contains(newParentId);
+  }
+
+  /// Returns all descendant notebook IDs recursively.
+  Future<List<String>> getDescendantNotebookIds(
+    String notebookId, {
+    bool includeDeleted = false,
+  }) async {
+    final results = <String>[];
+    final queue = <String>[notebookId];
+    final visited = <String>{notebookId};
+
+    while (queue.isNotEmpty) {
+      final current = queue.removeAt(0);
+      final query = _db.select(_db.notebooks)
+        ..where((t) {
+          final cond = t.parentId.equals(current);
+          return includeDeleted ? cond : cond & t.deleted.equals(false);
+        });
+      final children = await query.get();
+      for (final child in children) {
+        if (!visited.contains(child.id)) {
+          visited.add(child.id);
+          results.add(child.id);
+          queue.add(child.id);
+        }
+      }
+    }
+    return results;
+  }
+
+  /// Reparents [id] to [newParentId], enforcing cycle prevention and maximum
+  /// hierarchy depth of 4.
+  Future<void> reparentNotebook(String id, String? newParentId) async {
+    if (newParentId != null) {
+      if (id == newParentId) {
+        throw ArgumentError('Cannot reparent notebook into itself');
+      }
+      if (await wouldCreateCycle(id, newParentId)) {
+        throw ArgumentError('Cannot reparent into own descendant');
+      }
+      final parentDepth = await getNotebookDepth(newParentId);
+      final subtreeH = await getSubtreeHeight(id);
+      if (parentDepth + 1 + subtreeH > maxCollectionDepth) {
+        throw ArgumentError('Maximum depth of $maxCollectionDepth exceeded');
+      }
+    }
+
+    await updateNotebook(id, parentId: Value(newParentId));
+  }
 
   /// Creates a new notebook and returns the inserted row.
   Future<Notebook> createNotebook({
@@ -21,6 +119,13 @@ class NotebookRepository {
     int sortOrder = 0,
     String? parentId,
   }) async {
+    if (parentId != null) {
+      final parentDepth = await getNotebookDepth(parentId);
+      if (parentDepth >= maxCollectionDepth) {
+        throw ArgumentError('Maximum depth of $maxCollectionDepth exceeded');
+      }
+    }
+
     final id = _uuid.v4();
     await _db.into(_db.notebooks).insert(
           NotebooksCompanion.insert(
@@ -49,6 +154,13 @@ class NotebookRepository {
     int sortOrder = 0,
     String? parentId,
   }) async {
+    if (parentId != null) {
+      final parentDepth = await getNotebookDepth(parentId);
+      if (parentDepth >= maxCollectionDepth) {
+        throw ArgumentError('Maximum depth of $maxCollectionDepth exceeded');
+      }
+    }
+
     await _db.into(_db.notebooks).insert(
           NotebooksCompanion.insert(
             id: Value(id),
@@ -255,6 +367,116 @@ class NotebookRepository {
       ..orderBy([OrderingTerm.desc(_db.notes.updatedAt)]);
     final rows = await query.get();
     return rows.isEmpty ? null : rows.first.readTable(_db.attachments);
+  }
+
+  /// Soft-deletes [id] and promotes its direct children to [id]'s parent.
+  Future<void> softDeletePromotingChildren(String id) async {
+    final nb = await getNotebookById(id);
+    final parentOfDeleted = nb?.parentId;
+
+    await _db.transaction(() async {
+      await (_db.update(_db.notebooks)..where((t) => t.parentId.equals(id)))
+          .write(NotebooksCompanion(parentId: Value(parentOfDeleted)));
+      await softDelete(id);
+    });
+    nookLog(NookLogKey.database,
+        'Notebook soft-deleted with children promoted: $id', LogLevel.debug);
+  }
+
+  /// Soft-deletes [id], its descendant notebooks, and all notes contained within.
+  Future<void> softDeleteSubtree(String id) async {
+    final descendantIds = await getDescendantNotebookIds(id);
+    final allIds = [id, ...descendantIds];
+    final now = DateTime.now();
+
+    await _db.transaction(() async {
+      await (_db.update(_db.notes)..where((t) => t.notebookId.isIn(allIds)))
+          .write(NotesCompanion(
+        deleted: const Value(true),
+        deletedAt: Value(now),
+      ));
+      await (_db.update(_db.notebooks)..where((t) => t.id.isIn(allIds))).write(
+        NotebooksCompanion(
+          deleted: const Value(true),
+          deletedAt: Value(now),
+        ),
+      );
+    });
+    nookLog(
+        NookLogKey.database,
+        'Subtree soft-deleted for notebook: $id (total ${allIds.length} collections)',
+        LogLevel.debug);
+  }
+
+  /// Restores [id], its descendant notebooks, and their notes from trash.
+  Future<void> restoreSubtree(String id) async {
+    final descendantIds =
+        await getDescendantNotebookIds(id, includeDeleted: true);
+    final allIds = [id, ...descendantIds];
+
+    await _db.transaction(() async {
+      await (_db.update(_db.notebooks)..where((t) => t.id.isIn(allIds))).write(
+        const NotebooksCompanion(
+          deleted: Value(false),
+          deletedAt: Value(null),
+        ),
+      );
+      await (_db.update(_db.notes)..where((t) => t.notebookId.isIn(allIds)))
+          .write(const NotesCompanion(
+        deleted: Value(false),
+        deletedAt: Value(null),
+      ));
+    });
+    nookLog(
+        NookLogKey.database,
+        'Subtree restored for notebook: $id (total ${allIds.length} collections)',
+        LogLevel.debug);
+  }
+
+  /// Counts non-deleted notes in [notebookId] plus all of its descendant notebooks.
+  Future<int> countAggregateNotes(String notebookId) async {
+    final descendantIds = await getDescendantNotebookIds(notebookId);
+    final allIds = [notebookId, ...descendantIds];
+
+    final count = _db.notes.id.count();
+    final query = _db.selectOnly(_db.notes)
+      ..where(
+          _db.notes.notebookId.isIn(allIds) & _db.notes.deleted.equals(false))
+      ..addColumns([count]);
+    final result = await query.getSingle();
+    return result.read(count) ?? 0;
+  }
+
+  /// Counts aggregate non-deleted notes for all non-deleted notebooks (including descendants).
+  Future<Map<String, int>> countAggregateNotesForAllNotebooks() async {
+    final allNotebooks = await getAllNotebooks();
+    final directCounts = await countNotesForAllNotebooks();
+
+    // Map parent -> children
+    final childrenMap = <String, List<String>>{};
+    for (final nb in allNotebooks) {
+      if (nb.parentId != null) {
+        childrenMap.putIfAbsent(nb.parentId!, () => []).add(nb.id);
+      }
+    }
+
+    final memo = <String, int>{};
+    int computeSubtree(String id) {
+      if (memo.containsKey(id)) return memo[id]!;
+      int sum = directCounts[id] ?? 0;
+      final kids = childrenMap[id] ?? [];
+      for (final kid in kids) {
+        sum += computeSubtree(kid);
+      }
+      memo[id] = sum;
+      return sum;
+    }
+
+    final resultMap = <String, int>{};
+    for (final nb in allNotebooks) {
+      resultMap[nb.id] = computeSubtree(nb.id);
+    }
+    return resultMap;
   }
 
   /// Permanently deletes a soft-deleted notebook (hard-deletes the row).

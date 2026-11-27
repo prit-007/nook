@@ -210,74 +210,83 @@ class _WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        children: [
-          const Spacer(flex: 2),
-          // Illustration mockup
-          Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: scheme.primaryContainer,
-              boxShadow: [
-                BoxShadow(
-                  color: scheme.primary.withValues(alpha: 0.15),
-                  blurRadius: 32,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                HugeIcon(
-                  icon: HugeIcons.strokeRoundedNotebook01,
-                  size: 80,
-                  color: scheme.onPrimaryContainer,
-                ),
-                Positioned(
-                  right: 30,
-                  bottom: 30,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  const Spacer(flex: 2),
+                  // Illustration mockup
+                  Container(
+                    width: 160,
+                    height: 160,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: scheme.primary,
+                      color: scheme.primaryContainer,
+                      boxShadow: [
+                        BoxShadow(
+                          color: scheme.primary.withValues(alpha: 0.15),
+                          blurRadius: 32,
+                          spreadRadius: 4,
+                        ),
+                      ],
                     ),
-                    child: HugeIcon(
-                      icon: HugeIcons.strokeRoundedLock,
-                      size: 20,
-                      color: scheme.onPrimary,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedNotebook01,
+                          size: 70,
+                          color: scheme.onPrimaryContainer,
+                        ),
+                        Positioned(
+                          right: 24,
+                          bottom: 24,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: scheme.primary,
+                            ),
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedLock,
+                              size: 18,
+                              color: scheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  const Spacer(flex: 2),
+                  Text(
+                    'Your notes. Your device. Yours.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No account. No cloud. No one else reads your notes.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: scheme.onSurface.withValues(alpha: 0.87),
+                      height: 1.4,
+                    ),
+                  ),
+                  const Spacer(flex: 2),
+                ],
+              ),
             ),
           ),
-          const Spacer(flex: 2),
-          Text(
-            'Your notes. Your device. Yours.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'No account. No cloud. No one else reads your notes.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15,
-              color: scheme.onSurface.withValues(alpha: 0.87),
-              height: 1.4,
-            ),
-          ),
-          const Spacer(flex: 2),
-        ],
-      ),
+        );
+      },
     );
   }
 }

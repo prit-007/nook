@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/core/providers/vault_password_provider.dart';
@@ -5,6 +8,8 @@ import 'package:nook/core/security/dek_manager.dart';
 import 'package:nook/core/security/recovery_key_provider.dart';
 import 'package:nook/core/security/secure_kv_store.dart';
 import 'package:nook/data/database.dart';
+import 'package:nook/data/tables/notes.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _InMemoryKvStore implements SecureKeyValueStore {
@@ -291,6 +296,81 @@ void main() {
         await dekManager.unwrapDekWithRecoveryKey(words),
         'dek-v10-upgrade',
       );
+    });
+
+    test(
+        'legacy unwrapped DEK upgrades to wrapped, data is readable, wrong password fails, upgrade is idempotent',
+        () async {
+      final store = _InMemoryKvStore();
+      const initialDek = 'legacy-plain-dek-32-chars-long!!';
+      await store.write(DekManager.dbEncryptionKeyStorageKey, initialDek);
+
+      final dekManager = DekManager(store: store, iterations: 100);
+      final provider =
+          VaultPasswordProvider(store: store, dekManager: dekManager);
+
+      expect(await dekManager.isWrapped(), isFalse);
+      expect(
+          await store.read(DekManager.dbEncryptionKeyStorageKey), initialDek);
+
+      final tempDir =
+          await Directory.systemTemp.createTemp('nook_vault_upgrade_');
+      final dbFile = File(p.join(tempDir.path, 'notes.db'));
+      try {
+        final db1 = AppDatabase(NativeDatabase(dbFile));
+        await db1.into(db1.notes).insert(
+              NotesCompanion.insert(
+                id: const Value('legacy-note-1'),
+                title: const Value('Pre-upgrade Secret Note'),
+                plainText: const Value('Crucial user note data'),
+                type: NoteType.text,
+                deviceOriginId: 'device-1',
+                createdAt: Value(DateTime.now()),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
+        await db1.close();
+
+        // Perform vault upgrade with password and recovery key
+        final recoveryWords = generateRecoveryKey();
+        await provider.setPassword('vault-secure-pw-42',
+            recoveryWords: recoveryWords);
+
+        // Confirm DEK is wrapped and plaintext DEK is deleted from storage
+        expect(await dekManager.isWrapped(), isTrue);
+        expect(await store.read(DekManager.dbEncryptionKeyStorageKey), isNull);
+
+        // Running upgrade twice is idempotent
+        await provider.setPassword('vault-secure-pw-42',
+            recoveryWords: recoveryWords);
+        expect(await dekManager.isWrapped(), isTrue);
+
+        // Wrong password fails and leaves data untouched
+        final wrongUnwrap = await dekManager.unwrapDekWithPassword('wrong-pw');
+        expect(wrongUnwrap, isNull);
+
+        // Recovery key unwraps correctly
+        final recoveryUnwrap =
+            await dekManager.unwrapDekWithRecoveryKey(recoveryWords);
+        expect(recoveryUnwrap, initialDek);
+
+        // Correct password unwraps DEK, database opens, and pre-existing note is readable
+        final correctUnwrap =
+            await dekManager.unwrapDekWithPassword('vault-secure-pw-42');
+        expect(correctUnwrap, initialDek);
+
+        final db2 = AppDatabase(NativeDatabase(dbFile));
+        final notes = await db2.select(db2.notes).get();
+        expect(notes.length, 1);
+        expect(notes.first.id, 'legacy-note-1');
+        expect(notes.first.title, 'Pre-upgrade Secret Note');
+        expect(notes.first.plainText, 'Crucial user note data');
+        await db2.close();
+      } finally {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      }
     });
   });
 }

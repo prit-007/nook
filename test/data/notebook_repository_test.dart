@@ -396,5 +396,221 @@ void main() {
       final updatedSubsB = await repo.getSubNotebooks(rootB.id);
       expect(updatedSubsB.map((n) => n.id), contains(subA1.id));
     });
+
+    group('Phase 13a Nested Collections Rules', () {
+      test('reparenting into own descendant throws (cycle prevention)',
+          () async {
+        final a = await repo.createNotebook(name: 'A', colorSeed: '#111');
+        final b = await repo.createNotebook(
+          name: 'B',
+          colorSeed: '#222',
+          parentId: a.id,
+        );
+        final c = await repo.createNotebook(
+          name: 'C',
+          colorSeed: '#333',
+          parentId: b.id,
+        );
+
+        // Cannot reparent A into C (C is descendant of A)
+        expect(
+          () => repo.reparentNotebook(a.id, c.id),
+          throwsA(isA<ArgumentError>()),
+        );
+
+        // Cannot reparent A into A
+        expect(
+          () => repo.reparentNotebook(a.id, a.id),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('depth over 4 is rejected', () async {
+        // level 0 (root) -> level 1 -> level 2 -> level 3 -> level 4
+        final l0 = await repo.createNotebook(name: 'L0', colorSeed: '#000');
+        final l1 = await repo.createNotebook(
+            name: 'L1', colorSeed: '#111', parentId: l0.id);
+        final l2 = await repo.createNotebook(
+            name: 'L2', colorSeed: '#222', parentId: l1.id);
+        final l3 = await repo.createNotebook(
+            name: 'L3', colorSeed: '#333', parentId: l2.id);
+        final l4 = await repo.createNotebook(
+            name: 'L4', colorSeed: '#444', parentId: l3.id);
+
+        expect(await repo.getNotebookDepth(l0.id), 0);
+        expect(await repo.getNotebookDepth(l4.id), 4);
+
+        // Trying to create or reparent a 5th level under l4 must throw
+        expect(
+          () => repo.createNotebook(
+              name: 'L5', colorSeed: '#555', parentId: l4.id),
+          throwsA(isA<ArgumentError>()),
+        );
+
+        final orphan =
+            await repo.createNotebook(name: 'Orphan', colorSeed: '#666');
+        expect(
+          () => repo.reparentNotebook(orphan.id, l4.id),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('deleting parent with "Notebook only" promotes its children',
+          () async {
+        final root = await repo.createNotebook(name: 'Root', colorSeed: '#111');
+        final mid = await repo.createNotebook(
+          name: 'Middle',
+          colorSeed: '#222',
+          parentId: root.id,
+        );
+        final child = await repo.createNotebook(
+          name: 'Child',
+          colorSeed: '#333',
+          parentId: mid.id,
+        );
+
+        // Soft-delete mid promoting its children
+        await repo.softDeletePromotingChildren(mid.id);
+
+        final updatedChild = await repo.getNotebookById(child.id);
+        expect(updatedChild!.parentId, root.id);
+
+        final midNb = await repo.getNotebookById(mid.id);
+        expect(midNb!.deleted, isTrue);
+      });
+
+      test(
+          'deleting with "Notes too" cascades subtree and restore brings back subtree',
+          () async {
+        final parent =
+            await repo.createNotebook(name: 'Parent', colorSeed: '#111');
+        final child = await repo.createNotebook(
+          name: 'Child',
+          colorSeed: '#222',
+          parentId: parent.id,
+        );
+
+        // Add notes to parent and child
+        final now = DateTime.now();
+        await db.into(db.notes).insert(
+              NotesCompanion.insert(
+                id: const Value('note-parent'),
+                notebookId: Value(parent.id),
+                title: const Value('Parent Note'),
+                type: NoteType.text,
+                deviceOriginId: 'local',
+                createdAt: Value(now),
+                updatedAt: Value(now),
+              ),
+            );
+        await db.into(db.notes).insert(
+              NotesCompanion.insert(
+                id: const Value('note-child'),
+                notebookId: Value(child.id),
+                title: const Value('Child Note'),
+                type: NoteType.text,
+                deviceOriginId: 'local',
+                createdAt: Value(now),
+                updatedAt: Value(now),
+              ),
+            );
+
+        // Cascade soft delete
+        await repo.softDeleteSubtree(parent.id);
+
+        final pNb = await repo.getNotebookById(parent.id);
+        final cNb = await repo.getNotebookById(child.id);
+        expect(pNb!.deleted, isTrue);
+        expect(cNb!.deleted, isTrue);
+
+        final pNote = await (db.select(db.notes)
+              ..where((t) => t.id.equals('note-parent')))
+            .getSingle();
+        final cNote = await (db.select(db.notes)
+              ..where((t) => t.id.equals('note-child')))
+            .getSingle();
+        expect(pNote.deleted, isTrue);
+        expect(cNote.deleted, isTrue);
+
+        // Restore subtree
+        await repo.restoreSubtree(parent.id);
+
+        final pNbRestored = await repo.getNotebookById(parent.id);
+        final cNbRestored = await repo.getNotebookById(child.id);
+        expect(pNbRestored!.deleted, isFalse);
+        expect(cNbRestored!.deleted, isFalse);
+
+        final pNoteRestored = await (db.select(db.notes)
+              ..where((t) => t.id.equals('note-parent')))
+            .getSingle();
+        final cNoteRestored = await (db.select(db.notes)
+              ..where((t) => t.id.equals('note-child')))
+            .getSingle();
+        expect(pNoteRestored.deleted, isFalse);
+        expect(cNoteRestored.deleted, isFalse);
+      });
+
+      test('aggregate note count includes descendants', () async {
+        final root = await repo.createNotebook(name: 'Work', colorSeed: '#111');
+        final projects = await repo.createNotebook(
+          name: 'Projects',
+          colorSeed: '#222',
+          parentId: root.id,
+        );
+        final nook = await repo.createNotebook(
+          name: 'Nook',
+          colorSeed: '#333',
+          parentId: projects.id,
+        );
+
+        final now = DateTime.now();
+        // 2 notes in root, 3 notes in projects, 4 notes in nook
+        for (var i = 0; i < 2; i++) {
+          await db.into(db.notes).insert(
+                NotesCompanion.insert(
+                  id: Value('note-work-$i'),
+                  notebookId: Value(root.id),
+                  type: NoteType.text,
+                  deviceOriginId: 'local',
+                  createdAt: Value(now),
+                  updatedAt: Value(now),
+                ),
+              );
+        }
+        for (var i = 0; i < 3; i++) {
+          await db.into(db.notes).insert(
+                NotesCompanion.insert(
+                  id: Value('note-proj-$i'),
+                  notebookId: Value(projects.id),
+                  type: NoteType.text,
+                  deviceOriginId: 'local',
+                  createdAt: Value(now),
+                  updatedAt: Value(now),
+                ),
+              );
+        }
+        for (var i = 0; i < 4; i++) {
+          await db.into(db.notes).insert(
+                NotesCompanion.insert(
+                  id: Value('note-nook-$i'),
+                  notebookId: Value(nook.id),
+                  type: NoteType.text,
+                  deviceOriginId: 'local',
+                  createdAt: Value(now),
+                  updatedAt: Value(now),
+                ),
+              );
+        }
+
+        expect(await repo.countAggregateNotes(nook.id), 4);
+        expect(await repo.countAggregateNotes(projects.id), 7); // 3 + 4
+        expect(await repo.countAggregateNotes(root.id), 9); // 2 + 3 + 4
+
+        final allCounts = await repo.countAggregateNotesForAllNotebooks();
+        expect(allCounts[nook.id], 4);
+        expect(allCounts[projects.id], 7);
+        expect(allCounts[root.id], 9);
+      });
+    });
   });
 }

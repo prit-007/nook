@@ -411,6 +411,8 @@ class _DesktopInlineEditor extends ConsumerStatefulWidget {
 class _DesktopInlineEditorState extends ConsumerState<_DesktopInlineEditor> {
   late final TextEditingController _controller;
   Timer? _debounceTimer;
+  bool _isDirty = false;
+  NoteRepository? _cachedRepo;
 
   @override
   void initState() {
@@ -419,44 +421,67 @@ class _DesktopInlineEditorState extends ConsumerState<_DesktopInlineEditor> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cachedRepo = NoteRepository(ref.read(databaseProvider));
+  }
+
+  Future<void> _flushSave([String? noteIdToSave]) async {
+    if (!_isDirty) return;
+    _debounceTimer?.cancel();
+    _isDirty = false;
+    final id = noteIdToSave ?? widget.note.id;
+    final val = _controller.text;
+    final repo = _cachedRepo;
+    if (repo == null) return;
+    await repo.updateContent(
+      id,
+      plainText: val,
+      deltaContent: jsonEncode({
+        'document': {
+          'type': 'page',
+          'children': [
+            {
+              'type': 'paragraph',
+              'data': {
+                'delta': [
+                  {'insert': val},
+                ],
+              },
+            },
+          ],
+        },
+      }),
+    );
+  }
+
+  @override
   void didUpdateWidget(covariant _DesktopInlineEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.note.id != widget.note.id) {
+      if (_isDirty) {
+        _flushSave(oldWidget.note.id);
+      }
       _controller.text = widget.note.plainText ?? '';
     }
   }
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
+    if (_isDirty) {
+      _flushSave();
+    } else {
+      _debounceTimer?.cancel();
+    }
     _controller.dispose();
     super.dispose();
   }
 
   void _onChanged(String val) {
+    _isDirty = true;
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
-      final db = ref.read(databaseProvider);
-      final repo = NoteRepository(db);
-      await repo.updateContent(
-        widget.note.id,
-        plainText: val,
-        deltaContent: jsonEncode({
-          'document': {
-            'type': 'page',
-            'children': [
-              {
-                'type': 'paragraph',
-                'data': {
-                  'delta': [
-                    {'insert': val},
-                  ],
-                },
-              },
-            ],
-          },
-        }),
-      );
+      await _flushSave();
     });
   }
 

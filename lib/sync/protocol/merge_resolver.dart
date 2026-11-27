@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart';
+
 import '../../core/providers/talker_provider.dart';
 import '../../data/repositories/note_repository.dart';
 import '../../data/repositories/notebook_repository.dart';
@@ -129,6 +131,7 @@ class MergeResolver {
         name: incoming.noteFields['notebookName'] as String?,
         colorSeed: incoming.noteFields['notebookColorSeed'] as String?,
         icon: incoming.noteFields['notebookIcon'] as String?,
+        parentId: incoming.noteFields['notebookParentId'] as String?,
       );
       final rawCreatedAt = incoming.noteFields['createdAt'];
       final createdAt = rawCreatedAt is int
@@ -180,19 +183,55 @@ class MergeResolver {
     String? name,
     String? colorSeed,
     String? icon,
+    String? parentId,
   }) async {
     if (notebookId == null || notebookId.isEmpty) return;
-    if (await _notebookRepo.getNotebookById(notebookId) != null) return;
+    final existing = await _notebookRepo.getNotebookById(notebookId);
+    if (existing != null) {
+      if (parentId != null && existing.parentId != parentId) {
+        // Deterministically break cycles: if setting parentId would cause a cycle, detach to root
+        final wouldCycle =
+            await _notebookRepo.wouldCreateCycle(notebookId, parentId);
+        if (wouldCycle) {
+          nookLog(
+            NookLogKey.sync,
+            'Cycle detected on concurrent reparent ($notebookId -> $parentId). Detaching to root.',
+            LogLevel.warning,
+          );
+          await _notebookRepo.updateNotebook(notebookId,
+              parentId: const Value(null));
+        } else {
+          final parentDepth = await _notebookRepo.getNotebookDepth(parentId);
+          if (parentDepth >= NotebookRepository.maxCollectionDepth) {
+            await _notebookRepo.updateNotebook(notebookId,
+                parentId: const Value(null));
+          } else {
+            await _notebookRepo.updateNotebook(notebookId,
+                parentId: Value(parentId));
+          }
+        }
+      }
+      return;
+    }
+
+    String? safeParentId = parentId;
+    if (safeParentId != null) {
+      final parentDepth = await _notebookRepo.getNotebookDepth(safeParentId);
+      if (parentDepth >= NotebookRepository.maxCollectionDepth) {
+        safeParentId = null;
+      }
+    }
 
     await _notebookRepo.createNotebookWithId(
       notebookId,
       name: name ?? 'Synced Notebook',
       colorSeed: colorSeed ?? '#6750A4',
       icon: icon ?? 'notebook',
+      parentId: safeParentId,
     );
     nookLog(
       NookLogKey.sync,
-      'Created placeholder notebook for incoming note: $notebookId',
+      'Created placeholder notebook for incoming note: $notebookId (parent: $safeParentId)',
       LogLevel.info,
     );
   }
@@ -210,6 +249,7 @@ class MergeResolver {
       name: incoming.noteFields['notebookName'] as String?,
       colorSeed: incoming.noteFields['notebookColorSeed'] as String?,
       icon: incoming.noteFields['notebookIcon'] as String?,
+      parentId: incoming.noteFields['notebookParentId'] as String?,
     );
 
     final rawCreatedAt = incoming.noteFields['createdAt'];
@@ -251,6 +291,7 @@ class MergeResolver {
       name: incoming.noteFields['notebookName'] as String?,
       colorSeed: incoming.noteFields['notebookColorSeed'] as String?,
       icon: incoming.noteFields['notebookIcon'] as String?,
+      parentId: incoming.noteFields['notebookParentId'] as String?,
     );
 
     await _noteRepo.updateNote(
