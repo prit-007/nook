@@ -7,6 +7,7 @@ import 'package:nook/core/security/dek_manager.dart';
 import 'package:nook/core/security/recovery_key_provider.dart';
 import 'package:nook/core/security/secure_kv_store.dart';
 import 'package:nook/features/onboarding/onboarding_screen.dart';
+import 'package:nook/features/security/vault_password_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _InMemoryKvStore implements SecureKeyValueStore {
@@ -173,5 +174,43 @@ void main() {
       'onboarding-dek',
     );
     expect(await dekManager.unwrapDekWithRecoveryKey(words), 'onboarding-dek');
+  });
+
+  testWidgets(
+      'onboarding _ProtectVaultPage onSetupVault wires wrapDekWithPassword callback',
+      (tester) async {
+    final store = _InMemoryKvStore();
+    await store.write(DekManager.dbEncryptionKeyStorageKey, 'ui-dek-wrap');
+    final dekManager = DekManager(store: store, iterations: 100);
+    final vaultProvider = VaultPasswordProvider(
+      store: store,
+      dekManager: dekManager,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          vaultPasswordProvider.overrideWith((ref) => vaultProvider),
+        ],
+        child: const MaterialApp(
+          home: OnboardingScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Navigate to page 3 (_ProtectVaultPage)
+    final pageView = tester.widget<PageView>(find.byType(PageView));
+    pageView.controller!.jumpToPage(3);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Protect your vault'), findsOneWidget);
+    expect(find.text('Set vault password & recovery key'), findsOneWidget);
+
+    // Tap setup button which opens VaultPasswordSetDialog wired to wrapDekWithPassword
+    await tester.tap(find.text('Set vault password & recovery key'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VaultPasswordSetDialog), findsOneWidget);
   });
 }

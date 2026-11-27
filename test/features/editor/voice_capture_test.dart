@@ -159,4 +159,11 @@ void main() {
     );
     expect(find.text('Retry'), findsOneWidget);
   });
+
+  test('SpeechToTextVoiceCaptureService handles permission methods safely',
+      () async {
+    final service = SpeechToTextVoiceCaptureService();
+    expect(await service.hasPermission(), isFalse);
+    expect(await service.requestMicrophonePermission(), isFalse);
+  });
 }

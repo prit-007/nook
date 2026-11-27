@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/core/theme/high_contrast_theme.dart';
 import 'package:nook/core/theme/nook_tokens.dart';
+import 'package:nook/features/home/widgets/nook_hero.dart';
 
 /// Reference relative luminance implementation according to WCAG 2.1 specs.
 double _wcagRelativeLuminance(Color color) {
@@ -356,6 +357,85 @@ void main() {
 
       final defaultTheme = HighContrastTheme.build(Brightness.light);
       expect(defaultTheme.textTheme.displayLarge?.letterSpacing, equals(-1.0));
+    });
+  });
+
+  group('High Contrast Sync Status States', () {
+    Widget buildSyncPillHarness(NookSyncStatus status, Brightness brightness) {
+      final theme = HighContrastTheme.build(brightness);
+      return MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              NookHeroSliver(
+                noteCount: 10,
+                syncStatus: status,
+                animate: false,
+                onSearch: () {},
+                onSyncTap: () {},
+                onCaptureText: () {},
+                onCaptureChecklist: () {},
+                onCaptureDoodle: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    testWidgets('renders synced state in high-contrast light and dark',
+        (tester) async {
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.synced, Brightness.light));
+      await tester.pumpAndSettle();
+      expect(find.text('Synced'), findsOneWidget);
+
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.synced, Brightness.dark));
+      await tester.pumpAndSettle();
+      expect(find.text('Synced'), findsOneWidget);
+    });
+
+    testWidgets('renders syncing state in high-contrast light and dark',
+        (tester) async {
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.syncing, Brightness.light));
+      await tester.pump();
+      expect(find.text('Syncing'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.syncing, Brightness.dark));
+      await tester.pump();
+      expect(find.text('Syncing'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('renders conflict state in high-contrast light and dark',
+        (tester) async {
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.conflict, Brightness.light));
+      await tester.pumpAndSettle();
+      expect(find.text('Needs review'), findsOneWidget);
+
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.conflict, Brightness.dark));
+      await tester.pumpAndSettle();
+      expect(find.text('Needs review'), findsOneWidget);
+    });
+
+    testWidgets('renders localOnly state in high-contrast light and dark',
+        (tester) async {
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.localOnly, Brightness.light));
+      await tester.pumpAndSettle();
+      expect(find.text('On this device'), findsOneWidget);
+
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.localOnly, Brightness.dark));
+      await tester.pumpAndSettle();
+      expect(find.text('On this device'), findsOneWidget);
     });
   });
 }

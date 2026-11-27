@@ -28,12 +28,18 @@ Future<bool> ensureVaultUnlocked(
   return ok == true;
 }
 
+typedef SetVaultPasswordCallback = Future<bool> Function(
+    String password, List<String> recoveryWords);
+
 /// Shows a dialog to set a new vault password.
-Future<bool> showSetVaultPasswordDialog(BuildContext context) async {
+Future<bool> showSetVaultPasswordDialog(
+  BuildContext context, {
+  SetVaultPasswordCallback? onSetPassword,
+}) async {
   final ok = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const VaultPasswordSetDialog(),
+    builder: (_) => VaultPasswordSetDialog(onSetPassword: onSetPassword),
   );
   return ok == true;
 }
@@ -131,7 +137,9 @@ class _VaultPasswordDialogState extends ConsumerState<VaultPasswordDialog> {
 }
 
 class VaultPasswordSetDialog extends ConsumerStatefulWidget {
-  const VaultPasswordSetDialog({super.key});
+  const VaultPasswordSetDialog({super.key, this.onSetPassword});
+
+  final SetVaultPasswordCallback? onSetPassword;
 
   @override
   ConsumerState<VaultPasswordSetDialog> createState() =>
@@ -180,10 +188,14 @@ class _VaultPasswordSetDialogState
         setState(() => _saving = false);
         return;
       }
-      await ref.read(vaultPasswordProvider).setPassword(
-            password,
-            recoveryWords: recoveryWords,
-          );
+      if (widget.onSetPassword != null) {
+        await widget.onSetPassword!(password, recoveryWords);
+      } else {
+        await ref.read(vaultPasswordProvider).setPassword(
+              password,
+              recoveryWords: recoveryWords,
+            );
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {

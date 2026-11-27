@@ -54,6 +54,19 @@ void main() {
       expect(content.contains('FirebaseVision'), isFalse);
     });
 
+    test('pubspec.yaml contains zero proprietary OCR packages', () {
+      final pubspecFile = File('pubspec.yaml');
+      expect(pubspecFile.existsSync(), isTrue);
+      final content = pubspecFile.readAsStringSync();
+
+      expect(content.contains('google_mlkit'), isFalse,
+          reason: 'Must not depend on google_mlkit');
+      expect(content.contains('google_ml_kit'), isFalse,
+          reason: 'Must not depend on google_ml_kit');
+      expect(content.contains('flutter_mobile_vision'), isFalse,
+          reason: 'Must not depend on flutter_mobile_vision');
+    });
+
     test(
         'LocalFossOcrService degrades cleanly on missing mobile plugin without network calls',
         () async {
@@ -91,6 +104,28 @@ void main() {
       expect(ocrServiceSource.contains('tesseract-ocr'), isTrue);
       expect(ocrServiceSource.contains('Install Tesseract OCR'), isTrue);
       expect(ocrServiceSource.contains('stdout'), isTrue);
+    });
+
+    test('entire repository contains zero .traineddata binary blobs', () {
+      final rootDir = Directory('.');
+      final files = rootDir
+          .listSync(recursive: true, followLinks: false)
+          .whereType<File>()
+          .where((f) => !f.path.contains('.git/') && !f.path.contains('build/'))
+          .where((f) => f.path.endsWith('.traineddata'))
+          .toList();
+
+      expect(files, isEmpty,
+          reason: 'No binary .traineddata blobs allowed in repo');
+    });
+
+    test('docs/OCR-AUDIT.md documents Apache-2.0 FOSS license compliance', () {
+      final auditDoc = File('docs/OCR-AUDIT.md');
+      expect(auditDoc.existsSync(), isTrue);
+      final content = auditDoc.readAsStringSync();
+      expect(content.contains('Apache-2.0'), isTrue);
+      expect(content.contains('Tesseract'), isTrue);
+      expect(content.contains('Zero Proprietary SDKs'), isTrue);
     });
   });
 }

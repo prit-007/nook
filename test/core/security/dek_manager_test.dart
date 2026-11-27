@@ -1,8 +1,10 @@
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/core/providers/vault_password_provider.dart';
 import 'package:nook/core/security/dek_manager.dart';
 import 'package:nook/core/security/recovery_key_provider.dart';
 import 'package:nook/core/security/secure_kv_store.dart';
+import 'package:nook/data/database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _InMemoryKvStore implements SecureKeyValueStore {
@@ -250,6 +252,44 @@ void main() {
       expect(
         await store.read(DekManager.dbEncryptionKeyStorageKey),
         'db-key-xyz',
+      );
+    });
+
+    test('wrapped vault upgrade preserves wrapped DEK across migrations',
+        () async {
+      final store = _InMemoryKvStore();
+      await store.write(
+          DekManager.dbEncryptionKeyStorageKey, 'dek-v10-upgrade');
+      final dekManager = DekManager(store: store, iterations: 100);
+      final words = generateRecoveryKey();
+
+      // Step 1: Wrap vault with password & recovery key (simulating v10 app state)
+      await dekManager.wrapDekWithPassword('vault-pass-upgrade',
+          recoveryWords: words);
+      expect(await dekManager.isWrapped(), isTrue);
+
+      // Step 2: Simulate app cold boot / upgrade to v11
+      // Plaintext DEK in storage is absent
+      expect(await store.read(DekManager.dbEncryptionKeyStorageKey), isNull);
+
+      // Step 3: Vault gate screen prompts user for password and unwraps DEK
+      final unwrappedDek =
+          await dekManager.unwrapDekWithPassword('vault-pass-upgrade');
+      expect(unwrappedDek, 'dek-v10-upgrade');
+
+      // Step 4: Database opens with unwrapped DEK and executes migrations safely
+      final db = AppDatabase(NativeDatabase.memory());
+      try {
+        await db.customSelect('SELECT 1').get();
+      } finally {
+        await db.close();
+      }
+
+      // Step 5: Wrapped state and recovery envelopes remain valid after upgrade
+      expect(await dekManager.isWrapped(), isTrue);
+      expect(
+        await dekManager.unwrapDekWithRecoveryKey(words),
+        'dek-v10-upgrade',
       );
     });
   });

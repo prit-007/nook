@@ -313,10 +313,18 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
           final displayName = hasParent && nb.name.contains('/')
               ? nb.name.split('/').last.trim()
               : nb.name;
-          final isChild = nb.parentId != null;
+          final byId = {for (final n in _notebooks) n.id: n};
+          int depth = 0;
+          String? curParent = nb.parentId;
+          while (curParent != null && byId.containsKey(curParent)) {
+            depth++;
+            curParent = byId[curParent]!.parentId;
+            if (depth > 6) break;
+          }
+          final isChild = depth > 0;
 
           return Padding(
-            padding: EdgeInsets.only(left: isChild ? 28.0 : 0.0),
+            padding: EdgeInsets.only(left: depth * 28.0),
             child: Material(
               color: scheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(16),
@@ -453,6 +461,9 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
         itemCount: _notebooks.length,
         itemBuilder: (context, index) {
           final nb = _notebooks[index];
+          final parentName = nb.parentId != null
+              ? _notebooks.where((p) => p.id == nb.parentId).firstOrNull?.name
+              : null;
           final card = GestureDetector(
             onTap: () {
               if (isDualPane) {
@@ -465,6 +476,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
             child: NotebookCard(
               notebook: nb,
               noteCount: _counts[nb.id] ?? 0,
+              parentName: parentName,
             ),
           );
           if (MediaQuery.disableAnimationsOf(context)) return card;

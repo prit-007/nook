@@ -5,7 +5,7 @@ Audit the Optical Character Recognition (OCR) implementation within Nook (`lib/c
 
 ---
 
-## 1. Proprietary SDK Audit (`com.nook/ocr`)
+## 1. Proprietary SDK Audit (`com.nook/ocr`) — Zero Proprietary SDKs
 
 ### Android Native Configuration
 - **File**: `android/app/build.gradle.kts`

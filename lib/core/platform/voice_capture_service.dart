@@ -48,7 +48,10 @@ class SpeechToTextVoiceCaptureService implements VoiceCaptureService {
   @override
   Future<bool> requestMicrophonePermission() async {
     try {
-      return await _speech.hasPermission;
+      final granted = await _speech.hasPermission;
+      if (granted) return true;
+      // SpeechToText triggers the OS runtime permission request dialog during initialize()
+      return await _speech.initialize();
     } catch (_) {
       return false;
     }

@@ -20,10 +20,12 @@ class NotebookCard extends ConsumerStatefulWidget {
     super.key,
     required this.notebook,
     this.noteCount = 0,
+    this.parentName,
   });
 
   final Notebook notebook;
   final int noteCount;
+  final String? parentName;
 
   @override
   ConsumerState<NotebookCard> createState() => _NotebookCardState();
@@ -76,11 +78,15 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
         ? Colors.white.withValues(alpha: 0.7)
         : const Color(0xFF1A1A1A).withValues(alpha: 0.65);
 
-    final hasParent = widget.notebook.name.contains('/');
-    final kickerLabel = hasParent
-        ? 'Notebook · ${widget.notebook.name.split('/').sublist(0, widget.notebook.name.split('/').length - 1).map((s) => s.trim()).join(' › ')}'
-        : 'Notebook';
-    final displayName = hasParent
+    final hasSlashParent = widget.notebook.name.contains('/');
+    final kickerLabel = widget.parentName != null
+        ? 'Notebook · ${widget.parentName}'
+        : (hasSlashParent
+            ? 'Notebook · ${widget.notebook.name.split('/').sublist(0, widget.notebook.name.split('/').length - 1).map((s) => s.trim()).join(' › ')}'
+            : (widget.notebook.parentId != null
+                ? 'Subcollection'
+                : 'Notebook'));
+    final displayName = hasSlashParent
         ? widget.notebook.name.split('/').last.trim()
         : widget.notebook.name;
 

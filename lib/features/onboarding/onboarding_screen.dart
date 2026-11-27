@@ -118,14 +118,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     scheme: scheme,
                     isProtected: ref.watch(vaultPasswordProvider).enabled,
                     onSetupVault: () async {
-                      final ok = await showSetVaultPasswordDialog(context);
+                      final ok = await showSetVaultPasswordDialog(
+                        context,
+                        onSetPassword: (password, recoveryWords) =>
+                            wrapDekWithPassword(
+                          password: password,
+                          recoveryWords: recoveryWords,
+                        ),
+                      );
                       if (ok && mounted) {
                         _nextPage();
                       }
                     },
                     onSkipVault: _nextPage,
                   ),
-                  _ReadyPage(scheme: scheme),
+                  _ReadyPage(
+                    scheme: scheme,
+                    onSetVaultPassword: (password, recoveryWords) =>
+                        wrapDekWithPassword(
+                      password: password,
+                      recoveryWords: recoveryWords,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -757,9 +771,10 @@ class _ProtectVaultPage extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ReadyPage extends ConsumerWidget {
-  const _ReadyPage({required this.scheme});
+  const _ReadyPage({required this.scheme, this.onSetVaultPassword});
 
   final ColorScheme scheme;
+  final SetVaultPasswordCallback? onSetVaultPassword;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -860,7 +875,10 @@ class _ReadyPage extends ConsumerWidget {
                 onPressed: () async {
                   final vault = ref.read(vaultPasswordProvider);
                   if (!vault.enabled) {
-                    await showSetVaultPasswordDialog(context);
+                    await showSetVaultPasswordDialog(
+                      context,
+                      onSetPassword: onSetVaultPassword,
+                    );
                   } else {
                     await showRecoveryKeyDialog(context);
                   }

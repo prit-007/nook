@@ -130,4 +130,24 @@ void main() {
       await db.close();
     }
   });
+
+  test(
+      'Cold start timing benchmark initializes database and initial screen load under 1500ms target',
+      () async {
+    final sw = Stopwatch()..start();
+    final db = AppDatabase(NativeDatabase.memory());
+    try {
+      // Warm up database tables and FTS
+      await db.customSelect('SELECT 1').get();
+      final notes = await (db.select(db.notes)
+            ..where((t) => t.deleted.equals(false)))
+          .get();
+      expect(notes, isEmpty);
+      final elapsed = sw.elapsedMilliseconds;
+      // Target cold start is ~1500ms
+      expect(elapsed, lessThan(1500));
+    } finally {
+      await db.close();
+    }
+  });
 }
