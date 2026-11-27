@@ -160,6 +160,41 @@ void main() {
     expect(find.text('Retry'), findsOneWidget);
   });
 
+  testWidgets(
+      'verifies requestMicrophonePermission is called when permission not granted',
+      (tester) async {
+    final fake = _FakeVoiceService(available: true);
+    final pref = VoicePreference(enabled: true, disclosureAccepted: true);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          voiceCaptureServiceProvider.overrideWithValue(fake),
+          voicePreferenceProvider.overrideWith((ref) => pref),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () => showVoiceCaptureSheet(context),
+                child: const Text('Open Sheet'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(fake.permissionChecked, isFalse);
+    expect(fake.permissionRequested, isFalse);
+
+    await tester.tap(find.text('Open Sheet'));
+    await tester.pumpAndSettle();
+
+    expect(fake.permissionChecked, isTrue);
+    expect(fake.permissionRequested, isTrue);
+  });
+
   test('SpeechToTextVoiceCaptureService handles permission methods safely',
       () async {
     final service = SpeechToTextVoiceCaptureService();

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 import '../../../core/haptics/haptics.dart';
@@ -192,15 +193,32 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
                             width: 0.5,
                           ),
                         ),
-                        child: Text(
-                          kickerLabel,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                            color: textColor,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.parentName != null ||
+                                widget.notebook.parentId != null) ...[
+                              HugeIcon(
+                                icon: HugeIcons.strokeRoundedFolder01,
+                                size: 12,
+                                color: textColor,
+                              ),
+                              const SizedBox(width: 5),
+                            ],
+                            Flexible(
+                              child: Text(
+                                kickerLabel,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                  color: textColor,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

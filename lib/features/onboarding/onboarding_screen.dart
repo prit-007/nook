@@ -32,6 +32,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
   int _selectedSeedIndex = 0;
+  late final List<String> _recoveryWords;
+
+  @override
+  void initState() {
+    super.initState();
+    _recoveryWords = generateRecoveryKey();
+  }
 
   @override
   void dispose() {
@@ -59,11 +66,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   /// Sets a vault password and wraps the SQLCipher database encryption key (DEK)
   /// using [DekManager.wrapDekWithPassword] and the user's verified [recoveryWords].
-  Future<bool> wrapDekWithPassword({
-    required String password,
+  Future<bool> wrapDekWithPassword(
+    String password, {
     List<String>? recoveryWords,
   }) async {
-    final words = recoveryWords ?? generateRecoveryKey();
+    final words = recoveryWords ?? _recoveryWords;
     await ref.read(vaultPasswordProvider).setPassword(
           password,
           recoveryWords: words,
@@ -120,10 +127,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     onSetupVault: () async {
                       final ok = await showSetVaultPasswordDialog(
                         context,
-                        onSetPassword: (password, recoveryWords) =>
-                            wrapDekWithPassword(
-                          password: password,
-                          recoveryWords: recoveryWords,
+                        onSetPassword: (password, _) => wrapDekWithPassword(
+                          password,
+                          recoveryWords: _recoveryWords,
                         ),
                       );
                       if (ok && mounted) {
@@ -134,10 +140,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   _ReadyPage(
                     scheme: scheme,
-                    onSetVaultPassword: (password, recoveryWords) =>
-                        wrapDekWithPassword(
-                      password: password,
-                      recoveryWords: recoveryWords,
+                    onSetVaultPassword: (password, _) => wrapDekWithPassword(
+                      password,
+                      recoveryWords: _recoveryWords,
                     ),
                   ),
                 ],

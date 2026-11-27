@@ -163,7 +163,7 @@ void main() {
     final dynamic state = tester.state(find.byType(OnboardingScreen));
     final words = generateRecoveryKey();
     await state.wrapDekWithPassword(
-      password: 'test-vault-password',
+      'test-vault-password',
       recoveryWords: words,
     );
 

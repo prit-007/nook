@@ -200,7 +200,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _openNote(String noteId) {
     HapticFeedback.selectionClick();
-    if (AdaptiveBreakpoints.supportsDualPane(context)) {
+    if (AdaptiveBreakpoints.supportsDualPane(context) ||
+        AdaptiveBreakpoints.supportsThreePane(context)) {
       ref.read(selectedNoteIdProvider.notifier).state = noteId;
       return;
     }

@@ -300,20 +300,31 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
           final nb = _notebooks[index];
           final noteCount = _counts[nb.id] ?? 0;
           final seed = NookColors.parseHex(nb.colorSeed);
-          final hasParent = nb.parentId != null || nb.name.contains('/');
-          final parent = nb.parentId != null
-              ? _notebooks.where((p) => p.id == nb.parentId).firstOrNull?.name
-              : (nb.name.contains('/')
-                  ? nb.name
-                      .split('/')
-                      .sublist(0, nb.name.split('/').length - 1)
-                      .map((s) => s.trim())
-                      .join(' › ')
-                  : null);
-          final displayName = hasParent && nb.name.contains('/')
-              ? nb.name.split('/').last.trim()
-              : nb.name;
           final byId = {for (final n in _notebooks) n.id: n};
+
+          // Compute full parent breadcrumb hierarchy
+          String? parent;
+          if (nb.parentId != null) {
+            final pathSegments = <String>[];
+            String? pId = nb.parentId;
+            while (pId != null && byId.containsKey(pId)) {
+              pathSegments.insert(0, byId[pId]!.name.split('/').last.trim());
+              pId = byId[pId]!.parentId;
+              if (pathSegments.length > 5) break;
+            }
+            if (pathSegments.isNotEmpty) {
+              parent = pathSegments.join(' › ');
+            }
+          } else if (nb.name.contains('/')) {
+            parent = nb.name
+                .split('/')
+                .sublist(0, nb.name.split('/').length - 1)
+                .map((s) => s.trim())
+                .join(' › ');
+          }
+
+          final displayName =
+              nb.name.contains('/') ? nb.name.split('/').last.trim() : nb.name;
           int depth = 0;
           String? curParent = nb.parentId;
           while (curParent != null && byId.containsKey(curParent)) {
@@ -461,9 +472,20 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
         itemCount: _notebooks.length,
         itemBuilder: (context, index) {
           final nb = _notebooks[index];
-          final parentName = nb.parentId != null
-              ? _notebooks.where((p) => p.id == nb.parentId).firstOrNull?.name
-              : null;
+          final byId = {for (final n in _notebooks) n.id: n};
+          String? parentName;
+          if (nb.parentId != null) {
+            final pathSegments = <String>[];
+            String? pId = nb.parentId;
+            while (pId != null && byId.containsKey(pId)) {
+              pathSegments.insert(0, byId[pId]!.name.split('/').last.trim());
+              pId = byId[pId]!.parentId;
+              if (pathSegments.length > 5) break;
+            }
+            if (pathSegments.isNotEmpty) {
+              parentName = pathSegments.join(' › ');
+            }
+          }
           final card = GestureDetector(
             onTap: () {
               if (isDualPane) {
