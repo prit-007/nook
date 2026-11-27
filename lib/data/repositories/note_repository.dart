@@ -158,11 +158,18 @@ class NoteRepository {
       ),
     );
 
-    // Keep FTS index in sync when title changes.
-    if (title != null) {
+    // Keep FTS index in sync, but never index locked notes.
+    if (title != null || locked != null) {
       final note = await getNoteById(id);
       if (note != null) {
-        await _syncFts(id, title, note.plainText);
+        if (note.locked) {
+          await _db.customStatement(
+            'DELETE FROM notes_fts WHERE id = ?',
+            [id],
+          );
+        } else {
+          await _syncFts(id, note.title, note.plainText);
+        }
       }
     }
   }
@@ -197,7 +204,14 @@ class NoteRepository {
     if (plainText != null) {
       final note = await getNoteById(id);
       if (note != null) {
-        await _syncFts(id, note.title, plainText);
+        if (note.locked) {
+          await _db.customStatement(
+            'DELETE FROM notes_fts WHERE id = ?',
+            [id],
+          );
+        } else {
+          await _syncFts(id, note.title, plainText);
+        }
       }
     } else {
       // Content was cleared — remove from FTS so the note doesn't

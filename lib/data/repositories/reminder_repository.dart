@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/providers/talker_provider.dart';
 import '../database.dart';
 import '../tables/reminders.dart';
+import 'note_repository.dart';
 
 /// Platform-agnostic reminder scheduling seam.
 ///
@@ -116,10 +117,14 @@ class ReminderRepository {
           ),
         );
 
+    final note = await NoteRepository(_db).getNoteById(noteId);
+    final isLocked = note?.locked ?? false;
     await _scheduler.schedule(
       notificationId: notificationIdFor(id),
-      title: title,
-      body: body.isEmpty ? 'Nook reminder' : body,
+      title: isLocked ? 'Locked note reminder' : title,
+      body: isLocked
+          ? 'Open Nook to view this reminder'
+          : (body.isEmpty ? 'Nook reminder' : body),
       fireAt: fireAt,
       repeat: repeat,
     );

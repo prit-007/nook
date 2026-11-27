@@ -230,6 +230,23 @@ class _NoteDoodleCardState extends ConsumerState<NoteDoodleCard> {
   }
 
   Widget _buildThumbnail(ColorScheme cardScheme) {
+    if (widget.note.locked) {
+      return Container(
+        decoration: BoxDecoration(
+          color: cardScheme.primaryContainer,
+          borderRadius: const BorderRadius.horizontal(
+            right: Radius.circular(24),
+          ),
+        ),
+        child: Center(
+          child: HugeIcon(
+            icon: HugeIcons.strokeRoundedLock,
+            size: 36,
+            color: cardScheme.onPrimaryContainer.withValues(alpha: 0.7),
+          ),
+        ),
+      );
+    }
     if (_thumbnailPath != null && File(_thumbnailPath!).existsSync()) {
       return ClipRRect(
         borderRadius: const BorderRadius.horizontal(

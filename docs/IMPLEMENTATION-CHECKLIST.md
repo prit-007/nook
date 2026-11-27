@@ -38,7 +38,7 @@
 | 0 | Truth and baseline | COMPLETE | 2026-11-27 | 2026-11-27 |
 | 1 | Security hardening | IN_PROGRESS | 2026-11-27 | — |
 | 2 | Sync correctness | IN_PROGRESS | 2026-11-27 | — |
-| 3 | UX consolidation | IN_PROGRESS | 2026-11-27 | — |
+| 3 | UX consolidation | COMPLETE | 2026-11-27 | 2026-11-27 |
 | 4 | Portability and backup | NOT STARTED | — | — |
 | 5 | Offline capture and search | NOT STARTED | — | — |
 | 6 | Editor depth | NOT STARTED | — | — |
@@ -140,7 +140,7 @@
 
 ### 1.2 Locked-note leak sweep
 
-- [ ] Write one failing test per surface where locked notes might leak:
+- [x] Write one failing test per surface where locked notes might leak:
   1. FTS search index (`notes_fts`)
   2. Card previews (NoteCard, NoteBannerCard, NoteDoodleCard)
   3. Doodle thumbnails
@@ -150,9 +150,9 @@
   7. Bulk export (Markdown/HTML/PDF)
   8. Sync bundle payload
   9. Search results screen
-- [ ] Fix each leak: exclude locked notes from all surfaces above.
-  - Files: `lib/data/repositories/search_repository.dart`, `lib/features/home/home_widget_service.dart`, `lib/features/editor/widgets/note_options_sheet.dart`, `lib/features/settings/widgets/bulk_export.dart`, `lib/sync/pipeline/sync_bundle_packer.dart`, `lib/features/home/home_screen.dart`, `lib/core/platform/local_reminder_scheduler.dart`, `lib/data/repositories/revision_repository.dart`, `lib/features/doodle/doodle_thumbnail_renderer.dart`
-- [ ] Validation: `flutter test` → 0 failed; every leak test passes after fix
+- [x] Fix each leak: exclude locked notes from all surfaces above.
+  - Files: `lib/data/repositories/note_repository.dart`, `lib/data/repositories/search_repository.dart`, `lib/core/platform/home_widget_service.dart`, `lib/features/home/widgets/note_banner_card.dart`, `lib/features/home/widgets/note_doodle_card.dart`, `lib/features/settings/widgets/bulk_export.dart`, `lib/sync/pipeline/sync_bundle_packer.dart`, `lib/data/repositories/reminder_repository.dart`, `lib/data/repositories/revision_repository.dart`
+- [x] Validation: `flutter test` → 0 failed; every leak test passes after fix (`test/core/security/locked_note_leak_sweep_test.dart`)
 
 ### 1.3 Biometric-bound keystore key
 
@@ -286,24 +286,23 @@
 
 ### 3.6 Internationalisation (gen-l10n)
 
-- [ ] Add real localisation with Gujarati and Hindi.
-  - File: `l10n.yaml` (NEW or modify existing)
-  - Files: `lib/l10n/` (NEW directory with `app_en.arb`, `app_gu.arb`, `app_hi.arb`)
-  - File: `pubspec.yaml` (add `flutter_localizations`, `intl: ^0.20.3`)
-- [ ] Validation: `flutter gen-l10n` runs without error; Gujarati/Hindi strings render correctly
+- [x] Add real localisation with Gujarati and Hindi.
+  - File: `l10n.yaml`
+  - Files: `lib/l10n/` (`app_en.arb`, `app_gu.arb`, `app_hi.arb`, `generated/`)
+  - File: `pubspec.yaml` (`flutter_localizations`, `intl`)
+- [x] Validation: `flutter gen-l10n` runs without error; Gujarati/Hindi strings render correctly (`test/core/l10n/localization_test.dart`)
 
 ### 3.7 Accessibility audit
 
-- [ ] TalkBack/VoiceOver audit for key flows (create note, search, sync).
-  - Files: `test/features/accessibility/talkback_key_flows_test.dart` (verify exists)
-- [ ] Widgetbook gallery (licence: **verify**).
-  - File: `lib/features/gallery/widgetbook.g.dart` (verify exists)
+- [x] TalkBack/VoiceOver audit for key flows (create note, search, sync).
+  - Files: `test/features/accessibility/talkback_key_flows_test.dart`
+- [x] Widgetbook gallery (licence: verified).
+  - File: `lib/features/gallery/widgetbook.g.dart`
 
 ### 3.8 Alchemist goldens for remaining card types
 
-- [ ] Add golden tests for NoteBannerCard, NoteDoodleCard, NotebookCard across color seeds / locked / pinned states.
+- [x] Add golden tests for NoteBannerCard, NoteDoodleCard, NotebookCard across color seeds / locked / pinned states.
   - File: `test/features/home/widgets/note_card_golden_test.dart` (NEW)
-  - Library: Alchemist (standard for golden tests, replacing discontinued golden_toolkit) — verify licence
 
 ---
 

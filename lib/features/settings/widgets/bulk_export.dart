@@ -269,7 +269,8 @@ class BulkExporter {
   }
 
   Future<String> exportAll(BulkExportFormat format) async {
-    final notes = await _noteRepository.getAllNotes();
+    final allNotes = await _noteRepository.getAllNotes();
+    final notes = allNotes.where((n) => !n.locked).toList();
     if (notes.isEmpty) {
       throw StateError('No notes to export');
     }

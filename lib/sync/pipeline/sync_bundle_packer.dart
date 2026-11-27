@@ -38,6 +38,7 @@ class SyncBundlePacker {
     required List<String> noteIds,
     required String senderDeviceId,
     required String senderDeviceName,
+    bool includeLocked = true,
     void Function(int packedCount, int totalCount, String currentTitle)?
         onProgress,
   }) async {
@@ -48,6 +49,7 @@ class SyncBundlePacker {
     for (final noteId in noteIds) {
       final note = await noteRepo.getNoteById(noteId);
       if (note == null) continue;
+      if (!includeLocked && note.locked) continue;
 
       // Pack attachments and read their on-disk bytes
       final attachments = <SyncAttachment>[];
