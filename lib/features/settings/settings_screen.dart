@@ -126,22 +126,21 @@ class SettingsScreen extends ConsumerWidget {
                   },
                 ),
               ),
-              if (ref.watch(voicePreferenceProvider).isSupported)
-                _SettingsTile(
-                  icon: HugeIcons.strokeRoundedMic01,
-                  title: 'Voice Dictation',
-                  value: ref.watch(voicePreferenceProvider).enabled
-                      ? 'On · uses device speech service'
-                      : 'Off by default',
-                  trailing: Switch.adaptive(
-                    value: ref.watch(voicePreferenceProvider).enabled,
-                    activeThumbColor: scheme.primary,
-                    onChanged: (value) {
-                      HapticFeedback.lightImpact();
-                      ref.read(voicePreferenceProvider).setEnabled(value);
-                    },
-                  ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedMic01,
+                title: 'Voice Dictation',
+                value: ref.watch(voicePreferenceProvider).enabled
+                    ? 'On · uses device speech service'
+                    : 'Off by default',
+                trailing: Switch.adaptive(
+                  value: ref.watch(voicePreferenceProvider).enabled,
+                  activeThumbColor: scheme.primary,
+                  onChanged: (value) {
+                    HapticFeedback.lightImpact();
+                    ref.read(voicePreferenceProvider).setEnabled(value);
+                  },
                 ),
+              ),
             ],
           ),
           const SizedBox(height: 24),

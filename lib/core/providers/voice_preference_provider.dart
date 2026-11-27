@@ -2,6 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Build-time flag to exclude voice dictation on F-Droid builds
+/// (`--dart-define=NOOK_FDROID=true`).
+const bool kIsFdroidFlavor = bool.fromEnvironment('NOOK_FDROID');
+
 /// Persists opt-in voice-to-text capture state and one-time privacy disclosure.
 ///
 /// Voice capture is **off by default** so the hero mic stays hidden and
@@ -12,7 +16,7 @@ class VoicePreference extends ChangeNotifier {
   VoicePreference({
     bool enabled = false,
     bool disclosureAccepted = false,
-  })  : _enabled = enabled,
+  })  : _enabled = kIsFdroidFlavor ? false : enabled,
         _disclosureAccepted = disclosureAccepted;
 
   static const String _enabledKey = 'voice_capture_enabled';
@@ -21,7 +25,8 @@ class VoicePreference extends ChangeNotifier {
   bool _enabled;
   bool _disclosureAccepted;
 
-  bool get enabled => _enabled;
+  bool get isSupported => !kIsFdroidFlavor;
+  bool get enabled => !kIsFdroidFlavor && _enabled;
   bool get disclosureAccepted => _disclosureAccepted;
 
   Future<void> setEnabled(bool value) async {
