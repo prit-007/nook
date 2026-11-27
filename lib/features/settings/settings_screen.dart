@@ -191,6 +191,15 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
+                icon: HugeIcons.strokeRoundedAlarmClock,
+                title: 'Reminders',
+                value: 'Scheduled alerts',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/reminders');
+                },
+              ),
+              _SettingsTile(
                 icon: HugeIcons.strokeRoundedWifi01,
                 title: 'Peer Sync',
                 value: 'Send & receive',

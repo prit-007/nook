@@ -301,6 +301,25 @@ abstract class EditorialPageTransitions {
     );
   }
 
+  /// Unified GoRouter page builder dispatching to [type].
+  static CustomTransitionPage<T> buildPage<T>({
+    required GoRouterState state,
+    required Widget child,
+    EditorialTransitionType type = EditorialTransitionType.slideUp,
+    Axis axis = Axis.horizontal,
+  }) {
+    switch (type) {
+      case EditorialTransitionType.sharedAxis:
+        return sharedAxis<T>(key: state.pageKey, child: child, axis: axis);
+      case EditorialTransitionType.slideUp:
+        return slideUp<T>(key: state.pageKey, child: child);
+      case EditorialTransitionType.fadeThrough:
+        return fadeThrough<T>(key: state.pageKey, child: child);
+      case EditorialTransitionType.containerTransform:
+        return containerTransform<T>(key: state.pageKey, child: child);
+    }
+  }
+
   /// Container transform page transition for GoRouter.
   static CustomTransitionPage<T> containerTransform<T>({
     required LocalKey key,

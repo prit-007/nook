@@ -16,11 +16,13 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
+import 'controllers/collection_tree_controller.dart';
+import 'widgets/mobile_collection_drill_down.dart';
 import 'widgets/notebook_card.dart';
 import 'widgets/notebook_detail_pane.dart';
 
 /// Layout view mode for the notebooks screen.
-enum NotebookViewMode { grid, list }
+enum NotebookViewMode { grid, list, drillDown }
 
 /// Notebooks list screen — grid or list of notebook cards with CRUD.
 class NotebooksScreen extends ConsumerStatefulWidget {
@@ -168,9 +170,11 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
     final scheme = Theme.of(context).colorScheme;
     final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
 
-    final content = _effectiveViewMode == NotebookViewMode.grid
-        ? _notebooksGrid(scheme, isDualPane)
-        : _notebooksList(scheme, isDualPane);
+    final content = switch (_effectiveViewMode) {
+      NotebookViewMode.grid => _notebooksGrid(scheme, isDualPane),
+      NotebookViewMode.list => _notebooksList(scheme, isDualPane),
+      NotebookViewMode.drillDown => _notebooksDrillDown(scheme, isDualPane),
+    };
 
     return Scaffold(
       appBar: widget.embedded
@@ -199,6 +203,25 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
                     context.push('/trash');
                   },
                 ),
+                if (!isDualPane)
+                  IconButton(
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedFolder01,
+                      size: 22,
+                    ),
+                    tooltip: _effectiveViewMode == NotebookViewMode.drillDown
+                        ? 'Exit drill-down view'
+                        : 'Browse hierarchy',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _internalViewMode =
+                            _effectiveViewMode == NotebookViewMode.drillDown
+                                ? NotebookViewMode.grid
+                                : NotebookViewMode.drillDown;
+                      });
+                    },
+                  ),
                 IconButton(
                   icon: HugeIcon(
                     icon: _effectiveViewMode == NotebookViewMode.grid
@@ -505,6 +528,47 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
           return ParallaxCard(child: card);
         },
       ),
+    );
+  }
+
+  List<CollectionTreeNode> _buildCollectionTree([String? parentId]) {
+    return _notebooks
+        .where((n) => n.parentId == parentId)
+        .map(
+          (n) => CollectionTreeNode(
+            id: n.id,
+            name: n.name,
+            colorSeed: n.colorSeed,
+            parentId: n.parentId,
+            noteCount: _counts[n.id] ?? 0,
+            children: _buildCollectionTree(n.id),
+          ),
+        )
+        .toList();
+  }
+
+  Widget _notebooksDrillDown(ColorScheme scheme, bool isDualPane) {
+    if (_notebooks.isEmpty) {
+      return const EmptyState(
+        icon: HugeIcons.strokeRoundedBook01,
+        title: 'No notebooks yet',
+        subtitle: 'Tap + New to create your first notebook.',
+        animate: false,
+      );
+    }
+    return MobileCollectionDrillDown(
+      nodes: _buildCollectionTree(),
+      onSelectCollection: (id) {
+        if (id == null) return;
+        if (isDualPane) {
+          ref.read(selectedNotebookIdProvider.notifier).state = id;
+          return;
+        }
+        final hasChildren = _notebooks.any((n) => n.parentId == id);
+        if (!hasChildren) {
+          context.push('/notebooks/$id');
+        }
+      },
     );
   }
 }
