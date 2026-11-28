@@ -239,7 +239,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           icon: HugeIcons.strokeRoundedSearch01,
                           title: 'Search notes',
                           subtitle:
-                              'Type words, tag:, in:, is:, before:, or select a filter',
+                              'Type words, tags, or select a filter above',
                           animate: false,
                         )
                       : _results.isEmpty && _searched

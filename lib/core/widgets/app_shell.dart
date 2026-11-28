@@ -9,6 +9,7 @@ import 'dart:ui';
 import '../adaptive_breakpoints.dart';
 import '../theme/app_motion.dart';
 import '../theme/nook_tokens.dart';
+import 'animated_squircle.dart';
 import 'dock_safe_area.dart';
 
 /// Material 3 window size class based on width.
@@ -151,9 +152,11 @@ class _MobileShell extends StatelessWidget {
                         child: Container(
                           height: 44,
                           width: 64,
-                          decoration: BoxDecoration(
+                          decoration: ShapeDecoration(
                             color: scheme.primary.withValues(alpha: 0.12),
-                            borderRadius: context.tokens.borderRadiusPill,
+                            shape: const SquircleBorder(
+                              cornerRadius: NookTokens.kRadiusMd,
+                            ),
                           ),
                         ),
                       ),
