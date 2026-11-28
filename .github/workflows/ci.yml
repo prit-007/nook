@@ -35,6 +35,12 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
       - name: Licence audit
         run: dart run tool/licence_audit.dart
+      - name: Secret scan
+        run: |
+          if grep -rnE "BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY|AIza[0-9A-Za-z_-]{35}|ghp_[0-9A-Za-z]{36}" lib/ android/ ios/ linux/ windows/ macos/; then
+            echo "Potential hardcoded secret detected!" >&2
+            exit 1
+          fi
       - name: Analyze
         run: flutter analyze
       - name: Run tests
