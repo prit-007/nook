@@ -341,54 +341,128 @@ class BacklinkGraphView extends StatelessWidget {
   }
 
   Widget _buildBody(BuildContext context, ColorScheme scheme) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (graph.incoming.isNotEmpty)
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
+    return InteractiveViewer(
+      minScale: 0.75,
+      maxScale: 2.0,
+      boundaryMargin: const EdgeInsets.all(24),
+      child: CustomPaint(
+        painter: _BacklinkGraphPainter(
+          incomingCount: graph.incoming.length,
+          relatedCount: graph.relatedTitles.length,
+          edgeColor: scheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (final hit in graph.incoming)
-                ActionChip(
-                  avatar: HugeIcon(
-                    icon: HugeIcons.strokeRoundedLink01,
-                    size: 14,
-                    color: scheme.primary,
-                  ),
-                  label: Text(hit.title),
-                  onPressed: () => onSelectNote(hit.noteId),
+              if (graph.incoming.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (final hit in graph.incoming)
+                      ActionChip(
+                        avatar: HugeIcon(
+                          icon: HugeIcons.strokeRoundedLink01,
+                          size: 14,
+                          color: scheme.primary,
+                        ),
+                        label: Text(hit.title),
+                        onPressed: () => onSelectNote(hit.noteId),
+                      ),
+                  ],
                 ),
+              const SizedBox(height: 16),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  graph.centerTitle,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+              if (graph.relatedTitles.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (final title in graph.relatedTitles)
+                      Chip(label: Text(title)),
+                  ],
+                ),
+              ],
             ],
-          ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: scheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Text(
-            graph.centerTitle,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: scheme.onPrimaryContainer,
-            ),
           ),
         ),
-        if (graph.relatedTitles.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              for (final title in graph.relatedTitles) Chip(label: Text(title)),
-            ],
-          ),
-        ],
-      ],
+      ),
     );
+  }
+}
+
+class _BacklinkGraphPainter extends CustomPainter {
+  const _BacklinkGraphPainter({
+    required this.incomingCount,
+    required this.relatedCount,
+    required this.edgeColor,
+  });
+
+  final int incomingCount;
+  final int relatedCount;
+  final Color edgeColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = edgeColor
+      ..strokeWidth = 1.4
+      ..style = PaintingStyle.stroke;
+
+    final center = Offset(size.width / 2, size.height / 2);
+
+    for (var i = 0; i < incomingCount; i++) {
+      final frac = (i + 1) / (incomingCount + 1);
+      final start = Offset(size.width * frac, 22);
+      final path = Path()
+        ..moveTo(start.dx, start.dy)
+        ..quadraticBezierTo(
+          (start.dx + center.dx) / 2,
+          center.dy * 0.55,
+          center.dx,
+          center.dy - 14,
+        );
+      canvas.drawPath(path, paint);
+    }
+
+    for (var i = 0; i < relatedCount; i++) {
+      final frac = (i + 1) / (relatedCount + 1);
+      final end = Offset(size.width * frac, size.height - 22);
+      final path = Path()
+        ..moveTo(center.dx, center.dy + 14)
+        ..quadraticBezierTo(
+          (end.dx + center.dx) / 2,
+          center.dy + (size.height - center.dy) * 0.45,
+          end.dx,
+          end.dy,
+        );
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BacklinkGraphPainter oldDelegate) {
+    return oldDelegate.incomingCount != incomingCount ||
+        oldDelegate.relatedCount != relatedCount ||
+        oldDelegate.edgeColor != edgeColor;
   }
 }
