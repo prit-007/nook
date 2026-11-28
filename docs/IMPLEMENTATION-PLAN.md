@@ -17,7 +17,7 @@ All 18 risks (R1–R18) were checked file-by-file. Verdicts below are **CONFIRME
 | 0 | Ground truth (audit) | COMPLETE | 2026-11-27 | 2026-11-27 |
 | 1 | Safety net and FOSS foundation | COMPLETE | 2026-11-28 | 2026-11-28 |
 | 2 | Trust: backup, secrets, offline | COMPLETE | 2026-11-28 | 2026-11-28 |
-| 3 | Sync v2 | NOT STARTED | — | — |
+| 3 | Sync v2 | COMPLETE | 2026-11-28 | Protocol v2 spec, schema v12 (`note_tags.deleted`, `hlc`), `SyncSimulator` convergence, tombstone non-resurrection, chunk resume, key-bound pairing, conflict preservation, encrypted folder sync |
 | 4 | Maintainability and polish | NOT STARTED | — | — |
 | 5 | New features | NOT STARTED | — | — |
 | 6 | Release 1.0 | NOT STARTED | — | — |

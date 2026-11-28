@@ -142,6 +142,12 @@ class SyncBundlePacker {
           'deltaContent': note.deltaContent,
           'plainText': note.plainText,
           'coverImagePath': note.coverImagePath,
+          'archived': note.archived,
+          'deleted': note.deleted,
+          if (note.deletedAt != null)
+            'deletedAt': note.deletedAt!.millisecondsSinceEpoch,
+          'updatedAt': note.updatedAt.millisecondsSinceEpoch,
+          if (note.hlc != null) 'hlc': note.hlc,
           'createdAt': note.createdAt.millisecondsSinceEpoch,
           if (tagsPayload != null && tagsPayload.isNotEmpty)
             'tags': tagsPayload,

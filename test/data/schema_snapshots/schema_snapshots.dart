@@ -2,7 +2,7 @@
 class SchemaSnapshots {
   const SchemaSnapshots._();
 
-  static const int currentVersion = 11;
+  static const int currentVersion = 12;
 
   static const Set<String> v11Tables = {
     'notebooks',

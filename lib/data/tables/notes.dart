@@ -23,6 +23,7 @@ class Notes extends Table {
   DateTimeColumn get updatedAt => dateTime().clientDefault(DateTime.now)();
   TextColumn get deviceOriginId => text()();
   IntColumn get syncVersion => integer().withDefault(const Constant(0))();
+  TextColumn get hlc => text().nullable()();
 
   /// Per-note typography: auto/sans/serif/mono, stored as the enum name.
   TextColumn get fontStyle =>

@@ -71,6 +71,26 @@ class SyncCipher {
     return pin.toString().padLeft(6, '0');
   }
 
+  /// Derives a 6-digit pairing code bound to both peers' public keys and the
+  /// session [nonce] so any key substitution changes the code on both devices.
+  static String deriveKeyBoundPairingCode({
+    required List<int> localPublicKey,
+    required List<int> remotePublicKey,
+    required List<int> nonce,
+  }) {
+    final aHex =
+        localPublicKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    final bHex =
+        remotePublicKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    final ordered = aHex.compareTo(bHex) <= 0
+        ? [...localPublicKey, ...remotePublicKey]
+        : [...remotePublicKey, ...localPublicKey];
+    final digest = crypto.sha256.convert([...ordered, ...nonce]).bytes;
+    final value =
+        (digest[0] << 24) | (digest[1] << 16) | (digest[2] << 8) | digest[3];
+    return ((value & 0x7FFFFFFF) % 1000000).toString().padLeft(6, '0');
+  }
+
   /// Generates a 12-byte counter-based nonce for AES-GCM.
   static Uint8List _nextNonce(int counter) {
     final nonce = Uint8List(12);

@@ -23,6 +23,12 @@ Future<File> createLegacyFixtureDb(
     "VALUES ('note-legacy-1', 'Legacy Note', 'text', 'Preserved across upgrade', 'dev-legacy', 'nb-legacy-1', 1700000000, 1700000000);",
   );
 
+  if (fromVersion < 12) {
+    await db.customStatement('ALTER TABLE note_tags DROP COLUMN deleted;');
+    await db.customStatement('ALTER TABLE note_tags DROP COLUMN deleted_at;');
+    await db.customStatement('ALTER TABLE notes DROP COLUMN hlc;');
+    await db.customStatement('ALTER TABLE notebooks DROP COLUMN hlc;');
+  }
   if (fromVersion < 11) {
     await db.customStatement('ALTER TABLE notebooks DROP COLUMN parent_id;');
   }

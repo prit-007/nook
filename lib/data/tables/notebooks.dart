@@ -11,6 +11,7 @@ class Notebooks extends Table {
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
   TextColumn get parentId => text().nullable().references(Notebooks, #id)();
+  TextColumn get hlc => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

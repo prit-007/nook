@@ -18,7 +18,7 @@ void main() {
       final harness = await createTempFileTestDatabase();
       addTearDown(harness.dispose);
 
-      expect(harness.db.schemaVersion, 11);
+      expect(harness.db.schemaVersion, 12);
       expect(harness.file.existsSync(), isTrue);
     });
 

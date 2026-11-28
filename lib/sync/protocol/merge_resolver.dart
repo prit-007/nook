@@ -116,6 +116,29 @@ class MergeResult {
 class MergeResolver {
   MergeResolver(this._noteRepo, this._notebookRepo);
 
+  /// Field-level sync classification matrix (Phase 3.1).
+  static const Map<String, String> syncFieldMatrix = {
+    'notes.title': 'synced',
+    'notes.deltaContent': 'synced',
+    'notes.plainText': 'synced',
+    'notes.colorSeed': 'synced',
+    'notes.fontStyle': 'synced',
+    'notes.pinned': 'synced',
+    'notes.archived': 'synced',
+    'notes.deleted': 'synced',
+    'notes.deletedAt': 'synced',
+    'notes.updatedAt': 'synced',
+    'notes.hlc': 'synced',
+    'notes.syncVersion': 'synced',
+    'notes.deviceOriginId': 'synced',
+    'notes.locked': 'excluded_by_default',
+    'notebooks.parentId': 'synced',
+    'note_tags.deleted': 'synced',
+    'note_revisions': 'local_only',
+    'trusted_devices': 'local_only',
+    'sync_log': 'local_only',
+  };
+
   final NoteRepository _noteRepo;
   final NotebookRepository _notebookRepo;
 
@@ -385,6 +408,12 @@ class MergeResolver {
         updatedAt: incoming.updatedAt,
       );
     }
+    if (incoming.noteFields['archived'] == true) {
+      await _noteRepo.archiveNote(incoming.noteId);
+    }
+    if (incoming.noteFields['deleted'] == true) {
+      await _noteRepo.softDelete(incoming.noteId);
+    }
   }
 
   /// Overwrites a local note with the remote version (same lineage).
@@ -430,6 +459,15 @@ class MergeResolver {
         plainText: plainText,
         updatedAt: incoming.updatedAt,
       );
+    }
+    final archived = noteFields['archived'] as bool?;
+    if (archived == true) {
+      await _noteRepo.archiveNote(incoming.noteId);
+    } else if (archived == false) {
+      await _noteRepo.unarchiveNote(incoming.noteId);
+    }
+    if (noteFields['deleted'] == true) {
+      await _noteRepo.softDelete(incoming.noteId);
     }
   }
 
