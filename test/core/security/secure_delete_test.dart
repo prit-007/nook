@@ -21,7 +21,9 @@ void main() {
       addTearDown(db.close);
       final noteRepo = NoteRepository(db);
 
-      final now = DateTime(2026, 11, 27);
+      // Use a future date so DateTime.now() (used by softDelete for deletedAt)
+      // is always before the cutoff (now + 1 day).
+      final now = DateTime(2027, 6, 1);
       final note = await noteRepo.createNote(
         title: 'Expired secret',
         type: NoteType.text,
