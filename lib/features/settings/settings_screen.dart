@@ -16,6 +16,7 @@ import '../../core/widgets/dock_safe_area.dart';
 import '../../sync/sync_orchestrator.dart';
 import '../archive/archive_screen.dart';
 import 'providers/vault_stats_provider.dart';
+import 'widgets/offline_voice_models_sheet.dart';
 
 /// Settings root screen.
 /// Frosted glass section cards with tight macro-typography and tactile
@@ -215,6 +216,20 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.push('/settings/backup');
+                },
+              ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedMic01,
+                title: 'Offline Voice Models',
+                value: 'SHA-256 verified',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  showModalBottomSheet<void>(
+                    context: context,
+                    useSafeArea: true,
+                    showDragHandle: true,
+                    builder: (_) => const OfflineVoiceModelsSheet(),
+                  );
                 },
               ),
               _SettingsTile(

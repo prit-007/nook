@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,8 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/platform/voice_capture_service.dart';
 import '../../../core/providers/voice_preference_provider.dart';
+import '../../../core/theme/app_motion.dart';
+import '../../../core/theme/nook_tokens.dart';
 
 /// Opens a modal bottom sheet for live voice-to-text dictation.
 ///
@@ -66,12 +69,28 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet> {
   String? _error;
   bool _initializing = true;
   bool _listening = false;
+  bool _appendMode = true;
+  String _selectedLocale = 'System';
+  int _offlineModelCount = 0;
+
+  static const _locales = ['System', 'en_US', 'hi_IN', 'gu_IN'];
 
   @override
   void initState() {
     super.initState();
     _voiceService = ref.read(voiceCaptureServiceProvider);
+    unawaited(_loadOfflineModels());
     unawaited(_start());
+  }
+
+  Future<void> _loadOfflineModels() async {
+    try {
+      final models =
+          await ref.read(offlineVoiceModelManagerProvider).listModels();
+      if (mounted) {
+        setState(() => _offlineModelCount = models.length);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -158,20 +177,27 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _listening
-                  ? scheme.primaryContainer
-                  : scheme.surfaceContainerHigh,
-            ),
-            child: Center(
-              child: HugeIcon(
-                icon: HugeIcons.strokeRoundedMic01,
-                size: 28,
-                color: _listening ? scheme.primary : scheme.onSurfaceVariant,
+          AnimatedScale(
+            scale: _listening ? 1.08 : 1.0,
+            duration: AppMotion.standard,
+            curve: AppMotion.emphasizedDecelerate,
+            child: AnimatedContainer(
+              duration: AppMotion.standard,
+              curve: AppMotion.emphasizedDecelerate,
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _listening
+                    ? scheme.primaryContainer
+                    : scheme.surfaceContainerHigh,
+              ),
+              child: Center(
+                child: HugeIcon(
+                  icon: HugeIcons.strokeRoundedMic01,
+                  size: 28,
+                  color: _listening ? scheme.primary : scheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -183,6 +209,43 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet> {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
+          ),
+          const SizedBox(height: 12),
+          ListeningWaveform(active: _listening),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: NookTokens.kSpacingSm,
+            runSpacing: NookTokens.kSpacingXs,
+            alignment: WrapAlignment.center,
+            children: [
+              Chip(
+                label: Text(
+                  _offlineModelCount > 0
+                      ? 'Offline model ($_offlineModelCount)'
+                      : 'System speech',
+                  style: const TextStyle(fontSize: NookTokens.kFontFloor),
+                ),
+              ),
+              FilterChip(
+                label: const Text(
+                  'Append',
+                  style: TextStyle(fontSize: NookTokens.kFontFloor),
+                ),
+                selected: _appendMode,
+                onSelected: (v) => setState(() => _appendMode = v),
+              ),
+              ActionChip(
+                label: Text(
+                  _selectedLocale,
+                  style: const TextStyle(fontSize: NookTokens.kFontFloor),
+                ),
+                onPressed: () {
+                  final nextIdx =
+                      (_locales.indexOf(_selectedLocale) + 1) % _locales.length;
+                  setState(() => _selectedLocale = _locales[nextIdx]);
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Container(
@@ -239,5 +302,114 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet> {
         ],
       ),
     );
+  }
+}
+
+/// Animated 5-bar voice waveform indicator shown during active dictation.
+class ListeningWaveform extends StatefulWidget {
+  const ListeningWaveform({super.key, required this.active});
+
+  final bool active;
+
+  @override
+  State<ListeningWaveform> createState() => _ListeningWaveformState();
+}
+
+class _ListeningWaveformState extends State<ListeningWaveform>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    if (widget.active) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ListeningWaveform oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.active && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 56,
+      height: 22,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return CustomPaint(
+            painter: _WaveformPainter(
+              phase: widget.active ? _controller.value : 0.0,
+              active: widget.active,
+              color: widget.active ? scheme.primary : scheme.outlineVariant,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _WaveformPainter extends CustomPainter {
+  const _WaveformPainter({
+    required this.phase,
+    required this.active,
+    required this.color,
+  });
+
+  final double phase;
+  final bool active;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const barCount = 5;
+    const barWidth = 4.0;
+    final gap = (size.width - barCount * barWidth) / (barCount - 1);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    for (var i = 0; i < barCount; i++) {
+      final amp = active
+          ? 0.35 + 0.65 * (0.5 + 0.5 * math.sin(phase * 2 * math.pi + i * 1.1))
+          : 0.25;
+      final barHeight = size.height * amp;
+      final x = i * (barWidth + gap);
+      final y = (size.height - barHeight) / 2;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, y, barWidth, barHeight),
+          const Radius.circular(2),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPainter oldDelegate) {
+    return oldDelegate.phase != phase ||
+        oldDelegate.active != active ||
+        oldDelegate.color != color;
   }
 }

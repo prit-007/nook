@@ -189,7 +189,8 @@ void main() {
     expect(fake.permissionRequested, isFalse);
 
     await tester.tap(find.text('Open Sheet'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(fake.permissionChecked, isTrue);
     expect(fake.permissionRequested, isTrue);

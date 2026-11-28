@@ -138,4 +138,23 @@ class OfflineVoiceModelManager {
     }
     return dest;
   }
+
+  Future<List<File>> listModels() async {
+    final dir = _storageDirectory ?? await getApplicationDocumentsDirectory();
+    final modelsDir = Directory(p.join(dir.path, 'stt_models'));
+    if (!modelsDir.existsSync()) return const [];
+    return modelsDir.listSync().whereType<File>().toList();
+  }
+
+  Future<void> deleteModel(String fileName) async {
+    final dir = _storageDirectory ?? await getApplicationDocumentsDirectory();
+    final file = File(p.join(dir.path, 'stt_models', p.basename(fileName)));
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
+  }
 }
+
+final offlineVoiceModelManagerProvider = Provider<OfflineVoiceModelManager>(
+  (ref) => OfflineVoiceModelManager(),
+);
