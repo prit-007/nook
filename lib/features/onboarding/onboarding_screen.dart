@@ -11,6 +11,7 @@ import '../../core/security/dek_manager.dart';
 import '../../core/security/recovery_key_provider.dart';
 import '../../core/theme/app_motion.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/widgets/animated_squircle.dart';
 import '../importers/import_dialog.dart';
 import '../security/recovery_key_dialog.dart';
 import '../security/vault_password_dialog.dart';
@@ -80,121 +81,131 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final baseTheme = Theme.of(context);
+    final seed = NookColors.seeds[_selectedSeedIndex % NookColors.seeds.length];
+    final scheme = ColorScheme.fromSeed(
+      seedColor: seed,
+      brightness: baseTheme.brightness,
+    );
 
-    return Scaffold(
-      backgroundColor: scheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Skip button (hidden on final page)
-            Align(
-              alignment: Alignment.topRight,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: _currentPage == 4 ? 0.0 : 1.0,
-                child: IgnorePointer(
-                  ignoring: _currentPage == 4,
-                  child: TextButton(
-                    onPressed: _finish,
+    return AnimatedTheme(
+      duration: AppMotion.standard,
+      curve: AppMotion.emphasizedDecelerate,
+      data: baseTheme.copyWith(colorScheme: scheme),
+      child: Scaffold(
+        backgroundColor: scheme.surface,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Skip button (hidden on final page)
+              Align(
+                alignment: Alignment.topRight,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: _currentPage == 4 ? 0.0 : 1.0,
+                  child: IgnorePointer(
+                    ignoring: _currentPage == 4,
+                    child: TextButton(
+                      onPressed: _finish,
+                      child: Text(
+                        'Skip',
+                        style: TextStyle(
+                            color: scheme.onSurface.withValues(alpha: 0.87)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Pages
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (i) => setState(() => _currentPage = i),
+                  children: [
+                    _WelcomePage(scheme: scheme),
+                    _NoteTypesPage(scheme: scheme),
+                    _VibePage(
+                      scheme: scheme,
+                      selectedIndex: _selectedSeedIndex,
+                      onSeedChanged: (i) =>
+                          setState(() => _selectedSeedIndex = i),
+                    ),
+                    _ProtectVaultPage(
+                      scheme: scheme,
+                      isProtected: ref.watch(vaultPasswordProvider).enabled,
+                      onSetupVault: () async {
+                        final ok = await showSetVaultPasswordDialog(
+                          context,
+                          onSetPassword: (password, shownWords) =>
+                              wrapDekWithPassword(
+                            password,
+                            recoveryWords: shownWords,
+                          ),
+                        );
+                        if (ok && mounted) {
+                          _nextPage();
+                        }
+                      },
+                      onSkipVault: _nextPage,
+                    ),
+                    _ReadyPage(
+                      scheme: scheme,
+                      onSetVaultPassword: (password, shownWords) =>
+                          wrapDekWithPassword(
+                        password,
+                        recoveryWords: shownWords,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Dot indicators
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) {
+                    final isActive = i == _currentPage;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: isActive ? 24 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? scheme.primary
+                            : scheme.onSurface.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+              // Bottom button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: _nextPage,
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                    ),
                     child: Text(
-                      'Skip',
-                      style: TextStyle(
-                          color: scheme.onSurface.withValues(alpha: 0.87)),
+                      _currentPage == 4 ? 'Get Started' : 'Continue',
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
                 ),
               ),
-            ),
-
-            // Pages
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (i) => setState(() => _currentPage = i),
-                children: [
-                  _WelcomePage(scheme: scheme),
-                  _NoteTypesPage(scheme: scheme),
-                  _VibePage(
-                    scheme: scheme,
-                    selectedIndex: _selectedSeedIndex,
-                    onSeedChanged: (i) =>
-                        setState(() => _selectedSeedIndex = i),
-                  ),
-                  _ProtectVaultPage(
-                    scheme: scheme,
-                    isProtected: ref.watch(vaultPasswordProvider).enabled,
-                    onSetupVault: () async {
-                      final ok = await showSetVaultPasswordDialog(
-                        context,
-                        onSetPassword: (password, shownWords) =>
-                            wrapDekWithPassword(
-                          password,
-                          recoveryWords: shownWords,
-                        ),
-                      );
-                      if (ok && mounted) {
-                        _nextPage();
-                      }
-                    },
-                    onSkipVault: _nextPage,
-                  ),
-                  _ReadyPage(
-                    scheme: scheme,
-                    onSetVaultPassword: (password, shownWords) =>
-                        wrapDekWithPassword(
-                      password,
-                      recoveryWords: shownWords,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Dot indicators
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) {
-                  final isActive = i == _currentPage;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: isActive ? 24 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? scheme.primary
-                          : scheme.onSurface.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  );
-                }),
-              ),
-            ),
-
-            // Bottom button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  onPressed: _nextPage,
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                  ),
-                  child: Text(
-                    _currentPage == 4 ? 'Get Started' : 'Continue',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -222,46 +233,39 @@ class _WelcomePage extends StatelessWidget {
               child: Column(
                 children: [
                   const Spacer(flex: 2),
-                  // Illustration mockup
-                  Container(
-                    width: 160,
-                    height: 160,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
+                  // Hero squircle emblem with shared-element continuity
+                  Hero(
+                    tag: 'nook-welcome-hero',
+                    child: AnimatedSquircle(
+                      shape: SquircleShape.clover,
+                      size: 160,
                       color: scheme.primaryContainer,
-                      boxShadow: [
-                        BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.15),
-                          blurRadius: 32,
-                          spreadRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        HugeIcon(
-                          icon: HugeIcons.strokeRoundedNotebook01,
-                          size: 70,
-                          color: scheme.onPrimaryContainer,
-                        ),
-                        Positioned(
-                          right: 24,
-                          bottom: 24,
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: scheme.primary,
-                            ),
-                            child: HugeIcon(
-                              icon: HugeIcons.strokeRoundedLock,
-                              size: 18,
-                              color: scheme.onPrimary,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedNotebook01,
+                            size: 70,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                          Positioned(
+                            right: 24,
+                            bottom: 24,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: scheme.primary,
+                              ),
+                              child: HugeIcon(
+                                icon: HugeIcons.strokeRoundedLock,
+                                size: 18,
+                                color: scheme.onPrimary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const Spacer(flex: 2),
