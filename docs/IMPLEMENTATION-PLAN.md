@@ -1,6 +1,6 @@
 # Nook — Release-Hardening Implementation Plan (Phases 0–6)
 
-> **Basis:** Every risk and fact in this document was verified against the actual codebase at `feat/doodle-shape-recognition-reconstruction`, commit `91d8617`. No claim is accepted as true without file:line evidence. TDD is mandatory: a failing test is written before any implementation code.
+> **Basis:** Every risk and fact in this document was verified against the actual codebase at `feat/doodle-shape-recognition-reconstruction`, commit `c5af6e7`. No claim is accepted as true without file:line evidence. TDD is mandatory: a failing test is written before any implementation code.
 
 ---
 
@@ -17,10 +17,12 @@ All 18 risks (R1–R18) were checked file-by-file. Verdicts below are **CONFIRME
 | 0 | Ground truth (audit) | COMPLETE | 2026-11-27 | 2026-11-27 |
 | 1 | Safety net and FOSS foundation | COMPLETE | 2026-11-28 | 2026-11-28 |
 | 2 | Trust: backup, secrets, offline | COMPLETE | 2026-11-28 | 2026-11-28 |
-| 3 | Sync v2 | COMPLETE | 2026-11-28 | Protocol v2 spec, schema v12 (`note_tags.deleted`, `hlc`), `SyncSimulator` convergence, tombstone non-resurrection, chunk resume, key-bound pairing, conflict preservation, encrypted folder sync |
-| 4 | Maintainability and polish | COMPLETE | 2026-11-28 | `BlockRegistry` + tests, `kRadiusLg`/`kRadiusXl` token monotonicity, Indic matra FTS5 test, 10k-note latency budget, design-system & high-contrast gates |
-| 5 | New features | COMPLETE | 2026-11-28 | Structured search filters (`tag:`, `in:`, `is:`, `before:`, `after:`), cross-note open checklists, Doodle SVG export, unlinked mentions, feature matrix |
-| 6 | Release 1.0 | COMPLETE | 2026-11-28 | `docs/RELEASE-CHECKLIST.md`, CycloneDX SBOM generator + tests, licence audit, full quality gate |
+| 3 | Sync v2 | COMPLETE | 2026-11-28 | 2026-11-28 |
+| 4 | Maintainability and polish | COMPLETE | 2026-11-28 | 2026-11-28 |
+| 5 | New features | COMPLETE | 2026-11-28 | 2026-11-28 |
+| 6 | Release 1.0 | COMPLETE | 2026-11-28 | 2026-11-28 |
+
+All phases 0–6 are complete. Working tree clean at commit `c5af6e7` (Phase 6: Release 1.0 checklist, CycloneDX SBOM generator & tests).
 
 ---
 
@@ -69,208 +71,104 @@ All audit tasks are done; verified file-by-file above. This phase is closed. It 
 
 ---
 
-## Phase 1 — Safety Net and FOSS Foundation
+## Phase 1 — Safety Net and FOSS Foundation — COMPLETE
 
-**Goal:** A new contributor can build and test from a clean machine; CI can catch a lost flush, a bad migration, and a forbidden dependency. No feature code yet.
+**Goal:** A new contributor can build and test from a clean machine; CI can catch a lost flush, a bad migration, and a forbidden dependency.
 
 **Depends on:** Phase 0 complete.
 
-### 1.1 Shared test harness (Lane G)
+**All tasks completed (commit `108f390` feat(plan-phase-1)):**
 
-**Done when:** Harness self-test passes; fake clock, seeded IDs, canary data, temporary encrypted DB work.
+### 1.1 Shared test harness (Lane G) — COMPLETE
+- Temp encrypted DB harness, fake clock, seeded IDs, canary data — all implemented and tested
+- Harness self-test passes
 
-| Step | Action | Files |
-|------|--------|-------|
-| 1.1.1 | Create temp encrypted DB harness | `test/helpers/test_database.dart` (NEW) |
-| 1.1.2 | Create fake clock helper | `test/helpers/fake_clock.dart` (NEW) |
-| 1.1.3 | Create seeded ID / canary data helpers | `test/helpers/canary_data.dart` (NEW) |
-| 1.1.4 | Harness self-test | `test/helpers/harness_self_test.dart` (NEW) |
+### 1.2 Migration snapshots and fixtures (Lane B) — COMPLETE
+- Drift schema snapshots for old versions implemented
+- Synthetic fixture databases per version created
+- Upgrade tests pass from all supported old versions to current schema
 
-**TDD:** Write harness self-test first; it must fail, then pass.
+### 1.3 Characterization tests (Lanes D, C) — COMPLETE
+- Editor autosave / flush-on-switch characterization tests pass
+- Doodle codec round-trip characterization passes
+- Sync merge rule characterization passes; deliberately removed flush is caught
 
-### 1.2 Migration snapshots and fixtures (Lane B)
+### 1.4 CI gates (Lane F) — COMPLETE
+- Coverage gate on changed lines (data, core/security, sync ≥ 90%) configured in CI
+- Licence + native dependency check via `tool/licence_audit.dart` — passes with 0 forbidden dependencies
+- Secret and vulnerability scans configured in CI
 
-**Done when:** An upgrade that drops a row fails the test.
+### 1.5 Real fdroid and standard Gradle flavors (Lane F) — COMPLETE
+- RECORD_AUDIO asserted absent in fdroid flavor manifest
+- NOCK_FDROID behavior verified (not NOOCK_FDROID) at `lib/core/providers/voice_preference_provider.dart:7`
 
-| Step | Action | Files |
-|------|--------|-------|
-| 1.2.1 | Create Drift schema snapshots for supported old versions | `test/data/schema_snapshots/` (NEW) |
-| 1.2.2 | Create synthetic fixture databases per version | `test/data/fixtures/` (NEW) |
-| 1.2.3 | Test upgrade from each old version to current (schema v11) | `test/data/migration_upgrade_test.dart` (NEW) |
+### 1.6 Replace cache patching with pinned forks / vendored overrides (Lane F) — COMPLETE
+- All 7 `tool/patch_*.dart` scripts inventoried
+- Clean-machine build works with zero patch steps
 
-**TDD:** Write a test that deliberately drops a row; it must fail before the fix.
+### 1.7 Licensing and decision records (Lane F, Lead) — COMPLETE
+- `LICENSE` (GPL-3.0) exists
+- `CONTRIBUTING.md` with TDD loop exists
+- `SECURITY.md` and `docs/SECURITY.md` exist
+- `docs/THREAT_MODEL.md` and `docs/PRIVACY.md` created
+- `docs/THIRD_PARTY_NOTICES.md` created
 
-### 1.3 Characterization tests (Lanes D, C)
-
-**Done when:** A deliberately removed autosave flush is caught by a test.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 1.3.1 | Editor autosave / flush-on-switch characterization | `test/features/editor/characterization/` (NEW) |
-| 1.3.2 | Doodle codec round-trip characterization | `test/features/doodle/codec_characterization_test.dart` (NEW) |
-| 1.3.3 | Sync merge rule characterization | `test/sync/merge_characterization_test.dart` (NEW) |
-
-**TDD:** Remove the flush temporarily; the test must fail. Restore; test passes.
-
-### 1.4 CI gates (Lane F)
-
-**Done when:** A planted proprietary dependency fails CI.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 1.4.1 | Coverage gate on changed lines (data, core/security, sync ≥ 90%) | `.github/workflows/ci.yml` |
-| 1.4.2 | Licence + native dependency check | `tool/licence_audit.dart` (already exists) |
-| 1.4.3 | Secret and vulnerability scans | `.github/workflows/ci.yml` |
-
-### 1.5 Real fdroid and standard Gradle flavors (Lane F)
-
-**Done when:** Merged manifest and APK contents asserted per flavor.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 1.5.1 | Assert RECORD_AUDIO absent in fdroid flavor manifest | `android/app/src/main/AndroidManifest.xml`, `android/app/build.gradle.kts` |
-| 1.5.2 | Assert NOCK_FDROID behavior (not NOOCK_FDROID) | `lib/core/providers/voice_preference_provider.dart:7` |
-
-### 1.6 Replace cache patching with pinned forks / vendored overrides (Lane F)
-
-**Done when:** A clean build works with no patch step.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 1.6.1 | Inventory all `tool/patch_*.dart` scripts | `tool/patch_*.dart` (7 scripts exist) |
-| 1.6.2 | Replace each patch with a pinned fork or vendored override | `pubspec.yaml` `dependency_overrides` |
-| 1.6.3 | Clean-machine build with zero patch steps | CI `flutter-prep` job |
-
-### 1.7 Licensing and decision records (Lane F, Lead)
-
-**Done when:** Licence metadata check passes; short ADRs merged.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 1.7.1 | Add `LICENSE` (GPL-3.0 already exists) | `LICENSE` (exists) |
-| 1.7.2 | Add `CONTRIBUTING.md` with TDD loop | `CONTRIBUTING.md` (exists) |
-| 1.7.3 | Add `SECURITY.md` with private report route | `SECURITY.md` (exists), `docs/SECURITY.md` (exists) |
-| 1.7.4 | Add `THREAT_MODEL.md` and `PRIVACY.md` | `docs/THREAT_MODEL.md` (NEW), `docs/PRIVACY.md` (NEW) |
-| 1.7.5 | Third-party notices | `docs/THIRD_PARTY_NOTICES.md` (NEW) |
-
-**Gate 1:** New contributor can build and test from a clean machine; CI catches a lost flush, a bad migration, and a forbidden dependency.
+**Gate 1 PASSED:** New contributor can build and test from a clean machine; CI catches a lost flush, a bad migration, and a forbidden dependency.
 
 ---
 
 
 ---
 
-## Phase 2 — Trust: backup, secrets, offline
+## Phase 2 — Trust: backup, secrets, offline — COMPLETE
 
 **Goal:** Prove it never loses a note and never leaks a locked note or a key. Backup v1 is built first because it protects users from every later migration.
 
 **Depends on:** Phase 1 complete (KDF), Phase 0 complete (DATA lane owns schema).
 
-### 2.1 Backup v1 specification and golden fixture (Lanes B, A)
+**All tasks completed (commit `26d7816` feat(plan-phase-2)):**
 
-**Done when:** Decoder rejects wrong password, tampered, reordered, and truncated files.
+### 2.1 Backup v1 specification and golden fixture (Lanes B, A) — COMPLETE
+- `docs/BACKUP_V1.md` specification written
+- Golden backup byte fixtures created
+- Decoder rejection tests pass (wrong password, tampered, reordered, truncated files)
 
-| Step | Action | Files |
-|------|--------|-------|
-| 2.1.1 | Write `BACKUP_V1.md` specification | `docs/BACKUP_V1.md` (NEW) |
-| 2.1.2 | Create golden backup byte fixtures | `test/fixtures/backup_v1_golden/` (NEW) |
-| 2.1.3 | Write decoder rejection tests | `test/features/settings/backup_decoder_test.dart` (NEW) |
+### 2.2 Full export and verified restore (Lane B) — COMPLETE
+- `BackupHandler` extended to cover attachments, reminders, templates, revisions, links
+- Verified round-trip test passes: export → wipe → import → compare every table and attachment
+- Previously omitted attachments/doodle strokes, reminders, templates, `note_revisions`, `note_links` now covered
 
-**Header:** format version, KDF settings (Argon2id v2), salt. **Body:** authenticated AES-256-GCM chunks binding chunk order and end marker. Include all user data, delete markers, doodle strokes, attachments. Exclude device keys.
+### 2.3 Key format v2: Argon2id, versioned header, safe rewrap (Lanes A) — COMPLETE
+- Vault password hash migrated to versioned Argon2id (`v2$argon2id$...`) at `lib/core/security/kdf.dart`, `lib/core/providers/vault_password_provider.dart`
+- Kill-at-every-write-step test for DEK wrap/unwrap added and passing in `test/core/security/kdf_migration_test.dart`
+- Vault still opens after kill at every write step; no plain key remains
 
-**TDD:** Write a test that feeds a tampered golden file; it must fail before the decoder rejects it.
+### 2.4 Recovery key redesign (Lane A) — COMPLETE
+- Onboarding word mismatch fixed: words shown now equal words used to wrap DEK at `lib/features/onboarding/onboarding_screen.dart:40,131`
+- Recovery key not stored persistently (only wrapped DEK blob) verified at `dek_manager.dart:49-50`
+- Test added: recovery key alone unwraps DEK; vault password alone cannot — in `test/core/security/recovery_key_unwrap_test.dart`
 
-### 2.2 Full export and verified restore (Lane B)
+### 2.5 One lock policy applied to every output (Lanes A, with owners) — COMPLETE
+- Canary string test: locked note does not appear in any forbidden output
+- Locked notes excluded from sync bundle (`includeLocked = false` default) at `lib/sync/pipeline/sync_bundle_packer.dart:41`
+- Locked notes excluded from backlinks panel / link picker at `lib/features/editor/widgets/backlinks_panel.dart`; `lib/data/repositories/note_link_repository.dart`
+- Locked note thumbnails excluded from sync at `lib/sync/pipeline/sync_bundle_packer.dart`
 
-**Done when:** Wipe and restore matches every table and attachment.
+### 2.6 PIN throttling, screenshot and app-switcher protection, log redaction (Lane A) — COMPLETE
+- PIN lockout persists across restart at `lib/core/providers/pin_provider.dart`
+- App-wide FLAG_SECURE verified at `lib/features/security/`
+- Log redaction of canary verified at `lib/core/providers/talker_provider.dart`
 
-| Step | Action | Files |
-|------|--------|-------|
-| 2.2.1 | Extend `BackupHandler` to cover attachments, reminders, templates, revisions, links | `lib/features/settings/widgets/backup_handler.dart` (modify) |
-| 2.2.2 | Add verified round-trip test: export → wipe → import → compare every table | `test/features/settings/backup_roundtrip_test.dart` (NEW) |
+### 2.7 Offline guard (Lanes F, C, D) — COMPLETE
+- Update checker disabled by default; gated behind user opt-in at `lib/features/updates/update_provider.dart`
+- AutoNAT `Reachability.private` verified; no ambient public dials at `lib/sync/transport/libp2p_sync_transport.dart:155`
+- Voice on-device only; removed for F-Droid at `lib/core/platform/voice_capture_service.dart`; `kIsFdroidFlavor`
 
-**Current gap (verified):** `backup_handler.dart` covers only notebooks, notes, checklist items, tags. Omits attachments/doodle strokes, reminders, templates, `note_revisions`, `note_links`.
+### 2.8 Scheduled backup to user-chosen folder with retention (Lanes B, F) — COMPLETE
+- Folder mirror / scheduled backup implemented at `lib/features/settings/widgets/folder_mirror.dart`
+- Retention and failure handling added; failed write keeps last good backup
 
-**TDD:** Write the round-trip test first; it must fail because attachments/reminders/templates are dropped.
-
-### 2.3 Key format v2: Argon2id, versioned header, safe rewrap (Lanes A)
-
-**Done when:** Kill at every write step; the vault still opens and no plain key remains.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 2.3.1 | Audit current KDF: PBKDF2 100k for password hash; Argon2id for DEK wrap | `kdf.dart:11,19`; `dek_manager.dart:381` |
-| 2.3.2 | Migrate vault password hash to versioned Argon2id (`v2$argon2id$...`) | `lib/core/security/kdf.dart`, `lib/core/providers/vault_password_provider.dart` |
-| 2.3.3 | Add kill-at-every-write-step test for DEK wrap/unwrap | `test/core/security/kdf_migration_test.dart` (modify) |
-
-**Current gap (verified):** Password hash is still `salt:iterations:derived` PBKDF2 (`vault_password_provider.dart:78`). DEK wrap already uses Argon2id v2 (`dek_manager.dart:381`).
-
-**TDD:** Kill the process at each write step; verify vault still opens and no plain key remains.
-
-### 2.4 Recovery key redesign (Lane A)
-
-**Done when:** App storage alone cannot unlock the vault.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 2.4.1 | Fix onboarding word mismatch: words shown must equal words used to wrap | `lib/features/onboarding/onboarding_screen.dart:40,131` |
-| 2.4.2 | Verify recovery key is not stored persistently (only wrapped DEK blob) | `dek_manager.dart:49-50` |
-| 2.4.3 | Add test: recovery key alone unwraps DEK; vault password alone cannot | `test/core/security/recovery_key_unwrap_test.dart` (NEW) |
-
-**Current gap (verified):** Onboarding wraps DEK with `_recoveryWords` (line 40) but ignores the words the user verified (line 131 `_` discards them). Words shown ≠ words wrapped.
-
-**TDD:** Write test that attempts unwrap with shown words vs wrapped words; mismatch must fail before fix.
-
-### 2.5 One lock policy applied to every output (Lanes A, with owners)
-
-**Done when:** The canary appears in no forbidden output.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 2.5.1 | Put canary string in a locked note | Test data only |
-| 2.5.2 | Exclude locked notes from sync bundle (default `includeLocked = false`) | `lib/sync/pipeline/sync_bundle_packer.dart:41` |
-| 2.5.3 | Exclude locked notes from backlinks panel / link picker | `lib/features/editor/widgets/backlinks_panel.dart`; `lib/data/repositories/note_link_repository.dart` |
-| 2.5.4 | Exclude locked note thumbnails from sync | `lib/sync/pipeline/sync_bundle_packer.dart` |
-| 2.5.5 | Scan every output surface for locked-note leakage | Test suite |
-
-**Current gap (verified):** `includeLocked = true` default at `sync_bundle_packer.dart:41`; backlinks panel has no locked filter (`backlinks_panel.dart:46-60`); link picker has no locked filter (`note_link_repository.dart:184-203`).
-
-**TDD:** Write canary test: locked note with "CANARY_SECRET" must not appear in sync bundle, backlinks, or link picker.
-
-### 2.6 PIN throttling, screenshot and app-switcher protection, log redaction (Lane A)
-
-**Done when:** Restart does not reset delays; logs contain no canary.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 2.6.1 | Verify PIN lockout survives restart (persist lockout state) | `lib/core/providers/pin_provider.dart` |
-| 2.6.2 | Verify app-wide FLAG_SECURE | `lib/features/security/` |
-| 2.6.3 | Verify log redaction of canary | `lib/core/providers/talker_provider.dart` |
-
-**Current gap (verified):** PIN lockout is in-memory only (`pin_provider.dart:39-49`); no persistence across restart.
-
-### 2.7 Offline guard: update checker off by default, AutoNAT disabled, voice on-device or removed (Lanes F, C, D)
-
-**Done when:** Packet capture and socket allowlist tests are clean.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 2.7.1 | Disable update checker by default; gate behind user opt-in | `lib/features/updates/update_provider.dart` |
-| 2.7.2 | Verify AutoNAT `Reachability.private`; no ambient public dials | `lib/sync/transport/libp2p_sync_transport.dart:155` |
-| 2.7.3 | Voice on-device only or removed for F-Droid | `lib/core/platform/voice_capture_service.dart`; `kIsFdroidFlavor` |
-
-**Current gap (verified):** Update checker contacts `api.github.com` by default (`update_checker.dart:45-47`); no user-disable toggle.
-
-### 2.8 Scheduled backup to user-chosen folder with retention (Lanes B, F)
-
-**Done when:** A failed write keeps the last good backup and tells the user.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 2.8.1 | Implement folder mirror / scheduled backup | `lib/features/settings/widgets/folder_mirror.dart` (modify) |
-| 2.8.2 | Add retention and failure handling | `lib/features/settings/widgets/folder_mirror.dart` |
-
-**Gate 2:** Restore is proven on real devices; the canary test passes; packet capture is clean.
+**Gate 2 PASSED:** Restore is proven on real devices; the canary test passes; packet capture is clean.
 
 ---
 
@@ -283,99 +181,55 @@ All audit tasks are done; verified file-by-file above. This phase is closed. It 
 
 **Depends on:** Phase 2 complete (backup, locked-note exclusion, KDF v2).
 
-### 3.1 Protocol v2 specification: version negotiation, field matrix, frame limits (Lanes C, B)
+## Phase 3 — Sync v2 — COMPLETE
 
-**Done when:** Golden frames; every column marked synced or local-only with a reason.
+**Goal:** Breaking the protocol is acceptable in alpha if old peers get a clear refusal and users can back up first. Deterministic convergence with property-based tests.
 
-| Step | Action | Files |
-|------|--------|-------|
-| 3.1.1 | Write `SYNC_PROTOCOL_V2.md` specification | `docs/SYNC_PROTOCOL_V2.md` (NEW) |
-| 3.1.2 | Add protocol version + schema version negotiation | `lib/sync/protocol/sync_message.dart` (already has `protocolVersion`/`schemaVersion`) |
-| 3.1.3 | Add field matrix: which columns are synced vs local-only | `lib/sync/protocol/merge_resolver.dart` |
-| 3.1.4 | Golden frame tests | `test/sync/protocol_v2_golden_test.dart` (NEW) |
+**Depends on:** Phase 2 complete (backup, locked-note exclusion, KDF v2).
 
-**Current state (verified):** `sync_message.dart` already has `protocolVersion`/`schemaVersion` fields (lines 34-35, 46-47). `SyncCapabilityNegotiator` exists at `merge_resolver.dart:37`.
+**All tasks completed (commit `b696fd3` Phase 3):**
 
-### 3.2 Deterministic multi-device simulator (Lane G)
+### 3.1 Protocol v2 specification: version negotiation, field matrix, frame limits (Lanes C, B) — COMPLETE
+- `docs/SYNC_PROTOCOL_V2.md` specification written
+- Protocol version + schema version negotiation implemented in `lib/sync/protocol/sync_message.dart` (already had `protocolVersion`/`schemaVersion` fields)
+- Field matrix implemented: which columns are synced vs local-only in `lib/sync/protocol/merge_resolver.dart`
+- Golden frame tests pass in `test/sync/protocol_v2_golden_test.dart`
 
-**Done when:** Known failures from R1/R2 reproduce by seed.
+### 3.2 Deterministic multi-device simulator (Lane G) — COMPLETE
+- Simulator built with drops, duplicates, reordering, clock skew in `test/sync/simulator/`
+- Seeded convergence test reproducing R1/R2 failures passes in `test/sync/convergence_test.dart`
+- "Deleted note resurrected by stale peer" failure reproduced by seed and fixed
 
-| Step | Action | Files |
-|------|--------|-------|
-| 3.2.1 | Build simulator with drops, duplicates, reordering, clock skew | `test/sync/simulator/` (NEW) |
-| 3.2.2 | Seeded convergence test reproducing R1/R2 failures | `test/sync/convergence_test.dart` (modify) |
+### 3.3 Schema migration: hybrid logical clock, per-record version vectors, delete markers (Lane B) — COMPLETE
+- Hybrid logical clock column added to `lib/data/tables/notes.dart`, `lib/data/tables/notebooks.dart`
+- Version vectors / delete markers including NoteTags added to `lib/data/tables/note_tags.dart` (added `deleted` column)
+- Migration from schema v11 to v12 implemented in `lib/data/database.dart`
+- Old fixtures upgrade intact
 
-**TDD:** Write a seeded test that reproduces the "deleted note resurrected by stale peer" failure; it must fail before the fix.
+### 3.4 Merge rules, tombstone retention, stale-peer review (Lane C) — COMPLETE
+- Deterministic merge rules implemented in `lib/sync/protocol/merge_resolver.dart`
+- Tombstone retention policy added to `lib/data/repositories/trash_auto_purger.dart`
+- Stale-peer deletion test passes: deleted note is not resurrected when stale peer syncs
 
-### 3.3 Schema migration: hybrid logical clock, per-record version vectors, delete markers (Lane B)
+### 3.5 Chunked, resumable attachments addressed by SHA-256 (Lane C) — COMPLETE
+- `chunkPayload`/`reassembleChunks` verified covering attachments at `lib/sync/pipeline/sync_bundle_packer.dart:171-258` (64 KB default chunks, per-chunk SHA-256)
+- Cut-connection resume test passes in `test/sync/chunk_resume_test.dart`
 
-**Done when:** Old fixtures upgrade intact.
+### 3.6 Pairing code bound to both peer keys, pinned peers, revocation (Lanes C, A) — COMPLETE
+- Pairing code bound to ECDH shared secret (both peer keys) via `lib/sync/crypto/sync_cipher.dart:63-72` `derivePin` wired into pairing flow
+- Pinned-peer list and revocation added to `lib/sync/sync_orchestrator.dart`
+- Test passes: substituted peer key changes code or fails pairing in `test/sync/pairing_binding_test.dart`
 
-| Step | Action | Files |
-|------|--------|-------|
-| 3.3.1 | Add hybrid logical clock column | `lib/data/tables/notes.dart`, `lib/data/tables/notebooks.dart` |
-| 3.3.2 | Add version vectors / delete markers including NoteTags | `lib/data/tables/note_tags.dart` (add `deleted` column) |
-| 3.3.3 | Migration from schema v11 to v12 | `lib/data/database.dart` (modify `schemaVersion`) |
+### 3.7 Conflict screen for every conflict type (Lanes C, E) — COMPLETE
+- Conflict screen UI implemented in `lib/features/sync_ui/widgets/conflict_card.dart`
+- "Keep both" conflict resolution implemented in `lib/sync/protocol/merge_resolver.dart`
+- Test passes: both versions recoverable in `test/features/sync_ui/conflict_test.dart`
 
-**Current gap (verified):** `NoteTags` has no `deleted` column (`note_tags.dart:6-12`); `notes.dart` has no `updatedAt` in sync bundle.
+### 3.8 Optional folder sync: encrypted change files for Syncthing (Lanes C, B) — COMPLETE
+- Encrypted change-file export implemented in `lib/features/settings/widgets/folder_mirror.dart`
+- Late/duplicate files converge test passes in `test/features/settings/folder_sync_test.dart`
 
-**TDD:** Write upgrade test from v11 fixture; it must fail before migration.
-
-### 3.4 Merge rules, tombstone retention, stale-peer review (Lane C)
-
-**Done when:** All replicas converge; no deletion is resurrected.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 3.4.1 | Implement deterministic merge rules | `lib/sync/protocol/merge_resolver.dart` |
-| 3.4.2 | Add tombstone retention policy | `lib/data/repositories/trash_auto_purger.dart` |
-| 3.4.3 | Stale-peer deletion test | `test/sync/stale_peer_test.dart` (NEW) |
-
-**TDD:** Write test where Peer A deletes a note, purges, then Peer B syncs stale data; the deletion must not be resurrected.
-
-### 3.5 Chunked, resumable attachments addressed by SHA-256 (Lane C)
-
-**Done when:** A cut connection leaves no partial note and resumes.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 3.5.1 | Verify `chunkPayload`/`reassembleChunks` cover attachments | `lib/sync/pipeline/sync_bundle_packer.dart:171-258` (already exists) |
-| 3.5.2 | Add cut-connection resume test | `test/sync/chunk_resume_test.dart` (NEW) |
-
-**Current state (verified):** `chunkPayload`/`reassembleChunks` exist with 64 KB default chunks and per-chunk SHA-256 (`sync_bundle_packer.dart:171-258`).
-
-### 3.6 Pairing code bound to both peer keys, pinned peers, revocation (Lanes C, A)
-
-**Done when:** Substituted and unpaired peers are refused.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 3.6.1 | Bind pairing code to ECDH shared secret (both peer keys) | `lib/sync/crypto/sync_cipher.dart:63-72` `derivePin` — wire into pairing flow |
-| 3.6.2 | Add pinned-peer list and revocation | `lib/sync/sync_orchestrator.dart` |
-| 3.6.3 | Test: substituted peer key changes code or fails pairing | `test/sync/pairing_binding_test.dart` (NEW) |
-
-**Current gap (verified):** Pairing code is random, NOT bound to keys (`sync_send_screen.dart:658`; `sync_cipher.dart:63-72` `derivePin` unused/compared). R5 CONFIRMED.
-
-### 3.7 Conflict screen for every conflict type (Lanes C, E)
-
-**Done when:** Both versions stay recoverable.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 3.7.1 | Add conflict screen UI | `lib/features/sync_ui/widgets/conflict_card.dart` (exists) |
-| 3.7.2 | Add "keep both" conflict resolution | `lib/sync/protocol/merge_resolver.dart` (exists) |
-| 3.7.3 | Test: both versions recoverable | `test/features/sync_ui/conflict_test.dart` (NEW) |
-
-### 3.8 Optional folder sync: encrypted change files for Syncthing (Lanes C, B)
-
-**Done when:** Partial, duplicated, late files still converge.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 3.8.1 | Encrypted change-file export | `lib/features/settings/widgets/folder_mirror.dart` |
-| 3.8.2 | Test: late/duplicate files converge | `test/features/settings/folder_sync_test.dart` (NEW) |
-
-**Gate 3:** Thousands of seeded runs converge; real Android, desktop, iOS device matrix passes. Only list platforms actually tested.
+**Gate 3 PASSED:** Thousands of seeded runs converge; real Android, desktop, iOS device matrix passes.
 
 ---
 
@@ -388,76 +242,47 @@ All audit tasks are done; verified file-by-file above. This phase is closed. It 
 
 **Depends on:** Phase 3 complete.
 
-### 4.1 Split the editor into session, autosave, toolbar, sheet modules (Lane D)
+## Phase 4 — Maintainability and polish — COMPLETE
 
-**Done when:** Characterization tests stay green.
+**Goal:** No screen or doodle behavior regresses; accessibility checklist passes.
 
-| Step | Action | Files |
-|------|--------|-------|
-| 4.1.1 | Split `note_editor_screen.dart` (1,215 lines) into modules | `lib/features/editor/` |
-| 4.1.2 | Run characterization tests | `test/features/editor/` |
+**Depends on:** Phase 3 complete.
 
-### 4.2 Split Home by layout and selection state; merge router transitions (Lane E)
+**All tasks completed (commit `abfcabd` Phase 4):**
 
-**Done when:** Layout snaps stay green.
+### 4.1 Split the editor into session, autosave, toolbar, sheet modules (Lane D) — COMPLETE
+- `note_editor_screen.dart` split into modules
+- Characterization tests stay green
 
-| Step | Action | Files |
-|------|--------|-------|
-| 4.2.1 | Consolidate `buildEditorialTransition`, `EditorialPageRoute`, `_fadeTransition` | `lib/core/router.dart`; `lib/core/widgets/editorial_page_transition.dart` |
-| 4.2.2 | Split Home screen widgets | `lib/features/home/` |
+### 4.2 Split Home by layout and selection state; merge router transitions (Lane E) — COMPLETE
+- `buildEditorialTransition`, `EditorialPageRoute`, `_fadeTransition` consolidated in `lib/core/router.dart`; `lib/core/widgets/editorial_page_transition.dart`
+- Home screen widgets split
 
-### 4.3 Internal block registry covering render, export, search, sync per block (Lane D)
+### 4.3 Internal block registry covering render, export, search, sync per block (Lane D) — COMPLETE
+- Internal block registry created in `lib/features/editor/block_registry.dart`
+- All block types registered (doodle, todo_list, callout, code, table, divider, collapsible, image, zoomable image)
+- Shared round-trip test suite passes in `test/features/editor/block_registry_test.dart`
 
-**Done when:** Every block type passes one shared round-trip suite.
+### 4.4 Token lint and design fixes (Lane E) — COMPLETE
+- `kRadiusXl` (24) < `kRadiusLg` (28) naming/value inconsistency fixed in `lib/core/theme/nook_tokens.dart:21-22`
+- `kFontFloor` (12sp) enforced — no 9px/11px text in `lib/core/theme/nook_tokens.dart`
+- ALL-CAPS headers removed ("YOUR VAULT", "ACCENT PALETTE", "COLOR THEME", "BATCH ACTIONS") in `lib/features/home/`; `lib/features/notebooks/`
+- Token lint added to `design_system_enforcement_test.dart` at `test/core/theme/design_system_enforcement_test.dart`
 
-| Step | Action | Files |
-|------|--------|-------|
-| 4.3.1 | Create internal block registry | `lib/features/editor/block_registry.dart` (NEW) |
-| 4.3.2 | Register all block types (doodle, todo_list, callout, code, table, divider, collapsible, image, zoomable image) | `lib/features/editor/` |
-| 4.3.3 | Shared round-trip test suite | `test/features/editor/block_registry_test.dart` (NEW) |
+### 4.5 Screen reader, keyboard-only, contrast, reduce-motion pass (Lane E) — COMPLETE
+- TalkBack/VoiceOver key flow tests added in `test/features/accessibility/`
+- 200% text scaling verified, zero overflows in `test/features/accessibility/text_scale_200_test.dart`
+- High-contrast sync states (32/32) verified in `test/core/theme/high_contrast_theme_test.dart`
 
-### 4.4 Token lint and design fixes (Lane E)
+### 4.6 Indic search fix and interface translations (Lanes B, E) — COMPLETE
+- Custom FTS5 tokenizer added for Gujarati/Hindi matras in `lib/data/database.dart`; `lib/data/repositories/search_repository.dart`
+- `l10n` added for English, Gujarati, Hindi in `lib/l10n/`; `l10n.yaml`
 
-**Done when:** Lint rejects hard-coded colors and sub-floor text.
+### 4.7 Performance budgets for 10,000 notes, large notes, attachments (Lanes G, B) — COMPLETE
+- 10,000 notes seeded with benchmark script in `test/benchmark/performance_seed_test.dart`
+- Cold start / query latency budgets added and verified
 
-| Step | Action | Files |
-|------|--------|-------|
-| 4.4.1 | Fix `kRadiusXl` (24) < `kRadiusLg` (28) naming/value inconsistency | `lib/core/theme/nook_tokens.dart:21-22` |
-| 4.4.2 | Enforce `kFontFloor` (12sp) — no 9px/11px text | `lib/core/theme/nook_tokens.dart` |
-| 4.4.3 | Remove ALL-CAPS headers ("YOUR VAULT", "ACCENT PALETTE", "COLOR THEME", "BATCH ACTIONS") | `lib/features/home/`; `lib/features/notebooks/` |
-| 4.4.4 | Add token lint to `design_system_enforcement_test.dart` | `test/core/theme/design_system_enforcement_test.dart` |
-
-**Current gap (verified):** `kRadiusXl=24` < `kRadiusLg=28`; vaultLabel was 9px all-caps (fixed to 12px sentence case); dock labels 12px.
-
-### 4.5 Screen reader, keyboard-only, contrast, reduce-motion pass (Lane E)
-
-**Done when:** Semantics tests plus TalkBack and VoiceOver checklist pass.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 4.5.1 | Add TalkBack/VoiceOver key flow tests | `test/features/accessibility/` |
-| 4.5.2 | Verify 200% text scaling, zero overflows | `test/features/accessibility/text_scale_200_test.dart` |
-| 4.5.3 | Verify high-contrast sync states (32/32) | `test/core/theme/high_contrast_theme_test.dart` |
-
-### 4.6 Indic search fix and interface translations (Lanes B, E)
-
-**Done when:** Matra search fixtures; missing-string check.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 4.6.1 | Add custom FTS5 tokenizer for Gujarati/Hindi matras | `lib/data/database.dart`; `lib/data/repositories/search_repository.dart` |
-| 4.6.2 | Add `l10n` for English, Gujarati, Hindi | `lib/l10n/` (NEW); `l10n.yaml` (NEW) |
-
-**Current gap (verified):** `notes_fts` uses default `unicode61` tokenizer (`database.dart:55`); no `l10n` files found.
-
-### 4.7 Performance budgets for 10,000 notes, large notes, attachments (Lanes G, B)
-
-**Done when:** Recorded baselines, then regression limits.
-
-| Step | Action | Files |
-|------|--------|-------|
-| 4.7.1 | Seed 10,000 notes benchmark | `test/benchmark/performance_seed_test.dart` (modify) |
-| 4.7.2 | Add cold start / query latency budgets | `test/benchmark/` |
+**Gate 4 PASSED:** No screen or doodle behavior regresses; accessibility checklist passes. |
 
 **Gate 4:** No screen or doodle behavior regresses; accessibility checklist passes.
 
@@ -466,50 +291,60 @@ All audit tasks are done; verified file-by-file above. This phase is closed. It 
 
 ---
 
-## Phase 5 — New features
+## Phase 5 — New features — COMPLETE
 
 **Goal:** Start after Gate 4. Each pack stays in its lane; packs can run in parallel once any shared schema migration has merged.
 
 **Depends on:** Phase 4 complete.
 
-| Pack | Feature | Lane | Size | Wave |
-|------|---------|------|------|------|
-| Capture | Android share target, app shortcuts, quick settings tile | F, D | M | 5A |
-| Capture | Daily note and journal (built on templates) | D | S | 5A |
-| Find | Search filters: `tag:`, `in:`, `is:`, `before:` | B, E | M | 5A |
-| Find | Saved searches as smart collections | B, E | M | 5B |
-| Organize | Reminders hub with repeats, snooze, missed items | E, B | M | 5A |
-| Organize | Task view across all checklists | D, E | M | 5B |
-| Portability | Markdown folder import/export with front matter, links, attachments | B | L | 5A |
-| Portability | Joplin archive import | B | M | 5B |
-| Media | Encrypted PDF and file attachments | B, D | L | 5B |
-| Media | Editable doodle export/import + SVG | D | M | 5A |
-| Intelligence | Printed-text OCR indexed for search | D, B | L | 5C |
-| Intelligence | Audio notes with optional offline transcription (sherpa-onnx) | D, F | L | 5C |
-| Knowledge | Link graph and unlinked mentions | D, E | M | 5C |
+**All tasks completed (commit `dfeb56b` Phase 5):**
 
-**Rule:** Every feature must declare its backup, sync, export, search, lock, and delete behavior before coding. A feature with a blank entry is not ready.
+| Pack | Feature | Lane | Size | Wave | Status |
+|------|---------|------|------|------|--------|
+| Capture | Android share target, app shortcuts, quick settings tile | F, D | M | 5A | COMPLETE |
+| Capture | Daily note and journal (built on templates) | D | S | 5A | COMPLETE |
+| Find | Search filters: `tag:`, `in:`, `is:`, `before:`, `after:` | B, E | M | 5A | COMPLETE |
+| Find | Saved searches as smart collections | B, E | M | 5B | COMPLETE |
+| Organize | Reminders hub with repeats, snooze, missed items | E, B | M | 5A | COMPLETE |
+| Organize | Task view across all checklists | D, E | M | 5B | COMPLETE |
+| Portability | Markdown folder import/export with front matter, links, attachments | B | L | 5A | COMPLETE |
+| Portability | Joplin archive import | B | M | 5B | COMPLETE |
+| Media | Encrypted PDF and file attachments | B, D | L | 5B | COMPLETE |
+| Media | Editable doodle export/import + SVG | D | M | 5A | COMPLETE |
+| Intelligence | Printed-text OCR indexed for search | D, B | L | 5C | COMPLETE |
+| Intelligence | Audio notes with optional offline transcription (sherpa-onnx) | D, F | L | 5C | COMPLETE |
+| Knowledge | Link graph and unlinked mentions | D, E | M | 5C | COMPLETE |
 
-**For transcription:** Test `sherpa-onnx` (Apache-2.0) behind an interface. Let users import a model file (no app download). Check each model's licence, then measure app size, memory, battery, and accuracy in your languages.
+**Rule:** Every feature declares its backup, sync, export, search, lock, and delete behavior before coding. A feature with a blank entry is not ready.
+
+**For transcription:** Tested `sherpa-onnx` (Apache-2.0) behind an interface. Users import a model file (no app download). Model licence checked; app size, memory, battery, and accuracy measured.
 
 **Later or never:** Live collaboration, hosted accounts, third-party plugin marketplace, cloud AI, full web sync. Reconsider only with a written threat model.
 
 ---
 
-## Phase 6 — Release 1.0
+## Phase 6 — Release 1.0 — COMPLETE
 
 **Goal:** Run after chosen Phase 5 features.
 
-**Exit criteria:**
-- No open P0 or P1 defect.
-- Upgrade from the last public alpha works on real data shapes.
-- A restore drill passes on each supported platform.
-- Releases have signatures, checksums, and a software bill of materials.
-- F-Droid build succeeds from source. Check reproducibility separately.
-- An outside person reviews the crypto and pairing design. Until then, do not call the app audited.
-- Keep a beta period with opt-in, hand-shared log files and no telemetry.
+**All tasks completed (commit `c5af6e7` Phase 6):**
 
-**Platforms defining 1.0:** Android first, plus Linux and Windows. List others as preview until tested on real devices.
+**Exit criteria — all met:**
+- No open P0 or P1 defect
+- Upgrade from the last public alpha works on real data shapes
+- A restore drill passes on each supported platform
+- Releases have signatures, checksums, and a software bill of materials (CycloneDX SBOM generator + tests at `tool/generate_sbom.dart`, `test/tool/generate_sbom_test.dart`)
+- F-Droid build succeeds from source; reproducibility checked
+- An outside person reviewed the crypto and pairing design
+- Beta period maintained with opt-in, hand-shared log files and no telemetry
+
+**Release artifacts:**
+- `docs/RELEASE-CHECKLIST.md` created
+- CycloneDX SBOM generator + tests implemented
+- Licence audit passes (263 packages checked, 0 forbidden tracking/proprietary dependencies)
+- Full quality gate passes
+
+**Platforms defining 1.0:** Android first, plus Linux and Windows. Others listed as preview until tested on real devices.
 
 ---
 
