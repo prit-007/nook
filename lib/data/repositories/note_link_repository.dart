@@ -203,4 +203,40 @@ class NoteLinkRepository {
         ? rows
         : rows.where((n) => n.id != excludeId).toList();
   }
+
+  /// Finds live notes whose title or plain text mentions [noteId]'s title
+  /// without already having an explicit `nook://note/<noteId>` link.
+  Future<List<Note>> findUnlinkedMentions(
+    String noteId, {
+    bool includeLocked = false,
+  }) async {
+    final target = await (_db.select(_db.notes)
+          ..where((t) => t.id.equals(noteId)))
+        .getSingleOrNull();
+    if (target == null || target.deleted) return const [];
+    final targetTitle = target.title.trim();
+    if (targetTitle.isEmpty) return const [];
+
+    final existingLinks = await (_db.select(_db.noteLinks)
+          ..where((t) => t.targetNoteId.equals(noteId)))
+        .get();
+    final alreadyLinkedSourceIds =
+        existingLinks.map((e) => e.sourceNoteId).toSet();
+
+    final needle = targetTitle.toLowerCase();
+    final candidates = await (_db.select(_db.notes)
+          ..where((t) =>
+              t.deleted.equals(false) &
+              t.id.equals(noteId).not() &
+              (includeLocked ? const Constant(true) : t.locked.equals(false)))
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
+        .get();
+
+    return candidates.where((n) {
+      if (alreadyLinkedSourceIds.contains(n.id)) return false;
+      final hayTitle = n.title.toLowerCase();
+      final hayBody = (n.plainText ?? '').toLowerCase();
+      return hayTitle.contains(needle) || hayBody.contains(needle);
+    }).toList();
+  }
 }

@@ -107,6 +107,129 @@ class SearchRepository {
     return results;
   }
 
+  /// Searches notes with inline structured filter tokens:
+  /// - `tag:<name>`
+  /// - `in:<notebook>`
+  /// - `is:pinned | archived | locked | checklist | doodle`
+  /// - `before:YYYY-MM-DD` / `after:YYYY-MM-DD`
+  Future<List<Note>> searchNotesWithFilters(
+    String rawQuery, {
+    bool includeLocked = false,
+  }) async {
+    final trimmed = rawQuery.trim();
+    if (trimmed.isEmpty) return [];
+
+    String? tagFilter;
+    String? notebookFilter;
+    bool? pinnedFilter;
+    bool? archivedFilter;
+    bool? lockedFilter;
+    NoteType? typeFilter;
+    DateTime? beforeDate;
+    DateTime? afterDate;
+    final textTokens = <String>[];
+
+    for (final token in trimmed.split(RegExp(r'\s+'))) {
+      final lower = token.toLowerCase();
+      if (lower.startsWith('tag:') && token.length > 4) {
+        tagFilter = token.substring(4).toLowerCase();
+      } else if (lower.startsWith('in:') && token.length > 3) {
+        notebookFilter = token.substring(3).toLowerCase();
+      } else if (lower.startsWith('is:') && token.length > 3) {
+        switch (lower.substring(3)) {
+          case 'pinned':
+            pinnedFilter = true;
+          case 'archived':
+            archivedFilter = true;
+          case 'locked':
+            lockedFilter = true;
+          case 'checklist':
+            typeFilter = NoteType.checklist;
+          case 'doodle':
+            typeFilter = NoteType.doodle;
+        }
+      } else if (lower.startsWith('before:') && token.length > 7) {
+        beforeDate = DateTime.tryParse(token.substring(7));
+      } else if (lower.startsWith('after:') && token.length > 6) {
+        afterDate = DateTime.tryParse(token.substring(6));
+      } else {
+        textTokens.add(token);
+      }
+    }
+
+    final textQuery = textTokens.join(' ').trim();
+    List<Note> candidates;
+    if (textQuery.isNotEmpty) {
+      candidates = await searchNotes(
+        textQuery,
+        type: typeFilter,
+        includeLocked: includeLocked,
+      );
+    } else {
+      final q = _db.select(_db.notes)
+        ..where((t) =>
+            t.deleted.equals(false) &
+            (includeLocked ? const Constant(true) : t.locked.equals(false)))
+        ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]);
+      if (typeFilter != null) {
+        q.where((t) => t.type.equalsValue(typeFilter!));
+      }
+      candidates = await q.get();
+    }
+
+    if (pinnedFilter != null) {
+      candidates = candidates.where((n) => n.pinned == pinnedFilter).toList();
+    }
+    if (archivedFilter != null) {
+      candidates =
+          candidates.where((n) => n.archived == archivedFilter).toList();
+    }
+    if (lockedFilter != null) {
+      candidates = candidates.where((n) => n.locked == lockedFilter).toList();
+    }
+    if (beforeDate != null) {
+      candidates =
+          candidates.where((n) => n.updatedAt.isBefore(beforeDate!)).toList();
+    }
+    if (afterDate != null) {
+      candidates =
+          candidates.where((n) => !n.updatedAt.isBefore(afterDate!)).toList();
+    }
+
+    if (notebookFilter != null && candidates.isNotEmpty) {
+      final notebooks = await (_db.select(_db.notebooks)
+            ..where((t) => t.deleted.equals(false)))
+          .get();
+      final matchingNbIds = notebooks
+          .where((nb) => nb.name.toLowerCase() == notebookFilter)
+          .map((nb) => nb.id)
+          .toSet();
+      candidates = candidates
+          .where(
+            (n) => n.notebookId != null && matchingNbIds.contains(n.notebookId),
+          )
+          .toList();
+    }
+
+    if (tagFilter != null && candidates.isNotEmpty) {
+      final tagRows = await _db.customSelect(
+        '''
+        SELECT nt.note_id AS note_id
+        FROM note_tags nt
+        INNER JOIN tags t ON t.id = nt.tag_id
+        WHERE nt.deleted = 0
+          AND t.deleted = 0
+          AND LOWER(t.name) = ?
+        ''',
+        variables: [Variable.withString(tagFilter)],
+      ).get();
+      final taggedIds = tagRows.map((r) => r.read<String>('note_id')).toSet();
+      candidates = candidates.where((n) => taggedIds.contains(n.id)).toList();
+    }
+
+    return candidates;
+  }
+
   /// Searches notes (FTS) **and** checklist item text (LIKE), returning
   /// grouped results for the search screen.
   ///
