@@ -175,8 +175,8 @@ void main() {
   });
 
   group('schema', () {
-    test('schemaVersion is 11', () {
-      expect(db.schemaVersion, 11);
+    test('schemaVersion is 12', () {
+      expect(db.schemaVersion, 12);
     });
   });
 }
