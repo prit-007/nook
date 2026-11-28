@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 import '../../../core/haptics/haptics.dart';
@@ -20,10 +21,12 @@ class NotebookCard extends ConsumerStatefulWidget {
     super.key,
     required this.notebook,
     this.noteCount = 0,
+    this.parentName,
   });
 
   final Notebook notebook;
   final int noteCount;
+  final String? parentName;
 
   @override
   ConsumerState<NotebookCard> createState() => _NotebookCardState();
@@ -76,11 +79,15 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
         ? Colors.white.withValues(alpha: 0.7)
         : const Color(0xFF1A1A1A).withValues(alpha: 0.65);
 
-    final hasParent = widget.notebook.name.contains('/');
-    final kickerLabel = hasParent
-        ? 'Notebook · ${widget.notebook.name.split('/').sublist(0, widget.notebook.name.split('/').length - 1).map((s) => s.trim()).join(' › ')}'
-        : 'Notebook';
-    final displayName = hasParent
+    final hasSlashParent = widget.notebook.name.contains('/');
+    final kickerLabel = widget.parentName != null
+        ? 'Notebook · ${widget.parentName}'
+        : (hasSlashParent
+            ? 'Notebook · ${widget.notebook.name.split('/').sublist(0, widget.notebook.name.split('/').length - 1).map((s) => s.trim()).join(' › ')}'
+            : (widget.notebook.parentId != null
+                ? 'Subcollection'
+                : 'Notebook'));
+    final displayName = hasSlashParent
         ? widget.notebook.name.split('/').last.trim()
         : widget.notebook.name;
 
@@ -186,15 +193,32 @@ class _NotebookCardState extends ConsumerState<NotebookCard> {
                             width: 0.5,
                           ),
                         ),
-                        child: Text(
-                          kickerLabel,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                            color: textColor,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.parentName != null ||
+                                widget.notebook.parentId != null) ...[
+                              HugeIcon(
+                                icon: HugeIcons.strokeRoundedFolder01,
+                                size: 12,
+                                color: textColor,
+                              ),
+                              const SizedBox(width: 5),
+                            ],
+                            Flexible(
+                              child: Text(
+                                kickerLabel,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                  color: textColor,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

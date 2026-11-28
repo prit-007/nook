@@ -24,10 +24,15 @@ enum SyncMessageType {
 /// checksum-before-deserialization guarantee (the transport's Noise layer
 /// handles confidentiality/authenticity; this guards against corruption).
 class SyncMessage {
+  static const int currentProtocolVersion = 1;
+  static const int currentSchemaVersion = 7;
+
   const SyncMessage({
     required this.type,
     required this.senderDeviceId,
     required this.senderDeviceName,
+    this.protocolVersion = currentProtocolVersion,
+    this.schemaVersion = currentSchemaVersion,
     this.requestId,
     this.pairingCode,
     this.bundleBytes,
@@ -38,6 +43,8 @@ class SyncMessage {
   final SyncMessageType type;
   final String senderDeviceId;
   final String senderDeviceName;
+  final int protocolVersion;
+  final int schemaVersion;
 
   /// Correlation id for held-stream pairing requests.
   final String? requestId;
@@ -140,6 +147,10 @@ class SyncMessageCodec {
           CborString('senderDeviceId'), CborString(message.senderDeviceId)),
       MapEntry(
           CborString('senderDeviceName'), CborString(message.senderDeviceName)),
+      MapEntry(
+          CborString('protocolVersion'), CborSmallInt(message.protocolVersion)),
+      MapEntry(
+          CborString('schemaVersion'), CborSmallInt(message.schemaVersion)),
       if (message.requestId != null)
         MapEntry(CborString('requestId'), CborString(message.requestId!)),
       if (message.pairingCode != null)
@@ -216,10 +227,22 @@ class SyncMessageCodec {
       ack = SyncAck.fromCbor(Uint8List.fromList(rawAck));
     }
 
+    final rawProtocolVersion = map['protocolVersion'];
+    final protocolVersion = rawProtocolVersion is int
+        ? rawProtocolVersion
+        : SyncMessage.currentProtocolVersion;
+
+    final rawSchemaVersion = map['schemaVersion'];
+    final schemaVersion = rawSchemaVersion is int
+        ? rawSchemaVersion
+        : SyncMessage.currentSchemaVersion;
+
     return SyncMessage(
       type: type,
       senderDeviceId: senderDeviceId,
       senderDeviceName: senderDeviceName,
+      protocolVersion: protocolVersion,
+      schemaVersion: schemaVersion,
       requestId: requestId,
       pairingCode: pairingCode,
       bundleBytes: bundleBytes,

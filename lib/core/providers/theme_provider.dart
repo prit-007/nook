@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../theme/atmosphere_theme.dart';
 import '../theme/design_tokens.dart';
 import 'talker_provider.dart';
 
-/// Persists: manual seed index, dark/light/system mode, reduce-motion flag,
-/// and AMOLED true-black dark-mode flag.
+/// Persists: manual seed index, dark/light/system mode, atmosphere preset,
+/// reduce-motion flag, and AMOLED true-black dark-mode flag.
 class ThemePreference extends ChangeNotifier {
   ThemePreference({
     this.seedIndex = 0,
@@ -14,6 +15,7 @@ class ThemePreference extends ChangeNotifier {
     this.reduceMotion = false,
     this.amoledDark = false,
     this.highContrast = false,
+    this.atmosphere = AtmospherePreset.standard,
   });
 
   int seedIndex;
@@ -21,6 +23,7 @@ class ThemePreference extends ChangeNotifier {
   bool reduceMotion;
   bool amoledDark;
   bool highContrast;
+  AtmospherePreset atmosphere;
 
   Color get seedColor => NookColors.seeds[seedIndex];
 
@@ -56,6 +59,13 @@ class ThemePreference extends ChangeNotifier {
     _save();
   }
 
+  void setAtmosphere(AtmospherePreset preset) {
+    atmosphere = preset;
+    talker.info('Atmosphere preset changed to ${preset.name}');
+    notifyListeners();
+    _save();
+  }
+
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('seed_index', seedIndex);
@@ -63,11 +73,13 @@ class ThemePreference extends ChangeNotifier {
     await prefs.setBool('reduce_motion', reduceMotion);
     await prefs.setBool('amoled_dark', amoledDark);
     await prefs.setBool('high_contrast', highContrast);
+    await prefs.setInt('atmosphere_preset', atmosphere.index);
   }
 
   static Future<ThemePreference> load() async {
     final prefs = await SharedPreferences.getInstance();
     final modeIndex = prefs.getInt('theme_mode') ?? 0;
+    final atmoIndex = prefs.getInt('atmosphere_preset') ?? 0;
     return ThemePreference(
       seedIndex: prefs.getInt('seed_index') ?? 0,
       themeMode:
@@ -75,6 +87,8 @@ class ThemePreference extends ChangeNotifier {
       reduceMotion: prefs.getBool('reduce_motion') ?? false,
       amoledDark: prefs.getBool('amoled_dark') ?? false,
       highContrast: prefs.getBool('high_contrast') ?? false,
+      atmosphere: AtmospherePreset
+          .values[atmoIndex.clamp(0, AtmospherePreset.values.length - 1)],
     );
   }
 }

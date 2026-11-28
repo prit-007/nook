@@ -18,6 +18,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/router.dart';
 import '../../core/theme/app_motion.dart';
+import '../../core/theme/nook_tokens.dart';
 import '../../core/theme/note_theme.dart';
 import '../../core/theme/note_theme_scope.dart';
 import '../../core/widgets/confirm_delete_dialog.dart';
@@ -42,6 +43,8 @@ import 'editor_title.dart';
 import 'note_exporter.dart';
 import 'widgets/image_picker_handler.dart';
 import 'widgets/note_link_picker.dart';
+import 'widgets/ocr_scan_sheet.dart';
+import 'widgets/voice_capture_sheet.dart';
 import 'widgets/backlinks_panel.dart';
 import 'widgets/editor_outline.dart';
 
@@ -88,7 +91,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   bool _focusMode = false;
   NoteFontStyle _fontStyle = NoteFontStyle.auto;
   bool _readOnly = false;
-  bool _showSavedFeedback = false;
 
   final EditorAutosaveController _autosaveController =
       EditorAutosaveController();
@@ -339,10 +341,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             _title = derivedTitle;
             _note = updatedNote;
             _fontStyle = parseFontStyle(updatedNote.fontStyle);
-            _showSavedFeedback = true;
-          });
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) setState(() => _showSavedFeedback = false);
           });
         } else {
           _title = derivedTitle;
@@ -503,7 +501,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         insetPadding: const EdgeInsets.all(16),
         child: InteractiveViewer(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: context.tokens.borderRadiusMd,
             child: Image.file(file, fit: BoxFit.contain),
           ),
         ),
@@ -692,6 +690,33 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _autosaveController.scheduleAutosave(onSave: _save);
   }
 
+  Future<void> _insertPlainTextAtSelection(String text) async {
+    final editorState = _editorState;
+    if (editorState == null || text.isEmpty) return;
+    final pos =
+        editorState.selection?.start ?? Position(path: const [0], offset: 0);
+    final node = editorState.getNodeAtPath(pos.path);
+    if (node == null) return;
+    final transaction = editorState.transaction;
+    transaction.replaceText(node, pos.offset, 0, text);
+    await editorState.apply(transaction);
+    _autosaveController.scheduleAutosave(onSave: _save);
+  }
+
+  Future<void> _scanOcr() async {
+    if (_editorState == null || !mounted) return;
+    final text = await showOcrScanSheet(context);
+    if (text == null || text.isEmpty || !mounted) return;
+    await _insertPlainTextAtSelection(text);
+  }
+
+  Future<void> _dictateVoice() async {
+    if (_editorState == null || !mounted) return;
+    final text = await showVoiceCaptureSheet(context);
+    if (text == null || text.isEmpty || !mounted) return;
+    await _insertPlainTextAtSelection(text);
+  }
+
   void _undoEditor() {
     final state = _editorState;
     if (state == null || !state.undoManager.undoStack.isNonEmpty) return;
@@ -751,8 +776,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       final flashEntry = OverlayEntry(
         builder: (_) => ColoredBox(
           color: Theme.of(context).colorScheme.brightness == Brightness.dark
-              ? Colors.white.withValues(alpha: 0.4)
-              : Colors.black.withValues(alpha: 0.2),
+              ? Colors.white
+                  .withValues(alpha: context.tokens.flashOverlayLightOpacity)
+              : Colors.black
+                  .withValues(alpha: context.tokens.flashOverlayDarkOpacity),
         ),
       );
       Overlay.of(context).insert(flashEntry);
@@ -1025,6 +1052,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                 onInsertDoodle: _insertDoodle,
                                 onInsertImage: _insertImage,
                                 onInsertNoteLink: _insertNoteLink,
+                                onScanOcr: _scanOcr,
+                                onDictateVoice: _dictateVoice,
                                 onOpenDoodleCanvas: _openDoodleCanvas,
                                 onDeleteMediaBlock: _deleteMediaBlock,
                                 checklistAttachments: _checklistAttachments,
@@ -1067,25 +1096,31 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                           duration: AppMotion.short4,
                           opacity: isKeyboardVisible ? 0.0 : 1.0,
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(32),
+                            borderRadius: context.tokens.borderRadiusLg,
                             child: Container(
                               height: 60,
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 8),
                               decoration: BoxDecoration(
                                 color: noteScheme.surfaceContainerHighest
-                                    .withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(32),
+                                    .withValues(
+                                        alpha: context.tokens.glassOpacity),
+                                borderRadius: context.tokens.borderRadiusLg,
                               ),
-                              child: ValueListenableBuilder<int>(
-                                valueListenable: _undoRedoVersion,
-                                builder: (context, _, __) =>
-                                    ResponsiveEditorAppBar(
+                              child: AnimatedBuilder(
+                                animation: Listenable.merge([
+                                  _undoRedoVersion,
+                                  _autosaveController.statusVersion,
+                                ]),
+                                builder: (context, _) => ResponsiveEditorAppBar(
                                   noteScheme: noteScheme,
                                   dynamicTextTheme: dynamicTextTheme,
                                   title: _title,
-                                  saving: _autosaveController.isSaving,
-                                  isSaved: _showSavedFeedback,
+                                  saving: _autosaveController.isSaving ||
+                                      _autosaveController.isDirty,
+                                  isSaved: _note != null &&
+                                      !_autosaveController.isDirty &&
+                                      !_autosaveController.isSaving,
                                   pinned: _pinned,
                                   note: _note,
                                   notebookName: _notebookName,

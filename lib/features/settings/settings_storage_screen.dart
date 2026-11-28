@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/talker_provider.dart';
+import '../../core/providers/trash_retention_provider.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/checklist_item_repository.dart';
@@ -195,6 +196,42 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
     }
   }
 
+  Future<void> _pickTrashRetention(BuildContext context) async {
+    final pref = ref.read(trashRetentionProvider);
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Bin auto-purge retention'),
+        children: [
+          for (final days in kTrashRetentionOptions)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, days),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      days <= 0
+                          ? 'Never (keep indefinitely)'
+                          : '$days days${days == 30 ? ' (default)' : ''}',
+                    ),
+                  ),
+                  if (pref.days == days)
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedTick02,
+                      size: 18,
+                      color: Theme.of(ctx).colorScheme.primary,
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (selected != null) {
+      await pref.setDays(selected);
+    }
+  }
+
   Future<void> _exportBulk(BulkExportFormat format) async {
     if (_exporting || _importing || _importingMarkdown || _exportingBulk) {
       return;
@@ -247,9 +284,13 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
             onPressed: () => Navigator.pop(ctx, BulkExportFormat.markdown),
             child: const Text('Markdown'),
           ),
-          FilledButton(
+          TextButton(
             onPressed: () => Navigator.pop(ctx, BulkExportFormat.html),
             child: const Text('HTML'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, BulkExportFormat.pdf),
+            child: const Text('PDF'),
           ),
         ],
       ),
@@ -599,7 +640,7 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Markdown or HTML zip of every live note. '
+                                  'Markdown, HTML, or PDF zip of every live note. '
                                   'Soft-deleted notes are excluded.',
                                   style: TextStyle(
                                     fontSize: 13,
@@ -739,6 +780,66 @@ class _SettingsStorageScreenState extends ConsumerState<SettingsStorageScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   'Migrate from Google Keep, Evernote, Notesnook, or plain text.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: scheme.onSurfaceVariant,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
+                            size: 18,
+                            color:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _pickTrashRetention(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: scheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedDelete01,
+                              size: 20,
+                              color: scheme.onSecondaryContainer,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Bin auto-purge retention',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  ref.watch(trashRetentionProvider).label,
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: scheme.onSurfaceVariant,

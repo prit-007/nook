@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/app_motion.dart';
+import '../theme/nook_tokens.dart';
 
 /// Style variants of editorial page transitions.
 enum EditorialTransitionType {
@@ -72,6 +73,13 @@ abstract class EditorialPageTransitions {
     Widget child, {
     Axis axis = Axis.horizontal,
   }) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return FadeTransition(
+        opacity: animation,
+        child: RepaintBoundary(child: child),
+      );
+    }
+
     final enterCurve = CurvedAnimation(
       parent: animation,
       curve: AppMotion.emphasizedDecelerate,
@@ -87,6 +95,10 @@ abstract class EditorialPageTransitions {
     final beginOffset = axis == Axis.horizontal
         ? const Offset(0.08, 0.0)
         : const Offset(0.0, 0.08);
+    final exitOffset = Offset(
+      -beginOffset.dx * 0.45,
+      -beginOffset.dy * 0.45,
+    );
 
     return FadeTransition(
       opacity: enterCurve,
@@ -96,12 +108,25 @@ abstract class EditorialPageTransitions {
           end: Offset.zero,
         ).animate(enterCurve),
         child: ScaleTransition(
-          scale: Tween<double>(begin: 0.95, end: 1.0).animate(enterCurve),
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 1.0, end: 1.03).animate(exitCurve),
-            child: FadeTransition(
-              opacity: Tween<double>(begin: 1.0, end: 0.85).animate(exitCurve),
-              child: RepaintBoundary(child: child),
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(enterCurve),
+          child: AnimatedBuilder(
+            animation: exitCurve,
+            builder: (context, inner) {
+              return FractionalTranslation(
+                translation: Offset(
+                  exitOffset.dx * exitCurve.value,
+                  exitOffset.dy * exitCurve.value,
+                ),
+                child: inner,
+              );
+            },
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 1.0, end: 1.03).animate(exitCurve),
+              child: FadeTransition(
+                opacity:
+                    Tween<double>(begin: 1.0, end: 0.85).animate(exitCurve),
+                child: RepaintBoundary(child: child),
+              ),
             ),
           ),
         ),
@@ -116,6 +141,13 @@ abstract class EditorialPageTransitions {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return FadeTransition(
+        opacity: animation,
+        child: RepaintBoundary(child: child),
+      );
+    }
+
     final enterCurve = CurvedAnimation(
       parent: animation,
       curve: AppMotion.emphasizedDecelerate,
@@ -150,6 +182,13 @@ abstract class EditorialPageTransitions {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return FadeTransition(
+        opacity: animation,
+        child: RepaintBoundary(child: child),
+      );
+    }
+
     final enterFade = CurvedAnimation(
       parent: animation,
       curve: const Interval(0.2, 1.0, curve: AppMotion.standardDecelerate),
@@ -186,6 +225,13 @@ abstract class EditorialPageTransitions {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return FadeTransition(
+        opacity: animation,
+        child: RepaintBoundary(child: child),
+      );
+    }
+
     final enterCurve = CurvedAnimation(
       parent: animation,
       curve: AppMotion.emphasizedDecelerate,
@@ -223,7 +269,18 @@ abstract class EditorialPageTransitions {
             scale: exitScale,
             child: FadeTransition(
               opacity: exitFade,
-              child: RepaintBoundary(child: child),
+              child: AnimatedBuilder(
+                animation: enterCurve,
+                builder: (context, inner) {
+                  final radius =
+                      NookTokens.kRadiusMd * (1.0 - enterCurve.value);
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(radius),
+                    child: inner,
+                  );
+                },
+                child: RepaintBoundary(child: child),
+              ),
             ),
           ),
         ),
@@ -299,6 +356,25 @@ abstract class EditorialPageTransitions {
         );
       },
     );
+  }
+
+  /// Unified GoRouter page builder dispatching to [type].
+  static CustomTransitionPage<T> buildPage<T>({
+    required GoRouterState state,
+    required Widget child,
+    EditorialTransitionType type = EditorialTransitionType.slideUp,
+    Axis axis = Axis.horizontal,
+  }) {
+    switch (type) {
+      case EditorialTransitionType.sharedAxis:
+        return sharedAxis<T>(key: state.pageKey, child: child, axis: axis);
+      case EditorialTransitionType.slideUp:
+        return slideUp<T>(key: state.pageKey, child: child);
+      case EditorialTransitionType.fadeThrough:
+        return fadeThrough<T>(key: state.pageKey, child: child);
+      case EditorialTransitionType.containerTransform:
+        return containerTransform<T>(key: state.pageKey, child: child);
+    }
   }
 
   /// Container transform page transition for GoRouter.

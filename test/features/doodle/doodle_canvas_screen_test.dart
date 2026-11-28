@@ -192,7 +192,11 @@ void main() {
     tearDown(() async {
       await db.close();
       if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
+        try {
+          await tempDir.delete(recursive: true);
+        } on FileSystemException {
+          // Best-effort temp cleanup if async thumbnail write is still settling.
+        }
       }
     });
 

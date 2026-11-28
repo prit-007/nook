@@ -363,4 +363,33 @@ void main() {
     final active = await repo.getAllNotebooks();
     expect(active, isEmpty);
   });
+
+  testWidgets('renders nested child notebook indented in list view',
+      (tester) async {
+    final repo = NotebookRepository(db);
+    final parent =
+        await repo.createNotebook(name: 'Engineering', colorSeed: '#111');
+    await repo.createNotebook(
+      name: 'Mobile',
+      colorSeed: '#222',
+      parentId: parent.id,
+    );
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: const MaterialApp(
+        home: NotebooksScreen(viewMode: NotebookViewMode.list),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Engineering'), findsWidgets);
+    expect(find.text('Mobile'), findsOneWidget);
+
+    // Indented child collection with left margin 28.0
+    final paddingFinder = find.byWidgetPredicate(
+      (w) => w is Padding && w.padding == const EdgeInsets.only(left: 28.0),
+    );
+    expect(paddingFinder, findsOneWidget);
+  });
 }

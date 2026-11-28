@@ -16,12 +16,14 @@ class Notes extends Table {
   TextColumn get coverImagePath => text().nullable()();
   BoolColumn get pinned => boolean().withDefault(const Constant(false))();
   BoolColumn get locked => boolean().withDefault(const Constant(false))();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().clientDefault(DateTime.now)();
   DateTimeColumn get updatedAt => dateTime().clientDefault(DateTime.now)();
   TextColumn get deviceOriginId => text()();
   IntColumn get syncVersion => integer().withDefault(const Constant(0))();
+  TextColumn get hlc => text().nullable()();
 
   /// Per-note typography: auto/sans/serif/mono, stored as the enum name.
   TextColumn get fontStyle =>

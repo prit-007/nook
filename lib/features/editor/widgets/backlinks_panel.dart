@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/note_link_repository.dart';
 
@@ -27,6 +28,7 @@ class BacklinksPanel extends ConsumerStatefulWidget {
 class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
   List<NoteLinkHit> _backlinks = [];
   List<Note> _relatedNotes = [];
+  List<Note> _unlinkedMentions = [];
   bool _loading = true;
 
   @override
@@ -48,6 +50,8 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
     final linkRepo = NoteLinkRepository(db);
 
     final backlinks = await linkRepo.incomingTo(widget.note.id);
+    final unlinkedMentions =
+        await linkRepo.findUnlinkedMentions(widget.note.id);
 
     List<Note> related = [];
     if (widget.note.notebookId != null) {
@@ -55,7 +59,8 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
         ..where((t) =>
             t.notebookId.equals(widget.note.notebookId!) &
             t.id.equals(widget.note.id).not() &
-            t.deleted.equals(false))
+            t.deleted.equals(false) &
+            t.locked.equals(false))
         ..limit(5);
       related = await query.get();
     }
@@ -64,6 +69,7 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
     setState(() {
       _backlinks = backlinks;
       _relatedNotes = related;
+      _unlinkedMentions = unlinkedMentions;
       _loading = false;
     });
   }
@@ -80,6 +86,15 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    return AnimatedSize(
+      duration: AppMotion.standard,
+      curve: AppMotion.emphasizedDecelerate,
+      alignment: Alignment.topCenter,
+      child: _buildBody(context, scheme),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, ColorScheme scheme) {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.all(16.0),
@@ -93,7 +108,9 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
       );
     }
 
-    if (_backlinks.isEmpty && _relatedNotes.isEmpty) {
+    if (_backlinks.isEmpty &&
+        _relatedNotes.isEmpty &&
+        _unlinkedMentions.isEmpty) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(16),
@@ -233,8 +250,219 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
                 ),
               ),
           ],
+          if (_unlinkedMentions.isNotEmpty) ...[
+            if (_backlinks.isNotEmpty || _relatedNotes.isNotEmpty)
+              const Divider(height: 20),
+            Row(
+              children: [
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedSparkles,
+                  size: 18,
+                  color: scheme.tertiary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Unlinked mentions (${_unlinkedMentions.length})',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.tertiary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final mention in _unlinkedMentions)
+              Material(
+                type: MaterialType.transparency,
+                child: ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  leading: HugeIcon(
+                    icon: HugeIcons.strokeRoundedNote01,
+                    size: 18,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  title: Text(
+                    mention.title.isNotEmpty ? mention.title : 'Untitled',
+                    style: const TextStyle(fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowRight01,
+                    size: 16,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  onTap: () => _navigateTo(mention.id),
+                ),
+              ),
+          ],
         ],
       ),
     );
+  }
+}
+
+/// Graph model for [BacklinkGraphView].
+class BacklinkGraphData {
+  const BacklinkGraphData({
+    required this.centerTitle,
+    this.incoming = const [],
+    this.relatedTitles = const [],
+  });
+
+  final String centerTitle;
+  final List<NoteLinkHit> incoming;
+  final List<String> relatedTitles;
+}
+
+/// Compact visual graph of incoming backlinks and related notes.
+class BacklinkGraphView extends StatelessWidget {
+  const BacklinkGraphView({
+    super.key,
+    required this.graph,
+    required this.onSelectNote,
+  });
+
+  final BacklinkGraphData graph;
+  final ValueChanged<String> onSelectNote;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return AnimatedSize(
+      duration: AppMotion.standard,
+      curve: AppMotion.emphasizedDecelerate,
+      alignment: Alignment.topCenter,
+      child: _buildBody(context, scheme),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, ColorScheme scheme) {
+    return InteractiveViewer(
+      minScale: 0.75,
+      maxScale: 2.0,
+      boundaryMargin: const EdgeInsets.all(24),
+      child: CustomPaint(
+        painter: _BacklinkGraphPainter(
+          incomingCount: graph.incoming.length,
+          relatedCount: graph.relatedTitles.length,
+          edgeColor: scheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (graph.incoming.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (final hit in graph.incoming)
+                      ActionChip(
+                        avatar: HugeIcon(
+                          icon: HugeIcons.strokeRoundedLink01,
+                          size: 14,
+                          color: scheme.primary,
+                        ),
+                        label: Text(hit.title),
+                        onPressed: () => onSelectNote(hit.noteId),
+                      ),
+                  ],
+                ),
+              const SizedBox(height: 16),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  graph.centerTitle,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+              if (graph.relatedTitles.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (final title in graph.relatedTitles)
+                      Chip(label: Text(title)),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BacklinkGraphPainter extends CustomPainter {
+  const _BacklinkGraphPainter({
+    required this.incomingCount,
+    required this.relatedCount,
+    required this.edgeColor,
+  });
+
+  final int incomingCount;
+  final int relatedCount;
+  final Color edgeColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = edgeColor
+      ..strokeWidth = 1.4
+      ..style = PaintingStyle.stroke;
+
+    final center = Offset(size.width / 2, size.height / 2);
+
+    for (var i = 0; i < incomingCount; i++) {
+      final frac = (i + 1) / (incomingCount + 1);
+      final start = Offset(size.width * frac, 22);
+      final path = Path()
+        ..moveTo(start.dx, start.dy)
+        ..quadraticBezierTo(
+          (start.dx + center.dx) / 2,
+          center.dy * 0.55,
+          center.dx,
+          center.dy - 14,
+        );
+      canvas.drawPath(path, paint);
+    }
+
+    for (var i = 0; i < relatedCount; i++) {
+      final frac = (i + 1) / (relatedCount + 1);
+      final end = Offset(size.width * frac, size.height - 22);
+      final path = Path()
+        ..moveTo(center.dx, center.dy + 14)
+        ..quadraticBezierTo(
+          (end.dx + center.dx) / 2,
+          center.dy + (size.height - center.dy) * 0.45,
+          end.dx,
+          end.dy,
+        );
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BacklinkGraphPainter oldDelegate) {
+    return oldDelegate.incomingCount != incomingCount ||
+        oldDelegate.relatedCount != relatedCount ||
+        oldDelegate.edgeColor != edgeColor;
   }
 }

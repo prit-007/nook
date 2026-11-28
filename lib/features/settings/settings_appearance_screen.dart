@@ -3,9 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/providers/note_type_preset_provider.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/theme/atmosphere_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/dock_safe_area.dart';
+import '../../core/widgets/paper_texture_painter.dart';
+import '../../data/tables/notes.dart';
+import '../home/widgets/note_type_morph_selector.dart';
 import 'widgets/mihon_theme_card.dart';
 import 'widgets/theme_mode_segmented_bar.dart';
 
@@ -217,9 +222,83 @@ class SettingsAppearanceScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 28),
+
+            // ── 5. Atmosphere Presets ───────────────────────────────────────────
+            const _SectionHeader(title: 'Atmosphere'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final preset in AtmospherePreset.values)
+                  ChoiceChip(
+                    label: Text(AtmosphereTheme.labelOf(preset)),
+                    selected: pref.atmosphere == preset,
+                    onSelected: (_) {
+                      HapticFeedback.selectionClick();
+                      pref.setAtmosphere(preset);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 28),
+
+            // ── 6. Per-Note-Type Defaults ───────────────────────────────────────
+            const _SectionHeader(title: 'Note Type Defaults'),
+            const SizedBox(height: 10),
+            _NoteTypeDefaultsCard(),
+            const SizedBox(height: 28),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _NoteTypeDefaultsCard extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_NoteTypeDefaultsCard> createState() =>
+      _NoteTypeDefaultsCardState();
+}
+
+class _NoteTypeDefaultsCardState extends ConsumerState<_NoteTypeDefaultsCard> {
+  NoteType _selectedType = NoteType.text;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = ref.watch(noteTypePresetProvider);
+    final preset = store.forType(_selectedType);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        NoteTypeMorphSelector(
+          selected: _selectedType,
+          onSelected: (type) => setState(() => _selectedType = type),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final pattern in PaperPattern.values)
+              ChoiceChip(
+                label: Text(pattern.name),
+                selected: preset.paperPattern == pattern,
+                onSelected: (_) {
+                  HapticFeedback.selectionClick();
+                  store.updatePreset(
+                    NoteTypePreset(
+                      type: _selectedType,
+                      paperPattern: pattern,
+                      colorSeed: preset.colorSeed,
+                      fontStyle: preset.fontStyle,
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

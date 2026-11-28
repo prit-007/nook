@@ -35,6 +35,30 @@ class TemplateRepository {
     ),
   ];
 
+  /// Returns today's (or [date]'s) daily note, creating it idempotently from
+  /// the daily journal seed if it does not yet exist.
+  Future<Note> getOrCreateDailyNote({
+    DateTime? date,
+    String deviceOriginId = 'local',
+  }) async {
+    final d = date ?? DateTime.now();
+    final title =
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+    final existing = await (_db.select(_db.notes)
+          ..where((t) => t.title.equals(title) & t.deleted.equals(false))
+          ..limit(1))
+        .getSingleOrNull();
+    if (existing != null) return existing;
+
+    return NoteRepository(_db).createNote(
+      title: title,
+      type: NoteType.text,
+      deviceOriginId: deviceOriginId,
+      plainText: '## Morning\n\n## Focus\n\n## Evening reflection\n',
+    );
+  }
+
   /// Idempotent seed of built-in templates (no-op if any templates exist).
   Future<int> seedBuiltinsIfEmpty() async {
     final existing = await (_db.select(_db.templates)..limit(1)).get();

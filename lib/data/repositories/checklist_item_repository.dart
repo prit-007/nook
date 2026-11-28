@@ -15,6 +15,7 @@ class ChecklistItemRepository {
   Future<ChecklistItem> addItem({
     required String noteId,
     required String text,
+    bool checked = false,
     int? sortOrder,
     String? id,
   }) async {
@@ -26,6 +27,7 @@ class ChecklistItemRepository {
             id: Value(itemId),
             noteId: noteId,
             itemText: text,
+            checked: Value(checked),
             sortOrder: Value(order),
           ),
         );
@@ -154,5 +156,40 @@ class ChecklistItemRepository {
     final items = await getItems(noteId);
     if (items.isEmpty) return 0;
     return items.last.sortOrder + 1;
+  }
+
+  /// Returns all unchecked checklist items across all live, non-archived notes,
+  /// paired with their parent [Note] for the cross-note task view.
+  Future<List<({ChecklistItem item, Note note})>> getOpenTasksAcrossNotes({
+    bool includeLocked = false,
+  }) async {
+    final notesQuery = _db.select(_db.notes)
+      ..where((t) =>
+          t.deleted.equals(false) &
+          t.archived.equals(false) &
+          (includeLocked ? const Constant(true) : t.locked.equals(false)))
+      ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]);
+    final liveNotes = await notesQuery.get();
+    if (liveNotes.isEmpty) return const [];
+
+    final notesById = {for (final n in liveNotes) n.id: n};
+    final openItems = await (_db.select(_db.checklistItems)
+          ..where(
+            (t) => t.noteId.isIn(notesById.keys) & t.checked.equals(false),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+        .get();
+
+    final results = <({ChecklistItem item, Note note})>[
+      for (final item in openItems)
+        if (notesById[item.noteId] case final Note parent)
+          (item: item, note: parent),
+    ];
+    results.sort((a, b) {
+      final dateCmp = b.note.updatedAt.compareTo(a.note.updatedAt);
+      if (dateCmp != 0) return dateCmp;
+      return a.item.sortOrder.compareTo(b.item.sortOrder);
+    });
+    return results;
   }
 }

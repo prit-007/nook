@@ -158,5 +158,43 @@ void main() {
       expect(result.isEmpty, isTrue);
       expect(result.total, 0);
     });
+
+    test('respects custom retentionDays (7 days)', () async {
+      final noteRepo = NoteRepository(db);
+      final n1 = await noteRepo.createNote(
+        title: '10d old',
+        type: NoteType.text,
+        deviceOriginId: 'd1',
+      );
+      final n2 = await noteRepo.createNote(
+        title: '3d old',
+        type: NoteType.text,
+        deviceOriginId: 'd1',
+      );
+      await softDeleteWithAge(n1.id, const Duration(days: 10));
+      await softDeleteWithAge(n2.id, const Duration(days: 3));
+
+      final purger = TrashAutoPurger(db, clock: fixedNow, retentionDays: 7);
+      final result = await purger.purgeExpired();
+      expect(result.notes, 1);
+
+      final remaining = await noteRepo.getDeletedNotes();
+      expect(remaining.map((n) => n.id), [n2.id]);
+    });
+
+    test('retentionDays == 0 disables auto-purge', () async {
+      final noteRepo = NoteRepository(db);
+      final n1 = await noteRepo.createNote(
+        title: 'Very old',
+        type: NoteType.text,
+        deviceOriginId: 'd1',
+      );
+      await softDeleteWithAge(n1.id, const Duration(days: 365));
+
+      final purger = TrashAutoPurger(db, clock: fixedNow, retentionDays: 0);
+      final result = await purger.purgeExpired();
+      expect(result.isEmpty, isTrue);
+      expect(await noteRepo.getDeletedNotes(), hasLength(1));
+    });
   });
 }

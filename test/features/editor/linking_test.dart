@@ -103,6 +103,7 @@ void main() {
         type: NoteType.text,
         pinned: false,
         locked: false,
+        archived: false,
         deleted: false,
         syncVersion: 1,
         deviceOriginId: 'local',

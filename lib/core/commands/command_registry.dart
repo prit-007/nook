@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../data/database.dart';
 import '../../data/tables/notes.dart';
 
 /// Callbacks the palette host wires into default commands.
@@ -152,6 +153,13 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       onRun: (context) => context.go('/trash'),
     ),
     NookCommand(
+      id: 'tasks',
+      title: 'Open tasks',
+      keywords: 'tasks todo checklist open',
+      icon: HugeIcons.strokeRoundedCheckList,
+      onRun: (context) => context.go('/tasks'),
+    ),
+    NookCommand(
       id: 'settings',
       title: 'Open settings',
       keywords: 'preferences config',
@@ -197,5 +205,20 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       shortcutHint: 'Ctrl+Shift+D',
       onRun: (_) => actions.onToggleTheme?.call(),
     ),
+  ];
+}
+
+/// Builds quick-switcher [NookCommand] entries for live notes.
+List<NookCommand> buildNoteQuickSwitchCommands(List<Note> notes) {
+  return [
+    for (final note in notes)
+      if (!note.deleted)
+        NookCommand(
+          id: 'note_${note.id}',
+          title: note.title.trim().isEmpty ? 'Untitled' : note.title.trim(),
+          keywords: 'note open switch ${note.id} ${note.plainText ?? ''}',
+          icon: HugeIcons.strokeRoundedFile01,
+          onRun: (context) => context.push('/note/${note.id}'),
+        ),
   ];
 }

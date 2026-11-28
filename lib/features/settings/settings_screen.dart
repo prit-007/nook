@@ -10,10 +10,13 @@ import '../../core/app_info.dart';
 import '../../core/providers/biometric_provider.dart';
 import '../../core/providers/screenshot_blocker_provider.dart';
 import '../../core/providers/talker_provider.dart';
+import '../../core/providers/voice_preference_provider.dart';
 import '../../core/theme/nook_tokens.dart';
 import '../../core/widgets/dock_safe_area.dart';
 import '../../sync/sync_orchestrator.dart';
+import '../archive/archive_screen.dart';
 import 'providers/vault_stats_provider.dart';
+import 'widgets/offline_voice_models_sheet.dart';
 
 /// Settings root screen.
 /// Frosted glass section cards with tight macro-typography and tactile
@@ -124,6 +127,21 @@ class SettingsScreen extends ConsumerWidget {
                   },
                 ),
               ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedMic01,
+                title: 'Voice Dictation',
+                value: ref.watch(voicePreferenceProvider).enabled
+                    ? 'On · uses device speech service'
+                    : 'Off by default',
+                trailing: Switch.adaptive(
+                  value: ref.watch(voicePreferenceProvider).enabled,
+                  activeThumbColor: scheme.primary,
+                  onChanged: (value) {
+                    HapticFeedback.lightImpact();
+                    ref.read(voicePreferenceProvider).setEnabled(value);
+                  },
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -152,12 +170,66 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
+                icon: HugeIcons.strokeRoundedArchive,
+                title: 'Archive',
+                value: 'Long-term inactive notes',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ArchiveScreen(),
+                    ),
+                  );
+                },
+              ),
+              _SettingsTile(
                 icon: HugeIcons.strokeRoundedDelete01,
                 title: 'Trash / Bin',
                 value: '30-day retention',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.push('/trash');
+                },
+              ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedAlarmClock,
+                title: 'Reminders',
+                value: 'Scheduled alerts',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/reminders');
+                },
+              ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedCheckList,
+                title: 'Open Tasks',
+                value: 'Cross-note checklists',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/tasks');
+                },
+              ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedShieldKey,
+                title: 'Encrypted Backup',
+                value: '.nookbackup',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/settings/backup');
+                },
+              ),
+              _SettingsTile(
+                icon: HugeIcons.strokeRoundedMic01,
+                title: 'Offline Voice Models',
+                value: 'SHA-256 verified',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  showModalBottomSheet<void>(
+                    context: context,
+                    useSafeArea: true,
+                    showDragHandle: true,
+                    builder: (_) => const OfflineVoiceModelsSheet(),
+                  );
                 },
               ),
               _SettingsTile(

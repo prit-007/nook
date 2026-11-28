@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -6,9 +9,11 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/adaptive_breakpoints.dart';
+import '../../core/platform/home_widget_service.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/selection_providers.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/providers/voice_preference_provider.dart';
 import '../../core/theme/app_motion.dart';
 import '../../core/theme/nook_tokens.dart';
 import '../../core/widgets/dock_safe_area.dart';
@@ -21,6 +26,7 @@ import '../../data/repositories/tag_repository.dart';
 import '../../data/tables/notes.dart';
 import '../../sync/sync_orchestrator.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import '../editor/widgets/voice_capture_sheet.dart';
 import '../templates/template_picker_sheet.dart';
 import 'models/home_view_mode.dart';
 import 'models/note_sort_order.dart';
@@ -28,6 +34,7 @@ import 'providers/notes_list_provider.dart';
 import 'providers/note_card_metadata_provider.dart';
 import 'widgets/batch_action_bar.dart';
 import 'widgets/batch_action_sheets.dart';
+import 'widgets/desktop_navigation_sidebar.dart';
 import 'widgets/empty_home.dart';
 import 'widgets/filter_pill_bar.dart';
 import 'widgets/home_view_options_sheet.dart';
@@ -54,12 +61,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with AutomaticKeepAliveClientMixin {
   NoteType? _selectedType;
   bool _favoritesOnly = false;
+  String? _selectedNotebookId;
   NoteSortOrder _sortOrder = NoteSortOrder.updatedDesc;
   HomeViewMode _viewMode = HomeViewMode.masonry;
   HomeGroupBy _groupBy = HomeGroupBy.none;
   final Set<String> _animatedNoteIds = {};
   bool _isSelectionMode = false;
   final Set<String> _selectedNoteIds = {};
+  String _lastWidgetSyncSignature = '';
 
   void _toggleSelection(String noteId) {
     HapticFeedback.selectionClick();
@@ -157,6 +166,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (_selectedType != null) {
       result = result.where((n) => n.type == _selectedType).toList();
     }
+    if (_selectedNotebookId != null) {
+      result =
+          result.where((n) => n.notebookId == _selectedNotebookId).toList();
+    }
     return result;
   }
 
@@ -187,7 +200,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _openNote(String noteId) {
     HapticFeedback.selectionClick();
-    if (AdaptiveBreakpoints.supportsDualPane(context)) {
+    if (AdaptiveBreakpoints.supportsDualPane(context) ||
+        AdaptiveBreakpoints.supportsThreePane(context)) {
       ref.read(selectedNoteIdProvider.notifier).state = noteId;
       return;
     }
@@ -212,6 +226,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final sizeClass = _windowSizeClass(width);
     final isWide = sizeClass != WindowSizeClass.compact;
     final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
+    final isThreePane = AdaptiveBreakpoints.supportsThreePane(context);
     final animate = _animationsAllowed(context);
 
     // The shell already offsets the body by the full dock height (72 + 24 +
@@ -244,6 +259,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
               data: (notes) {
+                final sig = notes
+                    .where((n) => n.pinned && !n.deleted && !n.locked)
+                    .map((n) =>
+                        '${n.id}:${n.title}:${n.updatedAt.millisecondsSinceEpoch}')
+                    .join('|');
+                if (sig != _lastWidgetSyncSignature) {
+                  _lastWidgetSyncSignature = sig;
+                  Future.microtask(
+                    () => ref
+                        .read(homeWidgetServiceProvider)
+                        .syncPinnedNotes(notes),
+                  );
+                }
                 final sortedNotes = _sortOrder.sort(notes);
                 final filtered = _applyFilters(sortedNotes);
                 final counts = _computeCounts(notes);
@@ -257,6 +285,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   animate: animate,
                   safeBottom: safeBottom,
                 );
+
+                if (isThreePane) {
+                  return Row(
+                    children: [
+                      DesktopNavigationSidebar(
+                        selectedType: _selectedType,
+                        favoritesOnly: _favoritesOnly,
+                        selectedNotebookId: _selectedNotebookId,
+                        counts: counts,
+                        favoritesCount: notes.where((n) => n.pinned).length,
+                        onSelectAll: () => setState(() {
+                          _selectedType = null;
+                          _favoritesOnly = false;
+                          _selectedNotebookId = null;
+                        }),
+                        onSelectFavorites: (fav) => setState(() {
+                          _favoritesOnly = fav;
+                          if (fav) {
+                            _selectedType = null;
+                            _selectedNotebookId = null;
+                          }
+                        }),
+                        onSelectType: (type) => setState(() {
+                          _selectedType = type;
+                          _favoritesOnly = false;
+                        }),
+                        onSelectNotebook: (nbId) => setState(() {
+                          _selectedNotebookId = nbId;
+                          _selectedType = null;
+                          _favoritesOnly = false;
+                        }),
+                      ),
+                      Expanded(
+                        child: ResizableSplitView(
+                          storageKey: 'nook_home_split_ratio',
+                          initialRatio: 0.42,
+                          left: Container(
+                            color: scheme.surfaceContainerLow
+                                .withValues(alpha: 0.3),
+                            child: grid,
+                          ),
+                          right: const NotePreviewPane(isDesktopEditor: true),
+                        ),
+                      ),
+                    ],
+                  );
+                }
 
                 if (isDualPane) {
                   return ResizableSplitView(
@@ -423,6 +498,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 HapticFeedback.selectionClick();
                 context.push('/note/new?type=${NoteType.doodle.name}');
               },
+              onCaptureVoice: ref.watch(voicePreferenceProvider).enabled
+                  ? () async {
+                      unawaited(HapticFeedback.selectionClick());
+                      final text = await showVoiceCaptureSheet(context);
+                      if (text == null || text.isEmpty || !context.mounted) {
+                        return;
+                      }
+                      final db = ref.read(databaseProvider);
+                      final repo = NoteRepository(db);
+                      final note = await repo.createNote(
+                        title: text.split('\n').first,
+                        type: NoteType.text,
+                        deviceOriginId: 'local',
+                      );
+                      await repo.updateContent(
+                        note.id,
+                        deltaContent: jsonEncode({
+                          'document': {
+                            'type': 'page',
+                            'children': [
+                              {
+                                'type': 'paragraph',
+                                'data': {
+                                  'delta': [
+                                    {'insert': text},
+                                  ],
+                                },
+                              },
+                            ],
+                          },
+                        }),
+                        plainText: text,
+                      );
+                      if (context.mounted) {
+                        await context.push('/note/${note.id}');
+                      }
+                    }
+                  : null,
             ),
           SliverToBoxAdapter(
             child: FilterPillBar(

@@ -16,11 +16,13 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/parallax_card.dart';
 import '../../data/database.dart';
 import '../../data/repositories/notebook_repository.dart';
+import 'controllers/collection_tree_controller.dart';
+import 'widgets/mobile_collection_drill_down.dart';
 import 'widgets/notebook_card.dart';
 import 'widgets/notebook_detail_pane.dart';
 
 /// Layout view mode for the notebooks screen.
-enum NotebookViewMode { grid, list }
+enum NotebookViewMode { grid, list, drillDown }
 
 /// Notebooks list screen — grid or list of notebook cards with CRUD.
 class NotebooksScreen extends ConsumerStatefulWidget {
@@ -67,10 +69,25 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
   Future<void> _load() async {
     final repo = NotebookRepository(ref.read(databaseProvider));
     final results = await repo.getAllNotebooks();
-    final counts = await repo.countNotesForAllNotebooks();
+    final counts = await repo.countAggregateNotesForAllNotebooks();
     if (!mounted) return;
+
+    // Order hierarchically: root collections first, followed by their subcollections
+    final roots = results.where((n) => n.parentId == null).toList();
+    final children = results.where((n) => n.parentId != null).toList();
+    final ordered = <Notebook>[];
+    for (final root in roots) {
+      ordered.add(root);
+      ordered.addAll(children.where((c) => c.parentId == root.id));
+    }
+    for (final child in children) {
+      if (!ordered.contains(child)) {
+        ordered.add(child);
+      }
+    }
+
     setState(() {
-      _notebooks = results;
+      _notebooks = ordered;
       _counts = counts;
       _loading = false;
     });
@@ -123,7 +140,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
             ),
             onPressed: () async {
               final repo = NotebookRepository(ref.read(databaseProvider));
-              await repo.softDelete(notebook.id);
+              await repo.softDeletePromotingChildren(notebook.id);
               if (ctx.mounted) Navigator.pop(ctx);
               await _load();
             },
@@ -136,7 +153,7 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
             ),
             onPressed: () async {
               final repo = NotebookRepository(ref.read(databaseProvider));
-              await repo.softDeleteNotebookAndNotes(notebook.id);
+              await repo.softDeleteSubtree(notebook.id);
               if (ctx.mounted) Navigator.pop(ctx);
               await _load();
             },
@@ -153,9 +170,11 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
     final scheme = Theme.of(context).colorScheme;
     final isDualPane = AdaptiveBreakpoints.supportsDualPane(context);
 
-    final content = _effectiveViewMode == NotebookViewMode.grid
-        ? _notebooksGrid(scheme, isDualPane)
-        : _notebooksList(scheme, isDualPane);
+    final content = switch (_effectiveViewMode) {
+      NotebookViewMode.grid => _notebooksGrid(scheme, isDualPane),
+      NotebookViewMode.list => _notebooksList(scheme, isDualPane),
+      NotebookViewMode.drillDown => _notebooksDrillDown(scheme, isDualPane),
+    };
 
     return Scaffold(
       appBar: widget.embedded
@@ -184,6 +203,25 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
                     context.push('/trash');
                   },
                 ),
+                if (!isDualPane)
+                  IconButton(
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedFolder01,
+                      size: 22,
+                    ),
+                    tooltip: _effectiveViewMode == NotebookViewMode.drillDown
+                        ? 'Exit drill-down view'
+                        : 'Browse hierarchy',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _internalViewMode =
+                            _effectiveViewMode == NotebookViewMode.drillDown
+                                ? NotebookViewMode.grid
+                                : NotebookViewMode.drillDown;
+                      });
+                    },
+                  ),
                 IconButton(
                   icon: HugeIcon(
                     icon: _effectiveViewMode == NotebookViewMode.grid
@@ -285,107 +323,141 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
           final nb = _notebooks[index];
           final noteCount = _counts[nb.id] ?? 0;
           final seed = NookColors.parseHex(nb.colorSeed);
-          final hasParent = nb.name.contains('/');
-          final parent = hasParent
-              ? nb.name
-                  .split('/')
-                  .sublist(0, nb.name.split('/').length - 1)
-                  .map((s) => s.trim())
-                  .join(' › ')
-              : null;
-          final displayName =
-              hasParent ? nb.name.split('/').last.trim() : nb.name;
+          final byId = {for (final n in _notebooks) n.id: n};
 
-          return Material(
-            color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
+          // Compute full parent breadcrumb hierarchy
+          String? parent;
+          if (nb.parentId != null) {
+            final pathSegments = <String>[];
+            String? pId = nb.parentId;
+            while (pId != null && byId.containsKey(pId)) {
+              pathSegments.insert(0, byId[pId]!.name.split('/').last.trim());
+              pId = byId[pId]!.parentId;
+              if (pathSegments.length > 5) break;
+            }
+            if (pathSegments.isNotEmpty) {
+              parent = pathSegments.join(' › ');
+            }
+          } else if (nb.name.contains('/')) {
+            parent = nb.name
+                .split('/')
+                .sublist(0, nb.name.split('/').length - 1)
+                .map((s) => s.trim())
+                .join(' › ');
+          }
+
+          final displayName =
+              nb.name.contains('/') ? nb.name.split('/').last.trim() : nb.name;
+          int depth = 0;
+          String? curParent = nb.parentId;
+          while (curParent != null && byId.containsKey(curParent)) {
+            depth++;
+            curParent = byId[curParent]!.parentId;
+            if (depth > 6) break;
+          }
+          final isChild = depth > 0;
+
+          return Padding(
+            padding: EdgeInsets.only(left: depth * 28.0),
+            child: Material(
+              color: scheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(16),
-              onTap: () {
-                if (isDualPane) {
-                  ref.read(selectedNotebookIdProvider.notifier).state = nb.id;
-                  return;
-                }
-                context.push('/notebooks/${nb.id}');
-              },
-              onLongPress: () => _showDeleteDialog(nb),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: seed,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: seed.withValues(alpha: 0.35),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (parent != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 2),
-                              child: Text(
-                                parent,
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: scheme.onSurfaceVariant,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  if (isDualPane) {
+                    ref.read(selectedNotebookIdProvider.notifier).state = nb.id;
+                    return;
+                  }
+                  context.push('/notebooks/${nb.id}');
+                },
+                onLongPress: () => _showDeleteDialog(nb),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      if (isChild) ...[
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedArrowRight01,
+                          size: 16,
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: seed,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: seed.withValues(alpha: 0.35),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
                             ),
-                          Text(
-                            displayName,
-                            style: TextStyle(
-                              fontFamily: 'Playfair Display',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '$noteCount ${noteCount == 1 ? 'entry' : 'entries'}',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onSurfaceVariant,
+                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    HugeIcon(
-                      icon: HugeIcons.strokeRoundedArrowRight01,
-                      size: 16,
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
-                    ),
-                  ],
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (parent != null)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Text(
+                                  parent,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: scheme.onSurfaceVariant,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ),
+                            Text(
+                              displayName,
+                              style: TextStyle(
+                                fontFamily: 'Playfair Display',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '$noteCount ${noteCount == 1 ? 'entry' : 'entries'}',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 16,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -423,6 +495,20 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
         itemCount: _notebooks.length,
         itemBuilder: (context, index) {
           final nb = _notebooks[index];
+          final byId = {for (final n in _notebooks) n.id: n};
+          String? parentName;
+          if (nb.parentId != null) {
+            final pathSegments = <String>[];
+            String? pId = nb.parentId;
+            while (pId != null && byId.containsKey(pId)) {
+              pathSegments.insert(0, byId[pId]!.name.split('/').last.trim());
+              pId = byId[pId]!.parentId;
+              if (pathSegments.length > 5) break;
+            }
+            if (pathSegments.isNotEmpty) {
+              parentName = pathSegments.join(' › ');
+            }
+          }
           final card = GestureDetector(
             onTap: () {
               if (isDualPane) {
@@ -435,12 +521,54 @@ class _NotebooksScreenState extends ConsumerState<NotebooksScreen>
             child: NotebookCard(
               notebook: nb,
               noteCount: _counts[nb.id] ?? 0,
+              parentName: parentName,
             ),
           );
           if (MediaQuery.disableAnimationsOf(context)) return card;
           return ParallaxCard(child: card);
         },
       ),
+    );
+  }
+
+  List<CollectionTreeNode> _buildCollectionTree([String? parentId]) {
+    return _notebooks
+        .where((n) => n.parentId == parentId)
+        .map(
+          (n) => CollectionTreeNode(
+            id: n.id,
+            name: n.name,
+            colorSeed: n.colorSeed,
+            parentId: n.parentId,
+            noteCount: _counts[n.id] ?? 0,
+            children: _buildCollectionTree(n.id),
+          ),
+        )
+        .toList();
+  }
+
+  Widget _notebooksDrillDown(ColorScheme scheme, bool isDualPane) {
+    if (_notebooks.isEmpty) {
+      return const EmptyState(
+        icon: HugeIcons.strokeRoundedBook01,
+        title: 'No notebooks yet',
+        subtitle: 'Tap + New to create your first notebook.',
+        animate: false,
+      );
+    }
+    return MobileCollectionDrillDown(
+      nodes: _buildCollectionTree(),
+      onSelectCollection: (id) {
+        if (id == null) return;
+        if (isDualPane) {
+          ref.read(selectedNotebookIdProvider.notifier).state = id;
+          return;
+        }
+        final hasChildren = _notebooks.any((n) => n.parentId == id);
+        if (!hasChildren) {
+          context.push('/notebooks/$id');
+        }
+      },
     );
   }
 }
@@ -501,7 +629,9 @@ class _SeedColorDot extends StatelessWidget {
 /// lifetime matches the sheet's route — it is neither leaked nor disposed
 /// while the sheet's exit transition is still animating.
 class _CreateNotebookSheet extends ConsumerStatefulWidget {
-  const _CreateNotebookSheet({required this.onCreated});
+  const _CreateNotebookSheet({
+    required this.onCreated,
+  });
 
   final VoidCallback onCreated;
 
@@ -525,9 +655,11 @@ class _CreateNotebookSheetState extends ConsumerState<_CreateNotebookSheet> {
   Future<void> _loadExistingNotebooks() async {
     final repo = NotebookRepository(ref.read(databaseProvider));
     final notebooks = await repo.getAllNotebooks();
-    if (mounted) {
-      setState(() => _existingNotebooks = notebooks);
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _existingNotebooks = notebooks;
+    });
   }
 
   @override
@@ -547,6 +679,7 @@ class _CreateNotebookSheetState extends ConsumerState<_CreateNotebookSheet> {
     await repo.createNotebook(
       name: fullName,
       colorSeed: _hexFromColor(_selectedColor),
+      parentId: _selectedParent?.id,
     );
     if (mounted) Navigator.pop(context);
     widget.onCreated();

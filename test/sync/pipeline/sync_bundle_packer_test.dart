@@ -142,5 +142,36 @@ void main() {
       );
       expect(bundle.notes, isEmpty);
     });
+
+    test('packs notebookParentId for nested sub-notebook notes', () async {
+      final parentNotebook = await notebookRepo.createNotebook(
+        name: 'Work',
+        colorSeed: '#2196F3',
+      );
+      final childNotebook = await notebookRepo.createNotebook(
+        name: 'Projects',
+        colorSeed: '#4CAF50',
+        parentId: parentNotebook.id,
+      );
+
+      final note = await noteRepo.createNote(
+        id: 'nested-note-1',
+        title: 'Project Roadmap',
+        type: NoteType.text,
+        notebookId: childNotebook.id,
+        deviceOriginId: 'device-1',
+      );
+
+      final bundle = await packer.pack(
+        noteIds: [note.id],
+        senderDeviceId: 'device-1',
+        senderDeviceName: 'Device 1',
+      );
+
+      expect(bundle.notes.length, 1);
+      final entry = bundle.notes.first;
+      expect(entry.noteFields['notebookName'], 'Projects');
+      expect(entry.noteFields['notebookParentId'], parentNotebook.id);
+    });
   });
 }

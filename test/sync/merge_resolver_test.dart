@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' hide isNotNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nook/data/database.dart';
@@ -408,6 +408,137 @@ void main() {
       final remoteNote = allNotes.firstWhere((n) => n.id != 'shared-id');
       expect(remoteNote.title, 'Remote Version');
       expect(remoteNote.deviceOriginId, 'device-b');
+    });
+
+    group('Phase 13a Nested Collections Sync Merge', () {
+      test('applies notebookParentId to placeholder and resolves hierarchy',
+          () async {
+        final notebookRepo = NotebookRepository(db);
+        final parentNb = await notebookRepo.createNotebook(
+          name: 'Parent Collection',
+          colorSeed: '#111',
+        );
+
+        final incoming = SyncNoteEntry(
+          noteId: 'child-note-1',
+          syncVersion: 1,
+          updatedAt: DateTime.utc(2026, 8, 12),
+          deviceOriginId: 'device-b',
+          noteFields: {
+            'title': 'Child Note',
+            'type': 'text',
+            'notebookId': 'remote-nb-child',
+            'notebookName': 'Remote Sub-Collection',
+            'notebookColorSeed': '#333',
+            'notebookParentId': parentNb.id,
+          },
+          checklistItems: null,
+          attachments: null,
+        );
+
+        await resolver.insertAsNew(incoming);
+
+        final childNb = await notebookRepo.getNotebookById('remote-nb-child');
+        expect(childNb, isNotNull);
+        expect(childNb!.parentId, parentNb.id);
+        expect(childNb.name, 'Remote Sub-Collection');
+      });
+
+      test('breaks concurrent reparenting cycle deterministically to root',
+          () async {
+        final notebookRepo = NotebookRepository(db);
+
+        // Local state: nbX is parent of nbY (nbY.parentId == nbX.id)
+        final nbX = await notebookRepo.createNotebookWithId(
+          'nb-X',
+          name: 'X',
+          colorSeed: '#111',
+        );
+        final nbY = await notebookRepo.createNotebookWithId(
+          'nb-Y',
+          name: 'Y',
+          colorSeed: '#222',
+          parentId: nbX.id,
+        );
+        expect(nbY.parentId, nbX.id);
+
+        // Remote device concurrently moved X under Y (nbX.parentId = nbY.id)
+        // If accepted directly, this would create X -> Y -> X cycle!
+        final incoming = SyncNoteEntry(
+          noteId: 'remote-note-cycle',
+          syncVersion: 2,
+          updatedAt: DateTime.utc(2026, 8, 15),
+          deviceOriginId: 'device-b',
+          noteFields: {
+            'title': 'Cycle trigger note',
+            'type': 'text',
+            'notebookId': nbX.id,
+            'notebookName': 'X',
+            'notebookColorSeed': '#111',
+            'notebookParentId': nbY.id,
+          },
+          checklistItems: null,
+          attachments: null,
+        );
+
+        await resolver.insertAsNew(incoming);
+
+        // Must break cycle by detaching to root
+        final updatedX = await notebookRepo.getNotebookById(nbX.id);
+        expect(updatedX!.parentId, isNull);
+      });
+    });
+
+    group('Block-level 3-way merge using NoteRevisions (Phase 2.2)', () {
+      Map<String, dynamic> docWithParagraphs(List<String> texts) => {
+            'document': {
+              'type': 'page',
+              'children': [
+                for (final t in texts)
+                  {
+                    'type': 'paragraph',
+                    'data': {
+                      'delta': [
+                        {'insert': t}
+                      ]
+                    }
+                  },
+              ],
+            },
+          };
+
+      test('merges non-overlapping block edits cleanly without prompting',
+          () async {
+        final base = docWithParagraphs(['Line 1', 'Line 2']);
+        final local = docWithParagraphs(['Line 1 (local)', 'Line 2']);
+        final remote = docWithParagraphs(['Line 1', 'Line 2 (remote)']);
+
+        final merged = MergeResolver.threeWayMergeDocument(
+          base: base,
+          local: local,
+          remote: remote,
+        );
+        expect(merged.hasConflict, isFalse);
+
+        final children =
+            (merged.mergedDocument['document']['children'] as List);
+        expect(children, hasLength(2));
+        expect(children[0]['data']['delta'][0]['insert'], 'Line 1 (local)');
+        expect(children[1]['data']['delta'][0]['insert'], 'Line 2 (remote)');
+      });
+
+      test('flags conflict when both devices edit the same block', () {
+        final base = docWithParagraphs(['Shared line']);
+        final local = docWithParagraphs(['Local edit']);
+        final remote = docWithParagraphs(['Remote edit']);
+
+        final merged = MergeResolver.threeWayMergeDocument(
+          base: base,
+          local: local,
+          remote: remote,
+        );
+        expect(merged.hasConflict, isTrue);
+      });
     });
   });
 }

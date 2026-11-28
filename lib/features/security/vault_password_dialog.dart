@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/providers/vault_password_provider.dart';
+import '../../core/security/recovery_key_provider.dart';
+import 'recovery_key_dialog.dart';
 
 /// Prompts for the vault password when locked notes require it.
 ///
@@ -26,12 +28,18 @@ Future<bool> ensureVaultUnlocked(
   return ok == true;
 }
 
+typedef SetVaultPasswordCallback = Future<bool> Function(
+    String password, List<String> recoveryWords);
+
 /// Shows a dialog to set a new vault password.
-Future<bool> showSetVaultPasswordDialog(BuildContext context) async {
+Future<bool> showSetVaultPasswordDialog(
+  BuildContext context, {
+  SetVaultPasswordCallback? onSetPassword,
+}) async {
   final ok = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const VaultPasswordSetDialog(),
+    builder: (_) => VaultPasswordSetDialog(onSetPassword: onSetPassword),
   );
   return ok == true;
 }
@@ -129,7 +137,9 @@ class _VaultPasswordDialogState extends ConsumerState<VaultPasswordDialog> {
 }
 
 class VaultPasswordSetDialog extends ConsumerStatefulWidget {
-  const VaultPasswordSetDialog({super.key});
+  const VaultPasswordSetDialog({super.key, this.onSetPassword});
+
+  final SetVaultPasswordCallback? onSetPassword;
 
   @override
   ConsumerState<VaultPasswordSetDialog> createState() =>
@@ -168,7 +178,24 @@ class _VaultPasswordSetDialogState
     });
     unawaited(HapticFeedback.lightImpact());
     try {
-      await ref.read(vaultPasswordProvider).setPassword(password);
+      final recoveryWords = generateRecoveryKey();
+      final confirmed = await showRecoveryKeyDialog(
+        context,
+        words: recoveryWords,
+      );
+      if (!mounted) return;
+      if (confirmed != true) {
+        setState(() => _saving = false);
+        return;
+      }
+      if (widget.onSetPassword != null) {
+        await widget.onSetPassword!(password, recoveryWords);
+      } else {
+        await ref.read(vaultPasswordProvider).setPassword(
+              password,
+              recoveryWords: recoveryWords,
+            );
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
@@ -190,8 +217,9 @@ class _VaultPasswordSetDialogState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'A second password for locked notes. Exported vaults are not '
-            'password-wrapped — this gates the in-app session only.',
+            'Protects locked notes and wraps your local SQLCipher database '
+            'encryption key (DEK). Keep your password or 24-word recovery key '
+            'safe — it cannot be recovered if lost.',
           ),
           const SizedBox(height: 16),
           TextField(

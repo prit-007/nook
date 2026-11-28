@@ -219,4 +219,46 @@ class DoodleStrokesCodec {
       return const DoodleData();
     }
   }
+
+  /// Exports [strokes] as an editable, standards-compliant SVG document.
+  static String toSvg(
+    List<Stroke> strokes, {
+    double width = 800,
+    double height = 600,
+    DoodleBackground background = DoodleBackground.dotted,
+  }) {
+    final buffer = StringBuffer()
+      ..writeln(
+        '<svg xmlns="http://www.w3.org/2000/svg" '
+        'viewBox="0 0 ${width.toStringAsFixed(0)} ${height.toStringAsFixed(0)}" '
+        'data-nook-background="${background.name}">',
+      );
+
+    for (final stroke in strokes) {
+      if (stroke.points.isEmpty) continue;
+      final rgb = stroke.color.toARGB32() & 0xFFFFFF;
+      final hexColor = '#${rgb.toRadixString(16).padLeft(6, '0')}';
+      final pathData = StringBuffer();
+      for (var i = 0; i < stroke.points.length; i++) {
+        final pt = stroke.points[i];
+        final cmd = i == 0 ? 'M' : 'L';
+        pathData.write(
+          '$cmd${pt.position.dx.toStringAsFixed(2)},${pt.position.dy.toStringAsFixed(2)} ',
+        );
+      }
+      buffer.writeln(
+        '  <path d="${pathData.toString().trimRight()}" '
+        'fill="none" '
+        'stroke="$hexColor" '
+        'stroke-opacity="${stroke.opacity.toStringAsFixed(2)}" '
+        'stroke-width="${stroke.width.toStringAsFixed(2)}" '
+        'stroke-linecap="round" '
+        'stroke-linejoin="round" '
+        'data-tool="${stroke.tool.name}" />',
+      );
+    }
+
+    buffer.write('</svg>');
+    return buffer.toString();
+  }
 }

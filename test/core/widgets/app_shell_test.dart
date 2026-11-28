@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:nook/core/widgets/app_shell.dart';
+import 'package:nook/core/widgets/resizable_split_view.dart';
 
 void main() {
   Widget buildShell({
@@ -96,20 +97,22 @@ void main() {
       );
     });
 
-    testWidgets('dock has rounded pill shape', (tester) async {
+    testWidgets('dock has pill shape', (tester) async {
       await tester.pumpWidget(buildShell());
       await tester.pumpAndSettle();
 
-      // Dock container has border radius 36 — verify via Container decoration
+      // Dock container uses borderRadiusPill token (fully rounded pill).
+      // Multiple containers may use pill radius (dock + dock item pill);
+      // verify at least one matches.
       expect(
         find.byWidgetPredicate(
           (widget) =>
               widget is Container &&
               widget.decoration is BoxDecoration &&
               (widget.decoration as BoxDecoration?)?.borderRadius ==
-                  BorderRadius.circular(36),
+                  BorderRadius.circular(999.0),
         ),
-        findsOneWidget,
+        findsWidgets,
       );
     });
 
@@ -247,6 +250,44 @@ void main() {
       expect(find.byType(SingleChildScrollView), findsOneWidget);
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
+    });
+  });
+
+  // ===========================================================================
+  // Medium band: 600–839dp — rail + single pane (no dual-pane split)
+  // ===========================================================================
+  group('Medium band (700dp)', () {
+    testWidgets('shows NavigationRail at 700dp', (tester) async {
+      await tester.pumpWidget(buildShell(screenWidth: 700));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NavigationRail), findsOneWidget);
+    });
+
+    testWidgets('single pane at 700dp — no dual-pane split', (tester) async {
+      await tester.pumpWidget(buildShell(screenWidth: 700));
+      await tester.pumpAndSettle();
+
+      // ResizableSplitView is only used at >= 840dp (dual pane).
+      expect(find.byType(ResizableSplitView), findsNothing);
+      expect(find.text('Home Content'), findsOneWidget);
+    });
+
+    testWidgets('rail destinations render at 700dp', (tester) async {
+      await tester.pumpWidget(buildShell(screenWidth: 700));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Home'), findsOneWidget);
+      expect(find.text('Notebooks'), findsOneWidget);
+      expect(find.text('Tags'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
+    });
+
+    testWidgets('no BackdropFilter at 700dp', (tester) async {
+      await tester.pumpWidget(buildShell(screenWidth: 700));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BackdropFilter), findsNothing);
     });
   });
 }

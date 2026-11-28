@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:hugeicons/hugeicons.dart';
-import '../../core/haptics/haptics.dart';
 import '../../core/providers/navigation_preference.dart';
 import '../../core/providers/talker_provider.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/providers/vault_password_provider.dart';
+import '../../core/security/dek_manager.dart';
 import '../../core/security/recovery_key_provider.dart';
 import '../../core/theme/app_motion.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/widgets/animated_squircle.dart';
 import '../importers/import_dialog.dart';
 import '../security/recovery_key_dialog.dart';
+import '../security/vault_password_dialog.dart';
 
 /// Multi-page onboarding flow.
 /// Page 1: Welcome (prompt #1)
@@ -31,7 +33,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
   int _selectedSeedIndex = 0;
-  bool _hasSavedRecoveryKey = false;
   late final List<String> _recoveryWords;
 
   @override
@@ -48,17 +49,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   void _nextPage() {
     if (_currentPage < 4) {
-      if (_currentPage == 3 && !_hasSavedRecoveryKey) {
-        AppHaptics.warning();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Please confirm that you have saved your recovery key.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
       _pageController.nextPage(
         duration: AppMotion.medium2,
         curve: AppMotion.emphasizedDecelerate,
@@ -75,105 +65,147 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (mounted) context.go('/home');
   }
 
+  /// Sets a vault password and wraps the SQLCipher database encryption key (DEK)
+  /// using [DekManager.wrapDekWithPassword] and the user's verified [recoveryWords].
+  Future<bool> wrapDekWithPassword(
+    String password, {
+    List<String>? recoveryWords,
+  }) async {
+    final words = recoveryWords ?? _recoveryWords;
+    await ref.read(vaultPasswordProvider).setPassword(
+          password,
+          recoveryWords: words,
+        );
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final baseTheme = Theme.of(context);
+    final seed = NookColors.seeds[_selectedSeedIndex % NookColors.seeds.length];
+    final scheme = ColorScheme.fromSeed(
+      seedColor: seed,
+      brightness: baseTheme.brightness,
+    );
 
-    return Scaffold(
-      backgroundColor: scheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Skip button (hidden on final page)
-            Align(
-              alignment: Alignment.topRight,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: _currentPage == 4 ? 0.0 : 1.0,
-                child: IgnorePointer(
-                  ignoring: _currentPage == 4,
-                  child: TextButton(
-                    onPressed: _finish,
+    return AnimatedTheme(
+      duration: AppMotion.standard,
+      curve: AppMotion.emphasizedDecelerate,
+      data: baseTheme.copyWith(colorScheme: scheme),
+      child: Scaffold(
+        backgroundColor: scheme.surface,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Skip button (hidden on final page)
+              Align(
+                alignment: Alignment.topRight,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: _currentPage == 4 ? 0.0 : 1.0,
+                  child: IgnorePointer(
+                    ignoring: _currentPage == 4,
+                    child: TextButton(
+                      onPressed: _finish,
+                      child: Text(
+                        'Skip',
+                        style: TextStyle(
+                            color: scheme.onSurface.withValues(alpha: 0.87)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Pages
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (i) => setState(() => _currentPage = i),
+                  children: [
+                    _WelcomePage(scheme: scheme),
+                    _NoteTypesPage(scheme: scheme),
+                    _VibePage(
+                      scheme: scheme,
+                      selectedIndex: _selectedSeedIndex,
+                      onSeedChanged: (i) =>
+                          setState(() => _selectedSeedIndex = i),
+                    ),
+                    _ProtectVaultPage(
+                      scheme: scheme,
+                      isProtected: ref.watch(vaultPasswordProvider).enabled,
+                      onSetupVault: () async {
+                        final ok = await showSetVaultPasswordDialog(
+                          context,
+                          onSetPassword: (password, shownWords) =>
+                              wrapDekWithPassword(
+                            password,
+                            recoveryWords: shownWords,
+                          ),
+                        );
+                        if (ok && mounted) {
+                          _nextPage();
+                        }
+                      },
+                      onSkipVault: _nextPage,
+                    ),
+                    _ReadyPage(
+                      scheme: scheme,
+                      onSetVaultPassword: (password, shownWords) =>
+                          wrapDekWithPassword(
+                        password,
+                        recoveryWords: shownWords,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Dot indicators
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) {
+                    final isActive = i == _currentPage;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: isActive ? 24 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? scheme.primary
+                            : scheme.onSurface.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+              // Bottom button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: _nextPage,
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                    ),
                     child: Text(
-                      'Skip',
-                      style: TextStyle(
-                          color: scheme.onSurface.withValues(alpha: 0.87)),
+                      _currentPage == 4 ? 'Get Started' : 'Continue',
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
                 ),
               ),
-            ),
-
-            // Pages
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (i) => setState(() => _currentPage = i),
-                children: [
-                  _WelcomePage(scheme: scheme),
-                  _NoteTypesPage(scheme: scheme),
-                  _VibePage(
-                    scheme: scheme,
-                    selectedIndex: _selectedSeedIndex,
-                    onSeedChanged: (i) =>
-                        setState(() => _selectedSeedIndex = i),
-                  ),
-                  _RecoveryKeyPage(
-                    scheme: scheme,
-                    words: _recoveryWords,
-                    hasSaved: _hasSavedRecoveryKey,
-                    onSavedChanged: (v) =>
-                        setState(() => _hasSavedRecoveryKey = v),
-                  ),
-                  _ReadyPage(scheme: scheme),
-                ],
-              ),
-            ),
-
-            // Dot indicators
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) {
-                  final isActive = i == _currentPage;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: isActive ? 24 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? scheme.primary
-                          : scheme.onSurface.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  );
-                }),
-              ),
-            ),
-
-            // Bottom button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  onPressed: _nextPage,
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                  ),
-                  child: Text(
-                    _currentPage == 4 ? 'Get Started' : 'Continue',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -191,74 +223,76 @@ class _WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        children: [
-          const Spacer(flex: 2),
-          // Illustration mockup
-          Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: scheme.primaryContainer,
-              boxShadow: [
-                BoxShadow(
-                  color: scheme.primary.withValues(alpha: 0.15),
-                  blurRadius: 32,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                HugeIcon(
-                  icon: HugeIcons.strokeRoundedNotebook01,
-                  size: 80,
-                  color: scheme.onPrimaryContainer,
-                ),
-                Positioned(
-                  right: 30,
-                  bottom: 30,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: scheme.primary,
-                    ),
-                    child: HugeIcon(
-                      icon: HugeIcons.strokeRoundedLock,
-                      size: 20,
-                      color: scheme.onPrimary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  const Spacer(flex: 2),
+                  // Hero squircle emblem with shared-element continuity
+                  Hero(
+                    tag: 'nook-welcome-hero',
+                    child: AnimatedSquircle(
+                      shape: SquircleShape.clover,
+                      size: 160,
+                      color: scheme.primaryContainer,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedNotebook01,
+                            size: 70,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                          Positioned(
+                            right: 24,
+                            bottom: 24,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: scheme.primary,
+                              ),
+                              child: HugeIcon(
+                                icon: HugeIcons.strokeRoundedLock,
+                                size: 18,
+                                color: scheme.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  const Spacer(flex: 2),
+                  Text(
+                    'Your notes. Your device. Yours.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No account. No cloud. No one else reads your notes.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: scheme.onSurface.withValues(alpha: 0.87),
+                      height: 1.4,
+                    ),
+                  ),
+                  const Spacer(flex: 2),
+                ],
+              ),
             ),
           ),
-          const Spacer(flex: 2),
-          Text(
-            'Your notes. Your device. Yours.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'No account. No cloud. No one else reads your notes.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15,
-              color: scheme.onSurface.withValues(alpha: 0.87),
-              height: 1.4,
-            ),
-          ),
-          const Spacer(flex: 2),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -669,233 +703,84 @@ class _VibePage extends StatelessWidget {
 // Page 4: Master Vault Key
 // ---------------------------------------------------------------------------
 
-class _RecoveryKeyPage extends StatefulWidget {
-  const _RecoveryKeyPage({
+class _ProtectVaultPage extends StatelessWidget {
+  const _ProtectVaultPage({
     required this.scheme,
-    required this.words,
-    required this.hasSaved,
-    required this.onSavedChanged,
+    required this.isProtected,
+    required this.onSetupVault,
+    required this.onSkipVault,
   });
 
   final ColorScheme scheme;
-  final List<String> words;
-  final bool hasSaved;
-  final ValueChanged<bool> onSavedChanged;
-
-  @override
-  State<_RecoveryKeyPage> createState() => _RecoveryKeyPageState();
-}
-
-class _RecoveryKeyPageState extends State<_RecoveryKeyPage> {
-  bool _copied = false;
-
-  Future<void> _copyPhrase() async {
-    await Clipboard.setData(ClipboardData(text: widget.words.join(' ')));
-    await AppHaptics.success();
-    if (mounted) {
-      setState(() => _copied = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Recovery phrase copied to clipboard! Keep it safe.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) setState(() => _copied = false);
-      });
-    }
-  }
+  final bool isProtected;
+  final VoidCallback onSetupVault;
+  final VoidCallback onSkipVault;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = widget.scheme;
-
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 12),
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              color: isProtected
+                  ? scheme.primaryContainer
+                  : scheme.surfaceContainerHigh,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: HugeIcon(
+                icon: HugeIcons.strokeRoundedShield01,
+                size: 40,
+                color: isProtected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
-            'Master Vault Key',
+            'Protect your vault',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
-            'Nook encrypts your notes on this device. Save your 24-word recovery phrase to ensure you can always recover your notes.',
+            isProtected
+                ? 'Your vault password and 24-word recovery key are set up and wrapping your database key.'
+                : 'Optionally set a vault password to wrap your SQLCipher database key and back up a verified 24-word recovery key.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
-              color: scheme.onSurface.withValues(alpha: 0.8),
-              height: 1.35,
+              fontSize: 15,
+              color: scheme.onSurfaceVariant,
+              height: 1.45,
             ),
           ),
-          const SizedBox(height: 12),
-          // Warning banner
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: scheme.errorContainer.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: scheme.error.withValues(alpha: 0.35),
-              ),
-            ),
-            child: Row(
-              children: [
-                HugeIcon(
-                  icon: HugeIcons.strokeRoundedAlertCircle,
-                  color: scheme.error,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Keep this phrase safe. Nook has no cloud servers and cannot restore lost keys.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.onErrorContainer,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Words grid
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.25),
-                ),
-              ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Table(
-                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                  children: [
-                    for (var r = 0; r < 12; r++)
-                      TableRow(
-                        children: [
-                          _buildWordChip(scheme, r + 1, widget.words[r]),
-                          const SizedBox(width: 8),
-                          _buildWordChip(scheme, r + 13, widget.words[r + 12]),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Copy phrase button
-          Center(
-            child: OutlinedButton.icon(
-              onPressed: _copyPhrase,
-              icon: HugeIcon(
-                icon: _copied
-                    ? HugeIcons.strokeRoundedCheckmarkCircle01
-                    : HugeIcons.strokeRoundedCopy01,
-                size: 18,
-                color: _copied ? scheme.primary : scheme.onSurface,
-              ),
-              label: Text(
-                _copied ? 'Copied to Clipboard' : 'Copy Phrase',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(180, 44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          // Confirmation checkbox
-          InkWell(
-            onTap: () {
-              AppHaptics.toggle();
-              widget.onSavedChanged(!widget.hasSaved);
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Checkbox(
-                    value: widget.hasSaved,
-                    activeColor: scheme.primary,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    onChanged: (val) {
-                      AppHaptics.toggle();
-                      widget.onSavedChanged(val ?? false);
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'I have backed up my recovery key safely',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: scheme.onSurface,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWordChip(ColorScheme scheme, int index, String word) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.5),
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
+          const SizedBox(height: 28),
+          if (!isProtected) ...[
             SizedBox(
-              width: 22,
-              child: Text(
-                '$index.',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.primary,
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: onSetupVault,
+                icon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedKey01,
+                  size: 18,
                 ),
+                label: const Text('Set vault password & recovery key'),
               ),
             ),
-            Expanded(
-              child: Text(
-                word,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurface,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: onSkipVault,
+              child: const Text('Skip for now'),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -906,9 +791,10 @@ class _RecoveryKeyPageState extends State<_RecoveryKeyPage> {
 // ---------------------------------------------------------------------------
 
 class _ReadyPage extends ConsumerWidget {
-  const _ReadyPage({required this.scheme});
+  const _ReadyPage({required this.scheme, this.onSetVaultPassword});
 
   final ColorScheme scheme;
+  final SetVaultPasswordCallback? onSetVaultPassword;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1006,7 +892,17 @@ class _ReadyPage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: () => showRecoveryKeyDialog(context),
+                onPressed: () async {
+                  final vault = ref.read(vaultPasswordProvider);
+                  if (!vault.enabled) {
+                    await showSetVaultPasswordDialog(
+                      context,
+                      onSetPassword: onSetVaultPassword,
+                    );
+                  } else {
+                    await showRecoveryKeyDialog(context);
+                  }
+                },
               ),
               OutlinedButton.icon(
                 icon: const HugeIcon(

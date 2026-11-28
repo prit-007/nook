@@ -68,15 +68,46 @@ class NoteRepository {
         .getSingle();
   }
 
-  /// Returns all non-deleted notes, ordered by pinned desc, then updatedAt desc.
+  /// Returns all non-deleted, non-archived notes, ordered by pinned desc, then updatedAt desc.
   Future<List<Note>> getAllNotes() async {
     return (_db.select(_db.notes)
-          ..where((t) => t.deleted.equals(false))
+          ..where((t) => t.deleted.equals(false) & t.archived.equals(false))
           ..orderBy([
             (t) => OrderingTerm.desc(t.pinned),
             (t) => OrderingTerm.desc(t.updatedAt),
           ]))
         .get();
+  }
+
+  /// Returns all archived (non-deleted) notes, ordered by updatedAt desc.
+  Future<List<Note>> getArchivedNotes() async {
+    return (_db.select(_db.notes)
+          ..where((t) => t.deleted.equals(false) & t.archived.equals(true))
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
+        .get();
+  }
+
+  /// Moves a note to the Archive (separate from Trash).
+  Future<void> archiveNote(String id) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+      NotesCompanion(
+        archived: const Value(true),
+        pinned: const Value(false),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    nookLog(NookLogKey.database, 'Note archived: $id', LogLevel.debug);
+  }
+
+  /// Restores an archived note back to the active vault.
+  Future<void> unarchiveNote(String id) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+      NotesCompanion(
+        archived: const Value(false),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    nookLog(NookLogKey.database, 'Note unarchived: $id', LogLevel.debug);
   }
 
   /// Returns only locked notes.
@@ -127,11 +158,18 @@ class NoteRepository {
       ),
     );
 
-    // Keep FTS index in sync when title changes.
-    if (title != null) {
+    // Keep FTS index in sync, but never index locked notes.
+    if (title != null || locked != null) {
       final note = await getNoteById(id);
       if (note != null) {
-        await _syncFts(id, title, note.plainText);
+        if (note.locked) {
+          await _db.customStatement(
+            'DELETE FROM notes_fts WHERE id = ?',
+            [id],
+          );
+        } else {
+          await _syncFts(id, note.title, note.plainText);
+        }
       }
     }
   }
@@ -166,7 +204,14 @@ class NoteRepository {
     if (plainText != null) {
       final note = await getNoteById(id);
       if (note != null) {
-        await _syncFts(id, note.title, plainText);
+        if (note.locked) {
+          await _db.customStatement(
+            'DELETE FROM notes_fts WHERE id = ?',
+            [id],
+          );
+        } else {
+          await _syncFts(id, note.title, plainText);
+        }
       }
     } else {
       // Content was cleared — remove from FTS so the note doesn't
@@ -314,18 +359,24 @@ class NoteRepository {
     );
   }
 
-  /// Returns only pinned, non-deleted notes.
+  /// Returns only pinned, non-deleted, non-archived notes.
   Future<List<Note>> getPinnedNotes() async {
     return (_db.select(_db.notes)
-          ..where((t) => t.pinned.equals(true) & t.deleted.equals(false))
+          ..where((t) =>
+              t.pinned.equals(true) &
+              t.deleted.equals(false) &
+              t.archived.equals(false))
           ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
         .get();
   }
 
-  /// Returns non-deleted notes of a specific type.
+  /// Returns non-deleted, non-archived notes of a specific type.
   Future<List<Note>> getNotesByType(NoteType type) async {
     return (_db.select(_db.notes)
-          ..where((t) => t.type.equalsValue(type) & t.deleted.equals(false))
+          ..where((t) =>
+              t.type.equalsValue(type) &
+              t.deleted.equals(false) &
+              t.archived.equals(false))
           ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
         .get();
   }

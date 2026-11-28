@@ -38,15 +38,22 @@ class TrashPurgeResult {
 ///
 /// Called on cold start (and can be re-run) so the Bin matches the
 /// "auto-deletes after N days" promise. Injectable [clock] for tests.
+/// When [retentionDays] is `<= 0`, auto-purge is disabled and [purgeExpired]
+/// becomes a no-op.
 class TrashAutoPurger {
-  TrashAutoPurger(this._db, {DateTime Function()? clock})
-      : _clock = clock ?? DateTime.now;
+  TrashAutoPurger(
+    this._db, {
+    DateTime Function()? clock,
+    this.retentionDays = kTrashRetentionDays,
+  }) : _clock = clock ?? DateTime.now;
 
   final AppDatabase _db;
   final DateTime Function() _clock;
+  final int retentionDays;
 
   /// Retention window used by [purgeExpired].
-  Duration get retention => const Duration(days: kTrashRetentionDays);
+  Duration get retention =>
+      Duration(days: retentionDays < 0 ? 0 : retentionDays);
 
   /// Cutoff timestamp: items with `deletedAt < cutoff` are purged.
   DateTime get cutoff => _clock().subtract(retention);
@@ -56,6 +63,9 @@ class TrashAutoPurger {
   /// Items with `deletedAt == null` (should not happen for soft-deleted
   /// rows) are left alone. Non-deleted rows are never touched.
   Future<TrashPurgeResult> purgeExpired() async {
+    if (retentionDays <= 0) {
+      return const TrashPurgeResult();
+    }
     final cutoff = this.cutoff;
 
     final expiredNotes = await (_db.select(_db.notes)
@@ -99,6 +109,9 @@ class TrashAutoPurger {
     for (final att in expiredAttachments) {
       await attachmentRepo.permanentlyDeleteWithFiles(att);
     }
+
+    // Reclaim freed SQLite pages so purged note data does not linger on disk.
+    await _db.customStatement('VACUUM;');
 
     final result = TrashPurgeResult(
       notes: expiredNotes.length,

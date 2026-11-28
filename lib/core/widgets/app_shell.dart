@@ -9,6 +9,7 @@ import 'dart:ui';
 import '../adaptive_breakpoints.dart';
 import '../theme/app_motion.dart';
 import '../theme/nook_tokens.dart';
+import 'animated_squircle.dart';
 import 'dock_safe_area.dart';
 
 /// Material 3 window size class based on width.
@@ -48,8 +49,19 @@ class AppShell extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final sizeClass = _windowSizeClass(width);
     final isWide = sizeClass != WindowSizeClass.compact;
+    final isThreePane = AdaptiveBreakpoints.supportsThreePane(context);
+    final location = GoRouterState.of(context).matchedLocation;
+    final isHomeThreePane = isThreePane && location.startsWith('/home');
     final selectedIndex = _currentIndex(context);
     final displayFeatures = MediaQuery.displayFeaturesOf(context);
+
+    if (isHomeThreePane) {
+      // Three-pane desktop layout: DesktopNavigationSidebar in HomeScreen replaces NavigationRail
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: SafeArea(child: child),
+      );
+    }
 
     if (isWide) {
       return _WideShell(
@@ -113,7 +125,7 @@ class _MobileShell extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh.withValues(alpha: 0.85),
-                borderRadius: context.tokens.borderRadiusDock,
+                borderRadius: context.tokens.borderRadiusPill,
                 border: Border.all(
                   color: context.tokens.dockBorder,
                   width: 1,
@@ -126,35 +138,61 @@ class _MobileShell extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Row(
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  _DockItem(
-                    icon: HugeIcons.strokeRoundedHome01,
-                    activeIcon: HugeIcons.strokeRoundedHome02,
-                    label: 'Home',
-                    isSelected: selectedIndex == 0,
-                    onTap: () => onTap(0),
+                  AnimatedAlign(
+                    key: const ValueKey('gliding-dock-pill'),
+                    alignment: Alignment(-1.0 + (2.0 * selectedIndex / 3.0), 0),
+                    duration: AppMotion.standard,
+                    curve: AppMotion.emphasizedDecelerate,
+                    child: FractionallySizedBox(
+                      widthFactor: 0.25,
+                      child: Center(
+                        child: Container(
+                          height: 44,
+                          width: 64,
+                          decoration: ShapeDecoration(
+                            color: scheme.primary.withValues(alpha: 0.12),
+                            shape: const SquircleBorder(
+                              cornerRadius: NookTokens.kRadiusMd,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                  _DockItem(
-                    icon: HugeIcons.strokeRoundedBook01,
-                    activeIcon: HugeIcons.strokeRoundedBook02,
-                    label: 'Notebooks',
-                    isSelected: selectedIndex == 1,
-                    onTap: () => onTap(1),
-                  ),
-                  _DockItem(
-                    icon: HugeIcons.strokeRoundedTag01,
-                    activeIcon: HugeIcons.strokeRoundedTag02,
-                    label: 'Tags',
-                    isSelected: selectedIndex == 2,
-                    onTap: () => onTap(2),
-                  ),
-                  _DockItem(
-                    icon: HugeIcons.strokeRoundedSettings01,
-                    activeIcon: HugeIcons.strokeRoundedSettings02,
-                    label: 'Settings',
-                    isSelected: selectedIndex == 3,
-                    onTap: () => onTap(3),
+                  Row(
+                    children: [
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedHome01,
+                        activeIcon: HugeIcons.strokeRoundedHome02,
+                        label: 'Home',
+                        isSelected: selectedIndex == 0,
+                        onTap: () => onTap(0),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedBook01,
+                        activeIcon: HugeIcons.strokeRoundedBook02,
+                        label: 'Notebooks',
+                        isSelected: selectedIndex == 1,
+                        onTap: () => onTap(1),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedTag01,
+                        activeIcon: HugeIcons.strokeRoundedTag02,
+                        label: 'Tags',
+                        isSelected: selectedIndex == 2,
+                        onTap: () => onTap(2),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedSettings01,
+                        activeIcon: HugeIcons.strokeRoundedSettings02,
+                        label: 'Settings',
+                        isSelected: selectedIndex == 3,
+                        onTap: () => onTap(3),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -211,7 +249,7 @@ class _DockItemState extends State<_DockItem> {
             onTapCancel: () => setState(() => _isPressed = false),
             radius: 36,
             highlightShape: BoxShape.rectangle,
-            borderRadius: context.tokens.borderRadiusLg,
+            borderRadius: context.tokens.borderRadiusPill,
             splashColor: scheme.primary.withValues(alpha: 0.12),
             highlightColor: scheme.primary.withValues(alpha: 0.08),
             focusColor: scheme.primary.withValues(alpha: 0.15),
@@ -235,7 +273,7 @@ class _DockItemState extends State<_DockItem> {
                         color: widget.isSelected
                             ? scheme.primary.withValues(alpha: 0.15)
                             : Colors.transparent,
-                        borderRadius: context.tokens.borderRadiusLg,
+                        borderRadius: context.tokens.borderRadiusPill,
                       ),
                       child: AnimatedSwitcher(
                         duration: _iconSwapDuration,
@@ -381,7 +419,7 @@ class _WideShell extends StatelessWidget {
                           indicatorColor:
                               scheme.primary.withValues(alpha: 0.12),
                           indicatorShape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: context.tokens.borderRadiusMd,
                           ),
                           selectedIconTheme:
                               IconThemeData(color: scheme.primary),
@@ -404,8 +442,7 @@ class _WideShell extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: scheme.primaryContainer
-                                    .withValues(alpha: 0.6),
+                                color: scheme.primaryContainer,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: scheme.primary.withValues(alpha: 0.2),

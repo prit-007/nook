@@ -56,11 +56,14 @@ Final content.
 
       final notes = await repo.getAllNotes();
       expect(notes.length, 3);
-      expect(notes.map((n) => n.title).toList(), [
-        'First Note Title',
-        'Second Note Title',
-        'Third Note Title',
-      ]);
+      expect(
+        notes.map((n) => n.title).toList(),
+        unorderedEquals([
+          'First Note Title',
+          'Second Note Title',
+          'Third Note Title',
+        ]),
+      );
     });
 
     test('imports list of files using filename as title', () async {

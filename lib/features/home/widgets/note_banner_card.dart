@@ -187,7 +187,18 @@ class _NoteBannerCardState extends ConsumerState<NoteBannerCard> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (widget.note.type == NoteType.checklist &&
+                          if (widget.note.locked) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Locked note — unlock to view',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontStyle: FontStyle.italic,
+                                color: bannerScheme.onPrimaryContainer
+                                    .withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ] else if (widget.note.type == NoteType.checklist &&
                               _items.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Text(

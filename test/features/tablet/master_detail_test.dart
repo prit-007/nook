@@ -13,6 +13,7 @@ import 'package:nook/data/tables/notes.dart';
 import 'package:nook/features/home/home_screen.dart';
 import 'package:nook/features/home/providers/note_card_metadata_provider.dart';
 import 'package:nook/features/home/providers/notes_list_provider.dart';
+import 'package:nook/features/home/widgets/desktop_navigation_sidebar.dart';
 import 'package:nook/features/home/widgets/note_preview_pane.dart';
 import 'package:nook/features/notebooks/notebooks_screen.dart';
 import 'package:nook/features/notebooks/widgets/notebook_card.dart';
@@ -126,6 +127,40 @@ void main() {
       expect(find.byType(NotePreviewPane), findsOneWidget);
       expect(find.text('Select a note'), findsOneWidget);
       expect(find.text('Open'), findsNothing);
+    });
+
+    testWidgets(
+        'renders three-pane desktop layout with sidebar and editor on large screens',
+        (tester) async {
+      setViewSize(tester, const Size(1400, 900));
+      final note = await insertNote('Desktop Thought');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            notesListProvider.overrideWith((ref) => Stream.value([note])),
+            checklistItemsRevisionProvider
+                .overrideWith((ref) => const Stream<void>.empty()),
+          ],
+          child: const MaterialApp(home: HomeScreen(animate: false)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Pane 1: Sidebar
+      expect(find.byType(DesktopNavigationSidebar), findsOneWidget);
+      expect(find.text('Workspace'), findsOneWidget);
+
+      // Pane 2: List
+      expect(find.text('Desktop Thought').first, findsOneWidget);
+
+      // Select note -> Pane 3 renders editor
+      await tester.tap(find.text('Desktop Thought').first);
+      await tester.pumpAndSettle();
+
+      // Pane 3: Desktop editor pane with inline text field
+      expect(find.byType(NotePreviewPane), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
     });
 
     testWidgets('tapping a note fills the pane without navigating',

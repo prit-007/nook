@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nook/core/theme/high_contrast_theme.dart';
-import 'package:nook/core/theme/nook_tokens.dart';
+import 'package:nook/core/theme/app_theme.dart';
+import 'package:nook/core/theme/design_tokens.dart';
+import 'package:nook/features/home/widgets/nook_hero.dart';
+import '../../helpers/ascii_layout.dart';
 
 /// Reference relative luminance implementation according to WCAG 2.1 specs.
 double _wcagRelativeLuminance(Color color) {
@@ -356,6 +358,167 @@ void main() {
 
       final defaultTheme = HighContrastTheme.build(Brightness.light);
       expect(defaultTheme.textTheme.displayLarge?.letterSpacing, equals(-1.0));
+    });
+  });
+
+  group('High Contrast Sync Status States', () {
+    Widget buildSyncPillHarness(NookSyncStatus status, Brightness brightness) {
+      final theme = HighContrastTheme.build(brightness);
+      return MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              NookHeroSliver(
+                noteCount: 10,
+                syncStatus: status,
+                animate: false,
+                onSearch: () {},
+                onSyncTap: () {},
+                onCaptureText: () {},
+                onCaptureChecklist: () {},
+                onCaptureDoodle: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    testWidgets('renders synced state in high-contrast light and dark',
+        (tester) async {
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.synced, Brightness.light));
+      await tester.pumpAndSettle();
+      expect(find.text('Synced'), findsOneWidget);
+
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.synced, Brightness.dark));
+      await tester.pumpAndSettle();
+      expect(find.text('Synced'), findsOneWidget);
+    });
+
+    testWidgets('renders syncing state in high-contrast light and dark',
+        (tester) async {
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.syncing, Brightness.light));
+      await tester.pump();
+      expect(find.text('Syncing'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.syncing, Brightness.dark));
+      await tester.pump();
+      expect(find.text('Syncing'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('renders conflict state in high-contrast light and dark',
+        (tester) async {
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.conflict, Brightness.light));
+      await tester.pumpAndSettle();
+      expect(find.text('Needs review'), findsOneWidget);
+
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.conflict, Brightness.dark));
+      await tester.pumpAndSettle();
+      expect(find.text('Needs review'), findsOneWidget);
+    });
+
+    testWidgets('renders localOnly state in high-contrast light and dark',
+        (tester) async {
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.localOnly, Brightness.light));
+      await tester.pumpAndSettle();
+      expect(find.text('On this device'), findsOneWidget);
+
+      await tester.pumpWidget(
+          buildSyncPillHarness(NookSyncStatus.localOnly, Brightness.dark));
+      await tester.pumpAndSettle();
+      expect(find.text('On this device'), findsOneWidget);
+    });
+
+    Widget buildThemedSyncHero(NookSyncStatus status, ThemeData theme) {
+      return MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              NookHeroSliver(
+                noteCount: 10,
+                syncStatus: status,
+                animate: false,
+                onSearch: () {},
+                onSyncTap: () {},
+                onCaptureText: () {},
+                onCaptureChecklist: () {},
+                onCaptureDoodle: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    testWidgets('renders all sync states across light, dark, and AMOLED themes',
+        (tester) async {
+      final seed = NookColors.seeds.first;
+      final themes = <String, ThemeData>{
+        'light': buildLightTheme(seed),
+        'dark': buildDarkTheme(seed, amoled: false),
+        'amoled': buildDarkTheme(seed, amoled: true),
+      };
+
+      for (final entry in themes.entries) {
+        for (final status in NookSyncStatus.values) {
+          await tester.pumpWidget(buildThemedSyncHero(status, entry.value));
+          if (status == NookSyncStatus.syncing) {
+            await tester.pump();
+            expect(find.text('Syncing'), findsOneWidget);
+          } else {
+            await tester.pumpAndSettle();
+            final expectedText = switch (status) {
+              NookSyncStatus.synced => 'Synced',
+              NookSyncStatus.conflict => 'Needs review',
+              NookSyncStatus.localOnly => 'On this device',
+              _ => '',
+            };
+            expect(find.text(expectedText), findsOneWidget);
+          }
+        }
+      }
+    });
+
+    testWidgets('captures ASCII layout snaps for hero sync chip across states',
+        (tester) async {
+      tester.view.physicalSize = const Size(400, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final theme = buildLightTheme(NookColors.seeds.first);
+
+      for (final status in NookSyncStatus.values) {
+        await tester.pumpWidget(buildThemedSyncHero(status, theme));
+        if (status == NookSyncStatus.syncing) {
+          await tester.pump();
+        } else {
+          await tester.pumpAndSettle();
+        }
+
+        final syncPillFinder = find.byType(Semantics).first;
+        final snap = asciiLayout(
+          tester,
+          {'sync_chip': syncPillFinder},
+          cols: 40,
+          rows: 10,
+        );
+        expect(snap, isNotEmpty);
+        expectLayoutSnap(snap, 'hero_sync_chip_${status.name}');
+      }
     });
   });
 }

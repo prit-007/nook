@@ -14,7 +14,15 @@ import 'talker_provider.dart';
 /// Hashing is delegated to [lib/core/security/kdf.dart] so vault password and
 /// other secrets share one audited PBKDF2 implementation.
 class PinProvider extends ChangeNotifier {
-  PinProvider({this.enabled = false});
+  PinProvider({
+    this.enabled = false,
+    int failedAttempts = 0,
+    DateTime? lockoutUntil,
+  })  : _failedAttempts = failedAttempts,
+        _lockoutUntil = lockoutUntil;
+
+  static const String _failedAttemptsKey = 'pin_failed_attempts';
+  static const String _lockoutUntilKey = 'pin_lockout_until_ms';
 
   bool enabled;
   bool _authenticated = false;
@@ -48,6 +56,12 @@ class PinProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Records a failed PIN entry and persists the lockout state across restarts.
+  Future<void> recordFailedAttemptPersisted() async {
+    recordFailedAttempt();
+    await _saveLockoutState();
+  }
+
   /// Resets failed attempt counter and clears active lockout.
   void resetAttempts() {
     _failedAttempts = 0;
@@ -66,10 +80,11 @@ class PinProvider extends ChangeNotifier {
       _authenticated = true;
       _failedAttempts = 0;
       _lockoutUntil = null;
+      await _saveLockoutState();
       nookLog(NookLogKey.security, 'PIN verified', LogLevel.info);
       notifyListeners();
     } else {
-      recordFailedAttempt();
+      await recordFailedAttemptPersisted();
       nookLog(NookLogKey.security, 'PIN verification failed', LogLevel.warning);
     }
     return match;
@@ -106,10 +121,31 @@ class PinProvider extends ChangeNotifier {
     await prefs.setBool('pin_enabled', enabled);
   }
 
+  Future<void> _saveLockoutState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_failedAttemptsKey, _failedAttempts);
+    if (_lockoutUntil != null) {
+      await prefs.setInt(
+        _lockoutUntilKey,
+        _lockoutUntil!.millisecondsSinceEpoch,
+      );
+    } else {
+      await prefs.remove(_lockoutUntilKey);
+    }
+  }
+
   static Future<PinProvider> load() async {
     final prefs = await SharedPreferences.getInstance();
     final isEnabled = prefs.getBool('pin_enabled') ?? false;
-    return PinProvider(enabled: isEnabled);
+    final attempts = prefs.getInt(_failedAttemptsKey) ?? 0;
+    final lockoutMs = prefs.getInt(_lockoutUntilKey);
+    return PinProvider(
+      enabled: isEnabled,
+      failedAttempts: attempts,
+      lockoutUntil: lockoutMs != null
+          ? DateTime.fromMillisecondsSinceEpoch(lockoutMs)
+          : null,
+    );
   }
 
   // ── Storage helpers ─────────────────────────────────────────────

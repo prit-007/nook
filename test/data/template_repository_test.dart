@@ -90,8 +90,8 @@ void main() {
       );
     });
 
-    test('schemaVersion is 9', () {
-      expect(db.schemaVersion, 9);
+    test('schemaVersion is 12', () {
+      expect(db.schemaVersion, 12);
     });
   });
 }

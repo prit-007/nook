@@ -1,0 +1,23 @@
+app-id: com.devparadise.nook
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: nook
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --talk-name=org.freedesktop.secrets
+modules:
+  - name: nook
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/nook /app/bin
+      - cp -r build/linux/x64/release/bundle/* /app/nook/
+      - ln -s /app/nook/nook /app/bin/nook
+      - install -Dm644 linux/runner/icon.png /app/share/icons/hicolor/256x256/apps/com.devparadise.nook.png
+    sources:
+      - type: dir
+        path: ../..

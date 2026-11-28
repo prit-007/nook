@@ -125,6 +125,8 @@ List<SelectionMenuItem> buildNookSlashMenuItems({
   required VoidCallback onInsertDoodle,
   VoidCallback? onInsertNoteLink,
   VoidCallback? onInsertImage,
+  VoidCallback? onScanOcr,
+  VoidCallback? onDictateVoice,
 }) {
   return [
     SelectionMenuItem(
@@ -297,6 +299,32 @@ List<SelectionMenuItem> buildNookSlashMenuItems({
         onInsertNoteLink?.call();
       },
     ),
+    if (onScanOcr != null)
+      SelectionMenuItem(
+        getName: () => 'Scan text (OCR)',
+        icon: (editorState, isSelected, style) => SelectionMenuIconWidget(
+          name: 'image',
+          isSelected: isSelected,
+          style: style,
+        ),
+        keywords: ['ocr', 'scan', 'text', 'image', 'receipt'],
+        handler: (editorState, _, __) {
+          onScanOcr();
+        },
+      ),
+    if (onDictateVoice != null)
+      SelectionMenuItem(
+        getName: () => 'Voice dictation',
+        icon: (editorState, isSelected, style) => SelectionMenuIconWidget(
+          name: 'text',
+          isSelected: isSelected,
+          style: style,
+        ),
+        keywords: ['voice', 'mic', 'dictate', 'speech'],
+        handler: (editorState, _, __) {
+          onDictateVoice();
+        },
+      ),
   ];
 }
 

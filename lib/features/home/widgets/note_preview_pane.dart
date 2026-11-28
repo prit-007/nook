@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -24,7 +26,9 @@ import '../../../data/tables/notes.dart';
 /// an "Open in editor" action. On compact screens this widget is not used —
 /// the route push flow handles navigation instead.
 class NotePreviewPane extends ConsumerWidget {
-  const NotePreviewPane({super.key});
+  const NotePreviewPane({super.key, this.isDesktopEditor = false});
+
+  final bool isDesktopEditor;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -110,21 +114,25 @@ class NotePreviewPane extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (note.type != NoteType.checklist &&
-                          note.plainText != null &&
-                          note.plainText!.trim().isNotEmpty)
-                        Text(
-                          note.plainText!,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.65,
-                            color: noteScheme.onSurface,
-                          ),
-                        ),
-                      if (note.type != NoteType.checklist &&
-                          note.plainText != null &&
-                          note.plainText!.trim().isNotEmpty &&
-                          items.isNotEmpty)
+                      if (note.type != NoteType.checklist)
+                        isDesktopEditor
+                            ? _DesktopInlineEditor(
+                                key: ValueKey(note.id),
+                                note: note,
+                                scheme: noteScheme,
+                              )
+                            : (note.plainText != null &&
+                                    note.plainText!.trim().isNotEmpty
+                                ? Text(
+                                    note.plainText!,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      height: 1.65,
+                                      color: noteScheme.onSurface,
+                                    ),
+                                  )
+                                : const SizedBox.shrink()),
+                      if (note.type != NoteType.checklist && items.isNotEmpty)
                         const SizedBox(height: 24),
                       if (items.isNotEmpty) ...[
                         Text(
@@ -380,6 +388,122 @@ class _AttachmentThumb extends StatelessWidget {
             ? HugeIcons.strokeRoundedPenTool01
             : HugeIcons.strokeRoundedImage01,
         color: scheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+class _DesktopInlineEditor extends ConsumerStatefulWidget {
+  const _DesktopInlineEditor({
+    super.key,
+    required this.note,
+    required this.scheme,
+  });
+
+  final Note note;
+  final ColorScheme scheme;
+
+  @override
+  ConsumerState<_DesktopInlineEditor> createState() =>
+      _DesktopInlineEditorState();
+}
+
+class _DesktopInlineEditorState extends ConsumerState<_DesktopInlineEditor> {
+  late final TextEditingController _controller;
+  Timer? _debounceTimer;
+  bool _isDirty = false;
+  NoteRepository? _cachedRepo;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.note.plainText ?? '');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cachedRepo = NoteRepository(ref.read(databaseProvider));
+  }
+
+  Future<void> _flushSave([String? noteIdToSave]) async {
+    if (!_isDirty) return;
+    _debounceTimer?.cancel();
+    _isDirty = false;
+    final id = noteIdToSave ?? widget.note.id;
+    final val = _controller.text;
+    final repo = _cachedRepo;
+    if (repo == null) return;
+    await repo.updateContent(
+      id,
+      plainText: val,
+      deltaContent: jsonEncode({
+        'document': {
+          'type': 'page',
+          'children': [
+            {
+              'type': 'paragraph',
+              'data': {
+                'delta': [
+                  {'insert': val},
+                ],
+              },
+            },
+          ],
+        },
+      }),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _DesktopInlineEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.note.id != widget.note.id) {
+      if (_isDirty) {
+        _flushSave(oldWidget.note.id);
+      }
+      _controller.text = widget.note.plainText ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_isDirty) {
+      _flushSave();
+    } else {
+      _debounceTimer?.cancel();
+    }
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String val) {
+    _isDirty = true;
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
+      await _flushSave();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      maxLines: null,
+      keyboardType: TextInputType.multiline,
+      onChanged: _onChanged,
+      decoration: InputDecoration(
+        border: InputBorder.none,
+        hintText: 'Start typing to write…',
+        hintStyle: TextStyle(
+          fontSize: 16,
+          color: widget.scheme.onSurfaceVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      style: TextStyle(
+        fontSize: 16,
+        height: 1.65,
+        color: widget.scheme.onSurface,
       ),
     );
   }

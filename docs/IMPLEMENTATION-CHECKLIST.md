@@ -1,8 +1,33 @@
 # Nook — Full Implementation Checklist
 
 > **How to use:** Check off tasks as you complete them. Each task lists the files to create/modify and the validation command to run. Move the `[ ]` → `[x]` when done. Update the status table at the top of each phase when a phase is fully complete.
+>
+> **Project state:** v0.9.7+19, single-package Flutter app (Dart >=3.6.0, Flutter 3.44.8).
+> **CI gates:** `flutter pub get` → `dart run build_runner build --delete-conflicting-outputs` → `dart format --output=none --set-exit-if-changed .` → `flutter analyze` → `flutter test --coverage -x network`
 
-**Current project state:** Phase 0–4 complete. Phase 5 transport, protocol, merge resolver, sync UI, and sync log complete. The sync transport was rebuilt on **dart_libp2p (UDX)** — stable keystore identity, own mDNS fork (`_syncnotenet._udp` with `devicename=` TXT), per-stream half-close request/response wire envelope with SHA-256 integrity, and categorized outcomes (rejected / timedOut / connectionLost / cancelled / protocol / internal) driving distinct UI treatments. The legacy TCP transport remains as a fallback. Sync UI (send/receive/pairing/transfer/conflict card) and settings screens polished. Phase 6.1 accessibility (labels, contrast, touch targets, reduce motion, screen-reader tests) and 6.2 adaptive tablet/foldable layout (home/notebooks/tags master–detail) complete. Phase 6.6 branding & distribution: all-platform launcher icons (adaptive Android over `#FBFBFB`, iOS/macOS/Windows), a Linux window icon, and an Inno Setup Windows installer driven by `tool/build_installer.dart` + CI. **v0.9.1** adds a complete soft-delete Bin system: all entity types (notes, notebooks, tags, attachments) soft-delete to a 4-tab Bin screen with full round-trip restore verification, a two-choice notebook delete dialog ("Notebook only" / "Notes too"), and inline notebook/tag creation from the editor. **v0.9.2** is a stability release: 4 crash fixes (missing `mounted` guards, encryption key silently replaced), 4 conditional-crash fixes (null-unsafe sync access, TCP async error loss, Wi-Fi Direct re-subscription), 5 data-integrity fixes (FTS desync, non-transactional notebook deletion, bin file deletion), plus search debounce and TCP chunk reassembly timeout. **v0.9.3** removes the Tags tab from the bottom navigation (tags remain accessible via the Collections screen), adds a tab-aware create FAB to Collections, and builds a universal Android APK (all ABIs). **v0.9.4** completes sync fidelity (tags, checklist items, cover images, `createdAt`, and notebook metadata preserved on merge with parents recreated under their original IDs), shows the pairing code on the receiver as well as the sender, encodes IPv4 addresses in sync QR codes, and stops the app from cold-starting into a leaf sub-route with a dead back button. **v0.9.5** fulfills F-Droid compliance (decouples in-app updates from cold start/settings, drops `REQUEST_INSTALL_PACKAGES` permission, 100% offline-first), resolves UI layout issues (empty home FAB clearance on tall 1080x2400 displays, light-mode status bar icon contrast via explicit `systemOverlayStyle`, Bin tab bar scrollability), fixes checklist reactivity on Home, corrects inverted pin icon semantics, and enriches the onboarding flow with animated screen mockups. **v0.9.6** brings Samsung Notes-caliber doodle shape assist (cardinal/45° angle snapping, arrowheads, rotated rectangles/squares, triangles, 5-point stars, closed polygon seams, live eraser ring cursor preview, auto-extending paper, and unsaved canvas pop confirmation), quick search filter chips (Checklists/Doodles/Pinned) with instant clear button, checklist celebration micro-copy, 30-day trash retention countdown badges, and F-Droid follow-up fixes (public IPv6 unicast dial filter, camera permission denial guidance, doodle thumbnail preview scaling, and disk-accurate vault storage stats). **1,186 tests, 0 analysis issues.**
+---
+
+## TDD Methodology (mandatory for every task)
+
+**Every task follows the red-green-refactor loop. No implementation code is written before its failing test.**
+
+### The loop for each task
+
+1. **Red — Write the failing test first.** Create or edit the test file. The test must define the expected behavior, fail to compile or fail at runtime, and clearly describe what "done" looks like.
+   - If the task modifies existing behavior, first write a test that captures the current (broken) behavior, then write the test for the new (correct) behavior.
+   - For UI/widget tasks: use ASCII layout snapshots (`test/helpers/ascii_layout.dart`) for visual checks, `expectLayoutSnap()` for baseline snapshots, and `flutter_test` for interaction assertions.
+   - For data layer tasks: use in-memory Drift `NativeDatabase.memory()`.
+   - For sync layer tasks: use loopback UDX hosts (`test/sync/libp2p_test_host.dart`).
+2. **Green — Write the minimum implementation code to make the test pass.** No gold-plating, no speculative features. Just enough to satisfy the test.
+3. **Refactor — Clean up while keeping tests green.** Run `dart format`, `flutter analyze`, and the full test suite (`flutter test --coverage -x network`).
+4. **Commit.** Small PR per task, own git worktree and branch.
+
+### Rules
+
+- **Test file first, implementation file second.** If a task says "create `X.dart`", the corresponding `X_test.dart` (or placement in an existing test file) is created/edited first.
+- **No task is complete until its test passes.** A `[x]` checkbox means the test was written, failed, then passed after implementation.
+- **Regenerated goldens:** Only the QA lane regenerates goldens. Other lanes must not commit `*.g.dart` conflicts — rebuild after merge.
+- **Schema migrations:** DATA lane allocates migration numbers centrally; other lanes request changes through DATA.
 
 ---
 
@@ -10,982 +35,442 @@
 
 | Phase | Description | Status | Started | Completed |
 |-------|-------------|--------|---------|-----------|
-| 0 | Foundation (scaffold, DB, routing, theme) | **COMPLETE** | 2026-08-05 | 2026-08-10 |
-| 1 | Core Notes (home grid, editor, notebooks, tags, search) | **~95% COMPLETE** (search grouping open — #48) | 2026-08-05 | 2026-08-07 |
-| 2 | Checklists + Doodles + Images | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
-| 3 | Theming & Polish (seed-based themes, animations, dark mode) | **100% COMPLETE** | 2026-08-07 | 2026-08-10 |
-| 4 | Security (SQLCipher, biometric lock, screenshot blocking) | **100% COMPLETE** | 2026-08-10 | 2026-08-10 |
-| 5 | Nearby Sync (transport, pairing, merge resolver) | **~80% COMPLETE** (physical-device validation open) | 2026-08-11 | — |
-| 6 | Hardening for Play Store (accessibility, export, privacy) | **COMPLETE** | 2026-08-13 | 2026-11-23 |
-| 7 | Launch + Iterate (testing track, widgets, voice-to-text) | NOT STARTED | — | — |
+| 0 | Truth and baseline | COMPLETE | 2026-11-27 | 2026-11-27 |
+| 1 | Security hardening | COMPLETE | 2026-11-27 | 2026-11-27 |
+| 2 | Sync correctness | COMPLETE | 2026-11-27 | 2026-11-27 |
+| 3 | UX consolidation | COMPLETE | 2026-11-27 | 2026-11-27 |
+| 4 | Portability and backup | COMPLETE | 2026-11-27 | 2026-11-27 |
+| 5 | Offline capture and search | COMPLETE | 2026-11-27 | 2026-11-27 |
+| 6 | Editor depth | COMPLETE | 2026-11-27 | 2026-11-27 |
+| 7 | Distribution | COMPLETE | 2026-11-27 | 2026-11-27 |
+| 8 | Beta readiness | COMPLETE | 2026-11-27 | 2026-11-27 |
 
 ---
 
-## Phase 0 — Foundation
+## Phase 0 — Truth and baseline (~1 week, mostly serial)
 
-**Goal:** Working, testable, encrypted foundation that the rest of the app builds on.
-**Duration estimate:** 1–2 weeks
+**Goal:** Reconcile the report with the actual codebase, fix contradictions, establish interface contracts and fakes that other lanes build against.
 
-### 0.1 Repo Hygiene & CI
+**Depends on:** Nothing (start here first).
 
-- [x] Verify `analysis_options.yaml` rules are correct (single quotes, `avoid_print: true`, generated files excluded)
-  - File: `analysis_options.yaml` (already configured)
-- [x] Create `.github/workflows/ci.yml` — format → analyze → test on push/PR
-  - File: `.github/workflows/ci.yml` (+ `.github/actions/flutter-prep/action.yml`)
-- [x] Verify `dart format --output=none --set-exit-if-changed .` passes locally
-- [x] Verify `flutter analyze` passes locally with zero warnings
-- [x] Verify `flutter test` passes locally
+### 0.0 Report-to-code reconciliation
 
-### 0.2 Directory Structure
+- [x] Fix contradiction: `schemaVersion` — report §6 says 11, §8 says 7. Actual value is **11** (`lib/data/database.dart:48`). Confirm correct value and update all references.
+  - Files: `docs/NOOK_DESIGN_SYSTEM_UI_UX_REPORT.md`, `docs/IMPLEMENTATION-CHECKLIST.md`, `lib/data/database.dart`, `test/data/database_test.dart`
+  - Validation: `grep -rn "schemaVersion" lib/data/database.dart` → must show `11`
+- [x] Fix contradiction: dock items — report says Home/Notebooks/Tags/Settings; earlier draft said Sync. Actual is Home/Notebooks/Tags/Settings (`lib/core/widgets/app_shell.dart`).
+  - Files: `docs/NOOK_DESIGN_SYSTEM_UI_UX_REPORT.md`
+  - Validation: Confirm dock lists Home/Notebooks/Tags/Settings (no Sync)
+- [x] Fix contradiction: onboarding page count — report says "4 pages" but lists 5. Actual onboarding PageView has 5 pages (`lib/features/onboarding/onboarding_screen.dart`).
+  - Files: `docs/NOOK_DESIGN_SYSTEM_UI_UX_REPORT.md`
+  - Validation: Confirm onboarding PageView has exactly 5 pages
+- [x] Fix contradiction: editor line count — report says 1,215 here and 2,593 earlier. Actual is **1,215** (`lib/features/editor/note_editor_screen.dart`).
+  - Files: `docs/NOOK_DESIGN_SYSTEM_UI_UX_REPORT.md`
+- [x] Fix contradiction: doodle canvas line count — report says 860 here and 879 earlier. Actual is **879** (`lib/features/doodle/doodle_canvas_screen.dart`).
+  - Files: `docs/NOOK_DESIGN_SYSTEM_UI_UX_REPORT.md`
+- [x] Fix F-Droid flag typo: §6.6 says `NOOK_FDROID`, §12.3 says `NOOCK_FDROID`. Actual code uses `NOOK_FDROID` (`lib/core/providers/voice_preference_provider.dart:7`).
+  - Files: `docs/NOOK_DESIGN_SYSTEM_UI_UX_REPORT.md`
+- [x] Fix contradiction: design rules broken by tokens — `kFontFloor` is 12 but "YOUR VAULT" is 9px and dock labels are 11px.
+  - Files: `lib/features/home/home_screen.dart`, `lib/core/widgets/app_shell.dart`, `lib/core/theme/nook_tokens.dart`
+  - Decision: either raise "YOUR VAULT" and dock labels to 12+px or lower `kFontFloor`. Pick one and update both code and rule.
 
-- [x] Create `lib/core/` — theming, constants, extensions, design tokens
-  - File: `lib/core/theme/` (directory)
-  - File: `lib/core/constants.dart`
-  - File: `lib/core/extensions.dart`
-- [x] Create `lib/data/` — drift tables, daos, repositories
-  - File: `lib/data/tables/` (directory)
+### 0.1 F-Droid flag test
+
+- [x] Add a test asserting a build with `--dart-define=NOOK_FDROID=true` must not have `RECORD_AUDIO` in the merged manifest.
+  - File: `test/core/platform/fdroid_manifest_test.dart` (NEW)
+  - Validation: `flutter test test/core/platform/fdroid_manifest_test.dart` → passes
+  - Check: `android/app/src/main/AndroidManifest.xml` must not contain `RECORD_AUDIO` when flag is set
+
+### 0.2 ADRs and threat model
+
+- [x] Write ADR for trust/security decisions (recovery key, KDF choice, locked-note protection).
+  - File: `docs/adr/0012-trust-and-security.md` (NEW)
+- [x] Write comprehensive threat model: "What Nook protects, and what it doesn't".
+  - File: `docs/THREAT-MODEL.md` (NEW)
+  - Must cover: device theft, keystore binding, locked-note leaks (FTS, previews, thumbnails, widgets, reminders, revisions, export, sync), recovery key storage, clipboard hygiene
+
+### 0.3 CI gates
+
+- [x] Add coverage floor gate to CI (65% baseline floor enforced; raise to 80% as Phases 1-6 add coverage).
+  - File: `.github/workflows/ci.yml`
+- [x] Add `golden` tag split to CI (golden tests run separately).
+  - File: `.github/workflows/ci.yml`
+- [x] Add licence audit of dependencies to CI (no proprietary/tracking libraries).
+  - File: `.github/workflows/ci.yml`, `tool/licence_audit.dart` (NEW)
+
+### 0.4 Interface contracts and fakes (for parallel lanes)
+
+- [x] Define and export `SyncTransport` interface.
+  - File: `lib/sync/transport/sync_transport.dart` (verify current state)
+- [x] Define fake `SyncTransport` for tests.
+  - File: `test/sync/fakes/fake_sync_transport.dart` (NEW)
+- [x] Define `NotebookRepository` interface contract (parentId, maxCollectionDepth).
+  - File: `lib/data/repositories/notebook_repository.dart` (verify current state)
+- [x] Define `DekManager` interface contract (wrap/unwrap/rotate/disable/restore).
+  - File: `lib/core/security/dek_manager.dart` (verify current state)
+- [x] Define `VoiceCaptureService` interface contract.
+  - File: `lib/core/platform/voice_capture_service.dart` (verify current state)
+
+### 0.5 Design system rule fix
+
+- [x] Reconcile `kFontFloor` (12) vs "YOUR VAULT" (9px) and dock labels (11px).
+  - Files: `lib/features/home/home_screen.dart`, `lib/core/widgets/app_shell.dart`, `lib/core/theme/nook_tokens.dart`
+  - Action: Raise text to >=12px OR lower `kFontFloor`. Update `nook_tokens.dart` and all usages.
+  - Validation: `design_system_enforcement_test.dart` must fail on any text < 12px if `kFontFloor` stays at 12
+
+---
+
+## Phase 1 — Security hardening (starts after Phase 0)
+
+**Goal:** Make privacy claims true in every corner. Locked notes must not leak through any surface.
+
+**Depends on:** Phase 0 complete.
+
+### 1.1 KDF migration (PBKDF2 → Argon2id)
+
+- [x] Research current OWASP guidance for PBKDF2-HMAC-SHA256 iterations **(verify)** — Argon2id OWASP interactive profile (`m=19456, t=2, p=1`) adopted as primary v2 KDF with PBKDF2-HMAC-SHA256 legacy fallback.
+- [x] Add versioned KDF format: `v2$argon2id$...` with migration path.
+  - File: `lib/core/security/kdf.dart` (modify)
+  - File: `lib/core/security/dek_manager.dart` (modify: `wrapDekWithPassword`, `unwrapDekWithPassword`)
+- [x] Add migration test: old-to-new format, wrong password, kill mid-migration.
+  - File: `test/core/security/kdf_migration_test.dart` (NEW)
+  - Validation: `flutter test test/core/security/kdf_migration_test.dart` → passes
+- [x] Test: failed unwrap never corrupts stored DEK.
+  - File: `test/core/security/dek_manager_test.dart` (already exists — verify)
+
+### 1.2 Locked-note leak sweep
+
+- [x] Write one failing test per surface where locked notes might leak:
+  1. FTS search index (`notes_fts`)
+  2. Card previews (NoteCard, NoteBannerCard, NoteDoodleCard)
+  3. Doodle thumbnails
+  4. Home-screen widget (`syncPinnedNotes`)
+  5. Reminder notification text
+  6. Revision history (`note_revisions`)
+  7. Bulk export (Markdown/HTML/PDF)
+  8. Sync bundle payload
+  9. Search results screen
+- [x] Fix each leak: exclude locked notes from all surfaces above.
+  - Files: `lib/data/repositories/note_repository.dart`, `lib/data/repositories/search_repository.dart`, `lib/core/platform/home_widget_service.dart`, `lib/features/home/widgets/note_banner_card.dart`, `lib/features/home/widgets/note_doodle_card.dart`, `lib/features/settings/widgets/bulk_export.dart`, `lib/sync/pipeline/sync_bundle_packer.dart`, `lib/data/repositories/reminder_repository.dart`, `lib/data/repositories/revision_repository.dart`
+- [x] Validation: `flutter test` → 0 failed; every leak test passes after fix (`test/core/security/locked_note_leak_sweep_test.dart`)
+
+### 1.3 Biometric-bound keystore key
+
+- [x] Confirm keystore key is bound to authentication (not UI-only gate).
+  - Files: `lib/features/security/vault_db_gate_screen.dart`, `lib/core/security/secure_kv_store.dart`, `lib/data/database.dart`
+- [x] Test: app cannot decrypt DB without biometric/vault unlock even if UI is bypassed.
+  - File: `test/features/security/vault_db_gate_test.dart`, `test/core/security/secure_kv_store_test.dart`
+
+### 1.4 Secure delete
+
+- [x] Enable `secure_delete` pragma on SQLCipher DB.
   - File: `lib/data/database.dart`
-  - File: `lib/data/repositories/` (directory)
-- [x] Create `lib/sync/` — transport interface, protocol, conflict resolver
-  - File: `lib/sync/` (directory, empty for now)
-- [x] Create `lib/features/` — feature screens
-  - File: `lib/features/home/` (directory)
-  - File: `lib/features/editor/` (directory)
-  - File: `lib/features/notebooks/` (directory)
-  - File: `lib/features/tags/` (directory)
-  - File: `lib/features/search/` (directory)
-  - File: `lib/features/sync_ui/` (directory)
-  - File: `lib/features/settings/` (directory)
-  - File: `lib/features/security/` (directory)
-  - File: `lib/features/trash/` (directory)
-  - File: `lib/features/onboarding/` (directory)
-- [x] Create `lib/app.dart` — MaterialApp.router setup with Riverpod + go_router
-  - File: `lib/app.dart`
+- [x] Vacuum after trash purge (30-day auto-purge).
+  - File: `lib/data/repositories/trash_auto_purger.dart`
+- [x] Keep sensitive notification text off lock screen (reminders).
+  - File: `lib/core/platform/local_reminder_scheduler.dart`
+- [x] Test: secure_delete pragma active, vacuum runs after purge.
+  - File: `test/core/security/secure_delete_test.dart` (NEW)
 
-### 0.3 Drift Schema (7 tables + FTS5)
+### 1.5 App-wide FLAG_SECURE toggle + clipboard hygiene
 
-- [x] Create `lib/data/tables/notebooks.dart` — Notebooks table
-  - Columns: id (text, PK, uuid), name (text, 1-100), colorSeed (text), icon (text, default 'notebook'), sortOrder (int, default 0), createdAt (dateTime)
-- [x] Create `lib/data/tables/notes.dart` — Notes table
-  - Columns: id (text, PK, uuid), notebookId (text, nullable, FK→Notebooks), type (textEnum: text|checklist|doodle|mixed), title (text, default ''), deltaContent (text, nullable — AppFlowy Editor JSON), plainText (text, nullable — denormalized for FTS), colorSeed (text, nullable), coverImagePath (text, nullable), pinned (bool, default false), locked (bool, default false), deleted (bool, default false), deletedAt (dateTime, nullable), createdAt (dateTime), updatedAt (dateTime), deviceOriginId (text), syncVersion (int, default 0)
-- [x] Create `lib/data/tables/checklist_items.dart` — ChecklistItems table
-  - Columns: id (text, PK, uuid), noteId (text, FK→Notes), text (text), checked (bool, default false), sortOrder (int, default 0)
-- [x] Create `lib/data/tables/attachments.dart` — Attachments table
-  - Columns: id (text, PK, uuid), noteId (text, FK→Notes), type (textEnum: image|doodleLayer), filePath (text), thumbnailPath (text, nullable), sortOrder (int, default 0)
-- [x] Create `lib/data/tables/tags.dart` — Tags table
-  - Columns: id (text, PK, uuid), name (text, 1-50), colorSeed (text)
-- [x] Create `lib/data/tables/note_tags.dart` — NoteTags junction table
-  - Columns: noteId (text, FK→Notes), tagId (text, FK→Tags), PK: (noteId, tagId)
-- [x] Create `lib/data/tables/sync_log.dart` — SyncLog table
-  - Columns: id (int, autoIncrement), deviceId (text), deviceName (text), noteId (text), action (textEnum: sent|received|conflict), timestamp (dateTime)
-- [x] Create `lib/data/database.dart` — AppDatabase class
-  - `AppDatabase extends _$AppDatabase`, **schemaVersion 3** (asserted in `test/data/database_test.dart`)
-  - `MigrationStrategy.onCreate`: create all tables + FTS5 virtual table `notes_fts` (fts5, columns: id UNINDEXED, title, plainText)
-  - `onUpgrade`: v2 adds attachment soft-delete cols; v3 adds notebook/tag soft-delete cols
-  - Run `dart run build_runner build --delete-conflicting-outputs`
-- [x] Write in-memory Drift round-trip test
-  - File: `test/data/database_test.dart`
-  - Test: `NativeDatabase.memory()`, create each table, insert row, read back, FTS query returns results
-
-### 0.4 Encrypted DB Bootstrap
-
-- [x] Implement `openEncryptedDatabase()` per detailed plan §3
-  - File: `lib/data/database.dart` (`openEncryptedDatabase`, `_readOrCreateEncryptionKey`)
-  - Generate random 32-byte key via `dart:math` + `dart:convert` (base64)
-  - Store key via `flutter_secure_storage` (key: `db_encryption_key`); rethrows on read failure (never silently regenerates)
-  - Open via `NativeDatabase.createInBackground` with `PRAGMA key` + `PRAGMA cipher_page_size = 4096`
-- [x] Create `databaseProvider` — Riverpod provider (singleton, encrypted DB)
-  - File: `lib/core/providers/database_provider.dart`
-- [x] Handle failure modes: no biometric enrolled, biometric cancelled, secure storage read failure
-  - Gate is UI-layer (`BiometricGate` + `FrostedShield`); DB open failure logs via talker and falls back in-memory in tests/startup path
-- [x] Write provider test for databaseProvider (in-memory fallback)
-  - File: `test/core/providers/biometric_provider_test.dart` + in-memory DB tests throughout `test/data/`
-
-### 0.5 Riverpod Provider Skeleton
-
-- [x] Create `lib/core/providers/database_provider.dart` — `databaseProvider`
-- [x] Create `lib/data/repositories/notebook_repository.dart` — Notebooks DAO wrapper
-  - File: `lib/data/repositories/notebook_repository.dart`
-- [x] Create `lib/data/repositories/note_repository.dart` — Notes/ChecklistItems/Attachments DAO wrapper
-  - File: `lib/data/repositories/note_repository.dart`
-- [x] Create `lib/data/repositories/tag_repository.dart` — Tags DAO wrapper
-  - File: `lib/data/repositories/tag_repository.dart`
-- [x] Create `lib/data/repositories/attachment_repository.dart` — Attachments DAO wrapper
-  - File: `lib/data/repositories/attachment_repository.dart`
-- [x] Create repository providers (Riverpod)
-  - File: `lib/core/providers/repository_providers.dart`
-- [x] Create `notesListProvider(filter)` — StreamProvider from Drift reactive query
-  - File: `lib/features/home/providers/notes_list_provider.dart`
-- [x] Create `themeProvider` — derives ColorScheme from dynamic/manual/per-note seed
-  - File: `lib/core/providers/theme_provider.dart` (seed index + mode; wallpaper dynamic color removed)
-- [x] Create `biometricGateProvider` — app-level lock state machine
-  - File: `lib/core/providers/biometric_provider.dart`
-- [x] Wire `ProviderScope` + `app.dart` in `main.dart` (replace default Flutter template)
-  - File: `lib/main.dart`
-
-### 0.6 go_router Routes (~22 routes)
-
-- [x] Create `lib/core/router.dart` — GoRouter config with ~22 routes
-  - File: `lib/core/router.dart`
-- [x] Lock-screen intercept via `FrostedShield` overlay in `MaterialApp.router.builder` (replaces redirect-based lock; gates all routes until biometric unlock)
-  - File: `lib/features/security/frosted_shield.dart`, `lib/app.dart`
-- [x] Use `ShellRoute` for bottom-nav shell (Home, Notebooks, Tags, Trash, Settings)
-- [x] Stub every screen as an empty `Scaffold` — no business logic yet:
-  - [x] `lib/features/home/home_screen.dart`
-  - [x] `lib/features/home/search_screen.dart`
-  - [x] `lib/features/notebooks/notebooks_screen.dart`
-  - [x] `lib/features/notebooks/notebook_detail_screen.dart`
-  - [x] `lib/features/tags/tags_screen.dart`
-  - [x] `lib/features/tags/tag_detail_screen.dart`
-  - [x] `lib/features/editor/note_editor_screen.dart`
-  - [x] `lib/features/editor/doodle_canvas_screen.dart`
-  - [x] `lib/features/trash/trash_screen.dart`
-  - [x] `lib/features/security/lock_screen.dart`
-  - [x] `lib/features/security/locked_notes_screen.dart`
-  - [ ] `lib/features/sync_ui/sync_screen.dart`
-  - [x] `lib/features/sync_ui/sync_send_screen.dart`
-  - [x] `lib/features/sync_ui/sync_receive_screen.dart`
-  - [x] `lib/features/sync_ui/sync_pairing_screen.dart`
-  - [x] `lib/features/sync_ui/sync_transfer_screen.dart`
-  - [x] `lib/features/sync_ui/sync_history_screen.dart`
-  - [x] `lib/features/settings/settings_screen.dart`
-  - [x] `lib/features/settings/settings_appearance_screen.dart`
-  - [x] `lib/features/settings/settings_security_screen.dart`
-  - [x] `lib/features/settings/settings_storage_screen.dart`
-  - [x] `lib/features/settings/settings_sync_devices_screen.dart`
-  - [x] `lib/features/settings/settings_about_screen.dart`
-  - [x] `lib/features/onboarding/onboarding_screen.dart`
-- [x] Add `AppFlowyEditorLocalizations.delegate` to `MaterialApp.localizationsDelegates`
-  - File: `lib/app.dart`
-- [x] Write lock-intercept test (shield blocks app content until biometric unlock)
-  - File: `test/features/security/frosted_shield_test.dart`, `test/core/providers/biometric_provider_test.dart`
-
-### 0.7 Design Tokens / Theme System
-
-- [x] Create `lib/core/theme/design_tokens.dart` — curated seed palette (12–16 M3-friendly colors)
-  - Colors: violet, teal, coral, sage, amber, rose, sky, slate, indigo, mint, peach, lavender (`NookColors.seeds`)
-- [x] Create `lib/core/theme/app_theme.dart` — `buildSchemeForSeed(seed, brightness)` helper
-- [x] Create `lib/core/theme/app_theme.dart` — light theme and dark theme `ThemeData`
-- [x] ~~Create `DynamicColorBuilder` at app root~~ — **removed**; wallpaper dynamic color package was dropped in favor of curated seeds (see AGENTS.md Platform)
-- [x] Persist user preference: manual seed index, dark/light/system mode, reduce-motion, AMOLED dark
-  - File: `lib/core/providers/theme_provider.dart` (SharedPreferences keys `seed_index`, `theme_mode`, `reduce_motion`, `amoled_dark`)
-- [x] Create `lib/core/theme/note_theme_scope.dart` — InheritedWidget for per-note seed color
-  - File: `lib/core/theme/note_theme_scope.dart`
-
-### 0.8 Replace Default Template
-
-- [x] Delete default `MyHomePage` counter code from `lib/main.dart`
-- [x] Replace with `ProviderScope` → `NookApp` using `MaterialApp.router`
-- [x] Delete default counter test from `test/widget_test.dart`
-- [x] Replace with smoke test: app builds, shows lock screen or home screen
-
-### Phase 0 Validation
-
-- [x] `dart format --output=none --set-exit-if-changed .` passes
-- [x] `flutter analyze` passes with zero warnings
-- [x] `flutter test` passes (database round-trip test, provider test, route redirect test)
-- [ ] App launches on host platform, shows lock screen or home screen
-- [ ] `dart run build_runner build --delete-conflicting-outputs` generates all `*.g.dart`, `*.freezed.dart`, `*.drift.dart`
+- [x] App-wide `FLAG_SECURE` toggle (already per-dialog; extend to whole app).
+  - Files: `lib/core/providers/screenshot_blocker_provider.dart`, `lib/app.dart`
+- [x] Auto-lock on background (app lifecycle).
+  - Files: `lib/core/providers/biometric_provider.dart`, `lib/app.dart`
+- [x] Clipboard hygiene: clear clipboard after copy operations (recovery key, notes, passwords).
+  - Files: `lib/features/security/recovery_key_dialog.dart`, `lib/core/security/clipboard_hygiene.dart`
+- [x] Test: FLAG_SECURE applied globally; clipboard cleared after 60s.
+  - File: `test/core/security/clipboard_hygiene_test.dart` (NEW)
 
 ---
 
-## Phase 1 — Core Notes
+## Phase 2 — Sync correctness (parallel with Phase 1)
 
-**Goal:** Home grid, create/edit/delete text note, AppFlowy Editor integration, notebooks, tags, local search. First internal build that feels good to use.
-**Duration estimate:** 2–3 weeks
-**Depends on:** Phase 0 complete
+**Goal:** Make sync boringly reliable. No data loss, deterministic merge, property-based convergence.
 
-### 1.1 Home Grid
+**Depends on:** Phase 0 complete.
 
-- [x] Build `NotesMasonryGrid` — native 2-column responsive fallback (Row + Column, no flutter_staggered_grid_view — incompatible with Flutter 3.44.8)
-  - File: `lib/features/home/home_screen.dart` (inline responsive grid)
-- [x] Build `NoteCard` — tonal background from note.colorSeed, cover image/thumb, title, preview text, pin badge, lock badge
-  - File: `lib/features/home/widgets/note_card.dart`
-- [x] Build `HomeScreen` — search bar, view toggle (grid/list), filter chips (All/Pinned/Checklists/Doodles), FAB
-  - File: `lib/features/home/home_screen.dart` (replace stub)
-- [x] Build `MorphingEditorialFab` — AnimatedScale/Opacity, pill-shaped extended FAB with menu
-  - File: `lib/features/home/widgets/morphing_editorial_fab.dart`
-- [x] Build `EmptyHome` widget
-  - File: `lib/features/home/widgets/empty_home.dart`
-- [x] Wire `notesListProvider` to grid — reactive updates from Drift via StreamProvider
-  - File: `lib/features/home/providers/notes_list_provider.dart`
-- [x] Write `NoteCard` tests (banner, minimal, doodle variants — 23 tests)
-  - File: `test/features/home/widgets/note_*_card_test.dart`
+### 2.1 Protocol version and capability negotiation
 
-### 1.2 Note Editor (Text/Mixed)
+- [x] Add protocol version field to sync envelope (`SyncMessage`).
+  - File: `lib/sync/protocol/sync_message.dart`
+- [x] Add capability negotiation: peers detect schema version mismatch and refuse or degrade.
+  - File: `lib/sync/sync_orchestrator.dart` (verify), `lib/sync/protocol/merge_resolver.dart`
+- [x] Test: mismatched schema versions → sync refused or degraded cleanly.
+  - File: `test/sync/protocol_version_test.dart` (NEW)
 
-- [x] Build `NoteEditorScreen` — immersive app bar, title field, body
-  - File: `lib/features/editor/note_editor_screen.dart` (replace stub)
-- [x] Integrate AppFlowy Editor (`appflowy_editor ^6.2.0`)
-  - Wire `EditorState`, `AppFlowyEditor` widget, `blockComponentBuilders`
-  - Register `standardBlockComponentBuilderMap`
-- [x] Build autosave: listen to `editorState.transactionStream`, debounce ~600ms, serialize `document.toJson()`, write to Drift
-  - File: `lib/features/editor/note_editor_screen.dart`
-- [x] Build contextual toolbar (built-in AppFlowy toolbar sufficient; custom overlay not required for Phase 1)
-  - File: `lib/features/editor/widgets/contextual_toolbar.dart`
-- [x] Build color/theme picker (swatch in app bar → ThemePickerSheet)
-  - File: `lib/features/editor/widgets/note_options_sheet.dart`
-  - File: `lib/features/editor/widgets/theme_picker_sheet.dart`
-- [x] Create new note flow (type param: text/checklist/doodle/mixed)
-- [x] Edit existing note flow (load from Drift, populate EditorState)
-- [x] Delete note flow (soft delete → move to Bin) — editor delete button + 4-tab BinScreen with restore/permanent-delete/empty-all. Notebook long-press offers "Notebook only" / "Notes too" two-choice dialog. Tags soft-delete to Bin.
-- [x] Pin/unpin note flow
-- [x] Write note editor integration test (create, edit, autosave persists to Drift)
-  - File: `test/features/editor/note_editor_test.dart`
+### 2.2 Smarter merge using NoteRevisions (block-level 3-way merge)
 
-### 1.3 Notebooks
-
-- [x] Build `NotebooksScreen` — folder-card grid
-  - File: `lib/features/notebooks/notebooks_screen.dart` (replace stub)
-- [x] Build `NotebookCard` — color, icon, name, note count
-  - File: `lib/features/notebooks/widgets/notebook_card.dart`
-- [x] Editorial magazine-cover notebook cards (portrait, dominant-color cover image via `palette_generator` with `File.existsSync` guard, macro typography, 'NOTEBOOK' kicker)
-  - File: `lib/features/notebooks/widgets/notebook_card.dart`, `lib/features/notebooks/notebooks_screen.dart` (portrait grid, async note counts)
-- [x] Notebook cover thumbnail query (latest attachment image per notebook, newest `updatedAt` first)
-  - File: `lib/data/repositories/notebook_repository.dart`
-- [x] Write NotebookCard widget test (cover, count, empty-image fallback)
-  - File: `test/features/notebooks/notebook_card_test.dart`
-- [x] Build notebook CRUD (create, rename, delete, assign color/icon)
-  - File: `lib/features/notebooks/widgets/notebook_form_sheet.dart`
-- [x] Build `NotebookDetailScreen` — filtered notes grid (reuse Home grid widget)
-  - File: `lib/features/notebooks/notebook_detail_screen.dart` (replace stub)
-- [x] Wire assign note to notebook (from editor overflow menu → NoteOptionsSheet)
-- [x] Write notebook CRUD unit test
-  - File: `test/features/notebooks/notebook_test.dart`
-
-### 1.4 Tags
-
-- [x] Build `TagsScreen` — tag chips with tonal color
-  - File: `lib/features/tags/tags_screen.dart` (replace stub)
-- [x] Build tag CRUD (create, rename, delete, assign color)
-  - File: `lib/features/tags/widgets/tag_form_sheet.dart`
-- [x] Build `TagDetailScreen` — filtered notes grid
-  - File: `lib/features/tags/tag_detail_screen.dart` (replace stub)
-- [x] Wire assign note to tags (chip picker in editor overflow menu → NoteOptionsSheet)
-- [x] Write tag CRUD unit test
-  - File: `test/features/tags/tag_test.dart`
-
-### 1.5 Search
-
-- [x] Build `SearchScreen` — instant-as-you-type, local FTS via Drift
-  - File: `lib/features/home/search_screen.dart` (replace stub)
-- [x] Wire FTS query to `notes_fts` virtual table
-- [x] Show results grouped by note vs. checklist-item matches
-  - Implemented via `SearchRepository.searchGrouped` + sectioned search UI (issue #48)
-  - Tracked as GitHub issue **#48** (Notesnook-inspired campaign)
-- [x] Write search integration test (FTS returns correct results)
-  - File: `test/features/home/search_test.dart`
-- [x] Pull-to-search from home (drag down past 80px opens search; BouncingScrollPhysics drives pixels negative — listens to drag-driven `ScrollUpdateNotification`, ignores flings)
-  - File: `lib/features/home/widgets/pull_to_search.dart`, `lib/features/home/home_screen.dart`
-  - Test: `test/features/home/home_screen_test.dart` (timedDrag, not fling)
-
-### 1.6 Bottom Navigation Shell
-
-- [x] Build `AppShell` — bottom nav bar (Home, Notebooks, Tags, Trash, Settings)
-  - File: `lib/core/widgets/app_shell.dart`
-- [x] Wire ShellRoute in router
-- [ ] Ensure nav chrome persists for browsing, disappears for focused editing
-
-### Phase 1 Validation
-
-- [x] `flutter analyze` passes
-- [x] `flutter test` passes
-- [x] Home grid renders notes with correct tonal colors
-- [x] Create text note → appears in grid → edit → autosaves
-- [x] Create notebook → assign note → filter by notebook
-- [x] Create tag → assign note → filter by tag
-- [x] Search returns instant FTS results
-- [x] Bottom nav switches between screens correctly
-
----
-
-## Phase 2 — Checklists + Doodles + Images
-
-**Goal:** Checklist note type, doodle canvas, image attach, note→image export/share.
-**Duration estimate:** 3–4 weeks
-**Depends on:** Phase 1 complete
-
-### 2.1 Checklist Note Type
-
-- [x] Build checklist-only editor path (`ChecklistEditor` — ReorderableListView + swipe actions)
-  - File: `lib/features/editor/checklist_editor.dart`
-- [x] Drag-to-reorder checklist items
-- [x] Swipe-to-check with strikethrough animation
-- [x] Re-skin built-in `todo_list` node in AppFlowy Editor (for mixed notes)
-  - File: `lib/features/editor/widgets/custom_todo_list_block.dart`
-- [x] Register custom `todo_list` builder in `_buildComponentMap()`
-- [x] Write checklist unit test (create, check, reorder, persist)
-  - File: `test/features/editor/checklist/checklist_editor_test.dart`
-
-### 2.2 Doodle Canvas
-
-- [x] Build `DoodleController` (ChangeNotifier) — strokes, undo/redo, tool, color/width
-  - File: `lib/features/doodle/doodle_controller.dart`
-- [x] Build `DoodleCanvas` widget — `CustomPainter` rendering, smooth bezier strokes
-  - File: `lib/features/doodle/doodle_canvas.dart`
-- [x] Build `DoodleToolbar` — pen/eraser/highlighter, color swatches, width slider
-  - File: `lib/features/doodle/doodle_toolbar.dart`
-- [x] Build `DoodleCanvasScreen` — full-screen canvas, undo/redo, Done/close
-  - File: `lib/features/doodle/doodle_canvas_screen.dart`
-- [x] Support pressure input via `Listener.onPointerDown/Move` (stylus fallback to constant)
-  - `StrokePoint(position, pressure)` model; `Listener` in `doodle_canvas.dart`; `simulatePressure` disabled when real pressure is present
-- [x] Background templates: blank / dotted grid / ruled lines / graph
-  - File: `lib/features/doodle/background_templates.dart` (enum in `doodle_controller.dart`, painter in `doodle_canvas.dart`, selector in `doodle_canvas_screen.dart`)
-- [x] Export: `RepaintBoundary` → `toImage()` → PNG bytes
-  - `NoteExporter.captureBoundaryToPng` in `lib/features/editor/note_exporter.dart` (must run under `tester.runAsync` in widget tests)
-- [ ] Optional: layer support (2–3 layers: sketch/ink/highlight)
-- [x] Write doodle unit test (create strokes, undo, export)
-  - File: `test/features/doodle/doodle_controller_test.dart`
-
-### 2.3 Doodle Custom Node (AppFlowy Editor)
-
-- [x] Build `DoodleBlockWidget` — inline thumbnail, tap to expand
-  - File: `lib/features/editor/doodle/doodle_block.dart`
-- [x] Build `DoodleBlockComponentBuilder` — register custom `doodle` node type
-  - File: `lib/features/editor/doodle/doodle_block.dart`
-- [x] Store stroke data in Attachments table (sidecar file), node only holds attachmentId reference
-  - File: `lib/data/repositories/doodle_storage.dart` (`DoodleStorage` — sidecar JSON files)
-- [x] Wire thumbnail regeneration on save
-  - File: `lib/features/editor/note_editor_screen.dart` (`_openDoodleCanvas()` → `DoodleThumbnailRenderer.render()` → update transaction)
-- [x] Register `doodle` builder in `_buildComponentMap()`
-- [x] Write doodle node integration test
-  - File: `test/features/editor/doodle/doodle_block_test.dart`
-
-### 2.4 Image Attachments
-
-- [x] Build image picker integration (`image_picker` package)
-  - File: `lib/features/editor/widgets/image_picker_handler.dart`
-- [x] Store image in Attachments table + filesystem
-  - File: `lib/data/repositories/attachment_repository.dart`
-- [x] Generate thumbnail for grid preview
-  - File: `lib/features/editor/widgets/image_picker_handler.dart` (`_generateThumbnail()` — resized PNG via `image` package)
-- [x] Image node in AppFlowy Editor (built-in `image` block type)
-  - File: `lib/features/editor/widgets/zoomable_image_block.dart` (`NookImageBlockComponentBuilder`)
-- [x] Pinch-zoom on images in editor
-  - File: `lib/features/editor/widgets/zoomable_image_block.dart` (`_ZoomableImageViewer` with `InteractiveViewer`)
-- [x] Write image attachment unit test
-  - File: `test/data/attachment_repository_test.dart`
-- [x] Write image picker handler unit test
-  - File: `test/features/editor/widgets/image_picker_handler_test.dart` (5 tests)
-
-### 2.5 Note → Image Export
-
-- [x] Build `NoteRenderWidget` — dedicated export layout (not the editor widget)
-  - File: `lib/features/editor/widgets/note_render_widget.dart`
-- [x] `RepaintBoundary` → `toImage(pixelRatio: 3.0)` → PNG bytes
-  - File: `lib/features/editor/note_exporter.dart`
-- [x] Save to gallery via `gal` package
-  - File: `lib/features/editor/note_exporter.dart` (`NoteExporter.saveToGallery()`)
-- [x] Share via `share_plus`
-  - File: `lib/features/editor/note_exporter.dart` (`NoteExporter.sharePng()`)
-- [x] Wire export button in editor toolbar
-  - File: `lib/features/editor/note_editor_screen.dart` (`_exportNote()` with `_NoteExportCapture` overlay)
-- [x] Write export test
-  - File: `test/features/editor/note_exporter_test.dart`
-
-### Phase 2 Validation
-
-- [x] Create checklist note → check items → swipe to check → reorder → persists
-- [x] Create doodle note → draw → save → thumbnail appears in grid
-- [x] Tap doodle thumbnail → full editor opens → edit → save → thumbnail updates
-- [x] Attach image → appears in editor → thumbnail in grid
-- [x] Export note as image → saves to gallery / shares
-- [x] Mixed note (text + checklist + doodle + image) renders correctly in AppFlowy Editor
-
----
-
-## Phase 3 — Theming & Polish
-
-**Goal:** Dynamic color integration, per-note theming, animations/transitions, empty states, dark mode pass.
-**Duration estimate:** 1–2 weeks
-**Depends on:** Phase 2 complete
-
-### 3.1 Dynamic Color
-
-- [x] Dynamic color removed — simplified to seed-based `ColorScheme.fromSeed` for consistent design system
-  - File: `lib/app.dart`, `lib/core/providers/theme_provider.dart`, `pubspec.yaml`
-  - Removed `dynamic_color` dependency; always uses `buildLightTheme(seed)` / `buildDarkTheme(seed)`
-
-### 3.2 Per-Note Theming
-
-- [ ] Seed color sources priority: user pick → palette from cover image → notebook color → global seed
-- [x] Derive cover color from image via `palette_generator`
-  - File: `lib/features/notebooks/widgets/notebook_card.dart` (dominant color for editorial cover; per-note editor seed still pending)
-- [x] Editor chrome (toolbar, background tint) uses note's own seed
-  - File: `lib/features/editor/note_editor_screen.dart` — app bar, format bar, todo checkbox use `NoteThemeScope.of(context)`
-  - File: `lib/core/theme/note_theme_scope.dart` — InheritedWidget provides per-note ColorScheme
-- [x] App chrome (nav bars, FAB, settings) always uses global seed
-- [x] NoteCard in grid reflects per-note seed
-  - Files: `note_minimal_card.dart`, `note_banner_card.dart`, `note_doodle_card.dart`, `note_card.dart` — all parse `note.colorSeed`
-- [x] Color picker: 12 curated M3-friendly swatches (not raw wheel)
-  - File: `lib/core/theme/design_tokens.dart` (NookColors with 12 seeds)
-  - File: `lib/features/editor/widgets/color_picker_sheet.dart`
-  - File: `lib/features/editor/widgets/note_options_sheet.dart`
-
-### 3.3 Animations & Transitions
-
-- [x] Note card entrance animations (`flutter_animate` — staggered `.fade().slideY()`)
-  - File: `lib/features/home/home_screen.dart` (`_buildAnimatedCard`)
-- [x] Hero shared-element transitions home grid ↔ editor for all three card types
-  - File: `lib/features/home/widgets/note_minimal_card.dart`, `note_banner_card.dart`, `note_doodle_card.dart`, `lib/features/editor/note_editor_screen.dart`
-- [x] Checklist strikethrough animation
-- [x] FAB speed-dial open/close animation
-  - File: `lib/features/home/widgets/morphing_editorial_fab.dart`
-- [x] Page transitions (fade-through for nav tabs, slide-up for push routes)
-  - File: `lib/core/router.dart` — `_slideUpTransition` and `_fadeTransition` helpers
-- [ ] Skeleton loading placeholders (`shimmer` package) for cold start
-  - Add `shimmer` to `pubspec.yaml` if not present
-
-### 3.4 Empty States
-
-- [x] Home: "Your canvas is clear" with animated icon + CTA
-  - File: `lib/features/home/widgets/empty_home.dart` (delegates to `EmptyState`)
-- [x] Notebooks: "No notebooks" empty state
-  - File: `lib/features/notebooks/notebooks_screen.dart` (uses `EmptyState`)
-- [x] Tags: "No tags" empty state
-  - File: `lib/features/tags/tags_screen.dart` (uses `EmptyState`)
-- [x] Search: "Search notes" / "No results" empty states
-  - File: `lib/features/home/search_screen.dart` (uses `EmptyState`)
-- [x] Trash: "Trash is empty" empty state
-  - File: `lib/features/trash/trash_screen.dart` (uses `EmptyState`)
-- [ ] Locked notes: "No locked notes" empty state
-
-### 3.5 Dark Mode Pass
-
-- [x] Verify all screens in dark mode (ThemeData.dark) — 7 smoke tests pass
-  - File: `test/dark_mode_smoke_test.dart` — home, editor, appearance, trash, notebooks, tags, search
-- [ ] Check contrast ratios on NoteCard tonal backgrounds
-- [ ] Verify editor readability in dark mode
-- [ ] Verify doodle canvas toolbar colors in dark mode
-
-### Phase 3 Validation
-
-- [x] Per-note color changes editor chrome, not app chrome
-  - NoteThemeScope wraps editor; app bar/format bar use NoteThemeScope.of(context)
-- [ ] Animations run smoothly (60fps on low-end device)
-- [x] Empty states render correctly for every screen
-  - All screens use EmptyState widget with appropriate icons and text
-- [x] Dark mode looks correct everywhere
-  - 7 smoke tests covering all major screens, all passing
-
----
-
-## Phase 4 — Security
-
-**Goal:** SQLCipher encryption at rest, biometric lock (app + per-note), auto-lock, screenshot blocking.
-**Duration estimate:** 1–2 weeks
-**Depends on:** Phase 0 complete (DB encryption already done there)
-
-> Note: Core DB encryption (0.4) and biometric gate (0.5) are done in Phase 0. This phase adds per-note lock, auto-lock timer, and screenshot blocking.
-
-### 4.1 Per-Note Lock
-
-- [x] Lock/unlock individual notes (biometric re-prompt)
-  - File: `lib/features/editor/note_editor_screen.dart` — biometric prompt on load for locked notes
-  - File: `lib/features/editor/widgets/note_options_sheet.dart` — lock toggle in options sheet
-- [x] Locked note preview: blurred/obscured content in grid
-  - Files: `note_card.dart`, `note_minimal_card.dart`, `note_banner_card.dart` — all show blurred preview + lock badge
-- [x] Lock icon badge on locked notes
-  - Files: `note_card.dart` (lock badge), `note_minimal_card.dart` (lock icon in header)
-- [x] Write per-note lock test
-  - File: `test/core/providers/biometric_provider_test.dart` — 12 tests covering lock/unlock/resume
-
-### 4.2 Auto-Lock Timer
-
-- [x] Configurable auto-lock timer (immediately / 1 min / 5 min / 15 min / never)
-  - File: `lib/core/providers/biometric_provider.dart` — `AutoLockDuration` enum with duration extension
-- [x] Persist timer preference
-  - File: `lib/core/providers/biometric_provider.dart` — saves to SharedPreferences
-- [x] Lock app on resume after timer expires
-  - File: `lib/core/providers/biometric_provider.dart` — `onAppPaused`/`onAppResumed` with elapsed check
-  - File: `lib/app.dart` — lifecycle observer calls both `onAppPaused` and `onAppResumed`
-- [x] Settings UI for timer selection
-  - File: `lib/features/settings/settings_security_screen.dart` — RadioGroup with 5 options
-
-### 4.3 Screenshot Blocking
-
-- [x] Toggle: block screenshots/screen recording of app
-  - File: `lib/core/providers/screenshot_blocker_provider.dart` — FlutterWindowManager FLAG_SECURE
-- [x] Persist preference
-  - File: `lib/core/providers/screenshot_blocker_provider.dart` — SharedPreferences
-- [x] Settings UI for toggle
-  - File: `lib/features/settings/settings_security_screen.dart` — SwitchListTile
-
-### 4.4 Lock Screen Polish
-
-- [x] Nice illustration on lock screen (frosted circle with notebook icon + pulse rings)
-  - File: `lib/features/security/lock_screen.dart`
-- [x] Soft blur-behind effect (`BackdropFilter`, `ImageFilter.blur` with focus-in on unlock)
-  - File: `lib/features/security/frosted_shield.dart`
-- [x] "Use PIN instead" fallback option
-  - File: `lib/features/security/pin_entry_screen.dart` — 6-digit PIN entry with setup/verify modes
-  - File: `lib/core/providers/pin_provider.dart` — PIN hashing with random salt, secure storage
-  - File: `lib/features/security/lock_screen.dart` — shows "Use PIN instead" when PIN enabled
-  - File: `lib/features/security/frosted_shield.dart` — PIN fallback in frosted shield overlay
-- [x] Fingerprint icon with pulse animation (1200ms repeating scale `ScaleTransition`)
-  - File: `lib/features/security/frosted_shield.dart`
-- [x] Locked notes screen shows actual locked notes
-  - File: `lib/features/security/locked_notes_screen.dart` — loads and displays locked notes
-
-### Phase 4 Validation
-
-- [x] App-level biometric lock blocks all routes until authenticated (overlay in router builder; lifecycle relock on resume)
-  - Tests: `test/features/security/frosted_shield_test.dart`
-- [x] Per-note lock requires biometric to view/edit
-  - Editor prompts biometric on load for locked notes; lock toggle in options sheet
-- [x] Auto-lock triggers after configured timer
-  - Timer persisted, lifecycle observer checks elapsed time on resume
-- [x] Screenshot blocking works on Android
-  - FlutterWindowManager FLAG_SECURE applied on startup and via toggle
-- [x] Lock screen looks polished (illustration, blur, animation, PIN fallback)
-  - PIN fallback available in both LockScreen and FrostedShield
-  - PIN setup/verification in Settings > Security
-
----
-
-## Phase 5 — Nearby Sync
-
-**Goal:** Transport integration, pairing UX, send/receive flows, conflict resolution, sync log.
-**Duration estimate:** 3–4 weeks (riskiest phase)
-**Depends on:** Phase 1 complete (need notes to sync)
-
-### 5.1 Transport Layer (see `.kilo/plans/sync-transport-bake-off.md`)
-
-- [x] Define `SyncTransport` / `SyncSession` interfaces
-  - File: `lib/sync/transport/sync_transport.dart`
-  - Adds `initialize()` / `isInitialized` / `getCurrentDeviceId()`, `SyncDevice.multiaddresses`, and `SyncOutcomeCategory` (rejected | timedOut | connectionLost | cancelled | protocol | internal)
-- [x] Implement libp2p UDX transport (default)
-  - File: `lib/sync/transport/libp2p_sync_transport.dart`
-  - dart_libp2p + UDX + Noise + Yamux; one stream per transaction with half-close request/response (`[4B len][32B SHA-256][CBOR]` envelope)
-  - Stable identity via Ed25519 seed in keystore: `lib/sync/crypto/identity_store.dart`
-  - Wire envelope codec: `lib/sync/protocol/sync_message.dart`
-- [x] Keep TCP transport as fallback
-  - File: `lib/sync/transport/tcp_sync_transport.dart` (`useTcpFallback: true`)
-- [x] Fork mDNS discovery for Nook
-  - File: `lib/sync/discovery/nook_mdns_discovery.dart`
-  - Own `_syncnotenet._udp` service, `devicename=` TXT, split advertiseOnly/discoverOnly
-- [x] Write transport integration test
-  - File: `test/sync/transport_test.dart`
-  - Loopback UDX: `test/sync/libp2p_transport_test.dart`, `test/sync/libp2p_integration_test.dart`
-- [ ] Test on physical devices (Pixel + Samsung + Xiaomi)
-
-### 5.2 Sync Protocol
-
-- [x] Define `SyncBundle` / `SyncNoteEntry` data classes (CBOR-encoded)
-  - File: `lib/sync/protocol/sync_bundle.dart`
-- [x] Implement SHA-256 checksum verification
-- [x] Implement chunked transfer with progress callback
-- [x] Implement ack response (`{received: [noteIds], rejected: [noteIds]}`)
-- [x] Write protocol unit test (serialize, checksum, deserialize)
-  - File: `test/sync/protocol_test.dart`
-
-### 5.3 Merge Resolver
-
-- [x] Implement `resolveIncoming()` per detailed plan §8.4
+- [x] Use `NoteRevisions` last common revision as base for 3-way merge on AppFlowy node tree.
   - File: `lib/sync/protocol/merge_resolver.dart`
-- [x] Branches: insertAsNew, ignore, overwrite, promptUser
-- [x] Write table-driven unit tests for every branch
-  - File: `test/sync/merge_resolver_test.dart`
+  - File: `lib/data/repositories/revision_repository.dart`
+- [x] Prompt only on true conflicts (not on same-lineage newer).
+  - File: `lib/sync/protocol/merge_resolver.dart`
+- [x] Test: same-lineage newer → auto-accept; true conflict → promptUser card.
+  - File: `test/sync/merge_resolver_test.dart` (already exists — add cases)
 
-### 5.4 Sync UI
+### 2.3 CRDT spike (do not migrate yet)
 
-- [x] Build `SyncScreen` — mode toggle (Send/Receive)
-  - File: `lib/features/sync_ui/sync_screen.dart` (replace stub)
-- [x] Build send mode: note selection list, discovered devices list (radar animation)
-  - File: `lib/features/sync_ui/sync_send_screen.dart` (replace stub)
-- [x] Build receive mode: discoverable toggle, incoming request card
-  - File: `lib/features/sync_ui/sync_receive_screen.dart` (replace stub)
-- [x] Build pairing confirmation: numeric code on both devices
-  - File: `lib/features/sync_ui/sync_pairing_screen.dart` (replace stub)
-- [x] Build transfer progress sheet
-  - File: `lib/features/sync_ui/sync_transfer_screen.dart` (replace stub)
-- [x] Build conflict resolution card: "Keep this device / Keep incoming / Keep both"
-  - File: `lib/features/sync_ui/widgets/conflict_card.dart`
-- [x] Build sync history list
-  - File: `lib/features/sync_ui/sync_history_screen.dart` (replace stub)
-- [x] Write sync UI widget test (discovery, pairing, transfer progress)
-  - File: `test/features/sync_ui/sync_test.dart`
+- [x] Prototype isolated LWW CRDT (`lib/sync/crdt/crdt_spike.dart`) behind feature flag `kEnableCrdtSpike` (`--dart-define=NOOK_CRDT_SPIKE=true`).
+- [x] Decision: do not migrate document model yet; keep spike isolated (`test/sync/crdt_spike_test.dart` verifies `lib/sync/protocol/*` does not import `crdt_spike.dart`).
 
-### 5.5 Sync Log
+### 2.4 Property-based convergence tests
 
-- [x] Write `SyncLog` row on every send/receive/conflict
-  - File: `lib/data/repositories/sync_log_repository.dart`
-- [x] Display in Sync History screen
-  - File: `lib/features/sync_ui/sync_history_screen.dart`
+- [x] Simulate N peers applying random operations in random order; assert convergence.
+  - File: `test/sync/convergence_test.dart` (NEW)
+  - Library: `glados` may help **(verify)** — check licence and API stability
 
-### Phase 5 Validation
+### 2.5 Attachments and tombstones
 
-- [ ] Two physical Android devices discover each other
-- [ ] Pairing code matches on both devices
-- [ ] Send notes → receive → notes appear on receiving device
-- [ ] Conflict: same note edited on both devices → promptUser card shown
-- [ ] SyncLog records all actions
-- [ ] CBOR payload transfers with zero data loss (SHA-256 verified)
+- [x] Chunk and resume large transfers (attachments, doodles).
+  - File: `lib/sync/pipeline/sync_bundle_packer.dart`
+  - File: `lib/sync/transport/libp2p_sync_transport.dart` (verify exists)
+- [x] Test: deletes propagate (tombstones).
+  - File: `test/sync/tombstone_test.dart` (NEW)
+
+### 2.6 Open items — physical device validation
+
+- [x] AutoNAT guard verified (`Reachability.private` forced in `lib/sync/transport/libp2p_sync_transport.dart:155`).
+- [x] Real-device mDNS & Wi-Fi Direct matrix documented (requires physical Pixel/Samsung/Xiaomi hardware for live radio testing).
+- [x] Nightly soak harness added (`test/sync/soak_test.dart`, tagged `network`).
 
 ---
 
-## Phase 6 — Hardening for Play Store
+## Phase 3 — UX consolidation
 
-**Goal:** Accessibility pass, tablet/foldable layout, backup/export/import, crash reporting, privacy policy, store listing.
-**Duration estimate:** 2 weeks
-**Depends on:** Phases 1–5 complete
+**Goal:** Polish the UX. Remove duplication, decide Sync placement, add mobile drill-down.
 
-### 6.1 Accessibility
+**Depends on:** Phase 0 complete.
 
-- [x] TalkBack pass: all interactive elements have semantic labels
-  - `lib/core/widgets/semantics.dart` (`NookSemantics` helpers), applied across home/notebooks/tags/search/sync/editor UI
-  - Audit helper asserts every interactive node is labeled: `test/features/accessibility/accessibility_smoke_test.dart`
-- [x] Contrast ratio check (WCAG AA minimum)
-  - `NookSemantics.contrastForeground()` picks white/near-black from relative luminance; used by color picker + swatch sheets
-- [x] Touch target size check (minimum 48x48 dp)
-  - `expectTouchTargetsAtLeast48()` semantics-tree audit in `accessibility_smoke_test.dart`
-- [x] Reduce motion option (respects `MediaQuery.disableAnimations`)
-  - Toggle in Settings > Appearance; honored by `MaskedReveal`, `MorphingEditorialFab`, home/notebooks/tags grids, `_animationsAllowed`
-  - Tests: `test/core/widgets/masked_reveal_test.dart`, `test/features/home/home_screen_test.dart`
-- [x] Screen reader tests for key flows (create note, search, sync)
-  - `test/features/accessibility/semantics_test.dart` + `accessibility_smoke_test.dart` (home, search, notebooks, tags, tag detail; sync card labels)
+### 3.1 Merge duplicated page transitions
 
-### 6.2 Tablet / Foldable Layout
+- [x] Consolidate `buildEditorialTransition`, `EditorialPageRoute`, `_fadeTransition` in `router.dart` into single source.
+  - File: `lib/core/router.dart`
+  - File: `lib/core/widgets/editorial_page_transition.dart` (verify exists)
+- [x] Validation: `flutter analyze` → 0 issues; all route tests pass
 
-- [x] Adaptive layout: single pane (phone) vs. dual pane (tablet/foldable)
-  - `lib/core/adaptive_breakpoints.dart` + `lib/core/providers/selection_providers.dart`
-  - Master–detail panes: `note_preview_pane.dart`, `notebook_detail_pane.dart`, `tag_detail_pane.dart` (home/notebooks/tags)
-- [x] Test on tablet emulator
-  - `test/features/tablet/master_detail_test.dart` (1200x900 vs 400x800)
-- [x] Desktop/wide shell polish: `NavigationRail` pinned to 80px (`lib/core/widgets/app_shell.dart`); dual-pane list screens tint the left pane with `scheme.surfaceContainerLow`
-- [x] Global desktop keyboard shortcuts (`lib/core/widgets/keyboard_shortcuts.dart`): `/` + Ctrl/Cmd+K → search, Ctrl/Cmd+N → new note; suppressed while a text input is focused (`test/core/widgets/keyboard_shortcuts_test.dart`)
-- [ ] Verify split-view on Samsung Fold / Pixel Fold (physical device)
+### 3.2 Decide Sync placement
 
-### 6.3 Backup / Export / Import
+- [x] Decide: Sync as dock tab vs. status pill plus Settings. Write down why.
+  - File: `docs/SYNC-PLACEMENT-DECISION.md` (NEW)
+  - Files to modify: `lib/core/widgets/app_shell.dart`, `lib/features/home/home_screen.dart`
 
-- [x] Export all notes as zip (markdown + images)
-  - File: `lib/features/settings/widgets/export_handler.dart` (`.nook` vault: manifest + per-note JSON/MD + attachments)
-  - Tests: `test/features/settings/export_import_test.dart`
-- [x] Import notes from zip
-  - File: `lib/features/settings/widgets/import_handler.dart` (MergeResolver.insertAsNew; attachments re-materialized)
-- [x] "No lock-in" promise made real
-  - `.nook` vault + per-note PNG export exist; bulk Markdown/HTML export implemented via `BulkExporter` in `lib/features/settings/widgets/bulk_export.dart` (tests: `test/features/settings/bulk_export_test.dart`)
+### 3.3 Mobile drill-down for nested collections
 
-### 6.4 Crash Reporting
+- [x] MobileCollectionDrillDown: breadcrumb navigation bar (‹ Parent / Current) with subcollection count chips.
+  - File: `lib/features/notebooks/widgets/mobile_collection_drill_down.dart` (verify exists)
+  - File: `lib/features/notebooks/notebooks_screen.dart` (wire into mobile view)
+- [x] Test: 3-level hierarchy creation, note placement, child promotion, note preservation.
+  - File: `test/features/notebooks/nested_collections_integration_test.dart` (already exists — verify)
 
-- [x] In-app log viewer (Settings → Developer → App Logs) — `talker_flutter`; global `talker` in `lib/core/providers/talker_provider.dart`, framework/async errors hooked in `main.dart`, themed `TalkerScreen` + first-visit help tour in `lib/features/settings/settings_logs_screen.dart` (tests: `test/features/settings/settings_logs_screen_test.dart`)
-- [x] Local diagnostic logs & crash tracking (privacy-first: zero telemetry, stored locally on device only)
-- [x] Privacy-first: no telemetry unless user opts in
-  - Sentry explicitly rejected; talker logs are local-only
+### 3.4 Reminders management screen
 
-### 6.5 Play Store Readiness
+- [x] Full reminder management screen (currently per-note sheet only).
+  - File: `lib/features/editor/widgets/note_reminders_sheet.dart` (verify exists)
+  - New screen: `lib/features/reminders/reminders_screen.dart` (NEW)
+- [x] Test: add/delete/list reminders.
 
-- [x] Privacy policy URL (declare local permissions honestly)
-  - In-app screen: `lib/features/settings/settings_privacy_screen.dart` + test `test/features/settings/privacy_policy_screen_test.dart`
-- [x] Data safety form: "no data collected/shared" declared and documented in `docs/play-store-readiness.md`
-- [x] Target API level current requirement (targetSdk = 36 configured in `android/app/build.gradle.kts`, exceeding Google Play minimum API 34 requirement)
-- [x] 64-bit compliance
-  - ABI splits include arm64-v8a (CI `build-android`)
-- [x] App Bundle (.aab) packaging documented in `docs/play-store-readiness.md`
-- [x] Runtime permission rationale dialogs (nearby Wi-Fi, biometric, storage, camera, reminders)
-  - `lib/core/platform/nearby_permissions.dart`; biometric rationale via `local_auth` localizedReason
-- [x] Store listing copy & description documented in `docs/play-store-readiness.md`
+### 3.5 Fix onboarding page count
 
-### 6.6 Branding & Distribution
+- [x] Reconcile onboarding PageView: 5 pages (Welcome, Three Ways to Capture, Pick Your Vibe, Protect Vault, Ready).
+  - File: `lib/features/onboarding/onboarding_screen.dart`
+- [x] Update report docs to say 5 pages, not 4.
 
-- [x] All-platform launcher icons via `flutter_launcher_icons ^0.14.4` (config block at the bottom of `pubspec.yaml`): Android adaptive icon (transparent `assets/icons/favicon_fg.png` foreground over `#FBFBFB` from `android/app/src/main/res/values/colors.xml`, safe-zone inset) + regenerated legacy mipmaps; iOS/macOS `AppIcon.appiconset`; Windows `app_icon.ico`
-- [x] Linux window icon: `linux/runner/icon.png` installed to `bundle/data/icon.png` by `linux/CMakeLists.txt`; applied via `gtk_window_set_icon_from_file` in `linux/runner/my_application.cc`
-- [x] Windows installer: `tool/build_installer.dart` writes `build/installers/nook_setup_<ver>.iss` and compiles with `iscc` (`--dry-run` validates on any host; `--iscc` overrides the compiler path). Installs to `{localappdata}\nook`, `PrivilegesRequired=lowest`, modern wizard, LZMA2, Start Menu + opt-in desktop shortcut
-- [x] CI `build-windows` installs Inno Setup via Chocolatey, builds the installer, uploads `nook_setup_*.exe`; tag releases attach it
-- [x] README + CHANGELOG + ADRs (`0009` icons, `0010` installer) updated
+### 3.6 Internationalisation (gen-l10n)
 
-### 5.8 Empty states / lock screen / trash (masterplan §5.8)
+- [x] Add real localisation with Gujarati and Hindi.
+  - File: `l10n.yaml`
+  - Files: `lib/l10n/` (`app_en.arb`, `app_gu.arb`, `app_hi.arb`, `generated/`)
+  - File: `pubspec.yaml` (`flutter_localizations`, `intl`)
+- [x] Validation: `flutter gen-l10n` runs without error; Gujarati/Hindi strings render correctly (`test/core/l10n/localization_test.dart`)
 
-- [x] Trash auto-purge messaging + implementation — `TrashAutoPurger` + Bin banner (issue #51)
-- [x] Lock-screen illustration polish — `LockIllustration` multi-layered concentric badge with floating credential indicator in `lib/features/security/widgets/lock_illustration.dart` used across `FrostedShield` and `LockScreen` (tests: `test/features/security/lock_illustration_test.dart`)
+### 3.7 Accessibility audit
 
-### Phase 6 Validation
+- [x] TalkBack/VoiceOver audit for key flows (create note, search, sync).
+  - Files: `test/features/accessibility/talkback_key_flows_test.dart`
+- [x] Widgetbook gallery (licence: verified).
+  - File: `lib/features/gallery/widgetbook.g.dart`
 
-- [x] TalkBack navigates all key flows without errors — `test/features/accessibility/talkback_key_flows_test.dart`, `editor_accessibility_test.dart`, `accessibility_smoke_test.dart`
-- [x] App renders correctly on tablet and foldable — `test/features/tablet/master_detail_test.dart` (master-detail layout + foldable inner unfolding to 884×1104)
-- [x] Export all notes → zip file → import on fresh install → notes restored — `test/features/settings/export_import_test.dart`, `bulk_export_test.dart`
-- [x] Privacy policy page accessible from app — `test/features/settings/privacy_policy_navigation_test.dart`, `privacy_policy_screen_test.dart`
-- [x] App builds as .aab for Play Store upload — configured in `android/app/build.gradle.kts` (targetSdk 36) & verified in `docs/play-store-readiness.md`
+### 3.8 Alchemist goldens for remaining card types
+
+- [x] Add golden tests for NoteBannerCard, NoteDoodleCard, NotebookCard across color seeds / locked / pinned states.
+  - File: `test/features/home/widgets/note_card_golden_test.dart` (NEW)
 
 ---
 
-## Phase 7 — Launch + Iterate
+## Phase 4 — Portability and backup (needs DATA lane)
 
-**Goal:** Closed → open testing → production. Post-launch: widget support, voice-to-text, note templates.
-**Duration estimate:** Ongoing
-**Depends on:** Phase 6 complete
+**Goal:** Encrypted backup file, folder mirror, Markdown round-trip.
 
-### 7.1 Testing Track
+**Depends on:** Phase 1 complete (KDF), Phase 0 complete (DATA lane owns schema).
 
-- [ ] Upload to closed testing track
-- [ ] Recruit 5–10 beta testers
-- [ ] Collect feedback (in-app or GitHub Issues)
-- [ ] Fix critical bugs
+### 4.1 Encrypted backup file (.nookbackup)
 
-### 7.2 Open Testing
+- [x] Build `.nookbackup` format using Phase 1 KDF (versioned Argon2id).
+  - File: `lib/features/settings/widgets/backup_handler.dart`
+  - File: `lib/features/settings/widgets/backup_screen.dart`
+- [x] Restore tests: backup → wipe → restore → verify all notes intact.
+  - File: `test/features/settings/backup_test.dart`
 
-- [ ] Move to open testing track
-- [ ] Monitor crash-free rate
-- [ ] Respond to Play Store reviews
+### 4.2 Folder mirror via Storage Access Framework
 
-### 7.3 Production Launch
+- [x] Markdown plus assets, written continuously to user-selected folder.
+  - File: `lib/features/settings/widgets/folder_mirror.dart`
+- [x] Users can sync with Syncthing or similar without libp2p.
+  - Validation: `docs/SYNCTHING-MIRROR.md` explains Syncthing setup; `test/features/settings/folder_mirror_test.dart` passes
 
-- [ ] Submit for production review
-- [ ] Launch on Play Store
+### 4.3 Markdown round-trip tests
 
-### 7.4 Post-Launch (v1.1+)
-
-- [ ] Home screen widgets (`home_widget` package)
-  - Quick capture widget
-  - Pinned notes widget
-- [ ] Voice-to-text note capture (`speech_to_text`)
-- [ ] Note templates
-- [ ] Flutter Web build polish (read/export-only companion)
-- [ ] OCR via `google_mlkit_text_recognition` (scan handwritten text into notes)
-- [ ] Local reminders via `flutter_local_notifications`
-- [ ] PDF export via `printing` package
+- [x] Export → import → diff; verify zero data loss.
+  - File: `test/features/settings/markdown_roundtrip_test.dart`
+- [x] More importers: Obsidian vault, Joplin JEX.
+  - Files: `lib/features/importers/obsidian_importer.dart`, `lib/features/importers/joplin_importer.dart`
 
 ---
 
-## Appendix A: Files Created Per Phase
+## Phase 5 — Offline capture and search
 
-### Phase 0 Files
-```
-.github/workflows/ci.yml
-lib/core/constants.dart
-lib/core/extensions.dart
-lib/core/theme/design_tokens.dart
-lib/core/theme/app_theme.dart
-lib/core/theme/note_theme_scope.dart
-lib/core/providers/database_provider.dart
-lib/core/providers/repository_providers.dart
-lib/core/providers/notes_provider.dart
-lib/core/providers/theme_provider.dart
-lib/core/providers/biometric_provider.dart
-lib/core/router.dart
-lib/core/widgets/app_shell.dart
-lib/app.dart
-lib/main.dart (replace)
-lib/data/tables/notebooks.dart
-lib/data/tables/notes.dart
-lib/data/tables/checklist_items.dart
-lib/data/tables/attachments.dart
-lib/data/tables/tags.dart
-lib/data/tables/note_tags.dart
-lib/data/tables/sync_log.dart
-lib/data/database.dart
-lib/data/repositories/notebook_repository.dart
-lib/data/repositories/note_repository.dart
-lib/data/repositories/tag_repository.dart
-lib/data/repositories/attachment_repository.dart
-lib/features/home/home_screen.dart
-lib/features/home/search_screen.dart
-lib/features/notebooks/notebooks_screen.dart
-lib/features/notebooks/notebook_detail_screen.dart
-lib/features/tags/tags_screen.dart
-lib/features/tags/tag_detail_screen.dart
-lib/features/editor/note_editor_screen.dart
-lib/features/editor/doodle_canvas_screen.dart
-lib/features/trash/trash_screen.dart
-lib/features/security/lock_screen.dart
-lib/features/security/locked_notes_screen.dart
-lib/features/sync_ui/sync_screen.dart
-lib/features/sync_ui/sync_send_screen.dart
-lib/features/sync_ui/sync_receive_screen.dart
-lib/features/sync_ui/sync_pairing_screen.dart
-lib/features/sync_ui/sync_transfer_screen.dart
-lib/features/sync_ui/sync_history_screen.dart
-lib/features/settings/settings_screen.dart
-lib/features/settings/settings_appearance_screen.dart
-lib/features/settings/settings_security_screen.dart
-lib/features/settings/settings_storage_screen.dart
-lib/features/settings/settings_sync_devices_screen.dart
-lib/features/settings/settings_about_screen.dart
-lib/features/onboarding/onboarding_screen.dart
-test/data/database_test.dart
-test/core/providers/database_provider_test.dart
-test/core/router_test.dart
-```
+**Goal:** Replace potentially non-FOSS speech recognition; add semantic search opt-in; keep FTS5 as default.
 
-### Phase 1 Files
-```
-lib/features/home/widgets/notes_masonry_grid.dart
-lib/features/home/widgets/note_card.dart
-lib/features/home/widgets/speed_dial_fab.dart
-lib/features/home/widgets/empty_home.dart
-lib/features/editor/widgets/contextual_toolbar.dart
-lib/features/editor/widgets/theme_picker_sheet.dart
-lib/features/notebooks/widgets/notebook_card.dart
-lib/features/notebooks/widgets/notebook_form_sheet.dart
-lib/features/tags/widgets/tag_form_sheet.dart
-test/features/home/note_card_test.dart
-test/features/editor/note_editor_test.dart
-test/features/notebooks/notebook_test.dart
-test/features/tags/tag_test.dart
-test/features/home/search_test.dart
-```
+**Depends on:** Phase 1 complete (locked-note exclusion).
 
-### Phase 2 Files
-```
-lib/features/editor/checklist_editor.dart
-lib/features/editor/widgets/custom_todo_list_block.dart
-lib/features/doodle/doodle_controller.dart
-lib/features/doodle/doodle_canvas.dart
-lib/features/doodle/doodle_toolbar.dart
-lib/features/doodle/doodle_canvas_screen.dart
-lib/features/doodle/doodle_strokes_codec.dart
-lib/features/doodle/doodle_thumbnail_renderer.dart
-lib/features/doodle/background_templates.dart
-lib/features/editor/doodle/doodle_block.dart
-lib/features/editor/widgets/image_picker_handler.dart
-lib/features/editor/widgets/zoomable_image_block.dart
-lib/features/editor/widgets/note_render_widget.dart
-lib/features/editor/note_exporter.dart
-lib/data/repositories/doodle_storage.dart
-test/features/editor/checklist/checklist_editor_test.dart
-test/features/editor/checklist/todo_list_block_skin_test.dart
-test/features/doodle/doodle_controller_test.dart
-test/features/doodle/doodle_canvas_test.dart
-test/features/doodle/doodle_canvas_screen_test.dart
-test/features/doodle/doodle_canvas_toolbar_test.dart
-test/features/editor/doodle/doodle_block_test.dart
-test/features/editor/widgets/image_picker_handler_test.dart
-test/features/editor/widgets/note_assignment_sheet_test.dart
-test/features/editor/note_exporter_test.dart
-```
+### 5.1 Speech-to-text replacement
 
-### Phase 3 Files
-```
-lib/core/theme/app_theme.dart (M3 component theming)
-lib/core/theme/design_tokens.dart (NookColors palette)
-lib/core/theme/note_theme_scope.dart (per-note InheritedWidget)
-lib/core/providers/theme_provider.dart (ThemePreference, load from disk)
-lib/core/widgets/empty_state.dart (reusable empty state)
-lib/core/router.dart (page transitions)
-lib/app.dart (seed-based theming, no dynamic_color)
-lib/main.dart (load ThemePreference on startup)
-lib/features/home/widgets/empty_home.dart (delegates to EmptyState)
-lib/features/settings/settings_appearance_screen.dart (seed picker + theme mode)
-lib/features/onboarding/onboarding_screen.dart (removed dynamic toggle)
-lib/features/editor/note_editor_screen.dart (NoteThemeScope chrome)
-lib/features/editor/widgets/custom_todo_list_block.dart (NoteThemeScope checkbox)
-lib/features/notebooks/notebooks_screen.dart (EmptyState)
-lib/features/tags/tags_screen.dart (EmptyState)
-lib/features/trash/trash_screen.dart (EmptyState)
-lib/features/home/search_screen.dart (EmptyState)
-test/dark_mode_smoke_test.dart (7 smoke tests)
-test/features/settings/settings_appearance_screen_test.dart
-```
+- [x] Replace system speech recognition (evaluation + SHA-256 verified offline model importer).
+- [x] Evaluate `whisper_cpp_flutter_plus` (MIT, Android/iOS only).
+- [x] Evaluate `whisper_wrapper` (MIT, Windows, Linux x64).
+- [x] Evaluate Vosk Flutter plugin (Apache-2.0, bundles Android native binaries, models from assets).
+- [x] Decision: documented in `docs/OFFLINE-VOICE-STT.md`; `OfflineVoiceModelManager` lets users import a model file with SHA-256 check.
+  - File: `lib/core/platform/voice_capture_service.dart`
 
-### Phase 4 Files
-```
-test/features/security/per_note_lock_test.dart
-test/features/security/auto_lock_test.dart
-```
+### 5.2 Semantic search (opt-in)
 
-### Phase 5 Files
-```
-lib/sync/transport/sync_transport.dart
-lib/sync/transport/nearby_service_transport.dart (or chosen transport)
-lib/sync/protocol/sync_bundle.dart
-lib/sync/protocol/merge_resolver.dart
-lib/features/sync_ui/sync_screen.dart
-lib/features/sync_ui/sync_send_screen.dart
-lib/features/sync_ui/sync_receive_screen.dart
-lib/features/sync_ui/sync_pairing_screen.dart
-lib/features/sync_ui/sync_transfer_screen.dart
-lib/features/sync_ui/sync_history_screen.dart
-lib/features/sync_ui/widgets/conflict_card.dart
-lib/data/repositories/sync_log_repository.dart
-test/sync/transport_test.dart
-test/sync/protocol_test.dart
-test/sync/merge_resolver_test.dart
-test/features/sync_ui/sync_test.dart
-test/data/sync_log_repository_test.dart
-```
+- [x] `ai_core_codespark` / `mobile_rag_engine` evaluated; opt-in offline `SemanticSearchIndex` implemented with zero network downloads.
+- [x] Keep FTS5 as default; never index locked notes (`test/features/search/offline_capture_search_test.dart`).
+  - File: `lib/data/repositories/search_repository.dart`
 
-### Phase 6 Files
-```
-lib/core/adaptive_breakpoints.dart
-lib/core/providers/selection_providers.dart
-lib/core/widgets/semantics.dart
-lib/features/home/widgets/note_preview_pane.dart
-lib/features/notebooks/widgets/notebook_detail_pane.dart
-lib/features/tags/widgets/tag_detail_pane.dart
-lib/features/settings/widgets/export_handler.dart
-lib/features/settings/widgets/import_handler.dart
-test/features/tablet/master_detail_test.dart
-test/features/accessibility/semantics_test.dart
-test/features/accessibility/accessibility_smoke_test.dart
-test/core/widgets/masked_reveal_test.dart
-```
+### 5.3 Handwriting search
 
-### Phase 6.6 Files
-```
-assets/icons/favicon_fg.png
-assets/icons/favicon_full.png
-android/app/src/main/res/values/colors.xml
-android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-android/app/src/main/res/drawable-*/ic_launcher_foreground.png
-ios/Runner/Assets.xcassets/AppIcon.appiconset/
-macos/Runner/Assets.xcassets/AppIcon.appiconset/
-windows/runner/resources/app_icon.ico
-linux/runner/icon.png
-linux/CMakeLists.txt
-linux/runner/my_application.cc
-tool/build_installer.dart
-.github/workflows/ci.yml
-docs/adr/0009-app-launcher-icons-and-linux-window-icon.md
-docs/adr/0010-windows-installer.md
-```
+- [x] OCR doodle thumbnails into FTS index (`HandwritingSearchIndexer`, skips locked notes).
+  - File: `lib/core/platform/ocr_service.dart`
+- [x] Verify mobile OCR engine behind `com.nook/ocr` is FOSS (`test/core/platform/ocr_audit_test.dart`).
 
 ---
 
-## Appendix B: Dependencies Already in pubspec.yaml
+## Phase 6 — Editor depth
 
-All required packages are already pinned in `pubspec.yaml`:
+**Goal:** Richer editor features, mobile touch tests, better test tooling.
 
-| Package | Version | Phase |
-|---------|---------|-------|
-| flutter_riverpod | ^3.3.2 | 0 |
-| riverpod_annotation | ^4.0.3 | 0 |
-| go_router | ^17.4.0 | 0 |
-| drift | ^2.22.1 | 0 |
-| sqlcipher_flutter_libs | ^0.7.0+eol | 0 |
-| local_auth | ^3.0.2 | 0, 4 |
-| flutter_secure_storage | ^10.3.1 | 0 |
-| dynamic_color | ^1.7.0 | 0, 3 |
-| appflowy_editor | ^6.2.0 | 1, 2 |
-| perfect_freehand | ^2.4.0 | 2 |
-| image_picker | ^1.1.2 | 2 |
-| gal | ^2.3.1 | 2 |
-| image | ^4.3.0 | 2 |
-| nearby_service | ^0.2.1 | 5 |
-| crypto | ^3.0.5 | 5 |
-| cbor | ^6.3.4 | 5 |
-| flutter_animate | ^4.5.2 | 3 |
-| share_plus | ^12.0.2 | 2 |
-| flutter_staggered_animations | ^1.1.1 | 3 |
-| flex_color_picker | ^3.6.0 | 1, 3 |
-| uuid | ^4.5.1 | 0 |
-| intl | ^0.20.3 | 0 |
-| freezed_annotation | ^3.1.0 | 0 |
-| json_annotation | ^4.9.0 | 0 |
+**Depends on:** Phase 0 complete.
+
+### 6.1 Editor features
+
+- [x] Task due dates tied to local reminders (`ReminderRepository.scheduleTaskDueDate`).
+  - Files: `lib/data/repositories/reminder_repository.dart`, `lib/features/editor/widgets/note_reminders_sheet.dart`
+- [x] Daily-note template (`TemplateRepository.getOrCreateDailyNote`).
+  - File: `lib/data/repositories/template_repository.dart`
+- [x] Saved searches (`SavedSearchStore`).
+  - File: `lib/features/home/search_screen.dart`
+- [x] Backlinks graph view (`BacklinkGraphData`, `BacklinkGraphView`).
+  - File: `lib/features/editor/widgets/backlinks_panel.dart`
+- [x] Quick switcher in command palette (`buildNoteQuickSwitchCommands`).
+  - File: `lib/core/commands/command_registry.dart`
+
+### 6.2 Mobile touch tests
+
+- [x] Test editor interactions and depth features (`test/features/editor/editor_depth_test.dart`, `test/features/accessibility/editor_accessibility_test.dart`).
+
+### 6.3 Test tooling
+
+- [x] Patrol & Maestro evaluated in `docs/TEST-TOOLING-EVALUATION.md`.
 
 ---
 
-## Appendix C: Known Risks & Decisions Needed
+## Phase 7 — Distribution
 
-### Open Decisions (resolve before starting)
-1. **Minimum Android API level** — biometric + dynamic color prefer API 31+ (Android 12). Decide floor now.
-2. **Web build scope** — recommend deferred for v1 (nearby_service, local_auth, sqlcipher don't work on web).
-3. **License** — GPL-3.0 recommended (no server component planned).
+**Goal:** Reproducible builds for F-Droid, Flatpak/AppImage for Linux, decide web scope.
 
-### Risk Register
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| `nearby_service` v0.2.1 is pre-1.0, flaky on some OEM skins | High | Run bake-off on physical devices early (Phase 5.1). Fallback: NSD + raw sockets. |
-| `sqlcipher_flutter_libs: ^0.7.0+eol` | Medium | Check pub.dev for successor package before Phase 0.4. |
-| `freezed: ^3.2.6-dev.1` is a dev build | Low | Pin to stable release before first `build_runner build`. |
-| AppFlowy Editor v6 API may differ from plan docs | Medium | Run example app before integration. Verify class names against v6 source. |
-| Riverpod v3 migration (StateNotifier → Notifier) | Medium | Use `@riverpod` code-gen style from the start, not deprecated StateNotifier. |
+**Depends on:** Phase 0 complete.
+
+### 7.1 Reproducible F-Droid builds
+
+- [x] Verify F-Droid reproducible build pipeline scripts (`tool/ci/android_build.sh`, `tool/ci/fdroid_flutter_setup.sh`, `.github/workflows/ci.yml`, `test/core/platform/distribution_audit_test.dart`).
+- [x] Flatpak or AppImage for Linux (`linux/packaging/com.devparadise.nook.yml`, `docs/LINUX-DISTRIBUTION.md`).
+
+### 7.2 Web target scope decision
+
+- [x] Decided: keep Web strictly as a read-only/companion preview (`lib/features/web/web_companion_app.dart`), documented in `docs/WEB-TARGET.md`.
+
+---
+
+## Phase 8 — Beta readiness
+
+**Goal:** Community review, privacy page, contributor guide, issue templates.
+
+**Depends on:** Phases 1-7 complete or near-complete.
+
+### 8.1 Community review
+
+- [x] Security policy and community review docs verified (`SECURITY.md`, `docs/SECURITY.md`).
+
+### 8.2 Documentation
+
+- [x] Write privacy page (`docs/PRIVACY.md`).
+- [x] Contributor guide verified (`CONTRIBUTING.md`).
+- [x] Issue templates verified (`.github/ISSUE_TEMPLATE/bug.md`, `.github/ISSUE_TEMPLATE/feature.md`).
+- [x] Keep CHANGELOG current (`CHANGELOG.md`).
+
+---
+
+## Lane Assignments and Parallel Execution
+
+**Merge conflicts, not skill, are the main risk.** Use these lanes, each with a single owner for its files:
+
+| Lane | Owns | Phases | Notes |
+|------|------|--------|-------|
+| SEC | `lib/core/security/*`, `lib/features/security/*`, vault/PIN/recovery | 1 | Only lane touching crypto |
+| SYNC | `lib/sync/*` | 2 | Transport, protocol, merge |
+| DATA | `lib/data/database.dart`, `lib/data/repositories/*`, migrations | All | **Only this lane touches the schema**; other lanes request changes through it |
+| UISYS | `lib/core/theme/*`, `lib/core/widgets/*`, `lib/core/router.dart` | 0, 3 | Single owner for router and tokens |
+| FEAT | `lib/features/home/*`, `lib/features/notebooks/*`, `lib/features/editor/*` | 3, 6 | Split into two agents by directory |
+| CAPTURE | `lib/features/doodle/*`, `lib/features/editor/widgets/voice_capture_sheet.dart`, `lib/core/platform/ocr_service.dart` | 5 | Voice, OCR, doodle |
+| QA | `test/*`, CI, goldens | All | Only this lane regenerates goldens |
+
+### Working rules
+
+1. Each agent works in its own git worktree and branch, with a small PR per task.
+2. Write interfaces and fakes in Phase 0 so lanes can code against fakes instead of waiting on each other.
+3. Allocate schema migration numbers centrally and merge them in order (DATA lane owns this).
+4. Don't commit regenerated `*.g.dart` conflicts. Rebuild after merge with `dart run build_runner build --delete-conflicting-outputs`.
+5. **TDD is mandatory on every task.** Write/edit the failing test before any implementation code. A task is not complete until its test was written, failed, then passed after implementation. A text-only agent can use ASCII layout snapshots for visual checks (`test/helpers/ascii_layout.dart`).
+6. During each phase, tests are created or edited for every task — never skipped. The test file is the first file touched for any new feature or bug fix.
+
+### Dependency order
+
+- Phase 0 first (serial).
+- Then Phases 1, 2, 3 in parallel.
+- Phase 4 needs Phase 1 KDF.
+- Phase 5 needs Phase 1's locked-note exclusion.
+- Phases 6 to 8 follow.
+
+### What to defer or refuse
+
+- Real-time collaboration (breaks threat model).
+- Plugin system (breaks threat model).
+- Any cloud or analytics.
+- On-device LLM for now (battery and size cost, limited gain).
+
+---
+
+## Verification gate (run at end of every task)
+
+```bash
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+dart format --output=none --set-exit-if-changed .
+flutter analyze
+flutter test --coverage -x network
+```
+
+All must pass before a PR is merged.

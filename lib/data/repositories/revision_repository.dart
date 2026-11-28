@@ -53,6 +53,11 @@ class RevisionRepository {
     RevisionSource source = RevisionSource.autosave,
     DateTime? at,
   }) async {
+    final note = await NoteRepository(_db).getNoteById(noteId);
+    if (note != null && note.locked) {
+      return null;
+    }
+
     final now = at ?? _clock();
 
     if (source == RevisionSource.autosave) {

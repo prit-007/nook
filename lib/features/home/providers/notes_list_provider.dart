@@ -5,11 +5,11 @@ import '../../../core/providers/database_provider.dart';
 import '../../../core/providers/talker_provider.dart';
 import '../../../data/database.dart';
 
-/// Reactive stream of non-deleted notes, ordered by pinned desc then updatedAt desc.
+/// Reactive stream of non-deleted, non-archived notes, ordered by pinned desc then updatedAt desc.
 final notesListProvider = StreamProvider<List<Note>>((ref) {
   final db = ref.watch(databaseProvider);
   final query = db.select(db.notes)
-    ..where((t) => t.deleted.equals(false))
+    ..where((t) => t.deleted.equals(false) & t.archived.equals(false))
     ..orderBy([
       (t) => OrderingTerm.desc(t.pinned),
       (t) => OrderingTerm.desc(t.updatedAt),
