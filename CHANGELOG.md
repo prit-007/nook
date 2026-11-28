@@ -5,6 +5,26 @@ All notable changes to Nook are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-11-28
+
+### Release Hardening & Security (Phases 1–2)
+- **Argon2id vault password wrapping & persistent PIN lockout:** `VaultPasswordProvider` uses `argon2idHash` / `kdfVerify` with `DekManager` key wrapping; `PinProvider` persists failed attempts and lockout timestamps across cold starts.
+- **Lossless encrypted backup & cross-platform media recovery:** `.nookbackup` archives export and restore notes, checklists, notebooks, tags, attachments, doodle thumbnails, reminders, templates, note revisions, and note links, rewriting Windows (`\`) and POSIX (`/`) media paths to the target device's local storage via `rewriteMediaPaths`.
+- **Locked-note privacy & offline-first defaults:** Excluded locked notes from sync packing, link indexes, and backlinks by default; gated automatic update checks behind opt-in (`update_auto_check_enabled`, default `false`); added atomic `.tmp` + `rename` writes to folder mirroring.
+
+### Sync v2 & Schema v12 (Phase 3)
+- **Schema v12:** Added `note_tags.deleted` / `deletedAt` and `notes.hlc` / `notebooks.hlc` with verified v8/v9/v10 → v12 migrations.
+- **Protocol v2 & convergence:** Added `docs/SYNC_PROTOCOL_V2.md`, `MergeResolver.syncFieldMatrix`, tombstone non-resurrection, resumable SHA-256 payload chunking, key-bound pairing codes (`SyncCipher.deriveKeyBoundPairingCode`), and encrypted folder sync snapshots.
+
+### UI/UX, Navigation & Personalization (Phases 4–5)
+- **Cross-note Open Tasks (`/tasks`) & Unlinked Mentions:** Added `TasksScreen` (`/tasks`) wired into router, command palette, settings, and desktop sidebar; surfaced unlinked mentions in `BacklinksPanel`; wired structured search filters (`tag:`, `in:`, `is:`, `before:`, `after:`) in `SearchScreen`; added `DoodleStrokesCodec.toSvg`.
+- **Material 3 Expressive & Living Vault UI:** Added `SquircleBorder`, `CloverBorder`, `AnimatedSquircle`, gliding squircle dock indicator, `SelectionActionDock`, `PaperSurface` textures, `AtmosphereTheme` presets (`standard`, `warmSepia`, `eInk`, `blueprint`, `chalkboard`), `ChecklistProgressRing`, interactive `BacklinkGraphView`, `SyncRadarWidget`, `VaultActivityHeatmap`, `QuickScratchpad`, `VaultGreetingBanner`, `NookStatusPill`, `SmartEmptyPrompt`, and `ReadingProgressBar`.
+- **Note-Type Presets & Voice Enhancements:** Added `NoteTypePresetStore`, `NoteTypeMorphSelector`, `NoteCreationSheet`, `OfflineVoiceModelManager` settings sheet (`OfflineVoiceModelsSheet`), and `ListeningWaveform` + locale/append controls in `VoiceCaptureSheet`.
+- **Onboarding & Page Transitions:** Added live `AnimatedTheme` seed continuity and `Hero` squircle emblem to `OnboardingScreen`, plus outgoing spatial parallax, `ContainerTransform` corner morph, and `disableAnimations` accessibility support in `EditorialPageTransitions`.
+
+### Release & FOSS Compliance (Phase 6)
+- **F-Droid & SBOM:** Added `docs/RELEASE-CHECKLIST.md`, `docs/THREAT-MODEL.md`, `docs/PATCH-INVENTORY.md`, `docs/THIRD_PARTY_NOTICES.md`, `docs/PHASE5-FEATURE-MATRIX.md`, `tool/generate_sbom.dart` (CycloneDX SBOM), and `tool/licence_audit.dart` (263 packages verified, 0 proprietary/tracking dependencies).
+
 ## [0.9.7] - 2026-11-26
 
 ### Trust & Correctness (Phase 11, Issues #46 & #57)
