@@ -9,11 +9,18 @@ import 'package:path_provider/path_provider.dart';
 import '../../../core/providers/talker_provider.dart';
 import '../../../core/security/kdf.dart';
 import '../../../data/database.dart';
+import '../../../data/repositories/attachment_repository.dart';
 import '../../../data/repositories/checklist_item_repository.dart';
+import '../../../data/repositories/note_link_repository.dart';
 import '../../../data/repositories/note_repository.dart';
 import '../../../data/repositories/notebook_repository.dart';
+import '../../../data/repositories/reminder_repository.dart';
+import '../../../data/repositories/revision_repository.dart';
 import '../../../data/repositories/tag_repository.dart';
+import '../../../data/repositories/template_repository.dart';
+import '../../../data/tables/attachments.dart';
 import '../../../data/tables/notes.dart';
+import '../../../data/tables/reminders.dart';
 
 /// Thrown when decrypting a `.nookbackup` file fails due to a wrong password
 /// or tampered ciphertext/MAC.
@@ -34,6 +41,7 @@ class BackupHandler {
     this.argon2Memory = defaultArgon2Memory,
     this.argon2Iterations = defaultArgon2Iterations,
     this.argon2Parallelism = defaultArgon2Parallelism,
+    this.attachmentsDirectory,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
@@ -41,6 +49,7 @@ class BackupHandler {
   final int argon2Memory;
   final int argon2Iterations;
   final int argon2Parallelism;
+  final Directory? attachmentsDirectory;
   final DateTime Function() _clock;
   final AesGcm _aesGcm = AesGcm.with256bits();
 
@@ -56,14 +65,40 @@ class BackupHandler {
     final nbRepo = NotebookRepository(_db);
     final tagRepo = TagRepository(_db);
     final checklistRepo = ChecklistItemRepository(_db);
+    final attachRepo = AttachmentRepository(_db);
+    final revRepo = RevisionRepository(_db);
+    final reminderRepo =
+        ReminderRepository(_db, scheduler: const NoopReminderScheduler());
+    final tmplRepo = TemplateRepository(_db);
 
     final notebooks = await nbRepo.getAllNotebooks();
     final notes = await noteRepo.getAllNotes();
+    final templates = await tmplRepo.all();
 
     final noteMaps = <Map<String, dynamic>>[];
     for (final n in notes) {
       final items = await checklistRepo.getItems(n.id);
       final tags = await tagRepo.getTagsForNote(n.id);
+      final atts = await attachRepo.getAllForNote(n.id);
+      final reminders = await reminderRepo.forNote(n.id);
+      final revisions = await revRepo.listForNote(n.id);
+
+      final encodedAtts = <Map<String, dynamic>>[];
+      for (final a in atts) {
+        String? bytesB64;
+        final f = File(a.filePath);
+        if (await f.exists()) {
+          bytesB64 = base64Encode(await f.readAsBytes());
+        }
+        encodedAtts.add({
+          'id': a.id,
+          'type': a.type.name,
+          'fileName': p.basename(a.filePath),
+          'sortOrder': a.sortOrder,
+          'bytesBase64': bytesB64,
+        });
+      }
+
       noteMaps.add({
         'id': n.id,
         'title': n.title,
@@ -90,6 +125,28 @@ class BackupHandler {
             }
         ],
         'tags': [for (final t in tags) t.name],
+        'attachments': encodedAtts,
+        'reminders': [
+          for (final r in reminders)
+            {
+              'id': r.id,
+              'title': r.title,
+              'body': r.body,
+              'fireAt': r.fireAt.millisecondsSinceEpoch,
+              'repeat': r.repeat,
+            }
+        ],
+        'revisions': [
+          for (final rv in revisions)
+            {
+              'id': rv.id,
+              'title': rv.title,
+              'deltaContent': rv.deltaContent,
+              'plainText': rv.plainText,
+              'createdAt': rv.createdAt.millisecondsSinceEpoch,
+              'source': rv.source,
+            }
+        ],
       });
     }
 
@@ -106,6 +163,15 @@ class BackupHandler {
             'colorSeed': nb.colorSeed,
             'sortOrder': nb.sortOrder,
             'parentId': nb.parentId,
+          }
+      ],
+      'templates': [
+        for (final t in templates)
+          {
+            'id': t.id,
+            'name': t.name,
+            'deltaContent': t.deltaContent,
+            'plainText': t.plainText,
           }
       ],
       'notes': noteMaps,
@@ -272,7 +338,88 @@ class BackupHandler {
       for (final tag in tags) {
         await tagRepo.assignTagByName(id, tag);
       }
+
+      final attachments =
+          (n['attachments'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (attachments.isNotEmpty) {
+        final attDir =
+            attachmentsDirectory ?? await getApplicationDocumentsDirectory();
+        if (!await attDir.exists()) {
+          await attDir.create(recursive: true);
+        }
+        for (final a in attachments) {
+          final fileName = a['fileName'] as String? ?? '${a['id']}.bin';
+          final destFile = File(p.join(attDir.path, fileName));
+          final b64 = a['bytesBase64'] as String?;
+          if (b64 != null) {
+            await destFile.writeAsBytes(base64Decode(b64), flush: true);
+          }
+          final attType = AttachmentType.values.firstWhere(
+            (t) => t.name == a['type'],
+            orElse: () => AttachmentType.image,
+          );
+          await _db.into(_db.attachments).insertOnConflictUpdate(
+                AttachmentsCompanion.insert(
+                  id: Value(a['id'] as String),
+                  noteId: id,
+                  type: attType,
+                  filePath: destFile.path,
+                  sortOrder: Value(a['sortOrder'] as int? ?? 0),
+                ),
+              );
+        }
+      }
+
+      final reminders =
+          (n['reminders'] as List? ?? []).cast<Map<String, dynamic>>();
+      for (final r in reminders) {
+        await _db.into(_db.reminders).insertOnConflictUpdate(
+              RemindersCompanion.insert(
+                id: Value(r['id'] as String),
+                noteId: id,
+                title: Value(r['title'] as String? ?? ''),
+                body: Value(r['body'] as String? ?? ''),
+                fireAt: DateTime.fromMillisecondsSinceEpoch(r['fireAt'] as int),
+                repeat: Value(
+                    r['repeat'] as String? ?? ReminderRepeat.none.dbValue),
+              ),
+            );
+      }
+
+      final revisions =
+          (n['revisions'] as List? ?? []).cast<Map<String, dynamic>>();
+      for (final rv in revisions) {
+        await _db.into(_db.noteRevisions).insertOnConflictUpdate(
+              NoteRevisionsCompanion.insert(
+                id: Value(rv['id'] as String),
+                noteId: id,
+                title: Value(rv['title'] as String? ?? ''),
+                deltaContent: Value(rv['deltaContent'] as String?),
+                plainText: Value(rv['plainText'] as String?),
+                createdAt: Value(DateTime.fromMillisecondsSinceEpoch(
+                    rv['createdAt'] as int)),
+                source: Value(rv['source'] as String? ?? 'manual'),
+              ),
+            );
+      }
+
+      if (n['deltaContent'] != null) {
+        await NoteLinkRepository(_db).rebuildForNote(id);
+      }
       restored++;
+    }
+
+    final templates =
+        (data['templates'] as List? ?? []).cast<Map<String, dynamic>>();
+    for (final t in templates) {
+      await _db.into(_db.templates).insertOnConflictUpdate(
+            TemplatesCompanion.insert(
+              id: Value(t['id'] as String),
+              name: t['name'] as String,
+              deltaContent: Value(t['deltaContent'] as String?),
+              plainText: Value(t['plainText'] as String?),
+            ),
+          );
     }
 
     nookLog(

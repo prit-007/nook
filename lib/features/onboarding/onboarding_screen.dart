@@ -127,9 +127,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     onSetupVault: () async {
                       final ok = await showSetVaultPasswordDialog(
                         context,
-                        onSetPassword: (password, _) => wrapDekWithPassword(
+                        onSetPassword: (password, shownWords) =>
+                            wrapDekWithPassword(
                           password,
-                          recoveryWords: _recoveryWords,
+                          recoveryWords: shownWords,
                         ),
                       );
                       if (ok && mounted) {
@@ -140,9 +141,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   _ReadyPage(
                     scheme: scheme,
-                    onSetVaultPassword: (password, _) => wrapDekWithPassword(
+                    onSetVaultPassword: (password, shownWords) =>
+                        wrapDekWithPassword(
                       password,
-                      recoveryWords: _recoveryWords,
+                      recoveryWords: shownWords,
                     ),
                   ),
                 ],

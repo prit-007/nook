@@ -60,11 +60,14 @@ class UpdateNotifier extends Notifier<UpdateStatus> {
   }
 
   /// Runs a throttled check (at most once per [autoCheckThrottle]) unless
-  /// running under `flutter test`. Safe to call on every app resume.
+  /// running under `flutter test` or automatic checks are disabled (off by
+  /// default per offline-first policy).
   Future<void> checkIfStale() async {
     if (_inTest) return;
     try {
       final prefs = await SharedPreferences.getInstance();
+      final optIn = prefs.getBool('update_auto_check_enabled') ?? false;
+      if (!optIn) return;
       final last = prefs.getInt(_lastCheckedKey);
       if (last != null &&
           DateTime.now().millisecondsSinceEpoch - last <

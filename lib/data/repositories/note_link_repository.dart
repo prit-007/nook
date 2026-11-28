@@ -160,6 +160,7 @@ class NoteLinkRepository {
       final source = byId[r.sourceNoteId];
       final target = byId[r.targetNoteId];
       if (source == null || target == null) continue;
+      if (source.locked || target.locked) continue;
       hits.add(
         NoteLinkHit(
           noteId: r.sourceNoteId,
@@ -189,8 +190,9 @@ class NoteLinkRepository {
     final lowerQ = q.toLowerCase();
     final rows = await (_db.select(_db.notes)
           ..where((t) {
-            if (q.isEmpty) return t.deleted.equals(false);
-            return t.deleted.equals(false) &
+            final base = t.deleted.equals(false) & t.locked.equals(false);
+            if (q.isEmpty) return base;
+            return base &
                 (t.title.lower().contains(lowerQ) |
                     t.plainText.lower().contains(lowerQ));
           })

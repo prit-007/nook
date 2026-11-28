@@ -48,7 +48,7 @@ class VaultPasswordProvider extends ChangeNotifier {
   Future<bool> unlock(String password) async {
     final stored = await _store.read(_hashKey);
     if (stored == null) return false;
-    final match = pbkdf2Verify(password: password, storedHash: stored);
+    final match = await kdfVerify(password: password, storedHash: stored);
     if (match) {
       if (await _dekManager.isWrapped()) {
         _sessionDek = await _dekManager.unwrapDekWithPassword(password);
@@ -75,7 +75,7 @@ class VaultPasswordProvider extends ChangeNotifier {
     if (password.isEmpty) {
       throw ArgumentError.value(password, 'password', 'must not be empty');
     }
-    final hash = pbkdf2Hash(password: password);
+    final hash = await argon2idHash(password: password);
     await _store.write(_hashKey, hash);
 
     if (await _dekManager.isWrapped() && _sessionDek != null) {

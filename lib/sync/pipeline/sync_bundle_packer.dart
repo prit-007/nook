@@ -38,7 +38,7 @@ class SyncBundlePacker {
     required List<String> noteIds,
     required String senderDeviceId,
     required String senderDeviceName,
-    bool includeLocked = true,
+    bool includeLocked = false,
     void Function(int packedCount, int totalCount, String currentTitle)?
         onProgress,
   }) async {

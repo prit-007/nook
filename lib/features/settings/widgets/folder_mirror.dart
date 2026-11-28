@@ -40,7 +40,9 @@ class FolderMirrorService {
       final fileName = '${safeBase}_${note.id.substring(0, 8)}.md';
       expectedNames.add(fileName);
       final file = File(p.join(targetDir.path, fileName));
-      await file.writeAsString(md, flush: true);
+      final tmpFile = File('${file.path}.tmp');
+      await tmpFile.writeAsString(md, flush: true);
+      await tmpFile.rename(file.path);
     }
 
     // Prune stale .md files for deleted or newly locked notes.

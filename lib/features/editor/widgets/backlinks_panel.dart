@@ -55,7 +55,8 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
         ..where((t) =>
             t.notebookId.equals(widget.note.notebookId!) &
             t.id.equals(widget.note.id).not() &
-            t.deleted.equals(false))
+            t.deleted.equals(false) &
+            t.locked.equals(false))
         ..limit(5);
       related = await query.get();
     }
