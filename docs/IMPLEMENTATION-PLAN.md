@@ -20,7 +20,7 @@ All 18 risks (R1–R18) were checked file-by-file. Verdicts below are **CONFIRME
 | 3 | Sync v2 | COMPLETE | 2026-11-28 | Protocol v2 spec, schema v12 (`note_tags.deleted`, `hlc`), `SyncSimulator` convergence, tombstone non-resurrection, chunk resume, key-bound pairing, conflict preservation, encrypted folder sync |
 | 4 | Maintainability and polish | COMPLETE | 2026-11-28 | `BlockRegistry` + tests, `kRadiusLg`/`kRadiusXl` token monotonicity, Indic matra FTS5 test, 10k-note latency budget, design-system & high-contrast gates |
 | 5 | New features | COMPLETE | 2026-11-28 | Structured search filters (`tag:`, `in:`, `is:`, `before:`, `after:`), cross-note open checklists, Doodle SVG export, unlinked mentions, feature matrix |
-| 6 | Release 1.0 | NOT STARTED | — | — |
+| 6 | Release 1.0 | COMPLETE | 2026-11-28 | `docs/RELEASE-CHECKLIST.md`, CycloneDX SBOM generator + tests, licence audit, full quality gate |
 
 ---
 
