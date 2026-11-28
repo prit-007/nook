@@ -21,6 +21,7 @@ import '../../../data/repositories/template_repository.dart';
 import '../../../data/tables/attachments.dart';
 import '../../../data/tables/notes.dart';
 import '../../../data/tables/reminders.dart';
+import '../../../sync/media_path_rewriter.dart';
 
 /// Thrown when decrypting a `.nookbackup` file fails due to a wrong password
 /// or tampered ciphertext/MAC.
@@ -90,12 +91,24 @@ class BackupHandler {
         if (await f.exists()) {
           bytesB64 = base64Encode(await f.readAsBytes());
         }
+        String? thumbB64;
+        if (a.thumbnailPath != null && a.thumbnailPath!.isNotEmpty) {
+          final tf = File(a.thumbnailPath!);
+          if (await tf.exists()) {
+            thumbB64 = base64Encode(await tf.readAsBytes());
+          }
+        }
         encodedAtts.add({
           'id': a.id,
           'type': a.type.name,
           'fileName': p.basename(a.filePath),
+          'originalFilePath': a.filePath,
+          if (a.thumbnailPath != null) 'originalThumbnailPath': a.thumbnailPath,
+          if (a.thumbnailPath != null)
+            'thumbnailFileName': p.basename(a.thumbnailPath!),
           'sortOrder': a.sortOrder,
           'bytesBase64': bytesB64,
+          if (thumbB64 != null) 'thumbnailBytesBase64': thumbB64,
         });
       }
 
@@ -341,6 +354,7 @@ class BackupHandler {
 
       final attachments =
           (n['attachments'] as List? ?? []).cast<Map<String, dynamic>>();
+      final restoredMedia = <RestoredMedia>[];
       if (attachments.isNotEmpty) {
         final attDir =
             attachmentsDirectory ?? await getApplicationDocumentsDirectory();
@@ -348,25 +362,61 @@ class BackupHandler {
           await attDir.create(recursive: true);
         }
         for (final a in attachments) {
-          final fileName = a['fileName'] as String? ?? '${a['id']}.bin';
+          final attId = a['id'] as String;
+          final fileName = a['fileName'] as String? ?? '$attId.bin';
           final destFile = File(p.join(attDir.path, fileName));
           final b64 = a['bytesBase64'] as String?;
           if (b64 != null) {
             await destFile.writeAsBytes(base64Decode(b64), flush: true);
           }
+
+          String? destThumbPath;
+          final thumbB64 = a['thumbnailBytesBase64'] as String?;
+          final thumbName = a['thumbnailFileName'] as String?;
+          if (thumbB64 != null) {
+            final tName = thumbName ?? '${attId}_thumb.png';
+            final thumbFile = File(p.join(attDir.path, tName));
+            await thumbFile.writeAsBytes(base64Decode(thumbB64), flush: true);
+            destThumbPath = thumbFile.path;
+          }
+
           final attType = AttachmentType.values.firstWhere(
             (t) => t.name == a['type'],
             orElse: () => AttachmentType.image,
           );
           await _db.into(_db.attachments).insertOnConflictUpdate(
                 AttachmentsCompanion.insert(
-                  id: Value(a['id'] as String),
+                  id: Value(attId),
                   noteId: id,
                   type: attType,
                   filePath: destFile.path,
+                  thumbnailPath: Value(destThumbPath),
                   sortOrder: Value(a['sortOrder'] as int? ?? 0),
                 ),
               );
+
+          restoredMedia.add(
+            RestoredMedia(
+              attachmentId: attId,
+              originalFilePath: a['originalFilePath'] as String?,
+              originalThumbnailPath: a['originalThumbnailPath'] as String?,
+              originalFileName: fileName,
+              newFilePath: destFile.path,
+              newThumbnailPath: destThumbPath,
+            ),
+          );
+        }
+      }
+
+      if (restoredMedia.isNotEmpty && n['deltaContent'] is String) {
+        final originalDelta = n['deltaContent'] as String;
+        final rewritten = rewriteMediaPaths(originalDelta, restoredMedia);
+        if (rewritten != originalDelta) {
+          await noteRepo.updateContent(
+            id,
+            deltaContent: rewritten,
+            plainText: n['plainText'] as String?,
+          );
         }
       }
 
