@@ -150,4 +150,56 @@ void main() {
       await db.close();
     }
   });
+
+  test('10,000-note FTS5 and paged query stays within latency budget',
+      () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    try {
+      const count = 10000;
+      final now = DateTime.now();
+
+      await db.transaction(() async {
+        for (var i = 0; i < count; i++) {
+          final id = 'scale-note-$i';
+          final title = 'Scale Note #$i';
+          final body = 'Scale payload #$i token_${i % 100} architecture.';
+          await db.into(db.notes).insert(
+                NotesCompanion.insert(
+                  id: Value(id),
+                  title: Value(title),
+                  plainText: Value(body),
+                  type: NoteType.text,
+                  createdAt: Value(now.subtract(Duration(seconds: i))),
+                  updatedAt: Value(now.subtract(Duration(seconds: i))),
+                  deviceOriginId: 'bench-host',
+                ),
+              );
+          await db.customStatement(
+            'INSERT INTO notes_fts(id, title, plainText) VALUES (?, ?, ?)',
+            [id, title, body],
+          );
+        }
+      });
+
+      final sw = Stopwatch()..start();
+      final page = await (db.select(db.notes)
+            ..where((t) => t.deleted.equals(false))
+            ..limit(50, offset: 500))
+          .get();
+      final pageMs = sw.elapsedMilliseconds;
+      expect(page, hasLength(50));
+      expect(pageMs, lessThan(200));
+
+      sw.reset();
+      final hits = await db.customSelect(
+        'SELECT id FROM notes_fts WHERE notes_fts MATCH ? LIMIT 50',
+        variables: [Variable.withString('token_42')],
+      ).get();
+      final ftsMs = sw.elapsedMilliseconds;
+      expect(hits, hasLength(50));
+      expect(ftsMs, lessThan(200));
+    } finally {
+      await db.close();
+    }
+  });
 }

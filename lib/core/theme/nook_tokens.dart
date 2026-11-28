@@ -18,8 +18,8 @@ class NookTokens extends ThemeExtension<NookTokens> {
   static const double kRadiusXs = 8.0;
   static const double kRadiusSm = 12.0;
   static const double kRadiusMd = 20.0;
-  static const double kRadiusLg = 28.0;
-  static const double kRadiusXl = 24.0;
+  static const double kRadiusLg = 24.0;
+  static const double kRadiusXl = 28.0;
   static const double kRadiusXxl = 32.0;
   static const double kRadiusPill = 999.0;
 
