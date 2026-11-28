@@ -137,35 +137,59 @@ class _MobileShell extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Row(
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  _DockItem(
-                    icon: HugeIcons.strokeRoundedHome01,
-                    activeIcon: HugeIcons.strokeRoundedHome02,
-                    label: 'Home',
-                    isSelected: selectedIndex == 0,
-                    onTap: () => onTap(0),
+                  AnimatedAlign(
+                    key: const ValueKey('gliding-dock-pill'),
+                    alignment: Alignment(-1.0 + (2.0 * selectedIndex / 3.0), 0),
+                    duration: AppMotion.standard,
+                    curve: AppMotion.emphasizedDecelerate,
+                    child: FractionallySizedBox(
+                      widthFactor: 0.25,
+                      child: Center(
+                        child: Container(
+                          height: 44,
+                          width: 64,
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.12),
+                            borderRadius: context.tokens.borderRadiusPill,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                  _DockItem(
-                    icon: HugeIcons.strokeRoundedBook01,
-                    activeIcon: HugeIcons.strokeRoundedBook02,
-                    label: 'Notebooks',
-                    isSelected: selectedIndex == 1,
-                    onTap: () => onTap(1),
-                  ),
-                  _DockItem(
-                    icon: HugeIcons.strokeRoundedTag01,
-                    activeIcon: HugeIcons.strokeRoundedTag02,
-                    label: 'Tags',
-                    isSelected: selectedIndex == 2,
-                    onTap: () => onTap(2),
-                  ),
-                  _DockItem(
-                    icon: HugeIcons.strokeRoundedSettings01,
-                    activeIcon: HugeIcons.strokeRoundedSettings02,
-                    label: 'Settings',
-                    isSelected: selectedIndex == 3,
-                    onTap: () => onTap(3),
+                  Row(
+                    children: [
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedHome01,
+                        activeIcon: HugeIcons.strokeRoundedHome02,
+                        label: 'Home',
+                        isSelected: selectedIndex == 0,
+                        onTap: () => onTap(0),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedBook01,
+                        activeIcon: HugeIcons.strokeRoundedBook02,
+                        label: 'Notebooks',
+                        isSelected: selectedIndex == 1,
+                        onTap: () => onTap(1),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedTag01,
+                        activeIcon: HugeIcons.strokeRoundedTag02,
+                        label: 'Tags',
+                        isSelected: selectedIndex == 2,
+                        onTap: () => onTap(2),
+                      ),
+                      _DockItem(
+                        icon: HugeIcons.strokeRoundedSettings01,
+                        activeIcon: HugeIcons.strokeRoundedSettings02,
+                        label: 'Settings',
+                        isSelected: selectedIndex == 3,
+                        onTap: () => onTap(3),
+                      ),
+                    ],
                   ),
                 ],
               ),
