@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/providers/database_provider.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../data/database.dart';
 import '../../../data/repositories/note_link_repository.dart';
 
@@ -27,6 +28,7 @@ class BacklinksPanel extends ConsumerStatefulWidget {
 class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
   List<NoteLinkHit> _backlinks = [];
   List<Note> _relatedNotes = [];
+  List<Note> _unlinkedMentions = [];
   bool _loading = true;
 
   @override
@@ -48,6 +50,8 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
     final linkRepo = NoteLinkRepository(db);
 
     final backlinks = await linkRepo.incomingTo(widget.note.id);
+    final unlinkedMentions =
+        await linkRepo.findUnlinkedMentions(widget.note.id);
 
     List<Note> related = [];
     if (widget.note.notebookId != null) {
@@ -65,6 +69,7 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
     setState(() {
       _backlinks = backlinks;
       _relatedNotes = related;
+      _unlinkedMentions = unlinkedMentions;
       _loading = false;
     });
   }
@@ -81,6 +86,15 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    return AnimatedSize(
+      duration: AppMotion.standard,
+      curve: AppMotion.emphasizedDecelerate,
+      alignment: Alignment.topCenter,
+      child: _buildBody(context, scheme),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, ColorScheme scheme) {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.all(16.0),
@@ -94,7 +108,9 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
       );
     }
 
-    if (_backlinks.isEmpty && _relatedNotes.isEmpty) {
+    if (_backlinks.isEmpty &&
+        _relatedNotes.isEmpty &&
+        _unlinkedMentions.isEmpty) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(16),
@@ -234,6 +250,54 @@ class _BacklinksPanelState extends ConsumerState<BacklinksPanel> {
                 ),
               ),
           ],
+          if (_unlinkedMentions.isNotEmpty) ...[
+            if (_backlinks.isNotEmpty || _relatedNotes.isNotEmpty)
+              const Divider(height: 20),
+            Row(
+              children: [
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedSparkles,
+                  size: 18,
+                  color: scheme.tertiary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Unlinked mentions (${_unlinkedMentions.length})',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.tertiary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final mention in _unlinkedMentions)
+              Material(
+                type: MaterialType.transparency,
+                child: ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  leading: HugeIcon(
+                    icon: HugeIcons.strokeRoundedNote01,
+                    size: 18,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  title: Text(
+                    mention.title.isNotEmpty ? mention.title : 'Untitled',
+                    style: const TextStyle(fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowRight01,
+                    size: 16,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  onTap: () => _navigateTo(mention.id),
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -267,6 +331,16 @@ class BacklinkGraphView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
+    return AnimatedSize(
+      duration: AppMotion.standard,
+      curve: AppMotion.emphasizedDecelerate,
+      alignment: Alignment.topCenter,
+      child: _buildBody(context, scheme),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, ColorScheme scheme) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

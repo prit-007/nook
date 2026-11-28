@@ -153,6 +153,13 @@ List<NookCommand> buildDefaultCommands(CommandPaletteActions actions) {
       onRun: (context) => context.go('/trash'),
     ),
     NookCommand(
+      id: 'tasks',
+      title: 'Open tasks',
+      keywords: 'tasks todo checklist open',
+      icon: HugeIcons.strokeRoundedCheckList,
+      onRun: (context) => context.go('/tasks'),
+    ),
+    NookCommand(
       id: 'settings',
       title: 'Open settings',
       keywords: 'preferences config',

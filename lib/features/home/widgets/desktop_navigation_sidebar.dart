@@ -234,6 +234,12 @@ class _DesktopNavigationSidebarState
                 ],
                 _SectionHeader(title: 'SYSTEM', scheme: scheme),
                 _SidebarItem(
+                  icon: HugeIcons.strokeRoundedCheckList,
+                  label: 'Open Tasks',
+                  isSelected: false,
+                  onTap: () => context.push('/tasks'),
+                ),
+                _SidebarItem(
                   icon: HugeIcons.strokeRoundedArchive,
                   label: 'Archive',
                   isSelected: false,

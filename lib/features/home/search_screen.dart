@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/theme/app_motion.dart';
 import '../../core/theme/nook_tokens.dart';
 
 import '../../core/providers/database_provider.dart';
@@ -91,15 +92,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         results = GroupedSearchResults(notes: notes);
       } else {
         final repo = SearchRepository(db);
-        final base = await repo.searchGrouped(trimmed, type: _typeFilter);
-        if (_filterPinned) {
-          results = GroupedSearchResults(
-            notes: base.notes.where((n) => n.pinned).toList(),
-            checklistItems:
-                base.checklistItems.where((h) => h.note.pinned).toList(),
-          );
+        final hasStructuredFilter = RegExp(
+          r'(^|\s)(tag|in|is|before|after):\S+',
+          caseSensitive: false,
+        ).hasMatch(trimmed);
+        if (hasStructuredFilter) {
+          var filtered = await repo.searchNotesWithFilters(trimmed);
+          if (_typeFilter != null) {
+            filtered = filtered.where((n) => n.type == _typeFilter).toList();
+          }
+          if (_filterPinned) {
+            filtered = filtered.where((n) => n.pinned).toList();
+          }
+          results = GroupedSearchResults(notes: filtered);
         } else {
-          results = base;
+          final base = await repo.searchGrouped(trimmed, type: _typeFilter);
+          if (_filterPinned) {
+            results = GroupedSearchResults(
+              notes: base.notes.where((n) => n.pinned).toList(),
+              checklistItems:
+                  base.checklistItems.where((h) => h.note.pinned).toList(),
+            );
+          } else {
+            results = base;
+          }
         }
       }
       if (mounted) {
@@ -208,95 +224,107 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           // Results / Empty State
           Expanded(
-            child: _searching
-                ? const Center(child: CircularProgressIndicator())
-                : _query.trim().isEmpty && !_hasFilter
-                    ? const EmptyState(
-                        icon: HugeIcons.strokeRoundedSearch01,
-                        title: 'Search notes',
-                        subtitle: 'Type words, tags, or select a filter above',
-                        animate: false,
-                      )
-                    : _results.isEmpty && _searched
-                        ? EmptyState(
-                            icon: HugeIcons.strokeRoundedSearch02,
-                            title: 'No results',
-                            subtitle: _query.trim().isNotEmpty
-                                ? 'No notes found for "$_query"'
-                                : 'No notes match the selected filter',
-                            animate: false,
-                          )
-                        : ListView(
-                            padding: const EdgeInsets.only(bottom: 24),
-                            children: [
-                              if (_results.notes.isNotEmpty) ...[
-                                _SectionHeader(
-                                  title: 'Notes',
-                                  count: _results.notes.length,
-                                  scheme: scheme,
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12),
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final crossAxisCount =
-                                          constraints.maxWidth > 600 ? 3 : 2;
-                                      return GridView.builder(
-                                        shrinkWrap: true,
-                                        physics:
-                                            const NeverScrollableScrollPhysics(),
-                                        gridDelegate:
-                                            SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: crossAxisCount,
-                                          mainAxisSpacing: 10,
-                                          crossAxisSpacing: 10,
-                                          childAspectRatio: 0.75,
-                                        ),
-                                        itemCount: _results.notes.length,
-                                        itemBuilder: (context, index) {
-                                          final note = _results.notes[index];
-                                          return NoteCard(
-                                            note: note,
-                                            onTap: () => context
-                                                .push('/note/${note.id}'),
-                                          );
-                                        },
-                                      );
-                                    },
+            child: AnimatedSwitcher(
+              duration: AppMotion.standard,
+              switchInCurve: AppMotion.emphasizedDecelerate,
+              switchOutCurve: AppMotion.emphasizedAccelerate,
+              child: _searching
+                  ? const Center(
+                      key: ValueKey('search-loading'),
+                      child: CircularProgressIndicator(),
+                    )
+                  : _query.trim().isEmpty && !_hasFilter
+                      ? const EmptyState(
+                          key: ValueKey('search-idle'),
+                          icon: HugeIcons.strokeRoundedSearch01,
+                          title: 'Search notes',
+                          subtitle:
+                              'Type words, tag:, in:, is:, before:, or select a filter',
+                          animate: false,
+                        )
+                      : _results.isEmpty && _searched
+                          ? EmptyState(
+                              key: const ValueKey('search-empty'),
+                              icon: HugeIcons.strokeRoundedSearch02,
+                              title: 'No results',
+                              subtitle: _query.trim().isNotEmpty
+                                  ? 'No notes found for "$_query"'
+                                  : 'No notes match the selected filter',
+                              animate: false,
+                            )
+                          : ListView(
+                              key: ValueKey('search-results-${_results.total}'),
+                              padding: const EdgeInsets.only(bottom: 24),
+                              children: [
+                                if (_results.notes.isNotEmpty) ...[
+                                  _SectionHeader(
+                                    title: 'Notes',
+                                    count: _results.notes.length,
+                                    scheme: scheme,
                                   ),
-                                ),
-                              ],
-                              if (_results.checklistItems.isNotEmpty) ...[
-                                _SectionHeader(
-                                  title: 'Checklist items',
-                                  count: _results.checklistItems.length,
-                                  scheme: scheme,
-                                ),
-                                for (final hit in _results.checklistItems)
-                                  ListTile(
-                                    leading: HugeIcon(
-                                      icon: HugeIcons.strokeRoundedTask01,
-                                      size: 22,
-                                      color: scheme.primary,
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12),
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final crossAxisCount =
+                                            constraints.maxWidth > 600 ? 3 : 2;
+                                        return GridView.builder(
+                                          shrinkWrap: true,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          gridDelegate:
+                                              SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: crossAxisCount,
+                                            mainAxisSpacing: 10,
+                                            crossAxisSpacing: 10,
+                                            childAspectRatio: 0.75,
+                                          ),
+                                          itemCount: _results.notes.length,
+                                          itemBuilder: (context, index) {
+                                            final note = _results.notes[index];
+                                            return NoteCard(
+                                              note: note,
+                                              onTap: () => context
+                                                  .push('/note/${note.id}'),
+                                            );
+                                          },
+                                        );
+                                      },
                                     ),
-                                    title: Text(hit.snippet ?? ''),
-                                    subtitle: Text(
-                                      hit.note.title.isEmpty
-                                          ? 'Untitled'
-                                          : hit.note.title,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                              color: scheme.onSurfaceVariant),
-                                    ),
-                                    onTap: () =>
-                                        context.push('/note/${hit.note.id}'),
                                   ),
+                                ],
+                                if (_results.checklistItems.isNotEmpty) ...[
+                                  _SectionHeader(
+                                    title: 'Checklist items',
+                                    count: _results.checklistItems.length,
+                                    scheme: scheme,
+                                  ),
+                                  for (final hit in _results.checklistItems)
+                                    ListTile(
+                                      leading: HugeIcon(
+                                        icon: HugeIcons.strokeRoundedTask01,
+                                        size: 22,
+                                        color: scheme.primary,
+                                      ),
+                                      title: Text(hit.snippet ?? ''),
+                                      subtitle: Text(
+                                        hit.note.title.isEmpty
+                                            ? 'Untitled'
+                                            : hit.note.title,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                                color: scheme.onSurfaceVariant),
+                                      ),
+                                      onTap: () =>
+                                          context.push('/note/${hit.note.id}'),
+                                    ),
+                                ],
                               ],
-                            ],
-                          ),
+                            ),
+            ),
           ),
         ],
       ),

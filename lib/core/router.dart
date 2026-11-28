@@ -35,6 +35,7 @@ import '../../features/settings/settings_logs_screen.dart';
 import '../../features/exports/exports_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/reminders/reminders_screen.dart';
+import '../../features/tasks/tasks_screen.dart';
 import 'widgets/app_shell.dart';
 import 'widgets/editorial_page_transition.dart';
 import 'providers/navigation_preference.dart';
@@ -189,6 +190,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               state: state,
               type: EditorialTransitionType.sharedAxis,
               child: const RemindersScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/tasks',
+            pageBuilder: (context, state) => EditorialPageTransitions.buildPage(
+              state: state,
+              type: EditorialTransitionType.sharedAxis,
+              child: const TasksScreen(),
             ),
           ),
           GoRoute(

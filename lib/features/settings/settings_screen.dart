@@ -200,6 +200,15 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               _SettingsTile(
+                icon: HugeIcons.strokeRoundedCheckList,
+                title: 'Open Tasks',
+                value: 'Cross-note checklists',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/tasks');
+                },
+              ),
+              _SettingsTile(
                 icon: HugeIcons.strokeRoundedShieldKey,
                 title: 'Encrypted Backup',
                 value: '.nookbackup',
